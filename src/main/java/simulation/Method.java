@@ -126,7 +126,6 @@ public class Method {
             // Update arrival time at next node to >= earliest time of nexxt node
             arrivalTo = Math.max(arrivalTo, toNode.getEarliest());
 
-
             /*TODO: previous_arrival: verify if arrival is better than previous arrival saved for node*/
             // In this sequence, one of the customers was already scheduled earlier.
             // The new journey must decrease waiting time of all passengers.
@@ -189,15 +188,12 @@ public class Method {
             if (arrivalTo > toNode.getLatest())
                 return false;
 
-            // Update arrival time at next node to >= earliest time of nexxt node
+            // Update arrival time at next node to >= earliest time of next node
             arrivalTo = Math.max(arrivalTo, toNode.getEarliest());
-
 
             // Update
             fromNode = toNode;
             arrivalFrom = arrivalTo;
-
-
         }
 
         // Return visit
@@ -256,7 +252,7 @@ public class Method {
      * @param v          Model.Vehicle (with nodes to visit)
      * @return List of trip ids
      */
-    private static List<Integer> getPkDpUserIdSequence(List<User> passengers, Vehicle v) {
+    private static List<Integer> getPkDpUserIdSequence(Set<User> passengers, Vehicle v) {
 
         // List of request indices
         List<Integer> pkDpUserIdSequence = Visit.getIdPairListFromUsers(passengers);
@@ -291,7 +287,7 @@ public class Method {
      * @return Model.Visit(passengers + vehicle ' s previous passengers) or null
      * @see Visit
      */
-    public static Visit getVisit(List<User> passengers, Vehicle v, boolean findBestVisit, int maxNumberPermutations) {
+    public static Visit getVisit(Set<User> passengers, Vehicle v, boolean findBestVisit, int maxNumberPermutations) {
 
         // Sequence of requests and previous arrivals (if any)
         List<Integer> visits_vehicle = getPkDpUserIdSequence(passengers, v); //TODO: return arrival also
@@ -318,9 +314,10 @@ public class Method {
             // Stop checking permutations?
             if (cont_trip == maxNumberPermutations)
                 break;
-
+            //#########################################################################################################
             // Get visit involving vehicle and permutations
             Visit visit = getValidVisit(trip, v);
+            //#########################################################################################################
 
             // if permutation gives origin to a valid visit
             if (visit != null && visit.getDelay() < best.getDelay()) {
@@ -360,7 +357,7 @@ public class Method {
      * @param checkInParallel True, if visits should be checked in parallel
      * @return setServicedUsers Set of all users that could be inserted into vehicles
      */
-    public static Set<User> getSolutionFCFS(List<User> listUsers,
+    public static Set<User> getSolutionFCFS(Set<User> listUsers,
                                             List<Vehicle> listVehicles,
                                             boolean allPermutations,
                                             boolean stopAtFirstBest,
@@ -389,7 +386,7 @@ public class Method {
                 Visit candidateVisit = null;
 
                 // Check in parallel
-                if (checkInParallel == true) {
+                if (checkInParallel) {
                         /*TODO implement parallel check
                          visit = Trip.gen_visit_parallel([r],
                                 v=veh,
@@ -401,11 +398,13 @@ public class Method {
                 } else {
 
                     // Sequence with user to be added in vehicle
-                    List<User> auxUserSequence = new ArrayList<>();
+                    Set<User> auxUserSequence = new HashSet<>();
                     auxUserSequence.add(u);
 
+                    // #################################################################################################
                     // Get a candidate visit by trying to add user u to vehicle v
                     candidateVisit = Method.getVisit(auxUserSequence, v, allPermutations, maxPermutations);
+                    // #################################################################################################
                 }
 
                 // Update best visit if delay of candidate visit is shorter
@@ -422,7 +421,7 @@ public class Method {
             }
 
             // if best visit is found, update vehicle with visit data
-            if (bestVisit.getListUsers() != null) {
+            if (bestVisit.getSetUsers() != null) {
 
                 // Add visit to vehicle (circular)
                 bestVisit.getVehicle().setVisit(bestVisit);
@@ -431,10 +430,12 @@ public class Method {
                 bestVisit.getVehicle().getListUsers().add(u);
 
                 // Model.User u belongs to visit
-                bestVisit.getListUsers().add(u);
+                bestVisit.getSetUsers().add(u);
 
                 // Model.User u was serviced
                 setServicedUsers.add(u);
+
+                //TODO: update latest nodes to arrival time
             }
         }
 

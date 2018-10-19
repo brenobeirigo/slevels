@@ -8,7 +8,9 @@ import model.node.Node;
 import simulation.Method;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 public class MethodHelper {
 
@@ -20,11 +22,11 @@ public class MethodHelper {
         Visit v = null;
 
         while (v == null) {
-
             Dao dao = Dao.getInstance();
-            List<User> listUser = dao.getListTrips(100, n);
+            Set<User> listUser = new HashSet<>(dao.getListTrips(100, n));
             v = Method.getVisit(listUser, v1, findBest, maxTrips);
         }
+
         return v;
     }
 
@@ -56,22 +58,36 @@ public class MethodHelper {
         }
     }
 
-    public static List<Vehicle> createListVehicles(int n, int size) {
+    public static List<Vehicle> createListVehicles(int n, int size, boolean uniqueSize) {
+
+        System.out.println("Creating vehicles...");
         List<Vehicle> listVehicle = new ArrayList<>();
 
         //TODO: initial distribution (vsize = [1,2,3,4,...,n]
+
         int nPerSize = n / size;
         int vSize = 0;
+
         //TODO: Scatter origins (hotpoints)
         for (int i = 0; i < n; i++) {
-            //Increment vehicle size
-            if (i % nPerSize == 0 && vSize < size) {
-                vSize++;
+
+            if (!uniqueSize) {
+                //Increment vehicle size
+                if (i % nPerSize == 0 && vSize < size) {
+                    vSize++;
+                }
+            } else {
+
+                // Unique size
+
+                vSize = size;
             }
+
+            //
             int randomOrigin = (int) (Math.random() * Dao.getInstance().getDistMatrix().length);
             listVehicle.add(new Vehicle(vSize, randomOrigin, 2.3, 3.4));
         }
-
+        System.out.println(listVehicle.size() + " vehicles created.");
         return listVehicle;
     }
 

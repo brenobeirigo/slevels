@@ -3,12 +3,14 @@ package model;
 import model.node.Node;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 public class Visit implements Comparable<Visit> {
-
+    public static int visitCount = 0;
     private int arrival;
-    private List<User> listUsers;
+    private Set<User> setUsers;
     private List<Node> sequenceVisits;
     private List<Integer> sequenceArrivals;
     private Vehicle vehicle;
@@ -17,32 +19,35 @@ public class Visit implements Comparable<Visit> {
     // Delays and idle times
     private int delay, idle;
 
-    public Visit(int arrival, List<User> listUsers, List<Node> sequenceArrivals, int delay, Vehicle vehicle, int idle) {
+    public Visit(int arrival, Set<User> setUsers, List<Node> sequenceArrivals, int delay, Vehicle vehicle, int idle) {
         this.arrival = arrival;
-        this.listUsers = listUsers;
+        this.setUsers = setUsers;
         this.sequenceVisits = sequenceArrivals;
         this.delay = delay;
         this.vehicle = vehicle;
         this.idle = idle;
+        //visitCount++;
     }
 
     public Visit(List<Node> sequenceVisits, int delay, List<Integer> sequenceArrivals, int idle, List<Integer> sequenceLoads) {
         this.arrival = 0;
-        this.listUsers = new ArrayList<>();
+        this.setUsers = new HashSet<>();
         this.sequenceVisits = sequenceVisits;
         this.delay = delay;
         this.sequenceArrivals = sequenceArrivals;
         this.idle = idle;
         this.sequenceLoads = sequenceLoads;
+        //visitCount++;
     }
 
     public Visit() {
         this.arrival = 0;
-        this.listUsers = null;
+        this.setUsers = null;
         this.sequenceVisits = null;
         this.delay = Integer.MAX_VALUE;
         this.vehicle = null;
         this.idle = Integer.MAX_VALUE;
+
     }
 
     /**
@@ -52,7 +57,7 @@ public class Visit implements Comparable<Visit> {
      * @param passengers List of users
      * @return Sequence of user ids representing pickup and delivery nodes
      */
-    public static List<Integer> getIdPairListFromUsers(List<User> passengers) {
+    public static List<Integer> getIdPairListFromUsers(Set<User> passengers) {
 
         /* Create a sequenceVisits of PK and DL points given a list of passengers. */
         List<Integer> sequence = new ArrayList<>();
@@ -71,8 +76,8 @@ public class Visit implements Comparable<Visit> {
         return arrival;
     }
 
-    public List<User> getListUsers() {
-        return listUsers;
+    public Set<User> getSetUsers() {
+        return setUsers;
     }
 
     public List<Node> getSequenceVisits() {
@@ -103,12 +108,16 @@ public class Visit implements Comparable<Visit> {
         return sequenceArrivals;
     }
 
+    public void setSetUsers(Set<User> setUsers) {
+        this.setUsers = setUsers;
+    }
+
     @Override
     public String toString() {
         /*
         return "Model.Visit{" +
                 "\narrival=" + arrival +
-                "\nlistUsers=" + listUsers +
+                "\nsetUsers=" + setUsers +
                 "\nsequenceVisits=" + sequenceVisits +
                 "\nsequenceArrivals=" + Arrays.toString(sequenceArrivals) +
                 "\nvehicle=" + vehicle +
@@ -118,13 +127,14 @@ public class Visit implements Comparable<Visit> {
         */
         //return String.format("%s | $s (delay: %d - idle: %d)", sequenceVisits,  delay, idle);
         List<String> nodes = new ArrayList<>();
-        for (int i = 0; i < sequenceVisits.size(); i++) {
-            nodes.add(String.format("%s(%s)",
-                    sequenceVisits.get(i),
-                    sequenceArrivals.get(i))); // config.Config.sec2TStamp(sequenceArrivals.get(i))));
+        if (sequenceVisits != null) {
+            for (int i = 0; i < sequenceVisits.size(); i++) {
+                nodes.add(String.format("%s(%s)",
+                        sequenceVisits.get(i),
+                        sequenceArrivals.get(i))); // config.Config.sec2TStamp(sequenceArrivals.get(i))));
+            }
         }
         return String.format("(delay: %5s - idle: %5s) %s ", String.valueOf(delay), String.valueOf(idle), nodes);
     }
-
 }
 

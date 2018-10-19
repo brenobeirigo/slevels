@@ -44,7 +44,7 @@ public class Simulation {
 
     /* SETS OF VEHICLES AND REQUESTS */
     private Map<Integer, User> allRequests; // Dictionary of all users
-    private List<User> setWaitingUsers; // Requests whose pickup time is lower than the current time
+    private Set<User> setWaitingUsers; // Requests whose pickup time is lower than the current time
     private Set<User> deniedRequests; // Requests with expired pickup time
     private Set<User> finishedRequests; // Requests whose DP node was visited
     private List<Vehicle> listVehicles; // List of vehicles
@@ -80,10 +80,10 @@ public class Simulation {
 
         /* SETS OF VEHICLES AND REQUESTS */
         allRequests = new HashMap<>(); // Dictionary of all users
-        setWaitingUsers = new ArrayList<>(); // Requests whose pickup time is lower than the current time
+        setWaitingUsers = new HashSet<>(); // Requests whose pickup time is lower than the current time
         deniedRequests = new HashSet<>(); // Requests with expired pickup time
         finishedRequests = new HashSet<>(); // Requests whose DP node was visited
-        listVehicles = MethodHelper.createListVehicles(nOfVehicles, vehicleCapacity); // List of vehicles
+        listVehicles = MethodHelper.createListVehicles(nOfVehicles, vehicleCapacity, true); // List of vehicles
         //TODO hot_PK_list
 
         // Mark start execution time
@@ -117,9 +117,9 @@ public class Simulation {
             leftTW = rightTW;
 
 
-            /**********************************************************************************************************/
+            /*#*******************************************************************************************************/
             ////// 1 - GET FINISHED USERS (before current time) ////////////////////////////////////////////////////////
-            /**********************************************************************************************************/
+            /*#*******************************************************************************************************/
 
             int remainingPassengers = 0;
             int active_vehicles = 0;
@@ -165,9 +165,9 @@ public class Simulation {
                 }
             }
 
-            /**********************************************************************************************************/
+            /*#*******************************************************************************************************/
             ////// 2 - Eliminate waiting users that can no longer be picked up /////////////////////////////////////////
-            /**********************************************************************************************************/
+            /*#*******************************************************************************************************/
 
             // Get requests whose latest times are up
             Set<User> setTimeUpRequest = new HashSet<>();
@@ -187,9 +187,9 @@ public class Simulation {
             // Remove time up requests from waiting set
             setWaitingUsers.removeAll(setTimeUpRequest);
 
-            /**********************************************************************************************************/
+            /*#*******************************************************************************************************/
             ////// 3 - GET USERS INSIDE TW /////////////////////////////////////////////////////////////////////////////
-            /**********************************************************************************************************/
+            /*#*******************************************************************************************************/
 
             // List of pooled users inside TW (only filled if countRounds < totalRounds)
             List<User> listUsersTW = new ArrayList<>();
@@ -211,7 +211,7 @@ public class Simulation {
 
 
             int countPairwise = 0;
-            User[] reqs = setWaitingUsers.toArray(new User[setWaitingUsers.size()]);
+            User[] reqs = setWaitingUsers.toArray(new User[0]);
             Set<String> validPair = new HashSet<>();
             int countImpossible = 0;
             for (int i = 0; i < reqs.length - 1; i++) {
@@ -251,9 +251,9 @@ public class Simulation {
             System.out.println("Valid combinations: " + countImpossible + "/" + countPairwise + "/" + setWaitingUsers.size() * setWaitingUsers.size());
 
 
-            /**********************************************************************************************************
+            /*#*******************************************************************************************************
              ////// 3 - ASSIGN WAITING USERS (previous + current round)  TO VEHICLES ///////////////////////////////////
-             **********************************************************************************************************/
+             */
 
             // FIRST COME FIRST SERVE
             Set<User> setScheduledUsers = Method.getSolutionFCFS(
@@ -280,9 +280,9 @@ public class Simulation {
             // Update round count
             countRounds = countRounds + 1;
 
-            /**********************************************************************************************************
+            /*#*******************************************************************************************************
              ///// Print round information  ///////////////////////////////////////////////////////////////////////////
-             **********************************************************************************************************/
+             */
 
             // Print the time window reading
             System.out.println(HelperIO.getHeaderTW(start_timestamp,

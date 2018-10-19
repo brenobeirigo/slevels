@@ -13,6 +13,8 @@ public class Vehicle implements Comparable<Vehicle> {
     private int capacity;
     private Integer load;
     private List<User> listUsers;
+    private Set<User> enroute;
+    private Set<Node> enrouteNode;
     private List<Node> journey;
     private Visit visit;
     private Node currentNode;
@@ -28,11 +30,40 @@ public class Vehicle implements Comparable<Vehicle> {
         this.origin = new NodeOrigin(count, id_network, lat, lon, 0);
         this.currentNode = this.origin;
         this.capacity = size;
+        this.enroute = new HashSet<>();
         this.servicedUsers = new ArrayList<>();
         this.listUsers = new LinkedList<>();
         this.journey = new ArrayList<>();
         this.journey.add(this.currentNode);
         this.load = 0;
+    }
+
+    public static int getCount() {
+        return count;
+    }
+
+    public Node getOrigin() {
+        return origin;
+    }
+
+    public int getId() {
+        return id;
+    }
+
+    public int getTotalDelay() {
+        return totalDelay;
+    }
+
+    public int getTotalWaiting() {
+        return totalWaiting;
+    }
+
+    public int getCurrent_time() {
+        return current_time;
+    }
+
+    public List<User> getServicedUsers() {
+        return servicedUsers;
     }
 
     public int getLoad() {
@@ -131,7 +162,7 @@ public class Vehicle implements Comparable<Vehicle> {
 
                 /*####################### Update list of serviced users #############################################*/
                 // Eliminate serviced user from visit
-                this.visit.getListUsers().remove(User.all_users.get(tripId));
+                this.visit.getSetUsers().remove(User.all_users.get(tripId));
 
                 // Add serviced user to vehicle
                 this.servicedUsers.add(User.all_users.get(tripId));
@@ -150,6 +181,13 @@ public class Vehicle implements Comparable<Vehicle> {
                 // Model.Node visited is removed from vehicle
                 this.listUsers.remove(User.all_users.get(tripId));
 
+                // User is locked in vehicle (cannot change to other)
+                this.enroute.remove(User.all_users.get(tripId));
+
+                // TODO improve representation
+                // Locked node can be removed
+                //this.enrouteNode.remove(currentNode);
+
                 // Save total ride time in vehicle
                 int rideTime = User.all_users.get(tripId).getNodeDp().getArrival() - User.all_users.get(tripId).getNodePk().getArrival();
 
@@ -164,6 +202,13 @@ public class Vehicle implements Comparable<Vehicle> {
 
                 // Save PK delay
                 User.status[tripId][2] = currentNode.getDelay();
+
+                // User is locked in vehicle (cannot change to other)
+                this.enroute.add(User.all_users.get(tripId));
+
+                // TODO: improve this representation
+                // This nodes must be visited by vehicle
+                //this.enrouteNode.add(User.all_users.get(tripId).getNodeDp());
 
             }
         }
@@ -250,7 +295,7 @@ public class Vehicle implements Comparable<Vehicle> {
 
     public String getJourneyInfo() {
 
-        StringBuffer str = new StringBuffer();
+        StringBuilder str = new StringBuilder();
 
         str.append("\n########################################################################################");
         str.append("\n" + getStats());
@@ -275,4 +320,11 @@ public class Vehicle implements Comparable<Vehicle> {
     }
 
 
+    public Set<User> getEnroute() {
+        return enroute;
+    }
+
+    public void setEnroute(Set<User> enroute) {
+        this.enroute = enroute;
+    }
 }

@@ -5,7 +5,9 @@ import model.Visit;
 import simulation.Method;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 public class TestHelperMethods {
 
@@ -18,7 +20,10 @@ public class TestHelperMethods {
         while (v == null) {
 
             Dao dao = Dao.getInstance();
-            List<User> listUser = dao.getListTrips(100, n);
+            Set<User> listUser = new HashSet<>();
+
+            listUser.addAll(dao.getListTrips(100, n));
+
             v = Method.getVisit(listUser, v1, findBest, maxTrips);
         }
         return v;

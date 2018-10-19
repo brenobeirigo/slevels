@@ -6,14 +6,16 @@ import model.Vehicle;
 import model.Visit;
 import model.node.Node;
 
+import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Set;
 
 public class TestVisit {
 
     public static void main(String[] arg) {
         Dao dao = Dao.getInstance();
-        List<User> users = dao.getListTrips(1);
+        Set<User> users = new HashSet<>(dao.getListTrips(1));
 
         List<Node> seqVisit = new LinkedList<>();
         for (User t : users) {

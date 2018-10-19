@@ -39,7 +39,7 @@ public class Dao {
 
             distMatrix = getDistanceMatrix(file_path);
 
-            userBuff = new ArrayList<User>();
+            userBuff = new ArrayList<>();
 
             records = CSVFormat.RFC4180.withFirstRecordAsHeader().parse(new FileReader(trip_path));
 

@@ -3,6 +3,7 @@ import model.User;
 import model.Vehicle;
 import simulation.Method;
 
+import java.util.HashSet;
 import java.util.List;
 import java.util.Scanner;
 import java.util.Set;
@@ -50,7 +51,7 @@ public class TestFCFS {
 
         for (int i = 0; i < 5 * 3600; i = i + 30) {
             System.out.println("TIME:" + i);
-            Set<User> ok = Method.getSolutionFCFS(listU, listV, false, true, i, 10, false);
+            Set<User> ok = Method.getSolutionFCFS(new HashSet<>(listU), listV, false, true, i, 10, false);
 
             System.out.println("USER OK:");
             for (Vehicle v : listV) {

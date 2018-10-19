@@ -10,7 +10,7 @@ import java.util.*;
 public class MultiSet {
 
     private List<Integer> seed;
-    private List<List<Integer>> permutations = new ArrayList<List<Integer>>();
+    private List<List<Integer>> permutations = new ArrayList<>();
 
 
 /*
