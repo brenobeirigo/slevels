@@ -40,6 +40,15 @@ public class Node implements Comparable<Node> {
         Node.nodeDic.put(networkId, new Double[]{lat, lon});
     }
 
+    public Node(int id, int networkId, int earliest, int latest, int load) {
+        this.id = id;
+        this.load = load;
+        this.networkId = networkId;
+        this.earliest = earliest;
+        this.latest = latest;
+        Node.nodeDic.put(networkId, new Double[]{0.0, 0.0});
+    }
+
     public String getInfo() {
         return String.format(
                 "%7s (%4s | %4s | %4s) [%4s]",

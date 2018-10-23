@@ -25,6 +25,12 @@ public class TestHelperMethods {
             listUser.addAll(dao.getListTrips(100, n));
 
             v = Method.getVisit(listUser, v1, findBest, maxTrips);
+
+            v.setSetUsers(listUser);
+
+            v.setVehicle(v1);
+
+            v1.setVisit(v);
         }
         return v;
     }

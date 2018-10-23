@@ -3,6 +3,7 @@ package dao;
 
 import model.User;
 import model.Vehicle;
+import model.node.Node;
 import org.apache.commons.csv.CSVFormat;
 import org.apache.commons.csv.CSVRecord;
 
@@ -124,5 +125,9 @@ public class Dao {
 
     public int getDistSec(int from, int to) {
         return (int) (3.6 * distMatrix[from][to] / 30);
+    }
+
+    public int getDistSec(Node from, Node to) {
+        return (int) (3.6 * distMatrix[from.getNetworkId()][to.getNetworkId()] / 30);
     }
 }

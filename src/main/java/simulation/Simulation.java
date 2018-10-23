@@ -1,76 +1,62 @@
 package simulation;
 
-
 import config.Config;
 import dao.Dao;
 import helper.HelperIO;
 import helper.MethodHelper;
 import model.User;
 import model.Vehicle;
-import model.node.Node;
 import model.node.NodeDP;
 import model.node.NodePK;
 
 import java.util.*;
 
-public class Simulation {
+public abstract class Simulation {
 
-    // Mark start execution time
-    private long t1;
-    private Solution sol; //Simulation solution
+
+    // Mark getServicedUsers execution time
+    protected long t1;
+    protected Solution sol; //Simulation solution
 
     /* TIME HORIZON */
-    private int timeHorizon; // Size of time bins
-    private int total_horizon; // Total time horizon
+    protected int timeHorizon; // Size of time bins
+    protected int totalHorizon; // Total time horizon
 
     /* VEHICLE INFO */
-    private int nOfVehicles; // Fleet size
-    private int vehicleCapacity; // Number of seats
-
-    /* METHOD CONFIGURATION*/
-    private int maxPermutationsFCFS;
-    private boolean allPermutations;
-    private boolean stopAtFirstBest;
-    private boolean checkInParallel;
+    protected int nOfVehicles; // Fleet size
+    protected int vehicleCapacity; // Number of seats
 
     /* POOLING DATA */
-    private int maxNumberOfTrips; //How many trips are pooled in time horizon
-    private int totalRounds; // How many rounds of time horizon will be pooled
-    private int time_slot;
-    private int start_timestamp; // (00:00:00) Initial timestamp for pooling data
-    private int leftTW, rightTW; // Left and right time windows (rightTW = current time)
-    private boolean run_ending_rounds; // Keep running rounds until all vehicles finish the requests
-    private int countRounds;
+    protected int maxNumberOfTrips; //How many trips are pooled in time horizon
+    protected int totalRounds; // How many rounds of time horizon will be pooled
+    protected int time_slot;
+    protected int start_timestamp; // (00:00:00) Initial timestamp for pooling data
+    protected int leftTW, rightTW; // Left and right time windows (rightTW = current time)
+    protected boolean run_ending_rounds; // Keep running rounds until all vehicles finish the requests
+    protected int countRounds;
 
     /* SETS OF VEHICLES AND REQUESTS */
-    private Map<Integer, User> allRequests; // Dictionary of all users
-    private Set<User> setWaitingUsers; // Requests whose pickup time is lower than the current time
-    private Set<User> deniedRequests; // Requests with expired pickup time
-    private Set<User> finishedRequests; // Requests whose DP node was visited
-    private List<Vehicle> listVehicles; // List of vehicles
+    protected Map<Integer, User> allRequests; // Dictionary of all users
+    protected Set<User> setWaitingUsers; // Requests whose pickup time is lower than the current time
+    protected Set<User> deniedRequests; // Requests with expired pickup time
+    protected Set<User> finishedRequests; // Requests whose DP node was visited
+    protected List<Vehicle> listVehicles; // List of vehicles
     //TODO hot_PK_list
 
 
     public Simulation() {
 
-
         /* TIME HORIZON */
         timeHorizon = 30; // Size of time bins
-        total_horizon = 600; // Total time horizon
+        totalHorizon = 600; // Total time horizon
 
         /* VEHICLE INFO */
-        nOfVehicles = 1; // Fleet size
-        vehicleCapacity = 1; // Number of seats (1 - 4)
-
-        /* METHOD CONFIGURATION*/
-        maxPermutationsFCFS = 5;
-        allPermutations = true;
-        stopAtFirstBest = true;
-        checkInParallel = false;
+        nOfVehicles = 1000; // Fleet size
+        vehicleCapacity = 10; // Number of seats (1 - 4)
 
         /* POOLING DATA */
-        maxNumberOfTrips = 100; //How many trips are pooled in time horizon
-        totalRounds = total_horizon / timeHorizon; // How many rounds of time horizon will be pooled
+        maxNumberOfTrips = 300; //How many trips are pooled in time horizon
+        totalRounds = totalHorizon / timeHorizon; // How many rounds of time horizon will be pooled
         time_slot = totalRounds * timeHorizon;
         start_timestamp = 0; // (00:00:00) Initial timestamp for pooling data
         leftTW = this.start_timestamp; // Left and right time windows (rightTW = current time)
@@ -86,14 +72,17 @@ public class Simulation {
         listVehicles = MethodHelper.createListVehicles(nOfVehicles, vehicleCapacity, true); // List of vehicles
         //TODO hot_PK_list
 
-        // Mark start execution time
+        // Mark getServicedUsers execution time
         t1 = System.nanoTime();
-        sol = new Solution(nOfVehicles, maxNumberOfTrips, vehicleCapacity);
 
+        // Initialize solution
     }
 
+    //TODO hot_PK_list
 
-    public void init() {
+    public abstract Set<User> getServicedUsers();
+
+    public void run() {
         /* Declare empty waiting list
         Repeat:
             leftTW:
@@ -107,7 +96,7 @@ public class Simulation {
         // Loop number of rounds
         while (countRounds < totalRounds || run_ending_rounds) {
 
-            // Wall time start of round
+            // Wall time getServicedUsers of round
             long startWalltime = System.nanoTime();
 
             // Update current time
@@ -209,62 +198,17 @@ public class Simulation {
                 }
             }
 
-
-            int countPairwise = 0;
-            User[] reqs = setWaitingUsers.toArray(new User[0]);
-            Set<String> validPair = new HashSet<>();
-            int countImpossible = 0;
-            for (int i = 0; i < reqs.length - 1; i++) {
-                Node pk1 = reqs[i].getNodePk();
-                Node dp1 = reqs[i].getNodeDp();
-                for (int j = i + 1; j < reqs.length; j++) {
-                    Node pk2 = reqs[j].getNodePk();
-                    Node dp2 = reqs[j].getNodeDp();
-
-                    if (pk1.getEarliest() >= dp2.getLatest()) {
-                        countImpossible++;
-                        continue;
-                    }
-                    if (pk2.getEarliest() >= dp1.getLatest()) {
-                        countImpossible++;
-                        continue;
-                    }
-
-                    Node[] seq1 = new Node[]{pk1, pk2, dp1, dp2};
-                    Node[] seq2 = new Node[]{pk1, pk2, dp2, dp1};
-                    Node[] seq3 = new Node[]{pk1, pk2, dp1, dp2};
-                    Node[] seq4 = new Node[]{pk1, pk2, dp2, dp1};
-                    if (Method.feasibleSequence(seq1) ||
-                            Method.feasibleSequence(seq2) ||
-                            Method.feasibleSequence(seq3) ||
-                            Method.feasibleSequence(seq4)) {
-                        //System.out.println(r1+"-"+r2);
-
-
-                        countPairwise++;
-                    }
-
-
-                }
-
-            }
-            System.out.println("Valid combinations: " + countImpossible + "/" + countPairwise + "/" + setWaitingUsers.size() * setWaitingUsers.size());
-
-
-            /*#*******************************************************************************************************
+            /*#*********************************************************************************************************
              ////// 3 - ASSIGN WAITING USERS (previous + current round)  TO VEHICLES ///////////////////////////////////
-             */
+            /*#********************************************************************************************************/
 
-            // FIRST COME FIRST SERVE
-            Set<User> setScheduledUsers = Method.getSolutionFCFS(
-                    setWaitingUsers,
-                    listVehicles,
-                    allPermutations,
-                    stopAtFirstBest,
-                    rightTW,
-                    maxPermutationsFCFS,
-                    checkInParallel);
+            //##########################################################################################################
+            //##########################################################################################################
+            Set<User> setScheduledUsers = getServicedUsers();
+            //##########################################################################################################
+            //##########################################################################################################
 
+            System.out.println("Scheduled:" + setScheduledUsers.size());
             // Remove scheduled requests from pool of waiting
             setWaitingUsers.removeAll(setScheduledUsers);
 
@@ -282,7 +226,7 @@ public class Simulation {
 
             /*#*******************************************************************************************************
              ///// Print round information  ///////////////////////////////////////////////////////////////////////////
-             */
+            /*#********************************************************************************************************/
 
             // Print the time window reading
             System.out.println(HelperIO.getHeaderTW(start_timestamp,
@@ -301,8 +245,10 @@ public class Simulation {
             System.out.println(sol.getRoundStatistics(rightTW,
                     vehicleCapacity,
                     listVehicles,
+                    setWaitingUsers,
                     finishedRequests,
                     deniedRequests,
+                    listUsersTW,
                     allRequests,
                     (System.nanoTime() - startWalltime) / 1000000));
 
@@ -310,9 +256,9 @@ public class Simulation {
             // Print vehicle details
             System.out.println(HelperIO.getVehicleInfo(listVehicles,
                     rightTW,
-                    true,
-                    true,
-                    true));
+                    false,
+                    false,
+                    false));
         }
 
         // Save solution to file
@@ -324,5 +270,8 @@ public class Simulation {
         //Final execution time
         long t2 = System.nanoTime();
         System.out.println("TOTAL TIME: " + Config.sec2TStamp((int) (t2 - t1) / 1000000000));
+
     }
+
+
 }

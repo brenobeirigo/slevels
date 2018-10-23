@@ -3,7 +3,6 @@ package simulation;
 import config.Config;
 import model.User;
 import model.Vehicle;
-import model.node.NodeOrigin;
 import org.apache.commons.csv.CSVFormat;
 import org.apache.commons.csv.CSVPrinter;
 
@@ -21,6 +20,9 @@ public class Solution {
     private int nOfVehicles;
     private int maxNumberOfTrips;
     private int vehicleCapacity;
+    private int timeHorizon;
+    private int totalHorizon;
+    private String methodName;
     /* CSV output
 
     currentTime;seatCount;activeVehicles;enrouteCount;deniedRequests.size();finishedRequests.size();
@@ -31,10 +33,13 @@ public class Solution {
     private Path outputFile;
     private long runTime;
 
-    public Solution(int nOfVehicles, int maxNumberOfTrips, int vehicleCapacity) {
+    public Solution(String methodName, int nOfVehicles, int maxNumberOfTrips, int vehicleCapacity, int timeHorizon, int totalHorizon) {
+        this.methodName = methodName;
         this.nOfVehicles = nOfVehicles;
         this.maxNumberOfTrips = maxNumberOfTrips;
         this.vehicleCapacity = vehicleCapacity;
+        this.timeHorizon = timeHorizon;
+        this.totalHorizon = totalHorizon;
         this.entries = new ArrayList<>();
         createHeader();
     }
@@ -43,11 +48,13 @@ public class Solution {
 
         header = new ArrayList<>();
         header.add("timestamp");
+        header.add("waiting");
+        header.add("finished");
+        header.add("denied");
+        header.add("n_requests");
         header.add("seat_count");
         header.add("active_vehicles");
         header.add("enroute_count");
-        header.add("denied");
-        header.add("finished");
         header.add("pk_delay");
         header.add("total_delay");
 
@@ -67,10 +74,14 @@ public class Solution {
     public void save() {
         // File path
         this.outputFile = Paths.get(
-                String.format("V%d-%d_R%d.csv",
+                String.format("V%d-%d_R%d_TW%d_TH%d_%s.csv",
                         nOfVehicles,
                         vehicleCapacity,
-                        maxNumberOfTrips));
+                        maxNumberOfTrips,
+                        timeHorizon,
+                        totalHorizon,
+                        methodName
+                ));
 
         System.out.println("!!!!!!" + this.outputFile);
 
@@ -94,8 +105,10 @@ public class Solution {
     public String getRoundStatistics(int currentTime,
                                      int vehicleSize,
                                      List<Vehicle> listVehicles,
+                                     Set<User> waitingRequests,
                                      Set<User> finishedRequests,
                                      Set<User> deniedRequests,
+                                     List<User> setOfRequests,
                                      Map<Integer, User> allRequests,
                                      long runTime) {
         double pkDelay = 0;
@@ -136,36 +149,34 @@ public class Solution {
             // If there are users inside vehicle
             if (nUsers > 0) {
 
-                for (User u : v.getListUsers()) {
-                    seatCount += u.getNumPassengers();
-                }
+                // Sum current load of vehicle
+                seatCount += v.getLoad();
+
+                // Sum capacity of vehicle
+                totalSeats += v.getCapacity();
 
                 // Number of users en-route
                 enrouteCount += nUsers;
 
-                // Active vehicles and total seats only for vehicles that left origin
-                if (!(v.getCurrentNode() instanceof NodeOrigin)) {
-                    // Model.Vehicle is active
-                    activeVehicles++;
-                }
+                // If there users inside, vehicle is active
+                activeVehicles++;
+
             }
 
-            // Active vehicles and total seats only for vehicles that left origin
-            if (!(v.getCurrentNode() instanceof NodeOrigin)) {
-                // Model.Vehicle is active
-                totalSeats += v.getCapacity();
-            }
         }
 
         // Stats
         double finishedRequestsPercentage = (double) finishedRequests.size() / allRequests.size();
         double deniedRequestsPercentage = (double) deniedRequests.size() / allRequests.size();
+        double waitingRequestsPercentage = (double) waitingRequests.size() / allRequests.size();
 
 
         this.addEntryCSV(currentTime,
+                setOfRequests.size(),
                 seatCount,
                 activeVehicles,
                 enrouteCount,
+                waitingRequests.size(),
                 deniedRequests.size(),
                 finishedRequests.size(),
                 vehicleOccupancy,
@@ -180,6 +191,7 @@ public class Solution {
                         "\n    En-route: %6s (%.2f%%)" +
                         "\n  Seat count: %6s (%.2f%%)" +
                         "\n Fleet usage: %6s (%.2f%%)" +
+                        "\n     Waiting: %6s (%.2f%%)" +
 
                         "\n## OVERALL:" +
                         "\n      Denied: %6s (%.2f%%)" +
@@ -191,6 +203,7 @@ public class Solution {
                 String.valueOf(enrouteCount), Math.abs((double) enrouteCount / allRequests.size()) * 100,
                 String.valueOf(seatCount), (double) seatCount / totalSeats * 100,
                 String.valueOf(activeVehicles), (double) activeVehicles * 100 / listVehicles.size(),
+                String.valueOf(waitingRequests.size()), waitingRequestsPercentage * 100,
                 String.valueOf(deniedRequests.size()), deniedRequestsPercentage * 100,
                 String.valueOf(finishedRequests.size()), finishedRequestsPercentage * 100,
                 (int) pkDelay,
@@ -202,9 +215,11 @@ public class Solution {
     }
 
     public void addEntryCSV(int currentTime,
+                            int numberOfRequests,
                             int seatCount,
                             int activeVehicles,
                             int enrouteCount,
+                            int waitingRequests,
                             int deniedRequests,
                             int finishedRequests,
                             int[] vehicleOccupancy,
@@ -215,11 +230,13 @@ public class Solution {
 
         List<String> entry = new ArrayList<>();
         entry.add(Config.sec2Datetime(currentTime));
+        entry.add(String.valueOf(waitingRequests));
+        entry.add(String.valueOf(finishedRequests));
+        entry.add(String.valueOf(deniedRequests));
+        entry.add(String.valueOf(numberOfRequests));
         entry.add(String.valueOf(seatCount));
         entry.add(String.valueOf(activeVehicles));
         entry.add(String.valueOf(enrouteCount));
-        entry.add(String.valueOf(deniedRequests));
-        entry.add(String.valueOf(finishedRequests));
         entry.add(String.valueOf(pkDelay));
         entry.add(String.valueOf(totalDelay));
 

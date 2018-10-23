@@ -2,6 +2,7 @@ import dao.Dao;
 import model.User;
 import model.Vehicle;
 import model.Visit;
+import simulation.Method;
 
 import java.util.List;
 import java.util.Scanner;
@@ -62,8 +63,8 @@ public class TestCheckSequence {
                 System.out.println(visitBis);
                 currentTime = keyboard.nextInt();
                 System.out.println("Cutting sequence...");
-                int start = Model.Visit.bisect_right(visitBis.getSequenceArrivals(), currentTime);
-                System.out.println("Elements to remove: " + start);
+                int getServicedUsers = Model.Visit.bisect_right(visitBis.getSequenceArrivals(), currentTime);
+                System.out.println("Elements to remove: " + getServicedUsers);
                 //Set<Model.User> usersFinished = gen22.getServicedUsersUntil(5000,0);
                 //System.out.println("Users: "+usersFinished);
                 //System.out.println(usersFinished);
@@ -77,13 +78,17 @@ public class TestCheckSequence {
 
 
         int currentTimeVisit;
+        int t = 0, i = 0, j = 0;
         do {
-            System.out.println("Enter an integer to cut sequence arrival:");
-            System.out.println(visitUpdate);
+            System.out.println("User:" + ListUser2.get(0));
+            System.out.println("Enter i and j to swap sequence:");
 
-            currentTimeVisit = keyboard.nextInt();
-            //visitUpdate.getServicedUsersUntil(currentTimeVisit,0);
+            i = keyboard.nextInt();
+            j = keyboard.nextInt();
+            t = keyboard.nextInt();
+
+            Visit insert = Method.getVisitByInsertion(ListUser2.get(0), visitUpdate.getSequenceVisits(), visitUpdate.getVehicle(), i, j, t);
             System.out.println(visitUpdate);
-        } while (currentTimeVisit >= 0);
+        } while (i >= 0);
     }
 }

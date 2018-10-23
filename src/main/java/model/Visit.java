@@ -22,7 +22,7 @@ public class Visit implements Comparable<Visit> {
     public Visit(int arrival, Set<User> setUsers, List<Node> sequenceArrivals, int delay, Vehicle vehicle, int idle) {
         this.arrival = arrival;
         this.setUsers = setUsers;
-        this.sequenceVisits = sequenceArrivals;
+        this.setSequenceVisits(sequenceArrivals);
         this.delay = delay;
         this.vehicle = vehicle;
         this.idle = idle;
@@ -32,18 +32,27 @@ public class Visit implements Comparable<Visit> {
     public Visit(List<Node> sequenceVisits, int delay, List<Integer> sequenceArrivals, int idle, List<Integer> sequenceLoads) {
         this.arrival = 0;
         this.setUsers = new HashSet<>();
-        this.sequenceVisits = sequenceVisits;
+        this.setSequenceVisits(sequenceVisits);
         this.delay = delay;
-        this.sequenceArrivals = sequenceArrivals;
+        this.setSequenceArrivals(sequenceArrivals);
         this.idle = idle;
         this.sequenceLoads = sequenceLoads;
+        //visitCount++;
+    }
+
+    public Visit(List<Node> sequenceVisits, int delay, int idle) {
+        this.arrival = 0;
+        this.setUsers = new HashSet<>();
+        this.setSequenceVisits(sequenceVisits);
+        this.delay = delay;
+        this.idle = idle;
         //visitCount++;
     }
 
     public Visit() {
         this.arrival = 0;
         this.setUsers = null;
-        this.sequenceVisits = null;
+        this.setSequenceVisits(null);
         this.delay = Integer.MAX_VALUE;
         this.vehicle = null;
         this.idle = Integer.MAX_VALUE;
@@ -127,14 +136,37 @@ public class Visit implements Comparable<Visit> {
         */
         //return String.format("%s | $s (delay: %d - idle: %d)", sequenceVisits,  delay, idle);
         List<String> nodes = new ArrayList<>();
-        if (sequenceVisits != null) {
-            for (int i = 0; i < sequenceVisits.size(); i++) {
+        if (getSequenceVisits() != null) {
+            for (int i = 0; i < getSequenceVisits().size(); i++) {
                 nodes.add(String.format("%s(%s)",
-                        sequenceVisits.get(i),
-                        sequenceArrivals.get(i))); // config.Config.sec2TStamp(sequenceArrivals.get(i))));
+                        getSequenceVisits().get(i),
+                        getSequenceArrivals().get(i))); // config.Config.sec2TStamp(sequenceArrivals.get(i))));
             }
         }
         return String.format("(delay: %5s - idle: %5s) %s ", String.valueOf(delay), String.valueOf(idle), nodes);
+    }
+
+
+    public void setSequenceVisits(List<Node> sequenceVisits) {
+        this.sequenceVisits = sequenceVisits;
+    }
+
+    public void setSequenceArrivals(List<Integer> sequenceArrivals) {
+        this.sequenceArrivals = sequenceArrivals;
+    }
+
+
+    public String getInfo() {
+        return "Visit{" +
+                "arrival=" + arrival +
+                ", setUsers=" + setUsers +
+                ", sequenceVisits=" + sequenceVisits +
+                ", sequenceArrivals=" + sequenceArrivals +
+                ", sequenceLoads=" + sequenceLoads +
+                ", delay=" + delay +
+                ", idle=" + idle +
+                ", vehicle=" + vehicle.get_info() +
+                '}';
     }
 }
 

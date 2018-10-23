@@ -38,6 +38,20 @@ public class Vehicle implements Comparable<Vehicle> {
         this.load = 0;
     }
 
+    public Vehicle(int size, int id_network) {
+        ++count;
+        this.id = count;
+        this.origin = new NodeOrigin(count, id_network, 0);
+        this.currentNode = this.origin;
+        this.capacity = size;
+        this.enroute = new HashSet<>();
+        this.servicedUsers = new ArrayList<>();
+        this.listUsers = new LinkedList<>();
+        this.journey = new ArrayList<>();
+        this.journey.add(this.currentNode);
+        this.load = 0;
+    }
+
     public static int getCount() {
         return count;
     }
@@ -106,7 +120,7 @@ public class Vehicle implements Comparable<Vehicle> {
      * @param currentTime current time
      * @return Set of users serviced until current time
      */
-    public Set<User> getServicedUsersUntil(int currentTime) {
+    public Set<User> getServicedUsersUntil2(int currentTime) {
 
         //TODO jump to next node and update arrival time over current? Prevents changing next
         // Arrival time at the node to be visited after sequence
@@ -126,7 +140,9 @@ public class Vehicle implements Comparable<Vehicle> {
         */
 
         // If vehicle has no customers to service
-        if (visit == null || visit.getSequenceVisits().isEmpty()) {
+        if (visit == null ||
+                visit.getSequenceVisits() == null ||
+                visit.getSequenceVisits().isEmpty()) {
             return null;
         }
 
@@ -142,7 +158,7 @@ public class Vehicle implements Comparable<Vehicle> {
         // Serviced users in current execution round [last current time, current time]
         Set<User> serviced = new HashSet<>();
 
-        // Remove first "start" nodes
+        // Remove first "getServicedUsers" nodes
         for (int i = 0; i < start; i++) {
 
             this.load = this.load + this.visit.getSequenceVisits().get(0).getLoad();
@@ -211,6 +227,133 @@ public class Vehicle implements Comparable<Vehicle> {
                 //this.enrouteNode.add(User.all_users.get(tripId).getNodeDp());
 
             }
+        }
+
+
+        // If all nodes were visited
+        if (this.listUsers.isEmpty()) {
+
+            // Signalize that vehicle is stopped at last visited node in a stop point
+            this.currentNode = new NodeStop(this.currentNode, this.id);
+
+            // Model.Vehicle has no routing plan
+            this.setVisit(null);
+        }
+
+        // Serviced users in an execution round
+        return serviced;
+    }
+
+
+    public Set<User> getServicedUsersUntil(int currentTime) {
+
+        //TODO jump to next node and update arrival time over current? Prevents changing next
+        // Remember that user is removed when DP is visited
+        //currentTime = Math.max(this.currentNode.getArrival(), currentTime);
+
+        // If vehicle has no customers to service
+        if (visit == null ||
+                visit.getSequenceVisits() == null ||
+                visit.getSequenceVisits().isEmpty()) {
+            return null;
+        }
+
+
+        // Serviced users in current execution round [last current time, current time]
+        Set<User> serviced = new HashSet<>();
+
+        int nRemoved = 0;
+        for (int i = 0; i < visit.getSequenceVisits().size(); i++) {
+
+            Node nextNode = visit.getSequenceVisits().get(i);
+
+            // Get arrival time at first node of visit sequenceVisits
+            int arrivalNext = currentNode.getArrival() + Dao.getInstance().getDistSec(currentNode, nextNode);
+
+            // If current time is lower than arrival at next node, the node was not visited yet
+            if (arrivalNext > currentTime) {
+                break;
+            }
+
+            // Node will be removed from sequence
+            nRemoved++;
+
+            // Set arrival time for last node
+            nextNode.setArrival(arrivalNext);
+
+            // Update current load in vehicle
+            this.load += nextNode.getLoad();
+
+            // New current node is next node
+            currentNode = nextNode;
+            this.journey.add(currentNode);
+
+
+            //if(this.load > this.capacity)
+            //    System.out.println(this.load + "-" + this.capacity);
+            //    System.out.println(this.visit.getSequenceVisits());
+
+
+            // If DP node is visited, it means request is finished
+            if (currentNode instanceof NodeDP) {
+
+                int tripId = currentNode.getTripId();
+
+                /*####################### Update list of serviced users #############################################*/
+                // Eliminate serviced user from visit
+                this.visit.getSetUsers().remove(User.all_users.get(tripId));
+
+                // Add serviced user to vehicle
+                this.servicedUsers.add(User.all_users.get(tripId));
+
+                // Update serviced users
+                serviced.add(User.all_users.get(tripId));
+
+                /*###################################################################################################*/
+
+                // Set arrival time at DP node for request
+                User.status[tripId][1] = arrivalNext;
+
+                // Save DP delay
+                User.status[tripId][3] = currentNode.getDelay();
+
+                // Model.Node visited is removed from vehicle
+                this.listUsers.remove(User.all_users.get(tripId));
+
+                // User is locked in vehicle (cannot change to other)
+                this.enroute.remove(User.all_users.get(tripId));
+
+                // TODO improve representation
+                // Locked node can be removed
+                //this.enrouteNode.remove(currentNode);
+
+                // Save total ride time in vehicle
+                int rideTime = User.all_users.get(tripId).getNodeDp().getArrival() - User.all_users.get(tripId).getNodePk().getArrival();
+
+                // Save ride trip ride time
+                User.all_users.get(tripId).setRideTime(rideTime);
+
+            } else if (currentNode instanceof NodePK) {
+                int tripId = currentNode.getTripId();
+
+                // Set arrival time at PK node for request
+                User.status[tripId][0] = arrivalNext;
+
+                // Save PK delay
+                User.status[tripId][2] = currentNode.getDelay();
+
+                // User is locked in vehicle (cannot change to other)
+                this.enroute.add(User.all_users.get(tripId));
+
+                // TODO: improve this representation
+                // This nodes must be visited by vehicle
+                //this.enrouteNode.add(User.all_users.get(tripId).getNodeDp());
+            }
+        }
+
+        // Remove first "nRemoved" elements
+        for (int j = 0; j < nRemoved; j++) {
+            visit.getSequenceVisits().remove(0);
         }
 
 
