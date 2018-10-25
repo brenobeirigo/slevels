@@ -37,15 +37,14 @@ public class SimulationFCFS extends Simulation {
      */
 
     @Override
-    public Set<User> getServicedUsers() {
+    public Set<User> getServicedUsers(int currentTime) {
 
         // Set of users serviced
         Set<User> setServicedUsers = new HashSet<>();
 
         // Loop users
         for (User u : setWaitingUsers) {
-
-            //System.out.println(u+" - " + u.getNodePk().getEarliest() + " - "+ currentTime);
+            //System.out.println(u+" - " + u.getNodePk().getEarliest() + " - "+ departureVehicleCurrent);
 
             // Aux. best visit for comparison
             Visit bestVisit = new Visit();
@@ -57,10 +56,17 @@ public class SimulationFCFS extends Simulation {
             for (Vehicle v : listVehicles) {
 
                 // Final visit
-                Visit candidateVisit = null;
+                Visit candidateVisit;
 
                 // Check in parallel
                 if (checkInParallel) {
+
+                    // Sequence with user to be added in vehicle
+                    Set<User> auxUserSequence = new HashSet<>();
+                    auxUserSequence.add(u);
+
+                    candidateVisit = Method.getBestInsertionParallel(auxUserSequence, v, 2, true, maxPermutationsFCFS);
+
                         /*TODO implement parallel check
                          visit = Trip.gen_visit_parallel([r],
                                 v=veh,
@@ -68,7 +74,6 @@ public class SimulationFCFS extends Simulation {
                                 max_trips = max_trips,
                                 distance_data = distance_data)
                         */
-
                 } else {
 
                     // Sequence with user to be added in vehicle
@@ -77,7 +82,8 @@ public class SimulationFCFS extends Simulation {
 
                     // #################################################################################################
                     // Get a candidate visit by trying to add user u to vehicle v
-                    candidateVisit = Method.getVisit(auxUserSequence, v, allPermutations, maxPermutationsFCFS);
+                    //candidateVisit = Method.getVisitByPermutation(auxUserSequence, v, allPermutations, maxPermutationsFCFS);
+                    candidateVisit = Method.getBestInsertionNoAddFirst(auxUserSequence, v, currentTime, 2, true, 100);
                     // #################################################################################################
                 }
 
@@ -97,14 +103,8 @@ public class SimulationFCFS extends Simulation {
             // if best visit is found, update vehicle with visit data
             if (bestVisit.getSetUsers() != null) {
 
-                // Add visit to vehicle (circular)
-                bestVisit.getVehicle().setVisit(bestVisit);
-
-                // Model.User u belongs to vehicle
-                bestVisit.getVehicle().getListUsers().add(u);
-
-                // Model.User u belongs to visit
-                bestVisit.getSetUsers().add(u);
+                // Add user to vehicle and setup visit
+                bestVisit.setup();
 
                 // Model.User u was serviced
                 setServicedUsers.add(u);

@@ -15,6 +15,9 @@ public class SimulationRTV extends Simulation {
     private int maxVehReqEdges;
     private int maxReqReqEdges;
     private int maxEdgesRTV;
+    private int numberUsersPermute;
+    private boolean findBestVisit;
+    private int maxNumberPermutations;
 
     //TODO hot_PK_list
 
@@ -25,6 +28,11 @@ public class SimulationRTV extends Simulation {
         maxVehReqEdges = 1000;
         maxReqReqEdges = 1000;
         maxEdgesRTV = 1000;
+
+        /* Permutations */
+        numberUsersPermute = 2;
+        findBestVisit = false;
+        maxNumberPermutations = 100;
 
         // Initialize solution
         sol = new Solution("RTV", nOfVehicles, maxNumberOfTrips, vehicleCapacity, timeHorizon, totalHorizon);
@@ -261,9 +269,9 @@ public class SimulationRTV extends Simulation {
 
             //TODO only use locked requests
             // Only requests already visited must stay in vehicle
-            //v.getListUsers().clear();
-            //v.getListUsers().addAll(v.getEnroute());
-            //v.getVisit().get
+            //v.getUsers().clear();
+            //v.getUsers().addAll(v.getEnroute());
+            //v.getVisitByPermutation().get
 
             // Trip levels inside vehicle v. E.g.: 1 -> {[r1], [r2]}, 2 -> {[r1, r2], [r2, r3]}
             Map<Integer, List<Set<User>>> tripsVehicleLevel = new HashMap<>();
@@ -291,10 +299,10 @@ public class SimulationRTV extends Simulation {
                 //Visit visit = RTV.addEdge(v, trip1);
 
                 // Try to find a valid visit for trip (100 permutations tested)
-                //Visit visit = Method.getVisit(trip1, v, false, 100);
+                //Visit visit = Method.getVisitByPermutation(trip1, v, false, 100);
 
                 // Get best insertion for trip with 1 users
-                Visit visit = Method.getBestInsertion(trip1, v);
+                Visit visit = Method.getBestInsertion(trip1, v, rightTW, numberUsersPermute, findBestVisit, maxNumberPermutations);
 
                 //System.out.println("VISITS1:");
                 //System.out.println(visit);
@@ -306,7 +314,7 @@ public class SimulationRTV extends Simulation {
                     // TODO: Filling visit with users (has to change after changing enroute vehicles)
                     // Update set of users in visit
                     visit.setSetUsers(trip1);
-                    //visit.getSetUsers().addAll(v.getListUsers());
+                    //visit.getSetUsers().addAll(v.getUsers());
 
                     // Add trip at level 1
                     tripsVehicleLevel.get(1).add(trip1);
@@ -347,10 +355,10 @@ public class SimulationRTV extends Simulation {
                     //System.out.println("Vehicle:"+v.get_info());
 
                     // Try to find a valid visit for trip (100 permutations tested)
-                    //Visit visit = Method.getVisit(trip2, v, false, 100);
+                    //Visit visit = Method.getVisitByPermutation(trip2, v, false, 100);
 
                     // Get best insertion in vehicle sequence for trip with 2 users
-                    Visit visit = Method.getBestInsertion(trip2, v);
+                    Visit visit = Method.getBestInsertion(trip2, v, rightTW, numberUsersPermute, findBestVisit, maxNumberPermutations);
 
                     //System.out.println("VISIT 22");
                     //if(visit1 != null)
@@ -374,7 +382,7 @@ public class SimulationRTV extends Simulation {
 
                         visit.setSetUsers(trip2);
                         //System.out.println("Users1:"+visit.getSetUsers());
-                        //visit.getSetUsers().addAll(v.getListUsers());
+                        //visit.getSetUsers().addAll(v.getUsers());
 
                         //System.out.println("Users2:"+visit.getSetUsers());
 
@@ -470,10 +478,10 @@ public class SimulationRTV extends Simulation {
                         // v---tripK, tripK--r1, tripK--r2, ..., tripK--rk
                         // Visit visit = RTV.addEdge(v, tripK);
                         // Try to find a valid visit for trip (100 permutations tested)
-                        //Visit visit = Method.getVisit(tripK, v, false, 100);
+                        //Visit visit = Method.getVisitByPermutation(tripK, v, false, 100);
 
                         // Get best insertion for trip with K users
-                        Visit visit = Method.getBestInsertion(tripK, v);
+                        Visit visit = Method.getBestInsertion(tripK, v, rightTW, numberUsersPermute, findBestVisit, maxNumberPermutations);
 
                         //System.out.println("VISITSK:");
                         //System.out.println(visit);
@@ -484,7 +492,7 @@ public class SimulationRTV extends Simulation {
 
                             // Update set of users in visit (tripK + vehicle Users)
                             visit.setSetUsers(tripK);
-                            //visit.getSetUsers().addAll(v.getListUsers());
+                            //visit.getSetUsers().addAll(v.getUsers());
 
                             // Add trip at level k
                             tripsVehicleLevel.get(k).add(tripK);
@@ -580,7 +588,7 @@ public class SimulationRTV extends Simulation {
                     candidateVisit.getVehicle().setVisit(candidateVisit);
 
                     // User u belongs to vehicle
-                    candidateVisit.getVehicle().getListUsers().addAll(requests);
+                    candidateVisit.getVehicle().getUsers().addAll(requests);
                 }
             }
         }
@@ -597,7 +605,7 @@ public class SimulationRTV extends Simulation {
      *
      * @return Scheduled users
      */
-    public Set<User> getServicedUsers() {
+    public Set<User> getServicedUsers(int currentTime) {
 
         // Create request-vehicle (RV) structure
         Map<Integer, List<Integer>> graphRV = getRVGraph(setWaitingUsers, listVehicles, maxVehReqEdges, maxReqReqEdges);

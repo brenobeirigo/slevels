@@ -10,7 +10,6 @@ public class NodeStop extends Node {
 
         this.arrival = stop.getArrival();
         this.tripId = stop.getTripId();
-
         this.vehicleId = vehicleId;
     }
 

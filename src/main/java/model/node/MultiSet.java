@@ -97,7 +97,7 @@ public class MultiSet {
     }
 
     /**
-     * Return 1 to maxPermutations
+     * Return from 1 to "maxPermutations" permutations
      *
      * @param maxPermutations Maximum number of permutations (>=1)
      * @return List of permutations
@@ -147,7 +147,6 @@ public class MultiSet {
     private class ListElement {
         public Integer value;
         public ListElement next;
-        public int count = 0;
 
         public ListElement(Integer value, ListElement next) {
             this.value = value;

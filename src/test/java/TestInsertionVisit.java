@@ -42,7 +42,7 @@ public class TestInsertionVisit {
         //listUsers2.add(u3);
 
         // Visit 1
-        Visit visit1 = Method.getVisit(listUsers1, v1, false, 1000);
+        Visit visit1 = Method.getVisitByPermutation(listUsers1, v1, false, 1000);
         System.out.println(visit1);
 
         v1.setVisit(visit1);
@@ -54,7 +54,7 @@ public class TestInsertionVisit {
         listUsers.add(u3);
         listUsers.add(u4);
 
-        Visit v = Method.getBestInsertion(listUsers, v1);
+        Visit v = Method.getBestInsertion(listUsers, v1, 3, v1.getCurrentNode().getArrival(), true, 3);
 
 
         System.out.println("BEST:" + v);

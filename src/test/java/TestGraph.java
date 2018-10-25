@@ -16,7 +16,7 @@ public class TestGraph {
         Dao dao = Dao.getInstance();
         Graph g = new Graph();
         Vehicle v1 = new Vehicle(4, 0, 2.3, 4.5);
-        List<User> trips2 = dao.getListTrips(1);
+        List<User> trips2 = dao.getListTrips(1, 10);
         // Try adding two vertices
         VertexVehicle vv1 = g.addVertexVehicle(v1);
         VertexVehicle vv2 = g.addVertexVehicle(v1);

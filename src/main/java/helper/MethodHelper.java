@@ -24,7 +24,7 @@ public class MethodHelper {
         while (v == null) {
             Dao dao = Dao.getInstance();
             Set<User> listUser = new HashSet<>(dao.getListTrips(100, n));
-            v = Method.getVisit(listUser, v1, findBest, maxTrips);
+            v = Method.getVisitByPermutation(listUser, v1, findBest, maxTrips);
         }
 
         return v;

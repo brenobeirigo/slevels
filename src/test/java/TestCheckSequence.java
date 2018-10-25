@@ -16,16 +16,16 @@ public class TestCheckSequence {
         System.out.println("Get second batch...");
 
         System.out.println("10 seconds...");
-        List<User> trips = dao.getListTrips(10);
+        List<User> trips = dao.getListTrips(10, 10);
 
         // Test vehicles of size 4
         TestHelperMethods.testValid(4, trips);
 
         // Consume 1 hour
-        dao.getListTrips(3600);
+        dao.getListTrips(3600, 10);
 
         System.out.println("10 seconds...");
-        List<User> trips2 = dao.getListTrips(100);
+        List<User> trips2 = dao.getListTrips(100, 10);
 
         // Test vehicles of size 4
         System.out.println("Visits with idle time:");
@@ -57,18 +57,18 @@ public class TestCheckSequence {
             System.out.println("######## TESTING BISECT:");
             Model.Visit visitBis = getValidVisitOfSize(4, true, 1000);
 
-            int currentTime;
+            int departureVehicleCurrent;
             do {
                 System.out.println("Enter an integer to cut sequence arrival:");
                 System.out.println(visitBis);
-                currentTime = keyboard.nextInt();
+                departureVehicleCurrent = keyboard.nextInt();
                 System.out.println("Cutting sequence...");
-                int getServicedUsers = Model.Visit.bisect_right(visitBis.getSequenceArrivals(), currentTime);
+                int getServicedUsers = Model.Visit.bisect_right(visitBis.getSequenceArrivals(), departureVehicleCurrent);
                 System.out.println("Elements to remove: " + getServicedUsers);
                 //Set<Model.User> usersFinished = gen22.getServicedUsersUntil(5000,0);
                 //System.out.println("Users: "+usersFinished);
                 //System.out.println(usersFinished);
-            } while(currentTime>=0);
+            } while(departureVehicleCurrent>=0);
             */
 
 
@@ -87,7 +87,7 @@ public class TestCheckSequence {
             j = keyboard.nextInt();
             t = keyboard.nextInt();
 
-            Visit insert = Method.getVisitByInsertion(ListUser2.get(0), visitUpdate.getSequenceVisits(), visitUpdate.getVehicle(), i, j, t);
+            Visit insert = Method.getVisitByInsertPosition(ListUser2.get(0), visitUpdate.getSequenceVisits(), visitUpdate.getVehicle(), i, j, t);
             System.out.println(visitUpdate);
         } while (i >= 0);
     }

@@ -4,7 +4,10 @@ import dao.Dao;
 import helper.MethodHelper;
 import model.node.*;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
 
 public class Vehicle implements Comparable<Vehicle> {
     private static int count = Node.MAX_NUMBER_NODES * 2;
@@ -12,7 +15,7 @@ public class Vehicle implements Comparable<Vehicle> {
     private int id;
     private int capacity;
     private Integer load;
-    private List<User> listUsers;
+    private Set<User> users;
     private Set<User> enroute;
     private Set<Node> enrouteNode;
     private List<Node> journey;
@@ -22,7 +25,7 @@ public class Vehicle implements Comparable<Vehicle> {
     private int totalWaiting;
     private int current_time;
     private List<User> servicedUsers;
-
+    private int departureCurrent; // Time vehicle leaves current node
 
     public Vehicle(int size, int id_network, double lat, double lon) {
         ++count;
@@ -32,7 +35,7 @@ public class Vehicle implements Comparable<Vehicle> {
         this.capacity = size;
         this.enroute = new HashSet<>();
         this.servicedUsers = new ArrayList<>();
-        this.listUsers = new LinkedList<>();
+        this.users = new HashSet<>();
         this.journey = new ArrayList<>();
         this.journey.add(this.currentNode);
         this.load = 0;
@@ -46,10 +49,18 @@ public class Vehicle implements Comparable<Vehicle> {
         this.capacity = size;
         this.enroute = new HashSet<>();
         this.servicedUsers = new ArrayList<>();
-        this.listUsers = new LinkedList<>();
+        this.users = new HashSet<>();
         this.journey = new ArrayList<>();
         this.journey.add(this.currentNode);
         this.load = 0;
+    }
+
+    public int getDepartureCurrent() {
+        return departureCurrent;
+    }
+
+    public void setDepartureCurrent(int departureCurrent) {
+        this.departureCurrent = departureCurrent;
     }
 
     public static int getCount() {
@@ -96,17 +107,21 @@ public class Vehicle implements Comparable<Vehicle> {
         return currentNode;
     }
 
-    public List<User> getListUsers() {
-        return listUsers;
+    public Set<User> getUsers() {
+        return users;
     }
 
     public int getCapacity() {
         return capacity;
     }
 
+    public void setUsers(Set<User> users) {
+        this.users = users;
+    }
+
     @Override
     public int compareTo(Vehicle o) {
-        return this.currentNode.getArrival() - o.currentNode.getArrival();
+        return this.departureCurrent - o.departureCurrent;
     }
 
     /**
@@ -195,7 +210,7 @@ public class Vehicle implements Comparable<Vehicle> {
                 User.status[tripId][3] = currentNode.getDelay();
 
                 // Model.Node visited is removed from vehicle
-                this.listUsers.remove(User.all_users.get(tripId));
+                this.users.remove(User.all_users.get(tripId));
 
                 // User is locked in vehicle (cannot change to other)
                 this.enroute.remove(User.all_users.get(tripId));
@@ -231,7 +246,7 @@ public class Vehicle implements Comparable<Vehicle> {
 
 
         // If all nodes were visited
-        if (this.listUsers.isEmpty()) {
+        if (this.users.isEmpty()) {
 
             // Signalize that vehicle is stopped at last visited node in a stop point
             this.currentNode = new NodeStop(this.currentNode, this.id);
@@ -244,12 +259,16 @@ public class Vehicle implements Comparable<Vehicle> {
         return serviced;
     }
 
+    @Override
+    public String toString() {
+        return String.format("%6s", "V" + String.valueOf(id - Node.MAX_NUMBER_NODES * 2));
+    }
 
     public Set<User> getServicedUsersUntil(int currentTime) {
 
         //TODO jump to next node and update arrival time over current? Prevents changing next
         // Remember that user is removed when DP is visited
-        //currentTime = Math.max(this.currentNode.getArrival(), currentTime);
+        //departureCurrent = Math.max(this.currentNode.getArrival(), departureCurrent);
 
         // If vehicle has no customers to service
         if (visit == null ||
@@ -263,12 +282,10 @@ public class Vehicle implements Comparable<Vehicle> {
         Set<User> serviced = new HashSet<>();
 
         int nRemoved = 0;
-        for (int i = 0; i < visit.getSequenceVisits().size(); i++) {
-
-            Node nextNode = visit.getSequenceVisits().get(i);
+        for (Node nextNode : visit.getSequenceVisits()) {
 
             // Get arrival time at first node of visit sequenceVisits
-            int arrivalNext = currentNode.getArrival() + Dao.getInstance().getDistSec(currentNode, nextNode);
+            int arrivalNext = this.departureCurrent + Dao.getInstance().getDistSec(currentNode, nextNode);
 
             // If current time is lower than arrival at next node, the node was not visited yet
             if (arrivalNext > currentTime) {
@@ -284,10 +301,10 @@ public class Vehicle implements Comparable<Vehicle> {
             // Update current load in vehicle
             this.load += nextNode.getLoad();
 
-            // New current node is next node
+            // Update data of current node
             currentNode = nextNode;
             this.journey.add(currentNode);
-
+            this.departureCurrent = arrivalNext;
 
             //if(this.load > this.capacity)
             //    System.out.println(this.load + "-" + this.capacity);
@@ -318,7 +335,7 @@ public class Vehicle implements Comparable<Vehicle> {
                 User.status[tripId][3] = currentNode.getDelay();
 
                 // Model.Node visited is removed from vehicle
-                this.listUsers.remove(User.all_users.get(tripId));
+                this.users.remove(User.all_users.get(tripId));
 
                 // User is locked in vehicle (cannot change to other)
                 this.enroute.remove(User.all_users.get(tripId));
@@ -332,6 +349,7 @@ public class Vehicle implements Comparable<Vehicle> {
 
                 // Save ride trip ride time
                 User.all_users.get(tripId).setRideTime(rideTime);
+
 
             } else if (currentNode instanceof NodePK) {
                 int tripId = currentNode.getTripId();
@@ -353,40 +371,31 @@ public class Vehicle implements Comparable<Vehicle> {
 
         // Remove first "nRemoved" elements
         for (int j = 0; j < nRemoved; j++) {
-            visit.getSequenceVisits().remove(0);
+            visit.getSequenceVisits().removeFirst();
+            //visit.getSequenceArrivals().remove(0);
         }
 
 
         // If all nodes were visited
-        if (this.listUsers.isEmpty()) {
+        if (this.users.isEmpty()) {
 
             // Signalize that vehicle is stopped at last visited node in a stop point
             this.currentNode = new NodeStop(this.currentNode, this.id);
 
+            // Update vehicle current time
+            this.departureCurrent = currentTime;
+
             // Model.Vehicle has no routing plan
             this.setVisit(null);
+        } else {
+            // Update visit current time
+            this.visit.setDepartureVehicleCurrent(departureCurrent);
         }
 
         // Serviced users in an execution round
         return serviced;
     }
 
-    @Override
-    public String toString() {
-        return String.format("%6s", "V" + String.valueOf(id - Node.MAX_NUMBER_NODES * 2));
-    }
-
-    public String get_info() {
-        return String.format("%s(%2s/%d) - %s(%s) - Users: %30s -> Journey: %s - Attended: %s",
-                this,
-                (!listUsers.isEmpty() ? String.valueOf(load) : "-"),
-                capacity,
-                currentNode,
-                currentNode.getArrival(),
-                listUsers,
-                (this.visit != null ? visit : "---"),
-                servicedUsers);
-    }
 
     public List<Node> getJourney() {
         return this.journey;
@@ -469,5 +478,31 @@ public class Vehicle implements Comparable<Vehicle> {
 
     public void setEnroute(Set<User> enroute) {
         this.enroute = enroute;
+    }
+
+    public String get_info() {
+
+        return String.format("%s(%2s/%d) - %s(%s) - Users: %30s -> Journey: %s - Attended: %s",
+                this,
+                (!users.isEmpty() ? String.valueOf(load) : "-"),
+                capacity,
+                currentNode,
+                currentNode.getArrival(),
+                users,
+                (this.visit != null ? visit : "---"),
+                servicedUsers);
+
+        /*
+        return String.format("%s(%2s/%d) - %s(%s) - Users: %30s -> Journey: %s - Arrivals: %s - Attended: %s",
+                this,
+                (!users.isEmpty() ? String.valueOf(load) : "-"),
+                capacity,
+                currentNode,
+                departureCurrent,
+                users,
+                (this.visit != null ? visit : "---"),
+                (this.visit != null ? this.visit.getSequenceArrivals() : "---"),
+                servicedUsers);
+    */
     }
 }

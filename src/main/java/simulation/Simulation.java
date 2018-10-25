@@ -6,13 +6,12 @@ import helper.HelperIO;
 import helper.MethodHelper;
 import model.User;
 import model.Vehicle;
-import model.node.NodeDP;
-import model.node.NodePK;
+import model.node.NodeOrigin;
+import model.node.NodeStop;
 
 import java.util.*;
 
 public abstract class Simulation {
-
 
     // Mark getServicedUsers execution time
     protected long t1;
@@ -48,10 +47,10 @@ public abstract class Simulation {
 
         /* TIME HORIZON */
         timeHorizon = 30; // Size of time bins
-        totalHorizon = 600; // Total time horizon
+        totalHorizon = 3600; // Total time horizon
 
         /* VEHICLE INFO */
-        nOfVehicles = 1000; // Fleet size
+        nOfVehicles = 2000; // Fleet size
         vehicleCapacity = 10; // Number of seats (1 - 4)
 
         /* POOLING DATA */
@@ -80,7 +79,7 @@ public abstract class Simulation {
 
     //TODO hot_PK_list
 
-    public abstract Set<User> getServicedUsers();
+    public abstract Set<User> getServicedUsers(int currentTime);
 
     public void run() {
         /* Declare empty waiting list
@@ -129,10 +128,10 @@ public abstract class Simulation {
                 }
 
                 // If there are passengers after the update
-                if (!v.getListUsers().isEmpty()) {
+                if (!v.getUsers().isEmpty()) {
 
                     // Update the number of remaining passengers
-                    remainingPassengers = remainingPassengers + v.getListUsers().size();
+                    remainingPassengers = remainingPassengers + v.getUsers().size();
 
                     // Vehicles en-route
                     setActiveVehicles.add(v);
@@ -147,10 +146,11 @@ public abstract class Simulation {
                 // Time from current node in vehicle is only updated when:
                 //  - Current node is origin or NodeStop
                 //  - Model.Vehicle is idle
-                if (!(v.getCurrentNode() instanceof NodeDP
-                        || v.getCurrentNode() instanceof NodePK)
-                        && v.getListUsers().isEmpty()) {
-                    v.getCurrentNode().setArrival(Math.max(rightTW, v.getCurrentNode().getArrival()));
+
+                if (v.getCurrentNode() instanceof NodeStop || v.getCurrentNode() instanceof NodeOrigin) {
+                    if (v.getUsers().isEmpty()) {
+                        v.setDepartureCurrent(Math.max(rightTW, v.getDepartureCurrent()));
+                    }
                 }
             }
 
@@ -187,7 +187,7 @@ public abstract class Simulation {
             if (countRounds < totalRounds) {
 
                 // Dictionary of pooled requests inside time slot
-                listUsersTW = Dao.getInstance().getListTrips(timeHorizon, maxNumberOfTrips);
+                listUsersTW = Dao.getInstance().getListTrips(timeHorizon, vehicleCapacity, maxNumberOfTrips);
 
                 // Add pooled requests into waiting list
                 setWaitingUsers.addAll(listUsersTW);
@@ -204,11 +204,11 @@ public abstract class Simulation {
 
             //##########################################################################################################
             //##########################################################################################################
-            Set<User> setScheduledUsers = getServicedUsers();
+            Set<User> setScheduledUsers = getServicedUsers(rightTW);
             //##########################################################################################################
             //##########################################################################################################
 
-            System.out.println("Scheduled:" + setScheduledUsers.size());
+            System.out.println("Scheduled in round:" + setScheduledUsers.size() + "/" + setWaitingUsers.size());
             // Remove scheduled requests from pool of waiting
             setWaitingUsers.removeAll(setScheduledUsers);
 
@@ -270,8 +270,5 @@ public abstract class Simulation {
         //Final execution time
         long t2 = System.nanoTime();
         System.out.println("TOTAL TIME: " + Config.sec2TStamp((int) (t2 - t1) / 1000000000));
-
     }
-
-
 }

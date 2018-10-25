@@ -24,7 +24,7 @@ public class TestHelperMethods {
 
             listUser.addAll(dao.getListTrips(100, n));
 
-            v = Method.getVisit(listUser, v1, findBest, maxTrips);
+            v = Method.getVisitByPermutation(listUser, v1, findBest, maxTrips);
 
             v.setSetUsers(listUser);
 

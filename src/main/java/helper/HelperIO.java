@@ -3,6 +3,7 @@ package helper;
 import model.User;
 import model.Vehicle;
 import model.node.NodeOrigin;
+import model.node.NodeStop;
 import org.apache.commons.csv.CSVFormat;
 import org.apache.commons.csv.CSVPrinter;
 
@@ -56,7 +57,7 @@ public class HelperIO {
         for (Vehicle v : vehicles) {
 
             // If vehicle is not empty
-            if (!v.getListUsers().isEmpty()) {
+            if (!v.getUsers().isEmpty()) {
 
                 // If there are passengers inside vehicle
                 if (showEnRoute) {
@@ -71,7 +72,7 @@ public class HelperIO {
                     // Add origin
                     origin.add(v);
 
-                } else if (showIdle) {
+                } else if (v.getCurrentNode() instanceof NodeStop && showIdle) {
                     idle.add(v);
                 }
             }

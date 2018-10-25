@@ -12,7 +12,6 @@ import java.io.FileReader;
 import java.io.IOException;
 import java.io.Reader;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 
@@ -79,19 +78,24 @@ public class Dao {
     }
 
 
-    public List<User> getListTrips(int timeSpanSec, int maxNumber) {
-        List<User> trips = getListTrips(timeSpanSec);
+    public List<User> getListTrips(int timeSpanSec, int maxPassengerCount, int maxNumber) {
+        List<User> trips = getListTrips(timeSpanSec, maxPassengerCount);
         if (trips.size() > maxNumber) {
-            Collections.shuffle(trips);
+            // Collections.shuffle(trips);
             trips = trips.subList(0, maxNumber);
         }
 
         return trips;
     }
 
-    public List<User> getListTrips(int timeSpanSec) {
+    public List<User> getListTrips(int timeSpanSec, int maxPassengerCount) {
         List<User> listUser = userBuff;
         for (CSVRecord record : records) {
+
+            if (Integer.valueOf(record.get("passenger_count")) > maxPassengerCount) {
+                continue;
+            }
+
             User user = new User(
                     record.get("pickup_datetime"),
                     Integer.valueOf(record.get("passenger_count")),

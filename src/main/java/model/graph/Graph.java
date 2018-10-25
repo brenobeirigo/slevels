@@ -75,7 +75,7 @@ public class Graph {
     public Visit addEdge(Vehicle vehicle, Set<User> trip) {
 
         // Try to get a visit out of vehicle and trip
-        Visit visit = Method.getVisit(trip,
+        Visit visit = Method.getVisitByPermutation(trip,
                 vehicle,
                 false,
                 100);

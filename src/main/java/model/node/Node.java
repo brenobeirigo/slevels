@@ -9,11 +9,19 @@ public class Node implements Comparable<Node> {
     // Coordinate dictionaries
     public static Map<Integer, Double[]> nodeDic = new HashMap<>();
     protected int networkId, id;
-    protected int earliest, arrival, latest;
+    protected int earliest, arrival, departure, latest;
     protected int load;
     protected int delay;
     protected int tripId;
 
+
+    public int getDeparture() {
+        return departure;
+    }
+
+    public void setDeparture(int departure) {
+        this.departure = departure;
+    }
 
     public Node(int id, int networkId) {
         this.id = id;

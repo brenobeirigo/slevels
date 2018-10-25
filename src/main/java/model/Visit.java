@@ -2,24 +2,22 @@ package model;
 
 import model.node.Node;
 
-import java.util.ArrayList;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
+import java.util.*;
 
 public class Visit implements Comparable<Visit> {
     public static int visitCount = 0;
     private int arrival;
     private Set<User> setUsers;
-    private List<Node> sequenceVisits;
+    protected LinkedList<Node> sequenceVisits;
     private List<Integer> sequenceArrivals;
-    private Vehicle vehicle;
+    protected Vehicle vehicle;
     private List<Integer> sequenceLoads;
+    protected int departureVehicleCurrent; // Departure time of vehicle current node
 
     // Delays and idle times
-    private int delay, idle;
+    protected int delay, idle;
 
-    public Visit(int arrival, Set<User> setUsers, List<Node> sequenceArrivals, int delay, Vehicle vehicle, int idle) {
+    public Visit(int arrival, Set<User> setUsers, LinkedList<Node> sequenceArrivals, int delay, Vehicle vehicle, int idle) {
         this.arrival = arrival;
         this.setUsers = setUsers;
         this.setSequenceVisits(sequenceArrivals);
@@ -29,7 +27,7 @@ public class Visit implements Comparable<Visit> {
         //visitCount++;
     }
 
-    public Visit(List<Node> sequenceVisits, int delay, List<Integer> sequenceArrivals, int idle, List<Integer> sequenceLoads) {
+    public Visit(LinkedList<Node> sequenceVisits, int delay, List<Integer> sequenceArrivals, int idle, List<Integer> sequenceLoads) {
         this.arrival = 0;
         this.setUsers = new HashSet<>();
         this.setSequenceVisits(sequenceVisits);
@@ -40,7 +38,8 @@ public class Visit implements Comparable<Visit> {
         //visitCount++;
     }
 
-    public Visit(List<Node> sequenceVisits, int delay, int idle) {
+
+    public Visit(LinkedList<Node> sequenceVisits, int delay, int idle) {
         this.arrival = 0;
         this.setUsers = new HashSet<>();
         this.setSequenceVisits(sequenceVisits);
@@ -49,10 +48,42 @@ public class Visit implements Comparable<Visit> {
         //visitCount++;
     }
 
+    public Visit(LinkedList<Node> sequenceVisits, int delay, int idle, int departureVehicleCurrent) {
+        this.arrival = 0;
+        this.setUsers = new HashSet<>();
+        this.setSequenceVisits(sequenceVisits);
+        this.delay = delay;
+        this.idle = idle;
+        this.departureVehicleCurrent = departureVehicleCurrent;
+        //visitCount++;
+    }
+
+    public Visit(LinkedList<Node> sequenceVisits, LinkedList<Integer> sequenceArrivals, int delay, int idle) {
+        this.arrival = 0;
+        this.setUsers = new HashSet<>();
+        this.sequenceVisits = sequenceVisits;
+        this.sequenceArrivals = sequenceArrivals;
+        this.delay = delay;
+        this.idle = idle;
+        //visitCount++;
+    }
+
+    public Visit(LinkedList<Node> sequenceVisits, LinkedList<Integer> sequenceArrivals, int delay, int idle, int departureVehicleCurrent) {
+        this.arrival = 0;
+        this.setUsers = new HashSet<>();
+        this.sequenceVisits = sequenceVisits;
+        this.sequenceArrivals = sequenceArrivals;
+        this.delay = delay;
+        this.idle = idle;
+        this.departureVehicleCurrent = departureVehicleCurrent;
+        //visitCount++;
+    }
+
+
     public Visit() {
         this.arrival = 0;
         this.setUsers = null;
-        this.setSequenceVisits(null);
+        this.sequenceVisits = null;
         this.delay = Integer.MAX_VALUE;
         this.vehicle = null;
         this.idle = Integer.MAX_VALUE;
@@ -89,7 +120,7 @@ public class Visit implements Comparable<Visit> {
         return setUsers;
     }
 
-    public List<Node> getSequenceVisits() {
+    public LinkedList<Node> getSequenceVisits() {
         return sequenceVisits;
     }
 
@@ -121,6 +152,10 @@ public class Visit implements Comparable<Visit> {
         this.setUsers = setUsers;
     }
 
+    public void setSequenceVisits(LinkedList<Node> sequenceVisits) {
+        this.sequenceVisits = sequenceVisits;
+    }
+
     @Override
     public String toString() {
         /*
@@ -138,35 +173,54 @@ public class Visit implements Comparable<Visit> {
         List<String> nodes = new ArrayList<>();
         if (getSequenceVisits() != null) {
             for (int i = 0; i < getSequenceVisits().size(); i++) {
+                /*
                 nodes.add(String.format("%s(%s)",
                         getSequenceVisits().get(i),
                         getSequenceArrivals().get(i))); // config.Config.sec2TStamp(sequenceArrivals.get(i))));
+                */
+                nodes.add(String.format("%s",
+                        getSequenceVisits().get(i))); // config.Config.sec2TStamp(sequenceArrivals.get(i))));
             }
         }
         return String.format("(delay: %5s - idle: %5s) %s ", String.valueOf(delay), String.valueOf(idle), nodes);
-    }
-
-
-    public void setSequenceVisits(List<Node> sequenceVisits) {
-        this.sequenceVisits = sequenceVisits;
     }
 
     public void setSequenceArrivals(List<Integer> sequenceArrivals) {
         this.sequenceArrivals = sequenceArrivals;
     }
 
-
     public String getInfo() {
-        return "Visit{" +
-                "arrival=" + arrival +
-                ", setUsers=" + setUsers +
-                ", sequenceVisits=" + sequenceVisits +
-                ", sequenceArrivals=" + sequenceArrivals +
-                ", sequenceLoads=" + sequenceLoads +
-                ", delay=" + delay +
-                ", idle=" + idle +
-                ", vehicle=" + vehicle.get_info() +
+        return "(" + departureVehicleCurrent +
+                ") Users: " + setUsers +
+                " - Visits: " + sequenceVisits +
+                " - Arrivals: " + sequenceArrivals +
+                " - Loads: " + sequenceLoads +
+                " - Delay: " + delay +
+                " - Idle: " + idle +
+                " - Vehicle: " + vehicle.get_info() +
                 '}';
     }
-}
 
+    public int getDepartureVehicleCurrent() {
+        return departureVehicleCurrent;
+    }
+
+    public void setDepartureVehicleCurrent(int departureVehicleCurrent) {
+        this.departureVehicleCurrent = departureVehicleCurrent;
+    }
+
+    /*
+    Update vehicle with data from current visit.
+     */
+    public void setup() {
+
+        // Add visit to vehicle (circular)
+        this.vehicle.setVisit(this);
+
+        // Vehicle set of users
+        this.vehicle.setUsers(this.getSetUsers());
+
+        // Update departure time of vehicle from vehicle current node for new visit
+        this.vehicle.setDepartureCurrent(this.departureVehicleCurrent);
+    }
+}

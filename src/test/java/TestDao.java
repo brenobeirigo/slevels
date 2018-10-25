@@ -11,19 +11,19 @@ public class TestDao {
 
     public static void main(String[] arg) {
         Dao dao = Dao.getInstance();
-        List<User> users = dao.getListTrips(1);
+        List<User> users = dao.getListTrips(1, 10);
         for (User l : users) {
             System.out.println(l);
         }
 
         System.out.println("Get second batch...");
-        List<User> trips2 = dao.getListTrips(1);
+        List<User> trips2 = dao.getListTrips(1, 10);
         for (User l : trips2) {
             System.out.println(l);
         }
 
         System.out.println("Get second batch...");
-        List<User> trips3 = dao.getListTrips(100);
+        List<User> trips3 = dao.getListTrips(100, 10);
 
         int size = 3;
         int cont = 0;

@@ -1,5 +1,3 @@
-
-
 import dao.Dao;
 import model.User;
 import model.Vehicle;
@@ -8,7 +6,6 @@ import model.node.Node;
 
 import java.util.HashSet;
 import java.util.LinkedList;
-import java.util.List;
 import java.util.Set;
 
 public class TestVisit {
@@ -16,9 +13,9 @@ public class TestVisit {
     public static void main(String[] arg) {
 
         Dao dao = Dao.getInstance();
-        Set<User> users = new HashSet<>(dao.getListTrips(1));
+        Set<User> users = new HashSet<>(dao.getListTrips(1, 10));
 
-        List<Node> seqVisit = new LinkedList<>();
+        LinkedList<Node> seqVisit = new LinkedList<>();
         for (User t : users) {
             seqVisit.add(t.getNodePk());
             seqVisit.add(t.getNodeDp());

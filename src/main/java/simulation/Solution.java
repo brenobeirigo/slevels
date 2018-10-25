@@ -25,7 +25,7 @@ public class Solution {
     private String methodName;
     /* CSV output
 
-    currentTime;seatCount;activeVehicles;enrouteCount;deniedRequests.size();finishedRequests.size();
+    departureVehicleCurrent;seatCount;activeVehicles;enrouteCount;deniedRequests.size();finishedRequests.size();
     vehicleOccupancy;fleetMakeup;pkDelay;totalDelay;runTime; */
     private ArrayList<List<String>> entries;
     private List<String> header;
@@ -57,9 +57,11 @@ public class Solution {
         header.add("enroute_count");
         header.add("pk_delay");
         header.add("total_delay");
+        header.add("idle");
+        header.add("picking_up");
 
 
-        for (int i = 0; i <= vehicleCapacity; i++) {
+        for (int i = 1; i <= vehicleCapacity; i++) {
             header.add("O" + String.valueOf(i));
         }
 
@@ -137,17 +139,21 @@ public class Solution {
         /*********************************************************************************************************
          ///////Model.Vehicle stats //////////////////////////////////////////////////////////////////////////////////////
          */
-
+        int pickingUp = 0;
         for (Vehicle v : listVehicles) {
 
             // Increment occupancy
             vehicleOccupancy[v.getLoad()]++;
             fleetMakeup[v.getCapacity() - 1]++;
 
-            int nUsers = v.getListUsers().size();
+            int nUsers = v.getUsers().size();
 
             // If there are users inside vehicle
             if (nUsers > 0) {
+
+                if (v.getLoad() == 0) {
+                    pickingUp++;
+                }
 
                 // Sum current load of vehicle
                 seatCount += v.getLoad();
@@ -170,11 +176,11 @@ public class Solution {
         double deniedRequestsPercentage = (double) deniedRequests.size() / allRequests.size();
         double waitingRequestsPercentage = (double) waitingRequests.size() / allRequests.size();
 
-
         this.addEntryCSV(currentTime,
                 setOfRequests.size(),
                 seatCount,
                 activeVehicles,
+                pickingUp,
                 enrouteCount,
                 waitingRequests.size(),
                 deniedRequests.size(),
@@ -192,6 +198,7 @@ public class Solution {
                         "\n  Seat count: %6s (%.2f%%)" +
                         "\n Fleet usage: %6s (%.2f%%)" +
                         "\n     Waiting: %6s (%.2f%%)" +
+                        "\n  Picking up: %6s (%.2f%%)" +
 
                         "\n## OVERALL:" +
                         "\n      Denied: %6s (%.2f%%)" +
@@ -204,20 +211,20 @@ public class Solution {
                 String.valueOf(seatCount), (double) seatCount / totalSeats * 100,
                 String.valueOf(activeVehicles), (double) activeVehicles * 100 / listVehicles.size(),
                 String.valueOf(waitingRequests.size()), waitingRequestsPercentage * 100,
+                String.valueOf(pickingUp), (double) pickingUp * 100 / listVehicles.size(),
                 String.valueOf(deniedRequests.size()), deniedRequestsPercentage * 100,
                 String.valueOf(finishedRequests.size()), finishedRequestsPercentage * 100,
                 (int) pkDelay,
                 (int) totalDelay,
                 String.valueOf(Arrays.toString(vehicleOccupancy)),
                 (double) runTime / 1000);
-
-
     }
 
     public void addEntryCSV(int currentTime,
                             int numberOfRequests,
                             int seatCount,
                             int activeVehicles,
+                            int pickingUp,
                             int enrouteCount,
                             int waitingRequests,
                             int deniedRequests,
@@ -240,9 +247,14 @@ public class Solution {
         entry.add(String.valueOf(pkDelay));
         entry.add(String.valueOf(totalDelay));
 
-        for (int o : vehicleOccupancy) {
-            entry.add(String.valueOf(o));
+        entry.add(String.valueOf(vehicleOccupancy[0] - pickingUp));
+
+        entry.add(String.valueOf(pickingUp));
+
+        for (int i = 1; i < vehicleOccupancy.length; i++) {
+            entry.add(String.valueOf(vehicleOccupancy[i]));
         }
+
 
         for (int s : fleetMakeup) {
             entry.add(String.valueOf(s));
