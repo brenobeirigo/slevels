@@ -63,8 +63,8 @@ public class TestCheckSequence {
                 System.out.println(visitBis);
                 departureVehicleCurrent = keyboard.nextInt();
                 System.out.println("Cutting sequence...");
-                int getServicedUsers = Model.Visit.bisect_right(visitBis.getSequenceArrivals(), departureVehicleCurrent);
-                System.out.println("Elements to remove: " + getServicedUsers);
+                int getServicedUsersDynamicSizedFleet = Model.Visit.bisect_right(visitBis.getSequenceArrivals(), departureVehicleCurrent);
+                System.out.println("Elements to remove: " + getServicedUsersDynamicSizedFleet);
                 //Set<Model.User> usersFinished = gen22.getServicedUsersUntil(5000,0);
                 //System.out.println("Users: "+usersFinished);
                 //System.out.println(usersFinished);

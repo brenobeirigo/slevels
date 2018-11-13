@@ -14,6 +14,11 @@ public class Node implements Comparable<Node> {
     protected int delay;
     protected int tripId;
 
+    public static void reset() {
+        /* Reset user */
+        Node.nodeDic = new HashMap<>();
+    }
+
 
     public int getDeparture() {
         return departure;
@@ -119,6 +124,16 @@ public class Node implements Comparable<Node> {
 
     public void setLatest(int latest) {
         this.latest = latest;
+    }
+
+    /**
+     * Increase maximum delay of a node. Invoked during the assignment, when customers cannot be
+     * serviced in a round and have to wait more for a vehicle.
+     *
+     * @param extraDelay
+     */
+    public void increaseLatest(int extraDelay) {
+        this.latest += extraDelay;
     }
 
     @Override

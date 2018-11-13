@@ -56,7 +56,7 @@ public class TestFCFS {
             System.out.println("USER OK:");
             for (Vehicle v : listV) {
                 if (v.getVisit() != null) {
-                    System.out.println(v.get_info());
+                    System.out.println(v.getInfo());
                 }
             }
 

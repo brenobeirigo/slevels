@@ -3,7 +3,6 @@ package simulation;
 import model.User;
 import model.Vehicle;
 import model.Visit;
-import model.graph.Graph;
 import model.node.Node;
 
 import java.util.*;
@@ -35,7 +34,7 @@ public class SimulationRTV extends Simulation {
         maxNumberPermutations = 100;
 
         // Initialize solution
-        sol = new Solution("RTV", nOfVehicles, maxNumberOfTrips, vehicleCapacity, timeHorizon, totalHorizon);
+        sol = new Solution("RTV", initialFleetSize, maxNumberOfTrips, vehicleCapacity, timeWindow, timeHorizon);
     }
 
     public void updateRR(User[] listRequests,
@@ -201,16 +200,11 @@ public class SimulationRTV extends Simulation {
         //G.addVertex(null);
 
         // Add request-request edges
-        updateRR(listRequests,
-                rv,
-                maxReqReqEdges);
+        updateRR(listRequests, rv, maxReqReqEdges);
 
         // A request r and a vehicle v are connected if the request can be served by the vehicle while satisfying the
         // constraints Z, as given by travel(v, r). Every vehicle is conected to "maxNumberOfEdges" users.
-        updateRV(listVehicles,
-                listRequests,
-                rv,
-                maxVehReqEdges);
+        updateRV(listVehicles, listRequests, rv, maxVehReqEdges);
 
         /*
         System.out.println("PRINT RV:");
@@ -218,6 +212,7 @@ public class SimulationRTV extends Simulation {
             System.out.println(listRequests[i].getId()+" - "+rv.get(listRequests[i].getId()));
         }
         */
+
         return rv;
     }
 
@@ -249,7 +244,7 @@ public class SimulationRTV extends Simulation {
                                                List<Vehicle> list_vehicles) {
 
 
-        Graph RTV = new Graph("RTV");
+        //Graph RTV = new Graph("RTV");
 
         // < Vehicle size, Visit> -> Vehicle sizes are levels
         Map<Integer, TreeSet<Visit>> visitsVehicleCapacity = new HashMap<>();
@@ -302,13 +297,9 @@ public class SimulationRTV extends Simulation {
                 //Visit visit = Method.getVisitByPermutation(trip1, v, false, 100);
 
                 // Get best insertion for trip with 1 users
-                Visit visit = Method.getBestInsertion(trip1, v, rightTW, numberUsersPermute, findBestVisit, maxNumberPermutations);
+                Visit visit = Method.getBestInsertionNoAddFirst(trip1, v, rightTW, numberUsersPermute, findBestVisit, maxNumberPermutations);
 
-                //System.out.println("VISITS1:");
-                //System.out.println(visit);
-                //System.out.println(visit2);
-
-                //System.out.println("VISIT: " + trip1 +" ["+ visit1 + "]\n                  ["+visit+"]");
+                // System.out.println("VISIT: " + trip1 +" ["+visit+"]");
                 if (visit != null) {
 
                     // TODO: Filling visit with users (has to change after changing enroute vehicles)
@@ -352,39 +343,21 @@ public class SimulationRTV extends Simulation {
                     //Visit visit = RTV.addEdge(v, trip2);
                     //TODO Rethink RTV use
 
-                    //System.out.println("Vehicle:"+v.get_info());
-
                     // Try to find a valid visit for trip (100 permutations tested)
                     //Visit visit = Method.getVisitByPermutation(trip2, v, false, 100);
 
-                    // Get best insertion in vehicle sequence for trip with 2 users
-                    Visit visit = Method.getBestInsertion(trip2, v, rightTW, numberUsersPermute, findBestVisit, maxNumberPermutations);
 
-                    //System.out.println("VISIT 22");
-                    //if(visit1 != null)
-                    //    System.out.println("Permutation:" + visit1.getInfo());
+                    // Get best insertion for trip with K users
+                    Visit visit = Method.getBestInsertionNoAddFirst(trip2, v, rightTW, numberUsersPermute, findBestVisit, maxNumberPermutations);
 
-                    //if(visit != null)
-                    //    System.out.println("Insertion:" + visit.getInfo());
-
-                    //System.out.println(visit + " " + visit1);
-                    //System.out.println("VISITS2:");
-                    //System.out.println(visit);
-                    //System.out.println(visit1);
-
-                    //System.out.println("VISITS2:");
-                    //System.out.println(visit);
-                    //System.out.println(visit2);
-
+                    //System.out.println(trip2+ " = "+ visit);
 
                     if (visit != null) {
+
+                        //System.out.println(trip2+ " = "+ visit);
+
                         // Update set of users in visit
-
                         visit.setSetUsers(trip2);
-                        //System.out.println("Users1:"+visit.getSetUsers());
-                        //visit.getSetUsers().addAll(v.getUsers());
-
-                        //System.out.println("Users2:"+visit.getSetUsers());
 
                         // Add trip at level 2
                         tripsVehicleLevel.get(2).add(trip2);
@@ -396,6 +369,9 @@ public class SimulationRTV extends Simulation {
                     //##################################################################################################
                 }
             }
+
+            //System.out.println("LEVEL 2");
+            //System.out.println(visitsVehicleCapacity.get(2));
 
             // &&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
             // &&&&&&&&&&& ADD TRIPS OF SIZE K >= 3 &&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
@@ -414,8 +390,8 @@ public class SimulationRTV extends Simulation {
                     break;
                 }
 
-                int sizePrecedentLevel = tripsVehicleLevel.get(k - 1).size();
-                // System.out.println("Testing "+ (sizePrecedentLevel * (sizePrecedentLevel-1)));
+                //int sizePrecedentLevel = tripsVehicleLevel.get(k - 1).size();
+                //System.out.println("Testing "+ (sizePrecedentLevel * (sizePrecedentLevel-1)));
 
                 maxNumberLevel:
                 // Get all (i,j) trip pairs from precedent level
@@ -429,7 +405,7 @@ public class SimulationRTV extends Simulation {
                     for (int j = i + 1; j < tripsVehicleLevel.get(k - 1).size(); j++) {
 
                         // Max. number of trips in level k
-                        if (uniqueTripsK.size() < maxEdgesRTV) {
+                        if (uniqueTripsK.size() > maxEdgesRTV) {
                             break maxNumberLevel;
                         }
 
@@ -440,6 +416,8 @@ public class SimulationRTV extends Simulation {
                         Set<User> tripK = new HashSet<>(tripI);
                         tripK.addAll(tripJ);
 
+                        // System.out.println(String.format("%s + %s = %s", tripI, tripJ, tripK));
+
                         /* Filter trips of size < k. E.g. for k = 3:
                          - [r1,r3]+[r1,r2] = [r1,r2,r3] OK! (size=3)
                          - [r1,r4]+[r2,r3] = [r1,r2,r3,r4] FAIL (size=4) */
@@ -447,12 +425,16 @@ public class SimulationRTV extends Simulation {
                             continue;
                         }
 
+                        //System.out.println("TRIP K:" + tripK);
+
+                        //System.out.println(String.format("%s + %s = %s", tripI, tripJ, tripK));
+
                         // TripK was already checked before
                         if (!uniqueTripsK.add(tripK)) {
                             continue;
                         }
 
-                        //System.out.println(String.format("%s + %s = %s", tripI, tripJ, tripK));
+                        // System.out.println(String.format("%s + %s = %s", tripI, tripJ, tripK));
 
                         //System.out.println(k+" -- "+tripK);
                         //System.out.println("Trips in "+(k-1)+" - "+ trips.get(k-1));
@@ -464,6 +446,8 @@ public class SimulationRTV extends Simulation {
                             // Create sub-trip (without "removeReq")
                             Set<User> sub = new HashSet<>(tripK);
                             sub.remove(removeReq);
+
+                            // System.out.println(tripsVehicleLevel + " -- " + sub);
 
                             // If sub-trip not in precedent level
                             if (!tripsVehicleLevel.get(k - 1).contains(sub)) {
@@ -481,14 +465,18 @@ public class SimulationRTV extends Simulation {
                         //Visit visit = Method.getVisitByPermutation(tripK, v, false, 100);
 
                         // Get best insertion for trip with K users
-                        Visit visit = Method.getBestInsertion(tripK, v, rightTW, numberUsersPermute, findBestVisit, maxNumberPermutations);
+                        Visit visit = Method.getBestInsertionNoAddFirst(tripK, v, rightTW, numberUsersPermute, findBestVisit, maxNumberPermutations);
 
                         //System.out.println("VISITSK:");
                         //System.out.println(visit);
                         //System.out.println(visit2);
 
+                        //System.out.println(tripK + " = " + visit);
+
                         // If found valid visit
                         if (visit != null) {
+
+                            //System.out.println(visit);
 
                             // Update set of users in visit (tripK + vehicle Users)
                             visit.setSetUsers(tripK);
@@ -511,7 +499,8 @@ public class SimulationRTV extends Simulation {
             //tripsVehicleLevel.forEach((level,setAtLevel)-> setAtLevel.forEach(trip->System.out.println(level+"-"+trip)));
         }
 
-        //System.out.println(">>Visits per level:");
+        System.out.println(">>Visits per level:");
+        visitsVehicleCapacity.forEach((level, setAtLevel) -> System.out.println(level + "-" + setAtLevel.size()));
         //visitsVehicleCapacity.forEach((level,setAtLevel)-> setAtLevel.forEach(visit->System.out.println(level+"-"+visit+" - " + visit.getVehicle())));
 
         return visitsVehicleCapacity;
@@ -526,7 +515,7 @@ public class SimulationRTV extends Simulation {
      * @return Set of users assigned
      */
     public Set<User> greedyAssignment(Map<Integer, TreeSet<Visit>> visitsVehicleCapacity) {
-        System.out.println("GREEDY");
+        //System.out.println("GREEDY");
 
         // Set of requests scheduled to vehicles
         Set<User> requestOk = new HashSet<>();
@@ -543,6 +532,8 @@ public class SimulationRTV extends Simulation {
             // Set of ordered visits (shortest delay) in level k
             TreeSet<Visit> visitsLevelK = visitsVehicleCapacity.get(k);
 
+            //System.out.println(k+" - "+visitsLevelK);
+
             // If there are visits in level k
             if (visitsLevelK != null) {
 
@@ -552,8 +543,6 @@ public class SimulationRTV extends Simulation {
 
                     // Get current best candidate visit
                     Visit candidateVisit = visitsLevelK.pollFirst();
-
-                    // System.out.println(candidateVisit + " - " + candidateVisit.getVehicle());
 
                     // Get vehicle associated to visit
                     Vehicle vehicle = candidateVisit.getVehicle();
@@ -565,8 +554,6 @@ public class SimulationRTV extends Simulation {
 
                     // Get requests associated to visit
                     Set<User> requests = candidateVisit.getSetUsers();
-
-                    // System.out.println("Candidates: "+ requests + " -- "+ vehicle);
 
                     // Jump to next visit if any request in candidate visit was already assigned
                     for (User r : requests) {
@@ -584,11 +571,7 @@ public class SimulationRTV extends Simulation {
                     // ######## Materialize visit ######################################################################
                     // #################################################################################################
 
-                    // Add visit to vehicle (circular)
-                    candidateVisit.getVehicle().setVisit(candidateVisit);
-
-                    // User u belongs to vehicle
-                    candidateVisit.getVehicle().getUsers().addAll(requests);
+                    candidateVisit.setup();
                 }
             }
         }
@@ -605,13 +588,29 @@ public class SimulationRTV extends Simulation {
      *
      * @return Scheduled users
      */
-    public Set<User> getServicedUsers(int currentTime) {
+    public Set<User> getServicedUsersDynamicSizedFleet(int currentTime) {
 
         // Create request-vehicle (RV) structure
         Map<Integer, List<Integer>> graphRV = getRVGraph(setWaitingUsers, listVehicles, maxVehReqEdges, maxReqReqEdges);
 
+        /*
+        System.out.println("RV GRAPH:");
+        for(Map.Entry<Integer, List<Integer>> e:graphRV.entrySet()){
+            System.out.println("#" + e.getKey() + ": " + e.getValue()  );
+        }
+        */
+
         // Create request-trip-vehicle (RTV) structure
         Map<Integer, TreeSet<Visit>> visitsVehicleCapacity = getRTV(graphRV, listVehicles);
+
+
+        System.out.println(">>>>>>>>>>>>>>> RTV GRAPH:");
+        for (Map.Entry<Integer, TreeSet<Visit>> e : visitsVehicleCapacity.entrySet()) {
+            System.out.println("#" + e.getKey() + ":" + e.getValue().size());
+            //for (Visit v:e.getValue()) {
+            //    System.out.println(v);
+            //}
+        }
 
         // Assign users to vehicles using greedy algorithm
         Set<User> setScheduledUsers = greedyAssignment(visitsVehicleCapacity);

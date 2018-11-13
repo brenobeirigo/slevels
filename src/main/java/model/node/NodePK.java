@@ -7,6 +7,7 @@ public class NodePK extends Node {
         this.tripId = tripId;
     }
 
+
     @Override
     public String toString() {
         return String.format("%7s", "PK" + String.valueOf(tripId));

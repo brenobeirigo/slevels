@@ -15,7 +15,7 @@ import java.util.*;
 
 public class Solution {
 
-    BufferedWriter writer;
+    private BufferedWriter writer;
     /* Instance */
     private int nOfVehicles;
     private int maxNumberOfTrips;
@@ -23,8 +23,12 @@ public class Solution {
     private int timeHorizon;
     private int totalHorizon;
     private String methodName;
-    /* CSV output
+    private String serviceRate;
+    private String customerSegmentation;
 
+
+
+    /* CSV output
     departureVehicleCurrent;seatCount;activeVehicles;enrouteCount;deniedRequests.size();finishedRequests.size();
     vehicleOccupancy;fleetMakeup;pkDelay;totalDelay;runTime; */
     private ArrayList<List<String>> entries;
@@ -44,6 +48,22 @@ public class Solution {
         createHeader();
     }
 
+    // Initialize solution
+    public Solution(String methodName,
+                    int nOfVehicles,
+                    int maxNumberOfTrips,
+                    int vehicleCapacity,
+                    int timeHorizon,
+                    int totalHorizon,
+                    String serviceRate,
+                    String customerSegmentation) {
+
+        // Initialize solution
+        this(methodName, nOfVehicles, maxNumberOfTrips, vehicleCapacity, timeHorizon, totalHorizon);
+        this.serviceRate = serviceRate;
+        this.customerSegmentation = customerSegmentation;
+    }
+
     public void createHeader() {
 
         header = new ArrayList<>();
@@ -60,7 +80,6 @@ public class Solution {
         header.add("idle");
         header.add("picking_up");
 
-
         for (int i = 1; i <= vehicleCapacity; i++) {
             header.add("O" + String.valueOf(i));
         }
@@ -69,23 +88,24 @@ public class Solution {
             header.add("V" + String.valueOf(i));
         }
 
-
         header.add("run_time");
     }
 
     public void save() {
         // File path
         this.outputFile = Paths.get(
-                String.format("V%d-%d_R%d_TW%d_TH%d_%s.csv",
+                String.format("V%d-%d_R%d_TW%d_TH%d_%s_%s_%s.csv",
                         nOfVehicles,
                         vehicleCapacity,
                         maxNumberOfTrips,
                         timeHorizon,
                         totalHorizon,
-                        methodName
+                        methodName,
+                        serviceRate,
+                        customerSegmentation
                 ));
 
-        System.out.println("!!!!!!" + this.outputFile);
+        System.out.println("!!!!!! " + this.outputFile);
 
         try {
             writer = Files.newBufferedWriter(outputFile);
@@ -136,10 +156,11 @@ public class Solution {
         int[] vehicleOccupancy = new int[vehicleSize + 1];
         int[] fleetMakeup = new int[vehicleSize];
 
-        /*********************************************************************************************************
-         ///////Model.Vehicle stats //////////////////////////////////////////////////////////////////////////////////////
+        /***************************************************************************************************************
+         ///////Model.Vehicle stats ////////////////////////////////////////////////////////////////////////////////////
          */
         int pickingUp = 0;
+
         for (Vehicle v : listVehicles) {
 
             // Increment occupancy
@@ -193,30 +214,32 @@ public class Solution {
 
 
         return String.format(
-                "## REAL TIME:" +
-                        "\n    En-route: %6s (%.2f%%)" +
-                        "\n  Seat count: %6s (%.2f%%)" +
-                        "\n Fleet usage: %6s (%.2f%%)" +
-                        "\n     Waiting: %6s (%.2f%%)" +
-                        "\n  Picking up: %6s (%.2f%%)" +
 
-                        "\n## OVERALL:" +
+                "\n## REQUESTS MAKEUP:" +
+                        "\n    En-route: %6s (%.2f%%)" +
+                        "\n     Waiting: %6s (%.2f%%)" +
                         "\n      Denied: %6s (%.2f%%)" +
                         "\n    Finished: %6s (%.2f%%)" +
                         "\nPickup delay: %d" +
                         "\n Total delay: %d" +
+                        "## VEHICLE:" +
+                        "\n  Seat count: %6s (%.2f%%)" +
+                        "\n Fleet usage: %6s (%.2f%%)" +
+                        "\n  Picking up: %6s (%.2f%%)" +
                         "\n   Occupancy: %s" +
+                        "\n      Makeup: %s" +
                         "\n    Run time: %.2f s ",
                 String.valueOf(enrouteCount), Math.abs((double) enrouteCount / allRequests.size()) * 100,
-                String.valueOf(seatCount), (double) seatCount / totalSeats * 100,
-                String.valueOf(activeVehicles), (double) activeVehicles * 100 / listVehicles.size(),
                 String.valueOf(waitingRequests.size()), waitingRequestsPercentage * 100,
-                String.valueOf(pickingUp), (double) pickingUp * 100 / listVehicles.size(),
                 String.valueOf(deniedRequests.size()), deniedRequestsPercentage * 100,
                 String.valueOf(finishedRequests.size()), finishedRequestsPercentage * 100,
                 (int) pkDelay,
                 (int) totalDelay,
+                String.valueOf(seatCount), (double) seatCount / totalSeats * 100,
+                String.valueOf(activeVehicles), (double) activeVehicles * 100 / listVehicles.size(),
+                String.valueOf(pickingUp), (double) pickingUp * 100 / listVehicles.size(),
                 String.valueOf(Arrays.toString(vehicleOccupancy)),
+                String.valueOf(Arrays.toString(fleetMakeup)),
                 (double) runTime / 1000);
     }
 
@@ -254,7 +277,6 @@ public class Solution {
         for (int i = 1; i < vehicleOccupancy.length; i++) {
             entry.add(String.valueOf(vehicleOccupancy[i]));
         }
-
 
         for (int s : fleetMakeup) {
             entry.add(String.valueOf(s));

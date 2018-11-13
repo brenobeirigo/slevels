@@ -58,9 +58,20 @@ public class MethodHelper {
         }
     }
 
+    /**
+     * Create a vehicle of capacity "capacity" positioned at a random node.
+     *
+     * @param capacity Capacity of vehicle
+     * @return Vehicle at random position
+     */
+    public static Vehicle createVehicleAtRandomPosition(int capacity) {
+        int randomOrigin = (int) (Math.random() * Dao.getInstance().getDistMatrix().length);
+        return new Vehicle(capacity, randomOrigin);
+    }
+
     public static List<Vehicle> createListVehicles(int n, int size, boolean uniqueSize) {
 
-        System.out.println("Creating vehicles...");
+        //System.out.println("Creating vehicles...");
         List<Vehicle> listVehicle = new ArrayList<>();
 
         //TODO: initial distribution (vsize = [1,2,3,4,...,n]
@@ -85,9 +96,10 @@ public class MethodHelper {
 
             //
             int randomOrigin = (int) (Math.random() * Dao.getInstance().getDistMatrix().length);
+            ///System.out.println(randomOrigin);
             listVehicle.add(new Vehicle(vSize, randomOrigin, 2.3, 3.4));
         }
-        System.out.println(listVehicle.size() + " vehicles created.");
+        //System.out.println(listVehicle.size() + " vehicles created.");
         return listVehicle;
     }
 
@@ -124,7 +136,7 @@ public class MethodHelper {
         System.out.println("Getting latest distances...");
         for (int i = 0; i < 1000; i++) {
             for (int j = 0; j < 1000; j++) {
-                int latest = Method.getEarliestDp(0, i, j, 'A');
+                int latest = Method.getEarliestDp(0, i, j, "A");
                 System.out.println("Earliest:" + 0 + " - Latest time: " + latest);
             }
         }

@@ -31,7 +31,7 @@ public class TestInsertionVisit {
 
         System.out.println("Distance v1 & u1:" + dist1);
 
-        System.out.println("Vehicle:" + v1.get_info() + " - Node:" + v1.getOrigin());
+        System.out.println("Vehicle:" + v1.getInfo() + " - Node:" + v1.getOrigin());
 
 
         Set<User> listUsers1 = new HashSet<>();

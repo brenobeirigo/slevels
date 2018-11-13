@@ -1,1 +1,86 @@
-{}
+{
+  "scenario_config": {
+    "time_window": [
+      30
+    ],
+    "time_horizon": [
+      3600,
+      86400
+    ],
+    "max_requests": [
+      1000
+    ],
+    "initial_fleet": [
+      1000,
+      2000
+    ],
+    "max_capacity": [
+      10
+    ],
+    "service_rate": {
+      "S1": {
+        "A": 1,
+        "B": 0.95,
+        "C": 0.9
+      },
+      "S2": {
+        "A": 0.95,
+        "B": 0.9,
+        "C": 0.85
+      },
+      "S3": {
+        "A": 0.9,
+        "B": 0.85,
+        "C": 0.8
+      }
+    },
+    "customer_segmentation": {
+      "AA": {
+        "A": 0.68,
+        "B": 0.16,
+        "C": 0.16
+      },
+      "BB": {
+        "A": 0.16,
+        "B": 0.68,
+        "C": 0.16
+      },
+      "CC": {
+        "A": 0.16,
+        "B": 0.16,
+        "C": 0.68
+      },
+      "A": {
+        "A": 1,
+        "B": 0,
+        "C": 0
+      },
+      "B": {
+        "A": 0,
+        "B": 1,
+        "C": 0
+      },
+      "C": {
+        "A": 0,
+        "B": 0,
+        "C": 1
+      }
+    },
+    "service_level": {
+      "A": {
+        "pk_delay": 180,
+        "trip_delay": 180
+      },
+      "B": {
+        "pk_delay": 300,
+        "trip_delay": 600
+      },
+      "C": {
+        "pk_delay": 600,
+        "trip_delay": 900
+      }
+    }
+  },
+  "result_path": "./output/results_UHH.csv",
+  "generate_test_cases": true
+}

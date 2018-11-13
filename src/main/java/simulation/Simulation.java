@@ -1,6 +1,5 @@
 package simulation;
 
-import config.Config;
 import dao.Dao;
 import helper.HelperIO;
 import helper.MethodHelper;
@@ -13,16 +12,21 @@ import java.util.*;
 
 public abstract class Simulation {
 
-    // Mark getServicedUsers execution time
-    protected long t1;
+    // Solution coming from simulation
     protected Solution sol; //Simulation solution
 
+
+    /*Scenario*/
+    protected String serviceRateScenarioLabel;
+    protected String segmentationScenarioLabel;
+
+
     /* TIME HORIZON */
-    protected int timeHorizon; // Size of time bins
-    protected int totalHorizon; // Total time horizon
+    protected int timeWindow; // Size of time bins
+    protected int timeHorizon; // Total time horizon
 
     /* VEHICLE INFO */
-    protected int nOfVehicles; // Fleet size
+    protected int initialFleetSize; // Fleet size
     protected int vehicleCapacity; // Number of seats
 
     /* POOLING DATA */
@@ -43,20 +47,24 @@ public abstract class Simulation {
     //TODO hot_PK_list
 
 
-    public Simulation() {
+    public Simulation(int initialFleetSize,
+                      int vehicleCapacity,
+                      int maxNumberOfTrips,
+                      int timeWindow,
+                      int timeHorizon) {
 
         /* TIME HORIZON */
-        timeHorizon = 30; // Size of time bins
-        totalHorizon = 3600; // Total time horizon
+        this.timeWindow = timeWindow; // Size of time bins
+        this.timeHorizon = timeHorizon; // Total time horizon
 
         /* VEHICLE INFO */
-        nOfVehicles = 2000; // Fleet size
-        vehicleCapacity = 10; // Number of seats (1 - 4)
+        this.initialFleetSize = initialFleetSize; // Fleet size
+        this.vehicleCapacity = vehicleCapacity; // Number of seats (1 - 4)
 
         /* POOLING DATA */
-        maxNumberOfTrips = 300; //How many trips are pooled in time horizon
-        totalRounds = totalHorizon / timeHorizon; // How many rounds of time horizon will be pooled
-        time_slot = totalRounds * timeHorizon;
+        this.maxNumberOfTrips = maxNumberOfTrips; //How many trips are pooled in time horizon
+        totalRounds = timeHorizon / timeWindow; // How many rounds of time horizon will be pooled
+        time_slot = totalRounds * timeWindow;
         start_timestamp = 0; // (00:00:00) Initial timestamp for pooling data
         leftTW = this.start_timestamp; // Left and right time windows (rightTW = current time)
         rightTW = 0;
@@ -68,18 +76,44 @@ public abstract class Simulation {
         setWaitingUsers = new HashSet<>(); // Requests whose pickup time is lower than the current time
         deniedRequests = new HashSet<>(); // Requests with expired pickup time
         finishedRequests = new HashSet<>(); // Requests whose DP node was visited
-        listVehicles = MethodHelper.createListVehicles(nOfVehicles, vehicleCapacity, true); // List of vehicles
+
+        listVehicles = MethodHelper.createListVehicles(initialFleetSize, vehicleCapacity, true); // List of vehicles
         //TODO hot_PK_list
+    }
 
-        // Mark getServicedUsers execution time
-        t1 = System.nanoTime();
+    // Default constructor
+    public Simulation() {
 
-        // Initialize solution
+        /* TIME HORIZON */
+        timeWindow = 30; // Size of time bins
+        timeHorizon = 600; // Total time horizon
+
+        /* VEHICLE INFO */
+        initialFleetSize = 2000; // Fleet size
+        vehicleCapacity = 10; // Number of seats (1 - 4)
+
+        /* POOLING DATA */
+        maxNumberOfTrips = 1000; //How many trips are pooled in time horizon
+        totalRounds = timeHorizon / timeWindow; // How many rounds of time horizon will be pooled
+        time_slot = totalRounds * timeWindow;
+        start_timestamp = 0; // (00:00:00) Initial timestamp for pooling data
+        leftTW = this.start_timestamp; // Left and right time windows (rightTW = current time)
+        rightTW = 0;
+        run_ending_rounds = true; // Keep running rounds until all vehicles finish the requests
+        countRounds = 0;
+
+        /* SETS OF VEHICLES AND REQUESTS */
+        allRequests = new HashMap<>(); // Dictionary of all users
+        setWaitingUsers = new HashSet<>(); // Requests whose pickup time is lower than the current time
+        deniedRequests = new HashSet<>(); // Requests with expired pickup time
+        finishedRequests = new HashSet<>(); // Requests whose DP node was visited
+        listVehicles = MethodHelper.createListVehicles(initialFleetSize, vehicleCapacity, true); // List of vehicles
+        System.out.println("SIZE OF LIST VEHICLES:" + listVehicles.size());
+        //TODO hot_PK_list
     }
 
     //TODO hot_PK_list
-
-    public abstract Set<User> getServicedUsers(int currentTime);
+    public abstract Set<User> getServicedUsersDynamicSizedFleet(int currentTime);
 
     public void run() {
         /* Declare empty waiting list
@@ -95,15 +129,14 @@ public abstract class Simulation {
         // Loop number of rounds
         while (countRounds < totalRounds || run_ending_rounds) {
 
-            // Wall time getServicedUsers of round
+            // Wall time getServicedUsersDynamicSizedFleet of round
             long startWalltime = System.nanoTime();
 
             // Update current time
-            rightTW = leftTW + timeHorizon;
+            rightTW = leftTW + timeWindow;
 
             // Update previous current time
             leftTW = rightTW;
-
 
             /*#*******************************************************************************************************/
             ////// 1 - GET FINISHED USERS (before current time) ////////////////////////////////////////////////////////
@@ -136,6 +169,7 @@ public abstract class Simulation {
                     // Vehicles en-route
                     setActiveVehicles.add(v);
                 }
+
                 /* Update vehicle's current nodes (if they are of types NodeOrigin and NodeStop)
                  * with the rightmost time window value. This is the time a vehicle is allowed to
                  * depart to get the customers.
@@ -154,9 +188,9 @@ public abstract class Simulation {
                 }
             }
 
-            /*#*******************************************************************************************************/
+            /*#********************************************************************************************************/
             ////// 2 - Eliminate waiting users that can no longer be picked up /////////////////////////////////////////
-            /*#*******************************************************************************************************/
+            /*#********************************************************************************************************/
 
             // Get requests whose latest times are up
             Set<User> setTimeUpRequest = new HashSet<>();
@@ -167,7 +201,6 @@ public abstract class Simulation {
 
                     //TODO: Here TW windows get flexible
                     setTimeUpRequest.add(u);
-
             }
 
             // Set of requests that have expired
@@ -176,9 +209,9 @@ public abstract class Simulation {
             // Remove time up requests from waiting set
             setWaitingUsers.removeAll(setTimeUpRequest);
 
-            /*#*******************************************************************************************************/
+            /*#********************************************************************************************************/
             ////// 3 - GET USERS INSIDE TW /////////////////////////////////////////////////////////////////////////////
-            /*#*******************************************************************************************************/
+            /*#********************************************************************************************************/
 
             // List of pooled users inside TW (only filled if countRounds < totalRounds)
             List<User> listUsersTW = new ArrayList<>();
@@ -187,7 +220,7 @@ public abstract class Simulation {
             if (countRounds < totalRounds) {
 
                 // Dictionary of pooled requests inside time slot
-                listUsersTW = Dao.getInstance().getListTrips(timeHorizon, vehicleCapacity, maxNumberOfTrips);
+                listUsersTW = Dao.getInstance().getListTripsClassed(timeWindow, vehicleCapacity, maxNumberOfTrips);
 
                 // Add pooled requests into waiting list
                 setWaitingUsers.addAll(listUsersTW);
@@ -204,11 +237,12 @@ public abstract class Simulation {
 
             //##########################################################################################################
             //##########################################################################################################
-            Set<User> setScheduledUsers = getServicedUsers(rightTW);
+            Set<User> setScheduledUsers = getServicedUsersDynamicSizedFleet(rightTW);
             //##########################################################################################################
             //##########################################################################################################
 
             System.out.println("Scheduled in round:" + setScheduledUsers.size() + "/" + setWaitingUsers.size());
+
             // Remove scheduled requests from pool of waiting
             setWaitingUsers.removeAll(setScheduledUsers);
 
@@ -224,8 +258,8 @@ public abstract class Simulation {
             // Update round count
             countRounds = countRounds + 1;
 
-            /*#*******************************************************************************************************
-             ///// Print round information  ///////////////////////////////////////////////////////////////////////////
+            /*#*********************************************************************************************************
+             ///// Print round information  ////////////////////////////////////////////////////////////////////////////
             /*#********************************************************************************************************/
 
             // Print the time window reading
@@ -235,8 +269,8 @@ public abstract class Simulation {
                     rightTW,
                     listUsersTW,
                     allRequests,
-                    nOfVehicles,
-                    timeHorizon,
+                    initialFleetSize,
+                    timeWindow,
                     countRounds,
                     totalRounds
             ));
@@ -265,10 +299,6 @@ public abstract class Simulation {
         sol.save();
 
         // Print detailed journeys for each vehicle
-        System.out.println(HelperIO.printJourneys(listVehicles));
-
-        //Final execution time
-        long t2 = System.nanoTime();
-        System.out.println("TOTAL TIME: " + Config.sec2TStamp((int) (t2 - t1) / 1000000000));
+        // System.out.println(HelperIO.printJourneys(listVehicles));
     }
 }

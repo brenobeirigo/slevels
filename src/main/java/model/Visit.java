@@ -4,15 +4,16 @@ import model.node.Node;
 
 import java.util.*;
 
+import static config.Config.*;
+
 public class Visit implements Comparable<Visit> {
-    public static int visitCount = 0;
     private int arrival;
     private Set<User> setUsers;
     protected LinkedList<Node> sequenceVisits;
     private List<Integer> sequenceArrivals;
     protected Vehicle vehicle;
-    private List<Integer> sequenceLoads;
     protected int departureVehicleCurrent; // Departure time of vehicle current node
+    protected double avgOccupationLeg;
 
     // Delays and idle times
     protected int delay, idle;
@@ -34,10 +35,8 @@ public class Visit implements Comparable<Visit> {
         this.delay = delay;
         this.setSequenceArrivals(sequenceArrivals);
         this.idle = idle;
-        this.sequenceLoads = sequenceLoads;
         //visitCount++;
     }
-
 
     public Visit(LinkedList<Node> sequenceVisits, int delay, int idle) {
         this.arrival = 0;
@@ -55,6 +54,18 @@ public class Visit implements Comparable<Visit> {
         this.delay = delay;
         this.idle = idle;
         this.departureVehicleCurrent = departureVehicleCurrent;
+        //visitCount++;
+    }
+
+    public Visit(LinkedList<Node> sequenceVisits, int delay, int idle, double avgOccupationLeg, int departureVehicleCurrent) {
+        this.arrival = 0;
+        this.setUsers = new HashSet<>();
+        this.setSequenceVisits(sequenceVisits);
+        this.delay = delay;
+        this.idle = idle;
+        this.departureVehicleCurrent = departureVehicleCurrent;
+        //this.loadPerTime = totalLoad;
+        this.avgOccupationLeg = avgOccupationLeg;
         //visitCount++;
     }
 
@@ -79,7 +90,6 @@ public class Visit implements Comparable<Visit> {
         //visitCount++;
     }
 
-
     public Visit() {
         this.arrival = 0;
         this.setUsers = null;
@@ -87,7 +97,7 @@ public class Visit implements Comparable<Visit> {
         this.delay = Integer.MAX_VALUE;
         this.vehicle = null;
         this.idle = Integer.MAX_VALUE;
-
+        this.avgOccupationLeg = Double.MIN_VALUE;
     }
 
     /**
@@ -105,6 +115,7 @@ public class Visit implements Comparable<Visit> {
         for (User r : passengers) {
             // Add pickup node
             sequence.add(r.getNodePk().getTripId());
+
             // Add dropoff node
             sequence.add(r.getNodeDp().getTripId());
         }
@@ -140,12 +151,31 @@ public class Visit implements Comparable<Visit> {
         return idle;
     }
 
-    public int compareTo(Visit v) {
-        return this.getDelay() - v.getDelay();
-    }
+    /**
+     * @param that is a non-null Visit.
+     */
+    @Override
+    public int compareTo(Visit that) {
 
-    public List<Integer> getSequenceArrivals() {
-        return sequenceArrivals;
+        // Objects are equal
+        //if (this == that) return EQUAL;
+
+        //"Empty" visit
+        if (that.getSequenceVisits() == null) return BEFORE;
+
+        // Privilege trip size
+        //if (this.getSequenceVisits().size() > that.getSequenceVisits().size()) return BEFORE;
+        //if (this.getSequenceVisits().size() < that.getSequenceVisits().size()) return AFTER;
+
+        // Compare average occupation per leg
+        //if (this.avgOccupationLeg > that.avgOccupationLeg) return BEFORE;
+        //if (this.avgOccupationLeg < that.avgOccupationLeg) return AFTER;
+
+        //primitive numbers follow this form
+        if (this.delay < that.delay) return BEFORE;
+        if (this.delay > that.delay) return AFTER;
+
+        return EQUAL;
     }
 
     public void setSetUsers(Set<User> setUsers) {
@@ -156,53 +186,34 @@ public class Visit implements Comparable<Visit> {
         this.sequenceVisits = sequenceVisits;
     }
 
-    @Override
-    public String toString() {
-        /*
-        return "Model.Visit{" +
-                "\narrival=" + arrival +
-                "\nsetUsers=" + setUsers +
-                "\nsequenceVisits=" + sequenceVisits +
-                "\nsequenceArrivals=" + Arrays.toString(sequenceArrivals) +
-                "\nvehicle=" + vehicle +
-                "\ndelay=" + delay +
-                "\nidle=" + idle +
-                '}';
-        */
-        //return String.format("%s | $s (delay: %d - idle: %d)", sequenceVisits,  delay, idle);
-        List<String> nodes = new ArrayList<>();
-        if (getSequenceVisits() != null) {
-            for (int i = 0; i < getSequenceVisits().size(); i++) {
-                /*
-                nodes.add(String.format("%s(%s)",
-                        getSequenceVisits().get(i),
-                        getSequenceArrivals().get(i))); // config.Config.sec2TStamp(sequenceArrivals.get(i))));
-                */
-                nodes.add(String.format("%s",
-                        getSequenceVisits().get(i))); // config.Config.sec2TStamp(sequenceArrivals.get(i))));
-            }
-        }
-        return String.format("(delay: %5s - idle: %5s) %s ", String.valueOf(delay), String.valueOf(idle), nodes);
-    }
-
     public void setSequenceArrivals(List<Integer> sequenceArrivals) {
         this.sequenceArrivals = sequenceArrivals;
+    }
+
+    @Override
+    public String toString() {
+
+        // Node strings
+        List<String> nodes = new ArrayList<>();
+
+        // If there is a sequence of visits
+        if (getSequenceVisits() != null) {
+            for (int i = 0; i < getSequenceVisits().size(); i++) {
+                nodes.add(String.format("%s", getSequenceVisits().get(i))); // config.Config.sec2TStamp(sequenceArrivals.get(i))));
+            }
+        }
+        return String.format("(delay: %5s - Occupation: %5s) %s ", String.valueOf(delay), String.valueOf(avgOccupationLeg), nodes);
     }
 
     public String getInfo() {
         return "(" + departureVehicleCurrent +
                 ") Users: " + setUsers +
+                " - Avg. Occupation: " + avgOccupationLeg +
                 " - Visits: " + sequenceVisits +
                 " - Arrivals: " + sequenceArrivals +
-                " - Loads: " + sequenceLoads +
                 " - Delay: " + delay +
                 " - Idle: " + idle +
-                " - Vehicle: " + vehicle.get_info() +
-                '}';
-    }
-
-    public int getDepartureVehicleCurrent() {
-        return departureVehicleCurrent;
+                " - Vehicle: " + vehicle.getInfo();
     }
 
     public void setDepartureVehicleCurrent(int departureVehicleCurrent) {

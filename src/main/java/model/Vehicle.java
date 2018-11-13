@@ -1,31 +1,33 @@
 package model;
 
 import dao.Dao;
-import helper.MethodHelper;
 import model.node.*;
+import simulation.Method;
 
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
+import static config.Config.*;
+
 public class Vehicle implements Comparable<Vehicle> {
-    private static int count = Node.MAX_NUMBER_NODES * 2;
+    public static int count = Node.MAX_NUMBER_NODES * 2;
     private Node origin;
     private int id;
     private int capacity;
     private Integer load;
     private Set<User> users;
     private Set<User> enroute;
-    private Set<Node> enrouteNode;
     private List<Node> journey;
     private Visit visit;
     private Node currentNode;
-    private int totalDelay;
-    private int totalWaiting;
-    private int current_time;
     private List<User> servicedUsers;
     private int departureCurrent; // Time vehicle leaves current node
+
+    public static void reset() {
+        count = Node.MAX_NUMBER_NODES * 2;
+    }
 
     public Vehicle(int size, int id_network, double lat, double lon) {
         ++count;
@@ -63,32 +65,12 @@ public class Vehicle implements Comparable<Vehicle> {
         this.departureCurrent = departureCurrent;
     }
 
-    public static int getCount() {
-        return count;
-    }
-
     public Node getOrigin() {
         return origin;
     }
 
     public int getId() {
         return id;
-    }
-
-    public int getTotalDelay() {
-        return totalDelay;
-    }
-
-    public int getTotalWaiting() {
-        return totalWaiting;
-    }
-
-    public int getCurrent_time() {
-        return current_time;
-    }
-
-    public List<User> getServicedUsers() {
-        return servicedUsers;
     }
 
     public int getLoad() {
@@ -119,9 +101,17 @@ public class Vehicle implements Comparable<Vehicle> {
         this.users = users;
     }
 
+    /**
+     * Sort vehicles according to load (lower first).
+     *
+     * @param that
+     * @return
+     */
     @Override
-    public int compareTo(Vehicle o) {
-        return this.departureCurrent - o.departureCurrent;
+    public int compareTo(Vehicle that) {
+        if (this.load < that.load) return BEFORE;
+        if (this.load > that.load) return AFTER;
+        return EQUAL;
     }
 
     /**
@@ -129,154 +119,20 @@ public class Vehicle implements Comparable<Vehicle> {
      * Loop visit sequence and check if:
      * 1 - node arrival is lower than pk time, AND
      * 2 - node is DP
-     * <p>
+     *
      * If so, than costumer was serviced.
      *
      * @param currentTime current time
      * @return Set of users serviced until current time
      */
-    public Set<User> getServicedUsersUntil2(int currentTime) {
-
-        //TODO jump to next node and update arrival time over current? Prevents changing next
-        // Arrival time at the node to be visited after sequence
-        //int arrival_first = visit.getSequenceArrivals().get(0);
-
-        // Arrival time at the currentNode node
-        //int arrival_current = this.getCurrentNode().getArrival();
-
-
-        // if arrival_current <= currentNode <= arrival_first
-        // Jump to first node in sequence
-        /*
-        if (currentNode >= arrival_current && currentNode <= arrival_first) {
-                // Current time is the arrival time of the first node in the sequence
-                currentNode = arrival_first;
-        }
-        */
-
-        // If vehicle has no customers to service
-        if (visit == null ||
-                visit.getSequenceVisits() == null ||
-                visit.getSequenceVisits().isEmpty()) {
-            return null;
-        }
-
-        // Find last visited node given current time
-        int start = MethodHelper.bisect_right(this.visit.getSequenceArrivals(), currentTime);
-
-        // current_t < first element of sequenceVisits
-        // Model.Vehicle is still between current_node and first element
-        if (start == 0) {
-            return null;
-        }
-
-        // Serviced users in current execution round [last current time, current time]
-        Set<User> serviced = new HashSet<>();
-
-        // Remove first "getServicedUsers" nodes
-        for (int i = 0; i < start; i++) {
-
-            this.load = this.load + this.visit.getSequenceVisits().get(0).getLoad();
-
-            // Get first node of visit sequenceVisits
-            currentNode = this.visit.getSequenceVisits().remove(0);
-            this.journey.add(currentNode);
-            int arrival_last = this.visit.getSequenceArrivals().remove(0);
-
-            // Set arrival time for last node
-            currentNode.setArrival(arrival_last);
-
-            // If DP node is visited, it means request is finished
-            if (currentNode instanceof NodeDP) {
-
-                int tripId = currentNode.getTripId();
-
-                /*####################### Update list of serviced users #############################################*/
-                // Eliminate serviced user from visit
-                this.visit.getSetUsers().remove(User.all_users.get(tripId));
-
-                // Add serviced user to vehicle
-                this.servicedUsers.add(User.all_users.get(tripId));
-
-                // Update serviced users
-                serviced.add(User.all_users.get(tripId));
-
-                /*###################################################################################################*/
-
-                // Set arrival time at DP node for request
-                User.status[tripId][1] = arrival_last;
-
-                // Save DP delay
-                User.status[tripId][3] = currentNode.getDelay();
-
-                // Model.Node visited is removed from vehicle
-                this.users.remove(User.all_users.get(tripId));
-
-                // User is locked in vehicle (cannot change to other)
-                this.enroute.remove(User.all_users.get(tripId));
-
-                // TODO improve representation
-                // Locked node can be removed
-                //this.enrouteNode.remove(currentNode);
-
-                // Save total ride time in vehicle
-                int rideTime = User.all_users.get(tripId).getNodeDp().getArrival() - User.all_users.get(tripId).getNodePk().getArrival();
-
-                // Save ride trip ride time
-                User.all_users.get(tripId).setRideTime(rideTime);
-
-            } else if (currentNode instanceof NodePK) {
-                int tripId = currentNode.getTripId();
-
-                // Set arrival time at PK node for request
-                User.status[tripId][0] = arrival_last;
-
-                // Save PK delay
-                User.status[tripId][2] = currentNode.getDelay();
-
-                // User is locked in vehicle (cannot change to other)
-                this.enroute.add(User.all_users.get(tripId));
-
-                // TODO: improve this representation
-                // This nodes must be visited by vehicle
-                //this.enrouteNode.add(User.all_users.get(tripId).getNodeDp());
-
-            }
-        }
-
-
-        // If all nodes were visited
-        if (this.users.isEmpty()) {
-
-            // Signalize that vehicle is stopped at last visited node in a stop point
-            this.currentNode = new NodeStop(this.currentNode, this.id);
-
-            // Model.Vehicle has no routing plan
-            this.setVisit(null);
-        }
-
-        // Serviced users in an execution round
-        return serviced;
-    }
-
-    @Override
-    public String toString() {
-        return String.format("%6s", "V" + String.valueOf(id - Node.MAX_NUMBER_NODES * 2));
-    }
-
     public Set<User> getServicedUsersUntil(int currentTime) {
 
-        //TODO jump to next node and update arrival time over current? Prevents changing next
-        // Remember that user is removed when DP is visited
-        //departureCurrent = Math.max(this.currentNode.getArrival(), departureCurrent);
-
         // If vehicle has no customers to service
         if (visit == null ||
                 visit.getSequenceVisits() == null ||
                 visit.getSequenceVisits().isEmpty()) {
             return null;
         }
-
 
         // Serviced users in current execution round [last current time, current time]
         Set<User> serviced = new HashSet<>();
@@ -306,11 +162,6 @@ public class Vehicle implements Comparable<Vehicle> {
             this.journey.add(currentNode);
             this.departureCurrent = arrivalNext;
 
-            //if(this.load > this.capacity)
-            //    System.out.println(this.load + "-" + this.capacity);
-            //    System.out.println(this.visit.getSequenceVisits());
-
-
             // If DP node is visited, it means request is finished
             if (currentNode instanceof NodeDP) {
 
@@ -318,13 +169,13 @@ public class Vehicle implements Comparable<Vehicle> {
 
                 /*####################### Update list of serviced users #############################################*/
                 // Eliminate serviced user from visit
-                this.visit.getSetUsers().remove(User.all_users.get(tripId));
+                this.visit.getSetUsers().remove(User.mapOfUsers.get(tripId));
 
                 // Add serviced user to vehicle
-                this.servicedUsers.add(User.all_users.get(tripId));
+                this.servicedUsers.add(User.mapOfUsers.get(tripId));
 
                 // Update serviced users
-                serviced.add(User.all_users.get(tripId));
+                serviced.add(User.mapOfUsers.get(tripId));
 
                 /*###################################################################################################*/
 
@@ -334,22 +185,21 @@ public class Vehicle implements Comparable<Vehicle> {
                 // Save DP delay
                 User.status[tripId][3] = currentNode.getDelay();
 
-                // Model.Node visited is removed from vehicle
-                this.users.remove(User.all_users.get(tripId));
+                // Node visited is removed from vehicle
+                this.users.remove(User.mapOfUsers.get(tripId));
 
                 // User is locked in vehicle (cannot change to other)
-                this.enroute.remove(User.all_users.get(tripId));
+                this.enroute.remove(User.mapOfUsers.get(tripId));
 
                 // TODO improve representation
                 // Locked node can be removed
                 //this.enrouteNode.remove(currentNode);
 
                 // Save total ride time in vehicle
-                int rideTime = User.all_users.get(tripId).getNodeDp().getArrival() - User.all_users.get(tripId).getNodePk().getArrival();
+                int rideTime = User.mapOfUsers.get(tripId).getNodeDp().getArrival() - User.mapOfUsers.get(tripId).getNodePk().getArrival();
 
                 // Save ride trip ride time
-                User.all_users.get(tripId).setRideTime(rideTime);
-
+                User.mapOfUsers.get(tripId).setRideTime(rideTime);
 
             } else if (currentNode instanceof NodePK) {
                 int tripId = currentNode.getTripId();
@@ -361,11 +211,11 @@ public class Vehicle implements Comparable<Vehicle> {
                 User.status[tripId][2] = currentNode.getDelay();
 
                 // User is locked in vehicle (cannot change to other)
-                this.enroute.add(User.all_users.get(tripId));
+                this.enroute.add(User.mapOfUsers.get(tripId));
 
                 // TODO: improve this representation
                 // This nodes must be visited by vehicle
-                //this.enrouteNode.add(User.all_users.get(tripId).getNodeDp());
+                //this.enrouteNode.add(User.mapOfUsers.get(tripId).getNodeDp());
             }
         }
 
@@ -374,7 +224,6 @@ public class Vehicle implements Comparable<Vehicle> {
             visit.getSequenceVisits().removeFirst();
             //visit.getSequenceArrivals().remove(0);
         }
-
 
         // If all nodes were visited
         if (this.users.isEmpty()) {
@@ -387,6 +236,7 @@ public class Vehicle implements Comparable<Vehicle> {
 
             // Model.Vehicle has no routing plan
             this.setVisit(null);
+
         } else {
             // Update visit current time
             this.visit.setDepartureVehicleCurrent(departureCurrent);
@@ -394,11 +244,6 @@ public class Vehicle implements Comparable<Vehicle> {
 
         // Serviced users in an execution round
         return serviced;
-    }
-
-
-    public List<Node> getJourney() {
-        return this.journey;
     }
 
     public String getStats() {
@@ -444,7 +289,10 @@ public class Vehicle implements Comparable<Vehicle> {
                 String.valueOf(delayDP));
     }
 
-
+    /**
+     *
+     * @return Journey
+     */
     public String getJourneyInfo() {
 
         StringBuilder str = new StringBuilder();
@@ -454,12 +302,10 @@ public class Vehicle implements Comparable<Vehicle> {
         str.append("\n########################################################################################");
 
         for (int i = 0; i < journey.size() - 1; i++) {
-
             int fromId = journey.get(i).getNetworkId();
             int toId = journey.get(i + 1).getNetworkId();
             int dist = Dao.getInstance().getDistSec(fromId, toId);
             int waiting = journey.get(i + 1).getArrival() - dist - journey.get(i).getArrival();
-
             str.append("\n" + journey.get(i).getInfo());
             str.append(String.format("\nTravel time: %7s", String.valueOf(dist)));
             str.append(String.format("\n    Waiting: %7s", String.valueOf(waiting)));
@@ -471,16 +317,7 @@ public class Vehicle implements Comparable<Vehicle> {
         return str.toString();
     }
 
-
-    public Set<User> getEnroute() {
-        return enroute;
-    }
-
-    public void setEnroute(Set<User> enroute) {
-        this.enroute = enroute;
-    }
-
-    public String get_info() {
+    public String getInfo() {
 
         return String.format("%s(%2s/%d) - %s(%s) - Users: %30s -> Journey: %s - Attended: %s",
                 this,
@@ -491,18 +328,83 @@ public class Vehicle implements Comparable<Vehicle> {
                 users,
                 (this.visit != null ? visit : "---"),
                 servicedUsers);
+    }
 
-        /*
-        return String.format("%s(%2s/%d) - %s(%s) - Users: %30s -> Journey: %s - Arrivals: %s - Attended: %s",
-                this,
-                (!users.isEmpty() ? String.valueOf(load) : "-"),
-                capacity,
-                currentNode,
-                departureCurrent,
-                users,
-                (this.visit != null ? visit : "---"),
-                (this.visit != null ? this.visit.getSequenceArrivals() : "---"),
-                servicedUsers);
-    */
+    /**
+     * Get best insertion of candidate user in vehicle at current time.
+     *
+     * @param candidateUser
+     * @param currentTime
+     * @return Best visit or null
+     */
+    public Visit getBestInsertion(User candidateUser,
+                                  int currentTime) {
+
+        // Candidate sequence that will be formed
+        List<Node> visitSequence;
+
+        // First best including new users is initiated blank
+        Visit bestVisit = new Visit();
+
+        // If vehicle has NO visits, place first user in candidate sequence
+        if (this.getVisit() == null ||
+                this.getVisit().getSequenceVisits() == null ||
+                this.getVisit().getSequenceVisits().isEmpty()) {
+
+            // Start empty candidate sequence
+            visitSequence = new ArrayList<>();
+
+            // Best visit is empty
+            //bestVisit = new Visit();
+
+        } else {
+
+            // Copy elements in vehicle visit to candidate sequence
+            visitSequence = new ArrayList<>(this.getVisit().getSequenceVisits());
+
+            // Start best visit with vehicle visit
+            //bestVisit = this.getVisit();
+        }
+
+        // Loop all insertion positions
+        for (int pkPos = 0; pkPos <= visitSequence.size(); pkPos++) {
+            for (int dpPos = pkPos; dpPos <= visitSequence.size(); dpPos++) {
+
+                // Try to get a visit by inserting candidate user in sequence
+                Visit candidateVisit = Method.getVisitByInsertPosition(candidateUser,
+                        visitSequence,
+                        this,
+                        pkPos,
+                        dpPos,
+                        currentTime);
+
+                //System.out.println(String.format("Insert %d and %d -%s %s (%s)", pkPos, dpPos, candidateUser, visitSequence, candidateVisit));
+
+                // Update best visit
+                if (candidateVisit != null && candidateVisit.compareTo(bestVisit) < 0) {
+                    bestVisit = candidateVisit;
+                }
+            }
+        }
+
+        // If best visit was not found
+        if (bestVisit.getSequenceVisits() == null) {
+            return null;
+        }
+
+        // Assign vehicle to best
+        bestVisit.setVehicle(this);
+
+        // Update user set of best visit
+        Set<User> candidateRequests = new HashSet<>(this.getUsers());
+        candidateRequests.add(candidateUser);
+        bestVisit.setSetUsers(candidateRequests);
+
+        return bestVisit;
+    }
+
+    @Override
+    public String toString() {
+        return String.format("%6s", "V" + String.valueOf(id - Node.MAX_NUMBER_NODES * 2));
     }
 }

@@ -84,7 +84,7 @@ public class HelperIO {
             Collections.sort(enroute);
 
             for (Vehicle v : enroute) {
-                str.append(String.format("\n %s", v.get_info()));
+                str.append(String.format("\n %s", v.getInfo()));
             }
         }
 
@@ -94,7 +94,7 @@ public class HelperIO {
             Collections.sort(idle);
 
             for (Vehicle v : idle) {
-                str.append(String.format("\n %s", v.get_info()));
+                str.append(String.format("\n %s", v.getInfo()));
             }
 
         }
@@ -104,7 +104,7 @@ public class HelperIO {
             str.append("\n>>>>>>> ORIGIN >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>");
 
             for (Vehicle v : origin) {
-                str.append(String.format("\n %s", v.get_info()));
+                str.append(String.format("\n %s", v.getInfo()));
             }
         }
 

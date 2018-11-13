@@ -12,21 +12,26 @@ public class Config {
     public static DateFormat formatter_t = new SimpleDateFormat("HH:mm:ss");
     public static DateFormat formatter_date_time = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
     private static Config ourInstance = new Config();
-    public Map<Character, Qos> qosDic = new HashMap<>();
+    public static final int BEFORE = -1;
+    public static final int EQUAL = 0;
+    public static final int AFTER = 1;
+    public Map<String, Qos> qosDic;
     private Date firstDate;
+
 
     private Config() {
 
-        this.qosDic.put('A', new Qos('A', 120, 0, 1));
-        this.qosDic.put('B', new Qos('B', 300, 600, 0.9));
-        this.qosDic.put('C', new Qos('C', 600, 900, 0.8));
-
+        qosDic = new HashMap<>();
 
         try {
             this.firstDate = Config.formatter_date_time.parse("2011-02-12 00:00:00");
         } catch (ParseException e) {
             e.printStackTrace();
         }
+    }
+
+    public static void reset() {
+        ourInstance = new Config();
     }
 
     public static String sec2TStamp(int sec) {
@@ -59,16 +64,43 @@ public class Config {
         return new Date(departureDate * 1000 + this.firstDate.getTime());
     }
 
-    public class Qos {
-        public char id;
+
+    public void printQosDic() {
+        for (Map.Entry<String, Qos> e : qosDic.entrySet()) {
+            System.out.println(e.getKey() + " - " + e.getValue());
+        }
+    }
+
+    public static class Qos {
+        public String id;
         public double serviceRate;
         public int pkDelay, dpDelay;
+        public double share;
 
-        public Qos(char id, int pkDelay, int dpDelay, double serviceRate) {
+        public Qos(String id, int pkDelay, int dpDelay, double serviceRate) {
             this.id = id;
             this.serviceRate = serviceRate;
             this.pkDelay = pkDelay;
             this.dpDelay = dpDelay;
+        }
+
+        public Qos(String id, int pkDelay, int dpDelay, double serviceRate, double share) {
+            this.id = id;
+            this.serviceRate = serviceRate;
+            this.pkDelay = pkDelay;
+            this.dpDelay = dpDelay;
+            this.share = share;
+        }
+
+        @Override
+        public String toString() {
+            return "QoS {" +
+                    "id = '" + id + '\'' +
+                    ", serviceRateScenarioLabel = " + serviceRate +
+                    ", pkDelay = " + pkDelay +
+                    ", dpDelay = " + dpDelay +
+                    ", share = " + share +
+                    '}';
         }
     }
 }
