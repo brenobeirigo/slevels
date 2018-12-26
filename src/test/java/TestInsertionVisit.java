@@ -54,10 +54,10 @@ public class TestInsertionVisit {
         listUsers.add(u3);
         listUsers.add(u4);
 
-        Visit v = Method.getBestInsertion(listUsers, v1, 3, v1.getCurrentNode().getArrival(), true, 3);
+        //Visit v = Method.getBestInsertion(listUsers, v1, 3, v1.getCurrentNode().getArrival(), true, 3);
 
 
-        System.out.println("BEST:" + v);
+        //System.out.println("BEST:" + v);
 
     }
 }

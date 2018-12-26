@@ -7,7 +7,7 @@ import model.User;
 import model.Vehicle;
 import model.Visit;
 
-import java.util.Collections;
+import java.nio.file.Path;
 import java.util.HashSet;
 import java.util.Set;
 
@@ -18,23 +18,35 @@ public class SimulationFCFS extends Simulation {
     private boolean allPermutations;
     private boolean stopAtFirstBest;
     private boolean checkInParallel;
-    private int maxInsertionTrials = 2;
+    private Path outputFile;
 
     /* Construct FCFS simulation */
-    public SimulationFCFS(int initialFleet,
+    public SimulationFCFS(String methodName,
+                          int initialFleet,
                           int vehicleMaxCapacity,
                           int maxRequestsIteration,
                           int timeWindow,
                           int timeHorizon,
+                          int maxRoundsIdleBeforeRebalance,
+                          int deactivationFactor,
+                          int maxDelayExtensionsBeforeHiring,
+                          boolean isAllowedToHire,
+                          boolean isAllowedToLowerServiceLevel,
                           String serviceRateScenarioLabel,
                           String segmentationScenarioLabel) {
+
 
         // Build generic Simulation object
         super(initialFleet,
                 vehicleMaxCapacity,
                 maxRequestsIteration,
                 timeWindow,
-                timeHorizon);
+                timeHorizon,
+                maxRoundsIdleBeforeRebalance,
+                deactivationFactor,
+                maxDelayExtensionsBeforeHiring,
+                isAllowedToHire,
+                isAllowedToLowerServiceLevel);
 
         // Service rate and segmentation scenarios
         this.serviceRateScenarioLabel = serviceRateScenarioLabel;
@@ -48,109 +60,53 @@ public class SimulationFCFS extends Simulation {
 
         // Initialize solution
         sol = new Solution(
-                "FCFS",
+                methodName,
                 initialFleet,
                 maxRequestsIteration,
                 vehicleMaxCapacity,
                 timeWindow,
                 timeHorizon,
+                maxRoundsIdleBeforeRebalance,
+                deactivationFactor,
+                maxDelayExtensionsBeforeHiring,
+                isAllowedToHire,
+                isAllowedToLowerServiceLevel,
                 serviceRateScenarioLabel,
                 segmentationScenarioLabel);
-
     }
 
     /**
-     * Try to insert a user in every vehicle, and return the set of users inserted.
+     * Get a new vehicle to user:
+     * - According to a probability
+     * > For 100% service rate class, every missed pickup entails the creation of a new vehicle.
+     * > For 0% service rate class, vehicle is never created
+     * - If user has been delayed "maxDelayExtensionsBeforeHiring" times
      *
-     * @return setServicedUsers Set of all users that could be inserted into vehicles
+     * @param u User that will potentially have a new vehicle hired
+     * @return True, if vehicle should be hired
      */
+    boolean hireNewVehicleToUser(User u) {
 
-    //@Override
-    public Set<User> getServicedUsersFixedSizeFleet(int currentTime) {
-
-        // Set of users serviced
-        Set<User> setServicedUsers = new HashSet<>();
-
-        // Loop users
-        for (User u : setWaitingUsers) {
-            //System.out.println(u+" - " + u.getNodePk().getEarliest() + " - "+ departureVehicleCurrent);
-
-            // Aux. best visit for comparison
-            Visit bestVisit = new Visit();
-
-            // Sort vehicles according to arrival time
-            Collections.sort(listVehicles);
-
-            // Try to insert user in each vehicle
-            for (Vehicle v : listVehicles) {
-
-                // Final visit
-                Visit candidateVisit;
-
-                // Check in parallel
-                if (checkInParallel) {
-
-                    // Sequence with user to be added in vehicle
-                    Set<User> auxUserSequence = new HashSet<>();
-                    auxUserSequence.add(u);
-
-                    candidateVisit = Method.getBestInsertionParallel(auxUserSequence, v, 2, true, maxPermutationsFCFS);
-
-                        /*TODO implement parallel check
-                         visit = Trip.gen_visit_parallel([r],
-                                v=veh,
-                                find_best=find_best_visits,
-                                max_trips = max_trips,
-                                distance_data = distance_data)
-                        */
-                } else {
-
-                    // Sequence with user to be added in vehicle
-                    //Set<User> auxUserSequence = new HashSet<>();
-                    //auxUserSequence.add(u);
-
-                    // #################################################################################################
-                    // Get a candidate visit by trying to add user u to vehicle v
-                    candidateVisit = v.getBestInsertion(u, currentTime);
-                    // #################################################################################################
-                }
-
-                //System.out.println(u +","+ v + "="+ candidateVisit);
-
-                // Update best visit if delay of candidate visit is shorter
-                if (candidateVisit != null && candidateVisit.compareTo(bestVisit) < 0) {
-
-                    // Updating visit
-                    bestVisit = candidateVisit;
-
-                    // Stop at the first improvement
-                    if (stopAtFirstBest) {
-                        break;
-                    }
-                }
-            }
-
-            // if best visit is found, update vehicle with visit data
-            if (bestVisit.getSetUsers() != null) {
-
-                // Add user to vehicle and setup visit
-                bestVisit.setup();
-
-                // Model.User u was serviced
-                setServicedUsers.add(u);
-
-                //TODO: update latest nodes to arrival time
-            }
+        if (!this.isAllowedToHire) {
+            return false;
         }
 
-        //Collections.sort(listVehicles);
+        // User was already chosen to be delayed
+        if (u.getNumberOfDelayExtensions() > 0) {
+            return false;
+        }
 
-        //for(Vehicle v:listVehicles){
-        //    System.out.println(v.getInfo());
-        //}
+        // Draw to decide if customer will be serviced
+        double draw = Dao.getInstance().rand.nextDouble();
 
-        // Return all serviced users
-        return setServicedUsers;
+        // Get service rate of user u
+        double serviceRate = Config.getInstance().qosDic.get(u.getPerformanceClass()).serviceRate;
+
+        //System.out.print(String.format("\n2) %f <= %f : User: %s", draw, serviceRate, u));
+
+        // E.g., B - 0.8 <= 1? Yes! Add vehicle and try again to service customer
+        // E.g., A - 1.0 <= 1? Yes! Add vehicle and try again to service customer
+        return (draw <= serviceRate || u.getNumberOfDelayExtensions() >= this.maxDelayExtensionsBeforeHiring);
     }
 
     /**
@@ -171,116 +127,114 @@ public class SimulationFCFS extends Simulation {
         // Loop users
         for (User u : setWaitingUsers) {
 
+            // User waits one or more rounds
+            u.increaseRoundsWaiting();
+
+            // Compute hot point
+            Vehicle.computeHotPoint(u);
+
             // Aux. best visit for comparison
-            Visit bestVisit = new Visit();
-
-            // Sort vehicles according to arrival time
-            //Collections.sort(listVehicles);
-
-            // Try to insert user in each vehicle
-            for (Vehicle v : listVehicles) {
-
-                //######################################################################################################
-                Visit candidateVisit = v.getBestInsertion(u, currentTime);
-                //######################################################################################################
-
-                // Update best visit if delay of candidate visit is shorter
-                if (candidateVisit != null && candidateVisit.compareTo(bestVisit) < 0) {
-
-                    // Updating visit
-                    bestVisit = candidateVisit;
-
-                    // Stop at the first improvement
-                    if (stopAtFirstBest) {
-                        break;
-                    }
-                }
-            }
+            Visit bestVisit = u.getBestVisitByInsertion(listVehicles, currentTime, stopAtFirstBest);
 
             //##########################################################################################################
             //## VISIT WAS NOT FOUND ###################################################################################
             //##########################################################################################################
 
             // Depending on user class, decide if new vehicle will be created.
-            if (bestVisit.getSetUsers() == null) {
+            if (bestVisit == null) {
 
-                // If user will be rejected in the next round, this is the last opportunity to:
-                //  - Service user
-                //  - Increase delays ("maxInsertionTrials" times)
-                if (u.getNodePk().getLatest() < currentTime + this.timeWindow) {
+                // Add unserviced point to set of hot points (customers not serviced)
+                Vehicle.computeMissedUserLocation(u);
 
-                    // Draw to decide if customer will be serviced
-                    double draw = Dao.getInstance().rand.nextDouble();
+                if (hireNewVehicleToUser(u)) {
 
-                    // Get service rate of user u
-                    double serviceRate = Config.getInstance().qosDic.get(u.getPerformanceClass()).serviceRate;
+                    //if(u.getNumberOfDelayExtensions()>0){
+                    //    System.out.println(String.format("DELAY FAILED :-(     %s(%d) WILL BE SERVICED BY A THIRD-PARTY VEHICLE.", u, u.getNumberOfDelayExtensions()));
+                    //}
 
-                    //System.out.print(String.format("\n2) %f <= %f : User: %s", draw, serviceRateScenarioLabel, u));
+                    Vehicle v = null;
 
-                    /* Get a new vehicle to user:
-                       - According to a probability (Notice that for 100% service rate class,
-                       every customer entails the creation of a new vehicle.)
-                       - If user has been delayed "maxInsertionTrials" times */
-                    if (draw <= serviceRate || u.getNumberOfDelayExtensions() >= maxInsertionTrials) {
+                    u.computeHiring();
 
-                        //System.out.print(" OK");
-                        //System.out.println(String.format("2) %f <= %f : User: %s", draw, serviceRateScenarioLabel, u));
+                    // Customer gets a private ride every
+                    Visit candidateVisit = null;
 
-                        // E.g., B - 0.8 <= 1? Yes! Add vehicle and try again to service customer
-                        // E.g., A - 1.0 <= 1? Yes! Add vehicle and try again to service customer
-                        Vehicle v = null;
+                    // Add extra delay to user service level and increase urgency to be picked up (=pickup delay)
+                    //u.lowerServiceLevel();
 
-                        Visit candidateVisit = null;
+                    //int hiring = 0;
+                    // Update best visit if delay of candidate visit is shorter
 
-                        // Update best visit if delay of candidate visit is shorter
-                        while (candidateVisit == null) {
+                    while (candidateVisit == null) {
 
-                            v = MethodHelper.createVehicleAtRandomPosition(u.getNumPassengers()); // List of vehicles
+                        //TODO MAJOR FLAW - Vehicles are created at user's position
+                        //v = new Vehicle(u.getNumPassengers(), u.getNodePk().getNetworkId(), currentTime, true);
+                        v = MethodHelper.createVehicleAtRandomPosition(u.getNumPassengers(), currentTime); // List of vehicles
 
-                            //##########################################################################################
-                            // Try to get a valid visit by inserting user "u" in newly created vehicle "v"
-                            candidateVisit = v.getBestInsertion(u, currentTime);
-                            //##########################################################################################
-                        }
+                        //System.out.println(++hiring + " - "+ v.getOrigin().getNetworkId() + " - " + u.getNodePk().getNetworkId());
 
-                        // Update best visit
-                        bestVisit = candidateVisit;
+                        //##########################################################################################
+                        // Try to get a valid visit by inserting user "u" in newly created vehicle "v"
+                        candidateVisit = v.getBestInsertion(u, currentTime);
+                        //##########################################################################################
+                    }
 
-                        // New vehicle is added in list
+                    // Update best visit
+                    bestVisit = candidateVisit;
+
+                    // New vehicle is added in list
+                    listVehicles.add(v);
+
+                } else if (canLowerServiceLevel(u)) {
+                    /* Customer is serviced using the TRUE availability of the fleet.
+                       The service level is relaxed (unbounded) and an available vehicle is chosen. */
+
+                    // Increase number of insertion trials
+                    u.increaseNumberOfDelayExtensions();
+
+                    // Add enough delay to user service level to guarantee he will be picked up
+                    u.lowerServiceLevel(24 * 3600);
+
+                    // Find a visit using the TRUE fleet availability
+                    bestVisit = u.getBestVisitByInsertion(
+                            listVehicles,
+                            currentTime,
+                            stopAtFirstBest);
+
+                    // There is no vehicle of with capacity == number of passengers
+                    if (bestVisit == null) {
+
+                        // Creating vehicle nearby user
+                        Vehicle v = MethodHelper.createVehicleAtRandomPosition(u.getNumPassengers(), currentTime); // List of vehicles
+
+                        // Inserting user in newly created vehicle
+                        bestVisit = v.getBestInsertion(u, currentTime);
+
+                        // Adding created vehicle to fleet
                         listVehicles.add(v);
 
-                    } else {
-                        /* POLICY: Every customer is serviced
-                          - Lower service level of customer by adding extra delays
-                        */
-
-                        // Extra delay is equals to original pickup delay of customer class
-                        int extraDelay = Config.getInstance().qosDic.get(u.getPerformanceClass()).pkDelay;
-
-                        // Add extra delay to user service level
-                        u.lowerServiceLevel(extraDelay);
-
-                        // Increase number of insertion trials
-                        u.increaseNumberOfDelayExtensions();
                     }
                 }
             }
 
             // If best visit is found, update vehicle with visit data
-            if (bestVisit.getSetUsers() != null) {
+            if (bestVisit != null) {
 
                 // Add user to vehicle and setup visit
                 bestVisit.setup();
 
                 // Model.User u was serviced
                 setServicedUsers.add(u);
-
-                //TODO: update latest nodes to arrival time
             }
         }
 
         // Return all serviced users
         return setServicedUsers;
 
+    }
+
+
+    private boolean canLowerServiceLevel(User u) {
+        return this.isAllowedToLowerServiceLevel && u.getNumberOfDelayExtensions() < this.maxDelayExtensionsBeforeHiring;
     }
 }

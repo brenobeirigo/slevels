@@ -3,9 +3,12 @@ import config.Config.Qos;
 import dao.Dao;
 import model.User;
 import model.Vehicle;
+import model.Visit;
 import model.node.Node;
+import model.node.NodeMiddle;
 import simulation.Simulation;
 import simulation.SimulationFCFS;
+import simulation.Solution;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -17,11 +20,16 @@ public class Main {
     public static void main(String[] args) {
 
         int[] timeWindowArray = new int[]{30}; // Time window of request collection bin
-        int[] timeHorizonArray = new int[]{3600, 86400}; // Time horizon of experiment (0 t0 24h)
+        int[] timeHorizonArray = new int[]{7 * 24 * 3600}; // Time horizon of experiment (0 t0 24h)
         int[] maxRequestsIterationArray = new int[]{1000}; // Max number of requests pooled in during an iteration
-        int[] initialFleetArray = new int[]{1000, 2000}; // Initial size of fleet
-        int[] vehicleMaxCapacityArray = new int[]{4, 10}; // Max capacity of vehicle
-
+        int[] initialFleetArray = new int[]{1000}; // Initial size of fleet
+        int[] vehicleMaxCapacityArray = new int[]{6}; // Max capacity of vehicle
+        int[] maxRoundsBeforeRebalanceArray = new int[]{1}; // Each round has TW seconds
+        int[] deactivationFactorArray = new int[]{120, 1, 600}; // Factor multiplying rebalance rounds (>=2)
+        int[] delayExtensionsBeforeHiring = new int[]{2}; // How many extensions a customer can have before a vehicle is hired
+        boolean[] allowedToHireArray = new boolean[]{true, false};
+        boolean[] allowedToLowerArray = new boolean[]{true, false};
+        String methodName = "FCFS_WEEK_INTER";
 
         // Vary service rate scenario (S1, S2, S3 - Different rates for classes A, B, and C)
         HashMap<String, HashMap<String, Double>> serviceRateScenarioMap = new HashMap<String, HashMap<String, Double>>() {
@@ -29,18 +37,18 @@ public class Main {
                 {
                     put("S1", new HashMap<String, Double>() {{
                         put("A", 1.0);
-                        put("B", 0.95);
-                        put("C", 0.9);
+                        put("B", 0.9);
+                        put("C", 0.8);
                     }});
                     put("S2", new HashMap<String, Double>() {{
-                        put("A", 0.95);
-                        put("B", 0.9);
-                        put("C", 0.85);
+                        put("A", 0.9);
+                        put("B", 0.8);
+                        put("C", 0.7);
                     }});
                     put("S3", new HashMap<String, Double>() {{
-                        put("A", 0.9);
-                        put("B", 0.85);
-                        put("C", 0.8);
+                        put("A", 0.8);
+                        put("B", 0.7);
+                        put("C", 0.6);
                     }});
                 }
             }
@@ -50,6 +58,24 @@ public class Main {
         HashMap<String, HashMap<String, Double>> segmentationScenarioMap = new HashMap<String, HashMap<String, Double>>() {
             {
                 {
+                    put("C", new HashMap<String, Double>() {{
+                        put("A", 0.0);
+                        put("B", 0.0);
+                        put("C", 1.0);
+                    }});
+
+                    put("B", new HashMap<String, Double>() {{
+                        put("A", 0.0);
+                        put("B", 1.0);
+                        put("C", 0.0);
+                    }});
+
+                    put("A", new HashMap<String, Double>() {{
+                        put("A", 1.0);
+                        put("B", 0.0);
+                        put("C", 0.0);
+                    }});
+
                     put("AA", new HashMap<String, Double>() {{
                         put("A", 0.68);
                         put("B", 0.16);
@@ -65,23 +91,6 @@ public class Main {
                         put("B", 0.16);
                         put("C", 0.68);
                     }});
-
-                    put("A", new HashMap<String, Double>() {{
-                        put("A", 1.0);
-                        put("B", 0.0);
-                        put("C", 0.0);
-                    }});
-
-                    put("B", new HashMap<String, Double>() {{
-                        put("A", 0.0);
-                        put("B", 1.0);
-                        put("C", 0.0);
-                    }});
-                    put("C", new HashMap<String, Double>() {{
-                        put("A", 0.0);
-                        put("B", 0.0);
-                        put("C", 1.0);
-                    }});
                 }
             }
         };
@@ -93,85 +102,112 @@ public class Main {
                     put("A", new HashMap<String, Integer>() {{
                         put("pk_delay", 180);
                         put("trip_delay", 180);
+                        put("sharing_preference", Qos.PRIVATE_VEHICLE);
                     }});
                     put("B", new HashMap<String, Integer>() {{
                         put("pk_delay", 300);
                         put("trip_delay", 600);
+                        put("sharing_preference", Qos.ALLOWED_SHARING);
                     }});
                     put("C", new HashMap<String, Integer>() {{
                         put("pk_delay", 600);
                         put("trip_delay", 900);
+                        put("sharing_preference", Qos.ALLOWED_SHARING);
                     }});
                 }
             }
         };
-
         // Vary test case parameters
-        for (int initialFleet : initialFleetArray) {
-            for (int vehicleMaxCapacity : vehicleMaxCapacityArray) {
-                for (int maxRequestsIteration : maxRequestsIterationArray) {
-                    for (int timeWindow : timeWindowArray) {
-                        for (int timeHorizon : timeHorizonArray) {
+        for (int timeHorizon : timeHorizonArray) {
+            for (int maxRequestsIteration : maxRequestsIterationArray) {
+                for (int timeWindow : timeWindowArray) {
+                    for (int vehicleMaxCapacity : vehicleMaxCapacityArray) {
+                        for (int initialFleet : initialFleetArray) {
+                            for (boolean isAllowedToHire : allowedToHireArray) {
+                                for (boolean isAllowedToLowerServiceLevel : allowedToLowerArray) {
 
-                            // All service rate
-                            for (Map.Entry<String, HashMap<String, Double>> serviceRateScenario :
-                                    serviceRateScenarioMap.entrySet()) {
+                                    // If can hire than service level have to be lowered
+                                    if (isAllowedToHire != isAllowedToLowerServiceLevel) continue;
 
-                                // S1, S2, S3
-                                String serviceRateScenarioLabel = serviceRateScenario.getKey();
+                                    for (int maxDelayExtensions : delayExtensionsBeforeHiring) {
+                                        for (int deactivationFactor : deactivationFactorArray) {
 
-                                // Segmentation scenario - AA, BB, CC, A, B, C
-                                for (Map.Entry<String, HashMap<String, Double>> segmentationScenario :
-                                        segmentationScenarioMap.entrySet()) {
 
-                                    // AA, BB, CC, A, B, C
-                                    String segmentationScenarioLabel = segmentationScenario.getKey();
+                                            // All service rate
+                                            for (Map.Entry<String, HashMap<String, Double>> serviceRateScenario :
+                                                    serviceRateScenarioMap.entrySet()) {
 
-                                    // Fixed service levels - A (180, 180), B(300, 600), C(600, 900)
-                                    for (Map.Entry<String, HashMap<String, Integer>> serviceLevel :
-                                            serviceLevelMap.entrySet()) {
+                                                // S1, S2, S3
+                                                String serviceRateScenarioLabel = serviceRateScenario.getKey();
+                                                for (int maxRoundsIdleBeforeRebalance : maxRoundsBeforeRebalanceArray) {
+                                                    // Segmentation scenario - AA, BB, CC, A, B, C
+                                                    for (Map.Entry<String, HashMap<String, Double>> segmentationScenario :
+                                                            segmentationScenarioMap.entrySet()) {
 
-                                        /* Creating QoS class
-                                         *  - service level class label (A, B, or C)
-                                         *  - pickup delay
-                                         *  - trip delay delay
-                                         *  - service rate (varies according to scenario)
-                                         *  - customer segmentation (varies according to scenario)
-                                         */
+                                                        // AA, BB, CC, A, B, C
+                                                        String segmentationScenarioLabel = segmentationScenario.getKey();
 
-                                        // Setup QoS class
-                                        Qos qos = new Qos(serviceLevel.getKey(),
-                                                serviceLevel.getValue().get("pk_delay"),
-                                                serviceLevel.getValue().get("trip_delay"),
-                                                serviceRateScenario.getValue().get(serviceLevel.getKey()),
-                                                segmentationScenario.getValue().get(serviceLevel.getKey()));
+                                                        // Fixed service levels - A (180, 180), B(300, 600), C(600, 900)
+                                                        for (Map.Entry<String, HashMap<String, Integer>> serviceLevel :
+                                                                serviceLevelMap.entrySet()) {
 
-                                        // Update global class configuration to run current test case
-                                        Config.getInstance().qosDic.put(serviceLevel.getKey(), qos);
+                                                            /* Creating QoS class
+                                                             *  - service level class label (A, B, or C)
+                                                             *  - pickup delay
+                                                             *  - trip delay delay
+                                                             *  - service rate (varies according to scenario)
+                                                             *  - customer segmentation (varies according to scenario)
+                                                             */
+
+                                                            // Setup QoS class
+                                                            Qos qos = new Qos(serviceLevel.getKey(),
+                                                                    serviceLevel.getValue().get("pk_delay"),
+                                                                    serviceLevel.getValue().get("trip_delay"),
+                                                                    serviceRateScenario.getValue().get(serviceLevel.getKey()),
+                                                                    segmentationScenario.getValue().get(serviceLevel.getKey()),
+                                                                    (serviceLevel.getValue().get("sharing_preference") == Qos.ALLOWED_SHARING));
+
+                                                            // Update global class configuration to run current test case
+                                                            Config.getInstance().qosDic.put(serviceLevel.getKey(), qos);
+                                                        }
+
+                                                        // Print Qos for round
+                                                        Config.getInstance().printQosDic();
+
+                                                        // Create FCFS simulation
+                                                        Simulation fcfs = new SimulationFCFS(
+                                                                methodName,
+                                                                initialFleet,
+                                                                vehicleMaxCapacity,
+                                                                maxRequestsIteration,
+                                                                timeWindow,
+                                                                timeHorizon,
+                                                                maxRoundsIdleBeforeRebalance,
+                                                                deactivationFactor,
+                                                                maxDelayExtensions,
+                                                                isAllowedToHire,
+                                                                isAllowedToLowerServiceLevel,
+                                                                serviceRateScenarioLabel,
+                                                                segmentationScenarioLabel);
+
+                                                        // Run simulation
+                                                        fcfs.run(Simulation.ROUND_INFO);
+
+                                                        // Reset classes for next iteration
+                                                        Dao.getInstance().resetRecords();
+                                                        User.reset();
+                                                        Vehicle.reset();
+                                                        Node.reset();
+                                                        NodeMiddle.reset();
+                                                        Visit.reset();
+                                                        Simulation.reset();
+                                                        Solution.reset();
+                                                        Config.reset();
+                                                    }
+                                                }
+                                            }
+                                        }
                                     }
-
-                                    // Print Qos for round
-                                    Config.getInstance().printQosDic();
-
-                                    // Create FCFS simulation
-                                    Simulation fcfs = new SimulationFCFS(
-                                            initialFleet,
-                                            vehicleMaxCapacity,
-                                            maxRequestsIteration,
-                                            timeWindow,
-                                            timeHorizon,
-                                            serviceRateScenarioLabel,
-                                            segmentationScenarioLabel);
-
-                                    // Run simulation
-                                    fcfs.run();
-
-                                    // Reset classes for next iteration
-                                    Dao.getInstance().resetRecords();
-                                    User.reset();
-                                    Vehicle.reset();
-                                    Node.reset();
-                                    Config.reset();
                                 }
                             }
                         }
@@ -197,8 +233,6 @@ public class Main {
         //SimulationRTV fcfs = new SimulationRTV();
         */
 
-        //Simulation rtv = new SimulationRTV();
-        //rtv.run();
 
     }
 }

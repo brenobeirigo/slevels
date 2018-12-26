@@ -20,6 +20,7 @@
         </plugins>
     </build>
 
+
     <!-- https://mvnrepository.com/artifact/org.apache.commons/commons-csv -->
     <dependencies>
         <dependency>
@@ -27,6 +28,14 @@
             <artifactId>commons-csv</artifactId>
             <version>1.4</version>
         </dependency>
+
+        <!-- https://mvnrepository.com/artifact/org.springframework/spring-web -->
+        <dependency>
+            <groupId>org.springframework</groupId>
+            <artifactId>spring-web</artifactId>
+            <version>5.1.3.RELEASE</version>
+        </dependency>
+
 
         <dependency>
             <groupId>org.jgrapht</groupId>
@@ -39,6 +48,37 @@
             <artifactId>boon</artifactId>
             <version>0.31</version>
         </dependency>
+
+        <!-- https://mvnrepository.com/artifact/mysql/mysql-connector-java -->
+        <dependency>
+            <groupId>mysql</groupId>
+            <artifactId>mysql-connector-java</artifactId>
+            <version>8.0.13</version>
+        </dependency>
+        <dependency>
+            <groupId>hu.blackbelt.bundles.restlet</groupId>
+            <artifactId>org.restlet</artifactId>
+            <version>2.3.12_1</version>
+        </dependency>
+        <dependency>
+            <groupId>org.mortbay.jetty</groupId>
+            <artifactId>jetty-util</artifactId>
+            <version>6.1.25</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>com.google.code.gson</groupId>
+            <artifactId>gson</artifactId>
+            <version>2.8.0</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>com.google.code.gson</groupId>
+            <artifactId>gson</artifactId>
+            <version>2.8.5</version>
+            <scope>compile</scope>
+        </dependency>
+
 
     </dependencies>
 

@@ -34,7 +34,8 @@ public class HelperIO {
         //str = str + String.format("\n// PK delay: %d  //////  Trip delay: %d",max_pk_time, max_trip_time);
         str = str + String.format("\n||    Start: %10s  ||    Duration: %4s s", String.valueOf(start_time), String.valueOf(duration));
         str = str + String.format("\n|| Vehicles: %10s  ||  T. Horizon: %4s s", String.valueOf(n_vehicles), String.valueOf(t_horizon));
-        str = str + String.format("\n||    Round: %10s  ||    Requests: %4s (TW) /%3s (Total)", String.valueOf(round + "/" + totalRounds), String.valueOf(req_dic.size()), all_req.size());
+        str = str + String.format("\n||    Round: %10s  ||    Requests: %4s (TW) /%3s (Total)", String.valueOf(round + "/" + totalRounds), String.valueOf(req_dic != null ? req_dic.size() : 0), all_req.size());
+
         str = str + "\n################################################################################";
         return str;
     }

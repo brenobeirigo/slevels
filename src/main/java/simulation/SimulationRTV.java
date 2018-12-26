@@ -20,8 +20,27 @@ public class SimulationRTV extends Simulation {
 
     //TODO hot_PK_list
 
-    public SimulationRTV() {
-        super();
+    public SimulationRTV(int initialFleet,
+                         int vehicleMaxCapacity,
+                         int maxRequestsIteration,
+                         int timeWindow,
+                         int timeHorizon,
+                         String serviceRateScenarioLabel,
+                         String segmentationScenarioLabel) {
+
+        // Build generic Simulation object
+        super(initialFleet,
+                vehicleMaxCapacity,
+                maxRequestsIteration,
+                timeWindow,
+                timeHorizon,
+                10,
+                2, 2, false,
+                false);
+
+        // Service rate and segmentation scenarios
+        this.serviceRateScenarioLabel = serviceRateScenarioLabel;
+        this.segmentationScenarioLabel = segmentationScenarioLabel;
 
         /* RV, RTV */
         maxVehReqEdges = 1000;
@@ -34,7 +53,7 @@ public class SimulationRTV extends Simulation {
         maxNumberPermutations = 100;
 
         // Initialize solution
-        sol = new Solution("RTV", initialFleetSize, maxNumberOfTrips, vehicleCapacity, timeWindow, timeHorizon);
+        sol = new Solution("RTV", initialFleetSize, maxNumberOfTrips, vehicleCapacity, timeWindow, timeHorizon, 10, 2, 2, false, false);
     }
 
     public void updateRR(User[] listRequests,
@@ -185,7 +204,7 @@ public class SimulationRTV extends Simulation {
      * @param listVehicles
      * @return
      */
-    public Map<Integer, List<Integer>> getRVGraph(Set<User> setWaitingUsers,
+    public Map<Integer, List<Integer>> getRVGraph(List<User> setWaitingUsers,
                                                   List<Vehicle> listVehicles,
                                                   int maxVehReqEdges,
                                                   int maxReqReqEdges) {

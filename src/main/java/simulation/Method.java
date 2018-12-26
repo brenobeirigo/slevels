@@ -54,113 +54,6 @@ public class Method {
             return u.getNodeDp();
     }
 
-
-    //TODO: previous arrival
-
-    /**
-     * Get sequence of user ids representing nodes to visit (including vehicle nodes) and return visit (if possible)/
-     * <p>
-     * Old - because works with sequence of arrivals
-     *
-     * @param sequenceUserIds
-     * @param v               Model.Vehicle
-     * @return Model.Visit or null
-     */
-    public static Visit getValidVisitOld(List<Integer> sequenceUserIds, Vehicle v) {
-
-        // Update values in nodes
-        int totalIdleness = 0;
-        int totalDelay = 0;
-
-        // Saves the order of nodes
-        //TODO decompile sequence of trips into sequence of nodes
-        Set<Integer> visitedIds = new HashSet<>();
-
-        // Declare control sequences
-        LinkedList<Node> sequenceVisits = new LinkedList<>();
-        List<Integer> sequenceArrivals = new ArrayList<>();
-        List<Integer> sequenceLoads = new ArrayList<>();
-
-        // Model.Vehicle node data
-        Node fromNode = v.getCurrentNode();
-        int load = fromNode.getLoad();
-        int arrivalFrom = fromNode.getArrival();
-
-        Node toNode;
-
-        // Loop elements in tuple
-        for (int i = 0; i < sequenceUserIds.size(); i++) {
-
-            // Add load
-            toNode = getNodeFromTripId(sequenceUserIds.get(i), visitedIds);
-
-            // Update loads (DP nodes have negative loads)
-            load += toNode.getLoad();
-            //System.out.println("Load:"+load);
-
-            // Capacity constraint (if lower than zero, sequence is invalid! Visited DP before PK)
-            if (load < 0 || load > v.getCapacity()) {
-                return null;
-            }
-
-            /////////////////////////* VIABLE NEXT */////////////////////////////////////
-            int distFromTo = Dao.getInstance()
-                    .getDistSec(
-                            fromNode.getNetworkId(),
-                            toNode.getNetworkId());
-
-            // No path available
-            if (distFromTo < 0)
-                return null;
-
-            // Time vehicle arrives at next node (can be earlier or later)
-            int arrivalTo = arrivalFrom + distFromTo;
-
-            // Arrival cannot be later than latest time in node
-            if (arrivalTo > toNode.getLatest())
-                return null;
-
-            // Delay in seconds
-            // If negative: Idle time, i.e., vehicle arrives earlier and wait until earliest time
-            // If positive: arrival_next_node = arrivalTo, i.e., vehicle arrives after earliest time
-            int delay = arrivalTo - toNode.getEarliest();
-
-            // Update totals
-            totalIdleness = totalIdleness + Math.min(delay, 0);
-            totalDelay = totalDelay + Math.max(delay, 0);
-
-            // Update arrival time at next node to >= earliest time of nexxt node
-            arrivalTo = Math.max(arrivalTo, toNode.getEarliest());
-
-            /*TODO: previous_arrival: verify if arrival is better than previous arrival saved for node*/
-            // In this sequence, one of the customers was already scheduled earlier.
-            // The new journey must decrease waiting time of all passengers.
-
-            //if( previous_arrival >= 0 && next_node in previous_arrival and previous_arrival[next_node]<arrivalTo){
-            //    Model.Node.Model.Node.memo_dic[id_viable] = (None,None)
-            //    return delays;
-
-            ///////////////////////////////////////////////////////////////////////////////
-            // Update sequences
-            sequenceVisits.add(toNode);
-            sequenceArrivals.add(arrivalTo);
-            sequenceLoads.add(load);
-
-            // Update
-            fromNode = toNode;
-            arrivalFrom = arrivalTo;
-        }
-
-        // Return visit
-        return new Visit(
-                sequenceVisits,
-                totalDelay,
-                sequenceArrivals,
-                totalIdleness,
-                sequenceLoads);
-    }
-
-
     /**
      * Get sequence of user ids representing nodes to visit (including vehicle nodes) and return visit (if possible)/
      *
@@ -256,107 +149,6 @@ public class Method {
                 totalIdleness);
     }
 
-
-    /**
-     * Get sequence of nodes to visit (including vehicle nodes) and return visit (if possible)
-     * <p>
-     * Old - because save array of intermediate arrivals
-     *
-     * @param sequenceNodes
-     * @param v             Model.Vehicle
-     * @return Model.Visit or null
-     */
-    public static Visit getVisitFromNodeSequenceOld(List<Node> sequenceNodes, Vehicle v) {
-
-        // Update values in nodes
-        int totalIdleness = 0;
-        int totalDelay = 0;
-
-        // Saves the order of nodes
-        //TODO decompile sequence of trips into sequence of nodes
-
-        // Declare control sequences
-        LinkedList<Node> sequenceVisits = new LinkedList<>();
-        List<Integer> sequenceArrivals = new ArrayList<>();
-        List<Integer> sequenceLoads = new ArrayList<>();
-
-        // Model.Vehicle node data
-        Node fromNode = v.getCurrentNode();
-        int load = fromNode.getLoad();
-        int arrivalFrom = fromNode.getArrival();
-
-        Node toNode;
-
-        // Loop elements in tuple
-        for (int i = 0; i < sequenceNodes.size(); i++) {
-
-            // Add load
-            toNode = sequenceNodes.get(i);
-
-            // Update loads (DP nodes have negative loads)
-            load += toNode.getLoad();
-            //System.out.println("Load:"+load);
-
-            // Capacity constraint (if lower than zero, sequence is invalid! Visited DP before PK)
-            if (load < 0 || load > v.getCapacity()) {
-                return null;
-            }
-
-            /////////////////////////* VIABLE NEXT */////////////////////////////////////
-            int distFromTo = Dao.getInstance().getDistSec(fromNode, toNode);
-
-            // No path available
-            if (distFromTo < 0)
-                return null;
-
-            // Time vehicle arrives at next node (can be earlier or later)
-            int arrivalTo = arrivalFrom + distFromTo;
-
-            // Arrival cannot be later than latest time in node
-            if (arrivalTo > toNode.getLatest())
-                return null;
-
-            // Delay in seconds
-            // If negative: Idle time, i.e., vehicle arrives earlier and wait until earliest time
-            // If positive: arrival_next_node = arrivalTo, i.e., vehicle arrives after earliest time
-            int delay = arrivalTo - toNode.getEarliest();
-
-            // Update totals
-            totalIdleness = totalIdleness + Math.min(delay, 0);
-            totalDelay = totalDelay + Math.max(delay, 0);
-
-            // Update arrival time at next node to >= earliest time of nexxt node
-            arrivalTo = Math.max(arrivalTo, toNode.getEarliest());
-
-            /*TODO: previous_arrival: verify if arrival is better than previous arrival saved for node*/
-            // In this sequence, one of the customers was already scheduled earlier.
-            // The new journey must decrease waiting time of all passengers.
-
-            //if( previous_arrival >= 0 && next_node in previous_arrival and previous_arrival[next_node]<arrivalTo){
-            //    Model.Node.Model.Node.memo_dic[id_viable] = (None,None)
-            //    return delays;
-
-            ///////////////////////////////////////////////////////////////////////////////
-            // Update sequences
-            sequenceVisits.add(toNode);
-            sequenceArrivals.add(arrivalTo);
-            sequenceLoads.add(load);
-
-            // Update
-            fromNode = toNode;
-            arrivalFrom = arrivalTo;
-        }
-
-        // Return visit
-        return new Visit(
-                sequenceVisits,
-                totalDelay,
-                sequenceArrivals,
-                totalIdleness,
-                sequenceLoads);
-    }
-
-
     /**
      * Get sequence of nodes to visit (including vehicle nodes) and return visit (if possible)/
      *
@@ -450,101 +242,8 @@ public class Method {
 
 
     /**
-     * Get sequence of nodes to visit (including vehicle nodes) and return visit (if possible)/
-     *
-     * @param sequenceNodes
-     * @param v             Model.Vehicle
-     * @return Model.Visit or null
-     */
-    public static Visit getVisitFromNodeSequence(List<Node> sequenceNodes, Vehicle v, int currentTime) {
-
-        // Update values in nodes
-        int totalIdleness = 0;
-        int totalDelay = 0;
-
-        // Saves the order of nodes
-        //TODO decompile sequence of trips into sequence of nodes
-
-        // Declare control sequences
-        LinkedList<Node> sequenceVisits = new LinkedList<>();
-
-        // Model.Vehicle node data
-        Node fromNode = v.getCurrentNode();
-        int load = fromNode.getLoad();
-        int arrivalFrom = currentTime;
-
-        Node toNode;
-
-        // Loop elements in tuple
-        for (int i = 0; i < sequenceNodes.size(); i++) {
-
-            // Add load
-            toNode = sequenceNodes.get(i);
-
-            // Update loads (DP nodes have negative loads)
-            load += toNode.getLoad();
-            //System.out.println("Load:"+load);
-
-            // Capacity constraint (if lower than zero, sequence is invalid! Visited DP before PK)
-            if (load < 0 || load > v.getCapacity()) {
-                return null;
-            }
-
-            /////////////////////////* VIABLE NEXT */////////////////////////////////////
-            int distFromTo = Dao.getInstance().getDistSec(fromNode, toNode);
-
-            // No path available
-            if (distFromTo < 0)
-                return null;
-
-            // Time vehicle arrives at next node (can be earlier or later)
-            int arrivalTo = arrivalFrom + distFromTo;
-
-            // Arrival cannot be later than latest time in node
-            if (arrivalTo > toNode.getLatest())
-                return null;
-
-            // Delay in seconds
-            // If negative: Idle time, i.e., vehicle arrives earlier and wait until earliest time
-            // If positive: arrival_next_node = arrivalTo, i.e., vehicle arrives after earliest time
-            int delay = arrivalTo - toNode.getEarliest();
-
-            // Update totals
-            totalIdleness = totalIdleness + Math.min(delay, 0);
-            totalDelay = totalDelay + Math.max(delay, 0);
-
-            // Update arrival time at next node to >= earliest time of next node
-            arrivalTo = Math.max(arrivalTo, toNode.getEarliest());
-
-            /*TODO: previous_arrival: verify if arrival is better than previous arrival saved for node*/
-            // In this sequence, one of the customers was already scheduled earlier.
-            // The new journey must decrease waiting time of all passengers.
-
-            //if( previous_arrival >= 0 && next_node in previous_arrival and previous_arrival[next_node]<arrivalTo){
-            //    Model.Node.Model.Node.memo_dic[id_viable] = (None,None)
-            //    return delays;
-
-            ///////////////////////////////////////////////////////////////////////////////
-            // Update sequences
-            sequenceVisits.add(toNode);
-
-            // Update
-            fromNode = toNode;
-            arrivalFrom = arrivalTo;
-        }
-
-        // Return visit
-        return new Visit(
-                sequenceVisits,
-                totalDelay,
-                totalIdleness,
-                currentTime);
-    }
-
-    /**
      * Check if there is a valid trip between "fromNode" and "toNode" occurring in vehicle "v".
      * If true, update trip status to reflect the checking of the current leg
-     *
      *
      * @param fromNode   Origin node
      * @param toNode     Destination node
@@ -562,7 +261,6 @@ public class Method {
         // tripStatus[2] - totalDelay
         // tripStatus[3] - totalIdleness
         // tripStatus[4] - relative occupancy
-
 
 
         // Update loads (DP nodes have negative loads)
@@ -637,19 +335,6 @@ public class Method {
         return true;
     }
 
-    private static double getDistance(double lat1, double lon1, double lat2, double lon2, String unit) {
-        if ((lat1 == lat2) && (lon1 == lon2)) {
-            return 0;
-        } else {
-            double theta = lon1 - lon2;
-            double dist = Math.sin(Math.toRadians(lat1)) * Math.sin(Math.toRadians(lat2)) + Math.cos(Math.toRadians(lat1)) * Math.cos(Math.toRadians(lat2)) * Math.cos(Math.toRadians(theta));
-            dist = Math.acos(dist);
-            dist = Math.toDegrees(dist);
-            dist = dist * 60 * 1.1515;
-            dist = dist * 1.609344;
-            return (dist);
-        }
-    }
 
     public static boolean feasibleSequence(Node[] sequenceNodes) {
 
@@ -889,238 +574,6 @@ public class Method {
             return best;
         }
         return null;
-    }
-
-
-    public static Visit getBestInsertionAddFirst(User candidateUser,
-                                                 Vehicle v,
-                                                 int currentTime) {
-
-
-        // Candidate sequence that will be formed
-        List<Node> visitSequence;
-
-        // First best including new users is initiated blank
-        Visit bestVisit = new Visit();
-
-        // If vehicle has NO visits, place first user in candidate sequence
-        if (v.getVisit() == null ||
-                v.getVisit().getSequenceVisits() == null ||
-                v.getVisit().getSequenceVisits().isEmpty()) {
-
-            // Start empty candidate sequence
-            visitSequence = new ArrayList<>();
-
-            // Add first user to the sequence
-            visitSequence.add(candidateUser.getNodePk());
-            visitSequence.add(candidateUser.getNodeDp());
-
-            // Best visit (so far) contains only first user
-            bestVisit = getVisitFromNodeSequence(visitSequence, v, currentTime);
-
-            // If a visit can't be constructed with only one user, there is no valid visit
-            // containing this user. Hence, candidate uses cannot be combined.
-            if (bestVisit == null) {
-                return null;
-            }
-        } else {
-
-            // Copy elements in vehicle visit to candidate sequence
-            visitSequence = new ArrayList<>(v.getVisit().getSequenceVisits());
-
-
-            // Loop all insertion positions
-            for (int pkPos = 0; pkPos <= visitSequence.size(); pkPos++) {
-                for (int dpPos = pkPos; dpPos <= visitSequence.size(); dpPos++) {
-
-                    // Try to get a visit by inserting candidate user in sequence
-                    Visit candidateVisit = Method.getVisitByInsertPosition(candidateUser, visitSequence, v, pkPos, dpPos, currentTime);
-
-                    //System.out.println(String.format("Insert %d and %d -%s %s (%s)", pkPos, dpPos, candidateUser, visitSequence, candidateVisit));
-
-                    // Update best visit
-                    if (candidateVisit != null && candidateVisit.compareTo(bestVisit) < 0) {
-                        bestVisit = candidateVisit;
-                    }
-                }
-            }
-
-            // If best visit was not found
-            if (bestVisit.getSequenceVisits() == null) {
-                return null;
-            }
-
-        }
-
-        // Update user set of best visit
-        bestVisit.setVehicle(v);
-        Set<User> candidateRequests = new HashSet<>(v.getUsers());
-        candidateRequests.add(candidateUser);
-        bestVisit.setSetUsers(candidateRequests);
-
-        return bestVisit;
-    }
-
-    public static Visit getBestInsertion(Set<User> candidateRequests,
-                                         Vehicle v,
-                                         int currentTime,
-                                         int numberOfUsersPermutation,
-                                         boolean findBestVisit,
-                                         int maxNumberPermutations) {
-
-        /*
-        // Get best permutation if list of users <= numberOfUsersPermutation
-        if (candidateRequests.size() + v.getUsers().size() <= numberOfUsersPermutation) {
-            return getVisitByPermutation(candidateRequests, v, findBestVisit, maxNumberPermutations);
-        }
-        */
-
-        // Candidate sequence that will be formed
-        List<Node> visitSequence;
-
-        // Iterator of candidate requests
-        Iterator<User> iteratorUser = candidateRequests.iterator();
-
-        // First best including new users is initiated blank
-        Visit bestVisit = new Visit();
-
-        // If vehicle has NO visits, place first user in candidate sequence
-        if (v.getVisit() == null ||
-                v.getVisit().getSequenceVisits() == null ||
-                v.getVisit().getSequenceVisits().isEmpty()) {
-
-            // Get first user
-            User firstUser = iteratorUser.next();
-
-            // Start empty candidate sequence
-            visitSequence = new ArrayList<>();
-
-            // Add first user to the sequence
-            visitSequence.add(firstUser.getNodePk());
-            visitSequence.add(firstUser.getNodeDp());
-
-            // Best visit (so far) contains only first user
-            bestVisit = getVisitFromNodeSequence(visitSequence, v);
-
-            // If a visit can't be constructed with only one user, there is no valid visit
-            // containing this user. Hence, candidate uses cannot be combined.
-            if (bestVisit == null) {
-                //System.out.println("BEST:"+best);
-                return null;
-            }
-
-        } else {
-            // Copy elements in vehicle visit to candidate sequence
-            visitSequence = new ArrayList<>(v.getVisit().getSequenceVisits());
-        }
-
-        //System.out.println("Candidates:"+candidates);
-        //System.out.println("Visits:"+v.getUsers());
-
-        // Loop users and try to insert them in vehicle
-        while (iteratorUser.hasNext()) {
-
-            User candidateUser = iteratorUser.next();
-            //System.out.println("####### User:" + u);
-
-            // True if user was inserted in sequence
-            boolean inserted = false;
-
-
-            // Loop all insertion positions
-            for (int pkPos = 0; pkPos <= visitSequence.size(); pkPos++) {
-                for (int dpPos = pkPos; dpPos <= visitSequence.size(); dpPos++) {
-
-                    // Try to get a visit by inserting candidate user in sequence
-                    //Visit candidateVisit = Method.getVisitByInsertPosition(candidateUser, visitSequence, v, pkPos, dpPos, currentTime);
-                    Visit candidateVisit = v.getBestInsertion(candidateUser, currentTime);
-                    //System.out.println(String.format("Insert %d and %d -%s %s (%s)", pkPos, dpPos, candidateUser, visitSequence, candidateVisit));
-
-                    // Update best visit
-                    if (candidateVisit != null && candidateVisit.compareTo(bestVisit) < 0) {
-                        inserted = true;
-                        bestVisit = candidateVisit;
-                    }
-                }
-            }
-
-            // User u was not inserted. Can't make sequence out of ALL users.
-            if (!inserted) return null;
-
-            // Update visit sequence from best visit found so far
-            visitSequence = bestVisit.getSequenceVisits();
-        }
-
-        // If best visit was not found
-        if (bestVisit.getSequenceVisits() == null) {
-            return null;
-        }
-
-        // Assign vehicle to best
-        bestVisit.setVehicle(v);
-        return bestVisit;
-    }
-
-    public static Visit getBestInsertion(User candidateUser,
-                                         Vehicle v,
-                                         int currentTime) {
-
-        // Candidate sequence that will be formed
-        List<Node> visitSequence;
-
-        // First best including new users is initiated blank
-        Visit bestVisit = new Visit();
-
-        // If vehicle has NO visits, place first user in candidate sequence
-        if (v.getVisit() == null ||
-                v.getVisit().getSequenceVisits() == null ||
-                v.getVisit().getSequenceVisits().isEmpty()) {
-
-            // Start empty candidate sequence
-            visitSequence = new ArrayList<>();
-
-        } else {
-            // Copy elements in vehicle visit to candidate sequence
-            visitSequence = new ArrayList<>(v.getVisit().getSequenceVisits());
-        }
-
-
-        // True if user was inserted in sequence
-        boolean inserted = false;
-
-
-        // Loop all insertion positions
-        for (int pkPos = 0; pkPos <= visitSequence.size(); pkPos++) {
-            for (int dpPos = pkPos; dpPos <= visitSequence.size(); dpPos++) {
-
-                // Try to get a visit by inserting candidate user in sequence
-                Visit candidateVisit = Method.getVisitByInsertPosition(candidateUser, visitSequence, v, pkPos, dpPos, currentTime);
-
-                //System.out.println(String.format("Insert %d and %d -%s %s (%s)", pkPos, dpPos, candidateUser, visitSequence, candidateVisit));
-
-                // Update best visit
-                if (candidateVisit != null && candidateVisit.compareTo(bestVisit) < 0) {
-                    inserted = true;
-                    bestVisit = candidateVisit;
-                }
-            }
-        }
-
-
-        // If best visit was not found
-        if (bestVisit.getSequenceVisits() == null) {
-            return null;
-        }
-
-        // Assign vehicle to best
-        bestVisit.setVehicle(v);
-
-        // Update user set of best visit
-        Set<User> candidateRequests = new HashSet<>(v.getUsers());
-        candidateRequests.add(candidateUser);
-        bestVisit.setSetUsers(candidateRequests);
-
-        return bestVisit;
     }
 
 
@@ -1464,8 +917,7 @@ public class Method {
         Visit visit = new Visit(newSequence,
                 tripStatus[2],
                 tripStatus[3],
-                occupationLeg,
-                visitCurrentTime);
+                occupationLeg);
 
         //System.out.println("TRIP STATUS:"+ tripStatus[4]);
         //System.out.println(pkPos +")" + u.getNodePk() + " -- "+ dpPos +")" + u.getNodeDp());
@@ -1509,7 +961,7 @@ public class Method {
             Visit bestVisit = new Visit();
 
             // Sort vehicles according to arrival time
-            Collections.sort(listVehicles);
+            //Collections.sort(listVehicles);
 
             // Try to insert user in each vehicle
             for (Vehicle v : listVehicles) {
@@ -1573,5 +1025,136 @@ public class Method {
 
         // Return all serviced users
         return setServicedUsers;
+    }
+
+    /**
+     * Receive the fleet of vehicles and a static set of "hot points", that is, pick up misses.
+     * Only vehicles idle for maxRoundsIdleBeforeRebalance are considered.
+     * <p>
+     * The vehicle idle for the longest time will be assign to a customer.
+     * <p>
+     * tiebreaker is distance (closer vehicles before)
+     *
+     * @param listIdle List of vehicles operating
+     */
+    public static void rebalanceVehicles(Map<Integer, Vehicle> listIdle) {
+
+        //System.out.println("Set of hot points: " + Vehicle.setOfHotPoints.size() + " - Idle size: " + listIdle.size());
+
+        // Missed pickup nodes are sorted according to their hotness (Hotest first)
+        // The sorting is realized using the network position of the nodes
+        // Every time a miss occurs the hotness of a network id is increased
+        Collections.sort(Vehicle.setOfHotPoints);
+
+        /*
+
+        for (Node v :
+                Vehicle.setOfHotPoints) {
+            System.out.println(v + " - " + v.getUrgent());
+
+        }
+
+        */
+
+        //System.out.println("Set of hot points sorted:" + Vehicle.setOfHotPoints);
+
+        while (!Vehicle.setOfHotPoints.isEmpty()) {
+            //System.out.println( "HOT:" + Vehicle.setOfHotPoints.size());
+
+            // No vehicles to rebalance
+            if (listIdle.isEmpty()) {
+                Vehicle.setOfHotPoints.clear();
+                return;
+            }
+
+            Node hotPoint = Vehicle.setOfHotPoints.poll();
+
+            List listVehicleIds = new ArrayList(listIdle.keySet());
+
+            // Closest vehicle to candidate hot point (a previous miss)
+            Vehicle idlestClosestVehicle = listIdle.get(listVehicleIds.get(0));
+
+            // If hotpoint is urgent, get closest
+            if (hotPoint.getUrgent() > 0) {
+
+                System.out.println("Addressing urgent...");
+
+                for (int i = 1; i < listVehicleIds.size(); i++) {
+
+                    Vehicle candidateRebalancingVehicle = listIdle.get(listVehicleIds.get(i));
+
+                    // Untie using shortest distance
+                    int distanceCandidate = Dao.getInstance().getDistSec(hotPoint, candidateRebalancingVehicle.getCurrentNode());
+                    int distanceIncumbent = Dao.getInstance().getDistSec(hotPoint, idlestClosestVehicle.getCurrentNode());
+
+                    // Untie with distance
+                    if (distanceCandidate < distanceIncumbent && distanceCandidate > 0) {
+                        idlestClosestVehicle = candidateRebalancingVehicle;
+                    }
+                }
+            } else {
+                for (int i = 1; i < listVehicleIds.size(); i++) {
+
+                    Vehicle candidateRebalancingVehicle = listIdle.get(listVehicleIds.get(i));
+
+                    // Get the idlest and closest vehicle to hot point
+                    if (candidateRebalancingVehicle.getRoundsIdle() >= idlestClosestVehicle.getRoundsIdle()) {
+
+                        if (candidateRebalancingVehicle.getRoundsIdle() == idlestClosestVehicle.getRoundsIdle()) {
+
+                            // Untie using shortest distance
+                            int distanceCandidate = Dao.getInstance().getDistSec(hotPoint, candidateRebalancingVehicle.getCurrentNode());
+                            int distanceIncumbent = Dao.getInstance().getDistSec(hotPoint, idlestClosestVehicle.getCurrentNode());
+
+                            // Untie with distance
+                            if (distanceCandidate < distanceIncumbent && distanceCandidate > 0) {
+                                idlestClosestVehicle = candidateRebalancingVehicle;
+                            }
+                        } else {
+                            idlestClosestVehicle = candidateRebalancingVehicle;
+                        }
+                    }
+                }
+            }
+            //Closest vehicle is found
+            if (idlestClosestVehicle != null) {
+
+                //System.out.println(Node.tabu.size() + " - " +  Node.tabu);
+
+                // Make vehicle move to target
+                idlestClosestVehicle.rebalanceTo(hotPoint);
+
+                // Vehicle is already rebalancing
+                listIdle.remove(idlestClosestVehicle.getId());
+
+
+                //System.out.println(Node.tabu.size() + " - " +  Node.tabu);
+
+
+                String logReloc = idlestClosestVehicle +
+                        "(" + idlestClosestVehicle.getRoundsIdle() + ") [" + Node.hotSpot.get(hotPoint.getNetworkId()) + "] [ size: " + Vehicle.setOfHotPoints.size() + "] list size: (" + listIdle.size() + ")   " +
+                        "   Visit: " +
+                        idlestClosestVehicle.getVisit() + "--" +
+                        idlestClosestVehicle.getCurrentNode() +
+                        "[" + idlestClosestVehicle.getCurrentNode().getInfo() + "]" +
+                        " -> " +
+                        Dao.getInstance().getDistSec(idlestClosestVehicle.getCurrentNode(), hotPoint) +
+                        " -> " +
+                        idlestClosestVehicle.getVisit().getTargetNode() + ": " +
+                        "[" + idlestClosestVehicle.getVisit().getTargetNode().getInfo() + "]";
+
+                //System.out.println(logReloc);
+
+            }
+
+        }
+
+
+        //System.out.println("Addressed: " + addressedHotNodes.size() + " - - Hot: " + Vehicle.setOfHotPoints.size());
+        //Vehicle.setOfHotPoints.removeAll(addressedHotNodes);
+    }
+
+    public static void reset() {
+        return;
     }
 }

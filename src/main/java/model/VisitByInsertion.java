@@ -113,14 +113,6 @@ public class VisitByInsertion extends Visit implements Runnable {
         this.sequenceVisits = newSequence;
         this.delay = visitStatus[2];
         this.idle = visitStatus[3];
-
-
-        //System.out.println(pkPos +")" + this.candidate.getNodePk() + " -- "+ dpPos +")" + this.candidate.getNodeDp());
-        //System.out.println(candidateVisit);
-        //System.out.println(newSequence);
-        //System.out.println(visit);
-        //System.out.println("-------------------------- i: "+ i);
-
     }
 
     public Integer calculateArrival(Node fromNode,

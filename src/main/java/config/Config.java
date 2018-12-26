@@ -24,7 +24,7 @@ public class Config {
         qosDic = new HashMap<>();
 
         try {
-            this.firstDate = Config.formatter_date_time.parse("2011-02-12 00:00:00");
+            this.firstDate = Config.formatter_date_time.parse("2011-02-01 00:00:00");
         } catch (ParseException e) {
             e.printStackTrace();
         }
@@ -72,35 +72,39 @@ public class Config {
     }
 
     public static class Qos {
+        public static final int PRIVATE_VEHICLE = 0;
+        public static final int ALLOWED_SHARING = 1;
         public String id;
         public double serviceRate;
         public int pkDelay, dpDelay;
         public double share;
+        public boolean allowedSharing;
 
         public Qos(String id, int pkDelay, int dpDelay, double serviceRate) {
             this.id = id;
             this.serviceRate = serviceRate;
             this.pkDelay = pkDelay;
             this.dpDelay = dpDelay;
+
         }
 
-        public Qos(String id, int pkDelay, int dpDelay, double serviceRate, double share) {
+        public Qos(String id, int pkDelay, int dpDelay, double serviceRate, double share, boolean allowedSharing) {
             this.id = id;
             this.serviceRate = serviceRate;
             this.pkDelay = pkDelay;
             this.dpDelay = dpDelay;
             this.share = share;
+            this.allowedSharing = allowedSharing;
         }
 
         @Override
         public String toString() {
-            return "QoS {" +
-                    "id = '" + id + '\'' +
-                    ", serviceRateScenarioLabel = " + serviceRate +
-                    ", pkDelay = " + pkDelay +
-                    ", dpDelay = " + dpDelay +
-                    ", share = " + share +
-                    '}';
+            return "[SQ " + id + "] service rate = " + serviceRate + " - pk delay = " + pkDelay + " - dp delay = " + dpDelay + " - share = " + share + " - allow sharing = " + share;
+        }
+
+        @Override
+        public int hashCode() {
+            return this.id.hashCode();
         }
     }
 }

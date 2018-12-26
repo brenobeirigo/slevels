@@ -1,10 +1,27 @@
 {
   "scenario_config": {
+    "max_rounds_idle_before_rebalance": [
+      1
+    ],
+    "deactivation_factor": [
+      10000
+    ],
+    "max_delay_extensions": [
+      2
+    ],
+    "allow_vehicle_creation": [
+      false,
+      true
+    ],
+    "allow_delay_extension": [
+      false,
+      true
+    ],
+
     "time_window": [
       30
     ],
     "time_horizon": [
-      3600,
       86400
     ],
     "max_requests": [
@@ -12,10 +29,10 @@
     ],
     "initial_fleet": [
       1000,
-      2000
+      0
     ],
     "max_capacity": [
-      10
+      6
     ],
     "service_rate": {
       "S1": {
@@ -69,18 +86,21 @@
     "service_level": {
       "A": {
         "pk_delay": 180,
-        "trip_delay": 180
+        "trip_delay": 180,
+        "sharing_preference": false
       },
       "B": {
         "pk_delay": 300,
-        "trip_delay": 600
+        "trip_delay": 600,
+        "sharing_preference": true
       },
       "C": {
         "pk_delay": 600,
-        "trip_delay": 900
+        "trip_delay": 900,
+        "sharing_preference": true
       }
     }
   },
-  "result_path": "./output/results_UHH.csv",
+  "result_folder": "output/output_all_LAST",
   "generate_test_cases": true
 }

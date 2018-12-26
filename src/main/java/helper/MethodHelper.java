@@ -3,60 +3,15 @@ package helper;
 import dao.Dao;
 import model.User;
 import model.Vehicle;
-import model.Visit;
 import model.node.Node;
 import simulation.Method;
 
 import java.util.ArrayList;
-import java.util.HashSet;
 import java.util.List;
-import java.util.Set;
+import java.util.Map;
 
 public class MethodHelper {
 
-
-    public static Visit getValidVisitOfSize(int n, boolean findBest, int maxTrips) {
-
-        Vehicle v1 = new Vehicle(n, 0, 12, 23);
-
-        Visit v = null;
-
-        while (v == null) {
-            Dao dao = Dao.getInstance();
-            Set<User> listUser = new HashSet<>(dao.getListTrips(100, n));
-            v = Method.getVisitByPermutation(listUser, v1, findBest, maxTrips);
-        }
-
-        return v;
-    }
-
-    public static void testValid(int size_seq, List<User> trips) {
-        //#users
-        int cont = 0;
-
-        //Model.Vehicle to test sequence
-        Vehicle v = new Vehicle(size_seq, 0, 2.34, 4.3);
-
-        //Generating sequence
-        List<Integer> sequence = new ArrayList<>();
-
-        // Create sequences from trips
-        for (User l : trips) {
-            cont++;
-            sequence.add(l.getId());
-            sequence.add(l.getId());
-
-
-            if (cont % size_seq == 0) {
-
-                Visit valid = Method.getValidVisit(sequence, v);
-                System.out.println("SEQUENCE:" + sequence);
-                System.out.println("   NODES:" + valid);
-                sequence = new ArrayList<>();
-                cont = 0;
-            }
-        }
-    }
 
     /**
      * Create a vehicle of capacity "capacity" positioned at a random node.
@@ -64,12 +19,12 @@ public class MethodHelper {
      * @param capacity Capacity of vehicle
      * @return Vehicle at random position
      */
-    public static Vehicle createVehicleAtRandomPosition(int capacity) {
-        int randomOrigin = (int) (Math.random() * Dao.getInstance().getDistMatrix().length);
-        return new Vehicle(capacity, randomOrigin);
+    public static Vehicle createVehicleAtRandomPosition(int capacity, int currentTime) {
+        short randomOrigin = (short) (Math.random() * Dao.getInstance().getDistMatrix().length);
+        return new Vehicle(capacity, randomOrigin, currentTime, true);
     }
 
-    public static List<Vehicle> createListVehicles(int n, int size, boolean uniqueSize) {
+    public static List<Vehicle> createListVehicles(int n, int size, boolean uniqueSize, int currentTime) {
 
         //System.out.println("Creating vehicles...");
         List<Vehicle> listVehicle = new ArrayList<>();
@@ -95,11 +50,29 @@ public class MethodHelper {
             }
 
             //
-            int randomOrigin = (int) (Math.random() * Dao.getInstance().getDistMatrix().length);
-            ///System.out.println(randomOrigin);
-            listVehicle.add(new Vehicle(vSize, randomOrigin, 2.3, 3.4));
+            short randomOrigin = (short) (Math.random() * Dao.getInstance().getDistMatrix().length);
+            System.out.println("Vehicles:" + randomOrigin + "-" + Dao.getInstance().getDistMatrix().length);
+            //System.out.println(randomOrigin);
+            listVehicle.add(new Vehicle(vSize, randomOrigin, currentTime));
         }
         //System.out.println(listVehicle.size() + " vehicles created.");
+        return listVehicle;
+    }
+
+
+    public static List<Vehicle> createListVehicles(Map<Integer, Integer> vPerCapacity) {
+
+        //System.out.println("Creating vehicles...");
+        List<Vehicle> listVehicle = new ArrayList<>();
+
+        for (Map.Entry<Integer, Integer> e : vPerCapacity.entrySet()) {
+            for (int i = 0; i < e.getValue(); i++) {
+                short randomOrigin = (short) (Math.random() * Dao.getInstance().getDistMatrix().length);
+                listVehicle.add(new Vehicle(e.getKey(), randomOrigin, 2.3, 3.4));
+            }
+        }
+
+
         return listVehicle;
     }
 

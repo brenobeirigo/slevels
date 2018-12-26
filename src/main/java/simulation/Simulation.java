@@ -5,42 +5,60 @@ import helper.HelperIO;
 import helper.MethodHelper;
 import model.User;
 import model.Vehicle;
-import model.node.NodeOrigin;
-import model.node.NodeStop;
 
+import java.nio.file.Files;
 import java.util.*;
+import java.util.stream.Collectors;
 
 public abstract class Simulation {
+
+    public static final byte ALL_INFO = 1;
+    public static final byte ROUND_INFO = 2;
+    public static final byte NO_INFO = 0;
+
 
     // Solution coming from simulation
     protected Solution sol; //Simulation solution
 
+    /* Rebalancing */
+    protected int maxRoundsIdleBeforeRebalance;
+
+    /* Deactivating, hiring */
+    protected int maxRoundsIdleBeforeDeactivating;
+    protected boolean isAllowedToHire; // Simulation can hire new vehicles as needed
+    protected boolean isAllowedToLowerServiceLevel; // Simulation is allowed to
 
     /*Scenario*/
     protected String serviceRateScenarioLabel;
     protected String segmentationScenarioLabel;
 
-
     /* TIME HORIZON */
     protected int timeWindow; // Size of time bins
     protected int timeHorizon; // Total time horizon
+    protected int maxDelayExtensionsBeforeHiring; // How many times a customer can have its request deferred before hiring new vehicle
 
     /* VEHICLE INFO */
     protected int initialFleetSize; // Fleet size
     protected int vehicleCapacity; // Number of seats
+    protected int maxRoundsIdle; // Ends the contract of extra vehicle after number of rounds
 
     /* POOLING DATA */
     protected int maxNumberOfTrips; //How many trips are pooled in time horizon
-    protected int totalRounds; // How many rounds of time horizon will be pooled
     protected int time_slot;
     protected int start_timestamp; // (00:00:00) Initial timestamp for pooling data
     protected int leftTW, rightTW; // Left and right time windows (rightTW = current time)
-    protected boolean run_ending_rounds; // Keep running rounds until all vehicles finish the requests
-    protected int countRounds;
+
+    /* ROUND INFO */
+    protected int totalRounds; // How many rounds of time horizon will be pooled
+    protected int roundCount;
+    protected boolean activeFleet; //True if a single vehicle is still working (rebalancing, picking up, etc.)
+    protected long roundTimeNanoSec;
+    protected long rebalancingTime;
 
     /* SETS OF VEHICLES AND REQUESTS */
     protected Map<Integer, User> allRequests; // Dictionary of all users
-    protected Set<User> setWaitingUsers; // Requests whose pickup time is lower than the current time
+    protected List<User> setWaitingUsers; // Requests whose pickup time is lower than the current time
+    protected List<User> listPooledUsersTW;  // Requests pooled within TW
     protected Set<User> deniedRequests; // Requests with expired pickup time
     protected Set<User> finishedRequests; // Requests whose DP node was visited
     protected List<Vehicle> listVehicles; // List of vehicles
@@ -51,11 +69,25 @@ public abstract class Simulation {
                       int vehicleCapacity,
                       int maxNumberOfTrips,
                       int timeWindow,
-                      int timeHorizon) {
+                      int timeHorizon,
+                      int maxRoundsIdleBeforeRebalance,
+                      int deactivationFactor,
+                      int maxDelayExtensionsBeforeHiring,
+                      boolean isAllowedToHire,
+                      boolean isAllowedToLowerServiceLevel) {
 
         /* TIME HORIZON */
         this.timeWindow = timeWindow; // Size of time bins
         this.timeHorizon = timeHorizon; // Total time horizon
+        this.maxDelayExtensionsBeforeHiring = maxDelayExtensionsBeforeHiring; // Delay multiplier before hiring new vehicle
+
+        /* REBALANCING */
+        this.maxRoundsIdleBeforeRebalance = maxRoundsIdleBeforeRebalance;
+
+        /* DEACTIVATING */
+        this.maxRoundsIdleBeforeDeactivating = deactivationFactor * maxRoundsIdleBeforeRebalance;
+        this.isAllowedToHire = isAllowedToHire;
+        this.isAllowedToLowerServiceLevel = isAllowedToLowerServiceLevel;
 
         /* VEHICLE INFO */
         this.initialFleetSize = initialFleetSize; // Fleet size
@@ -66,109 +98,58 @@ public abstract class Simulation {
         totalRounds = timeHorizon / timeWindow; // How many rounds of time horizon will be pooled
         time_slot = totalRounds * timeWindow;
         start_timestamp = 0; // (00:00:00) Initial timestamp for pooling data
-        leftTW = this.start_timestamp; // Left and right time windows (rightTW = current time)
-        rightTW = 0;
-        run_ending_rounds = true; // Keep running rounds until all vehicles finish the requests
-        countRounds = 0;
+        leftTW = start_timestamp; // Left and right time windows (rightTW = current time)
+        rightTW = leftTW + timeWindow;
+        roundCount = 0;
+        roundTimeNanoSec = 0;
 
         /* SETS OF VEHICLES AND REQUESTS */
         allRequests = new HashMap<>(); // Dictionary of all users
-        setWaitingUsers = new HashSet<>(); // Requests whose pickup time is lower than the current time
+        setWaitingUsers = new ArrayList<>(); // Requests whose pickup time is lower than the current time
         deniedRequests = new HashSet<>(); // Requests with expired pickup time
         finishedRequests = new HashSet<>(); // Requests whose DP node was visited
+        maxRoundsIdle = 40;
+        activeFleet = false;
 
-        listVehicles = MethodHelper.createListVehicles(initialFleetSize, vehicleCapacity, true); // List of vehicles
+
+        listVehicles = MethodHelper.createListVehicles(initialFleetSize, vehicleCapacity, true, leftTW); // List of vehicles
         //TODO hot_PK_list
     }
 
-    // Default constructor
-    public Simulation() {
-
-        /* TIME HORIZON */
-        timeWindow = 30; // Size of time bins
-        timeHorizon = 600; // Total time horizon
-
-        /* VEHICLE INFO */
-        initialFleetSize = 2000; // Fleet size
-        vehicleCapacity = 10; // Number of seats (1 - 4)
-
-        /* POOLING DATA */
-        maxNumberOfTrips = 1000; //How many trips are pooled in time horizon
-        totalRounds = timeHorizon / timeWindow; // How many rounds of time horizon will be pooled
-        time_slot = totalRounds * timeWindow;
-        start_timestamp = 0; // (00:00:00) Initial timestamp for pooling data
-        leftTW = this.start_timestamp; // Left and right time windows (rightTW = current time)
-        rightTW = 0;
-        run_ending_rounds = true; // Keep running rounds until all vehicles finish the requests
-        countRounds = 0;
-
-        /* SETS OF VEHICLES AND REQUESTS */
-        allRequests = new HashMap<>(); // Dictionary of all users
-        setWaitingUsers = new HashSet<>(); // Requests whose pickup time is lower than the current time
-        deniedRequests = new HashSet<>(); // Requests with expired pickup time
-        finishedRequests = new HashSet<>(); // Requests whose DP node was visited
-        listVehicles = MethodHelper.createListVehicles(initialFleetSize, vehicleCapacity, true); // List of vehicles
-        System.out.println("SIZE OF LIST VEHICLES:" + listVehicles.size());
-        //TODO hot_PK_list
-    }
-
-    //TODO hot_PK_list
     public abstract Set<User> getServicedUsersDynamicSizedFleet(int currentTime);
 
-    public void run() {
-        /* Declare empty waiting list
-        Repeat:
-            leftTW:
-                 - Eliminate serviced requests from waiting list
-                 - Eliminate denied requests from waiting list
-            RightTW:
-            - Fill waiting list with collected requests in TW
-            - Assign requests to vehicles (using optimization method)
-            - Remove assigned vehicles from waiting list */
+    public static void reset() {
+        return;
+    }
 
-        // Loop number of rounds
-        while (countRounds < totalRounds || run_ending_rounds) {
+    /**
+     * Vehicle can:
+     * - Finish rebalance
+     * - Start rebalance
+     * - Be deactivated
+     * - Have parking nodes (origin, stop) updated in departure
+     */
+    public void updateFleetStatus() {
+        ////// 1 - GET FINISHED USERS (before current time) ////////////////////////////////////////////////////////
+        Set<Vehicle> setDeactivate = new HashSet<>();
 
-            // Wall time getServicedUsersDynamicSizedFleet of round
-            long startWalltime = System.nanoTime();
+        // Vehicles not servicing users nor rebalancing
+        Map<Integer, Vehicle> candidateVehiclesToRebalance = new HashMap<>();
 
-            // Update current time
-            rightTW = leftTW + timeWindow;
+        // Loop vehicles to get set of finished requests and set of active vehicles (servicing users OR rebalancing)
+        for (Vehicle v : listVehicles) {
 
-            // Update previous current time
-            leftTW = rightTW;
+            // Return set of users and update rebalancing vehicles
+            Set<User> serviced = v.getServicedUsersUntil(rightTW);
 
-            /*#*******************************************************************************************************/
-            ////// 1 - GET FINISHED USERS (before current time) ////////////////////////////////////////////////////////
-            /*#*******************************************************************************************************/
+            if (serviced != null) {
+                finishedRequests.addAll(serviced);
+            }
 
-            int remainingPassengers = 0;
-            int active_vehicles = 0;
-
-            Set<Vehicle> setActiveVehicles = new HashSet<>();
-
-            // Loop vehicles to get set of finished requests and set of active vehicles (servicing users)
-            for (Vehicle v : listVehicles) {
-
-                // Update vehicle's requests according with rightmost bound of time windows
-                Set<User> roundFinishedRequests = v.getServicedUsersUntil(rightTW);
-
-                // if requests in vehicle v are finished
-                if (roundFinishedRequests != null) {
-
-                    // Add requests to the final list of finished
-                    finishedRequests.addAll(roundFinishedRequests);
-                }
-
-                // If there are passengers after the update
-                if (!v.getUsers().isEmpty()) {
-
-                    // Update the number of remaining passengers
-                    remainingPassengers = remainingPassengers + v.getUsers().size();
-
-                    // Vehicles en-route
-                    setActiveVehicles.add(v);
-                }
+            // If vehicle is not parked, it is either cruising, servicing or rebalancing
+            if (!v.isParked()) {
+                activeFleet = true;
+            } else {
 
                 /* Update vehicle's current nodes (if they are of types NodeOrigin and NodeStop)
                  * with the rightmost time window value. This is the time a vehicle is allowed to
@@ -181,124 +162,206 @@ public abstract class Simulation {
                 //  - Current node is origin or NodeStop
                 //  - Model.Vehicle is idle
 
-                if (v.getCurrentNode() instanceof NodeStop || v.getCurrentNode() instanceof NodeOrigin) {
-                    if (v.getUsers().isEmpty()) {
-                        v.setDepartureCurrent(Math.max(rightTW, v.getDepartureCurrent()));
+                v.updateDeparture(rightTW);
+
+                // Vehicle is not servicing customers
+                v.increaseRoundsIdle();
+
+                // Only rebalance if there are still passengers waiting
+                //if (!setWaitingUsers.isEmpty()) {
+
+                // Check if it is candidate to rebalance
+                if (v.getRoundsIdle() >= maxRoundsIdleBeforeRebalance) {
+                    if (v.getRoundsIdle() < maxRoundsIdleBeforeDeactivating) {
+                        // System.out.println("REBALANCE - - - "+ v.getId() + " - - - - - " + v + " - " + v.getRoundsIdle() + "----" + maxRoundsIdleBeforeRebalance);
+                        candidateVehiclesToRebalance.put(v.getId(), v);
+                        // Vehicle can be deactivated
+                    } else if (v.canDiscard(maxRoundsIdleBeforeDeactivating)) {
+                        // Cannot discard vehicle, it is part of the original fleet
+                        setDeactivate.add(v);
                     }
                 }
+                // }
             }
 
-            /*#********************************************************************************************************/
-            ////// 2 - Eliminate waiting users that can no longer be picked up /////////////////////////////////////////
-            /*#********************************************************************************************************/
+            v.updateMiddle(rightTW);
+        }
 
-            // Get requests whose latest times are up
-            Set<User> setTimeUpRequest = new HashSet<>();
+        listVehicles.removeAll(setDeactivate);
 
-            // Latest pickup time of request expired
-            for (User u : setWaitingUsers) {
-                if (rightTW > u.getNodePk().getLatest())
+        /*#********************************************************************************************************/
+        ////// REBALANCING /////////////////////////////////////////////////////////////////////////////////////////
+        /*#********************************************************************************************************/
 
-                    //TODO: Here TW windows get flexible
-                    setTimeUpRequest.add(u);
+        /// Rescheduling empty vehicles ////////////////////////////////////////////////////////////////////////////////
+        rebalancingTime = System.nanoTime();
+        Method.rebalanceVehicles(candidateVehiclesToRebalance);
+        rebalancingTime = (System.nanoTime() - rebalancingTime) / 1000000;
+
+    }
+
+    /**
+     * Pool new requests (within TW) from database
+     */
+    public void updateSetWaitingUsers() {
+
+        // Clean list of pooled users
+        listPooledUsersTW = new ArrayList<>();
+
+        // After the number of rounds stop pooling requests but finish waiting requests
+        if (roundCount < totalRounds) {
+
+            // Dictionary of pooled requests inside time slot
+            listPooledUsersTW = Dao.getInstance()
+                    .getListTripsClassed(
+                            timeWindow,
+                            vehicleCapacity,
+                            maxNumberOfTrips);
+
+            // Add pooled requests into waiting list
+            setWaitingUsers.addAll(listPooledUsersTW);
+
+            // Store all requests
+            for (User e : listPooledUsersTW) {
+                allRequests.put(e.getId(), e);
             }
+        }
+    }
 
-            // Set of requests that have expired
-            deniedRequests.addAll(setTimeUpRequest);
+    /**
+     * Round info
+     *
+     * @param infoLevel If true, show status of all vehicles
+     */
+    public void printRoundInfo(int infoLevel) {
 
-            // Remove time up requests from waiting set
-            setWaitingUsers.removeAll(setTimeUpRequest);
 
-            /*#********************************************************************************************************/
-            ////// 3 - GET USERS INSIDE TW /////////////////////////////////////////////////////////////////////////////
-            /*#********************************************************************************************************/
-
-            // List of pooled users inside TW (only filled if countRounds < totalRounds)
-            List<User> listUsersTW = new ArrayList<>();
-
-            // After the number of rounds stop pooling requests but finish waiting requests
-            if (countRounds < totalRounds) {
-
-                // Dictionary of pooled requests inside time slot
-                listUsersTW = Dao.getInstance().getListTripsClassed(timeWindow, vehicleCapacity, maxNumberOfTrips);
-
-                // Add pooled requests into waiting list
-                setWaitingUsers.addAll(listUsersTW);
-
-                // Store all requests
-                for (User e : listUsersTW) {
-                    allRequests.put(e.getId(), e);
-                }
-            }
-
-            /*#*********************************************************************************************************
-             ////// 3 - ASSIGN WAITING USERS (previous + current round)  TO VEHICLES ///////////////////////////////////
-            /*#********************************************************************************************************/
-
-            //##########################################################################################################
-            //##########################################################################################################
-            Set<User> setScheduledUsers = getServicedUsersDynamicSizedFleet(rightTW);
-            //##########################################################################################################
-            //##########################################################################################################
-
-            System.out.println("Scheduled in round:" + setScheduledUsers.size() + "/" + setWaitingUsers.size());
-
-            // Remove scheduled requests from pool of waiting
-            setWaitingUsers.removeAll(setScheduledUsers);
-
-            // if there are no remaining passengers and service in all vehicles is finished
-            if (countRounds >= totalRounds && remainingPassengers == 0) {
-
-                System.out.println("####" + countRounds + " -- " + totalRounds);
-
-                // All passengers have been attended, stop rounds
-                run_ending_rounds = false;
-            }
-
-            // Update round count
-            countRounds = countRounds + 1;
-
-            /*#*********************************************************************************************************
+         /*#*********************************************************************************************************
              ///// Print round information  ////////////////////////////////////////////////////////////////////////////
             /*#********************************************************************************************************/
 
+
+        long runTime = (System.nanoTime() - roundTimeNanoSec) / 1000000;
+        // Print round statistics (Round info is also calculated here)
+        String roundSnapshot = sol.calculateRoundStats(
+                rightTW,
+                vehicleCapacity,
+                listVehicles,
+                setWaitingUsers,
+                finishedRequests,
+                deniedRequests,
+                listPooledUsersTW,
+                allRequests,
+                runTime,
+                rebalancingTime);
+
+
+        if (infoLevel == Simulation.ROUND_INFO || infoLevel == Simulation.ALL_INFO) {
             // Print the time window reading
             System.out.println(HelperIO.getHeaderTW(start_timestamp,
                     time_slot,
                     leftTW,
                     rightTW,
-                    listUsersTW,
+                    listPooledUsersTW,
                     allRequests,
                     initialFleetSize,
                     timeWindow,
-                    countRounds,
+                    roundCount,
                     totalRounds
             ));
 
-            // Print round statistics
-            System.out.println(sol.getRoundStatistics(rightTW,
-                    vehicleCapacity,
-                    listVehicles,
-                    setWaitingUsers,
-                    finishedRequests,
-                    deniedRequests,
-                    listUsersTW,
-                    allRequests,
-                    (System.nanoTime() - startWalltime) / 1000000));
-
-
-            // Print vehicle details
-            System.out.println(HelperIO.getVehicleInfo(listVehicles,
-                    rightTW,
-                    false,
-                    false,
-                    false));
+            System.out.println(roundSnapshot);
         }
 
-        // Save solution to file
-        sol.save();
+
+        if (infoLevel == Simulation.ALL_INFO) {
+
+            // Print vehicle details
+            System.out.println(HelperIO.getVehicleInfo(
+                    listVehicles,
+                    rightTW,
+                    true,
+                    true,
+                    true));
+        }
+    }
+
+    public void updateDemandStatus() {
+
+        ////// 1 - GET USERS INSIDE TW /////////////////////////////////////////////////////////////////////////////////
+        updateSetWaitingUsers();
+
+        ///// 2 - REMOVE USERS THAT CANNOT BE PICKED UP  ///////////////////////////////////////////////////////////////
+        List<User> rejectedUsers = setWaitingUsers.stream()
+                .filter(u -> !u.canBePickedUp(rightTW))
+                .collect(Collectors.toList());
+
+        deniedRequests.addAll(rejectedUsers);
+        setWaitingUsers.removeAll(rejectedUsers);
+
+        System.out.println("Getting serviced users...");
+        ///// 3 - ASSIGN WAITING USERS (previous + current round)  TO VEHICLES /////////////////////////////////////////
+        Set<User> setScheduledUsers = getServicedUsersDynamicSizedFleet(rightTW);
+        System.out.println("Finished.");
+
+        ///// 4 - REMOVE SERVICED USERS FROM WAITING SET////////////////////////////////////////////////////////////////
+        setWaitingUsers.removeAll(setScheduledUsers);
+
+    }
+
+    public void run(int infoLevel) {
+
+        if (Files.exists(this.sol.getOutputFile())) {
+            System.out.println(this.sol.getOutputFile() + " already exists.");
+            return;
+        } else {
+            System.out.println(this.sol.getOutputFile() + " instance being processed...");
+        }
+
+        // Loop rounds of TW
+        do {
+            // Status will change if vehicles are still working or there are users to service
+            activeFleet = false;
+
+            roundTimeNanoSec = System.nanoTime();
+
+
+            // Rebalance, deactivate, and update parking nodes /////////////////////////////////////////////////////////
+            System.out.println("Updating fleet status...");
+            updateFleetStatus();
+
+            // Pool, service, and reject users /////////////////////////////////////////////////////////////////////////
+            System.out.println("Updating demand status...");
+            updateDemandStatus();
+
+
+            printRoundInfo(infoLevel);
+
+            //// UPDATING TW ///////////////////////////////////////////////////////////////////////////////////////////
+            leftTW = rightTW;
+            rightTW = leftTW + timeWindow;
+            roundCount = roundCount + 1;
+
+        } while (!setWaitingUsers.isEmpty() || roundCount < totalRounds || activeFleet);
 
         // Print detailed journeys for each vehicle
-        // System.out.println(HelperIO.printJourneys(listVehicles));
+        if (infoLevel == Simulation.ALL_INFO) {
+            System.out.println(HelperIO.printJourneys(listVehicles));
+
+            // System.out.println("GEOJSON DATA");
+            // Dao dao = Dao.getInstance();
+            for (Vehicle v : listVehicles) {
+                System.out.println(v.getOrigin().getNetworkId());
+                //System.out.println(v.getInfo());
+
+                //System.out.println(v.getJourneyInfo());
+                //dao.printGeoJsonJourney(v.getJourney());
+            }
+        }
+
+        // Save solution to file (summary of rounds)
+        sol.save();
+        sol.saveUserInfo(finishedRequests);
+        //sol.saveGeoJson();
     }
 }
