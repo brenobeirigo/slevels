@@ -1,5 +1,6 @@
 package simulation;
 
+import config.Rebalance;
 import model.User;
 import model.Vehicle;
 import model.Visit;
@@ -34,9 +35,11 @@ public class SimulationRTV extends Simulation {
                 maxRequestsIteration,
                 timeWindow,
                 timeHorizon,
-                10,
-                2, 2, false,
-                false);
+                true,
+                2,
+                false,
+                false,
+                new Rebalance(true, true, true, true, "A"));
 
         // Service rate and segmentation scenarios
         this.serviceRateScenarioLabel = serviceRateScenarioLabel;
@@ -53,7 +56,7 @@ public class SimulationRTV extends Simulation {
         maxNumberPermutations = 100;
 
         // Initialize solution
-        sol = new Solution("RTV", initialFleetSize, maxNumberOfTrips, vehicleCapacity, timeWindow, timeHorizon, 10, 2, 2, false, false);
+        sol = new Solution("RTV", initialFleetSize, maxNumberOfTrips, vehicleCapacity, timeWindow, timeHorizon, false, 2, false, false);
     }
 
     public void updateRR(User[] listRequests,
@@ -87,6 +90,7 @@ public class SimulationRTV extends Simulation {
                 if (pk1.getEarliest() >= dp2.getLatest()) {
                     continue;
                 }
+
                 if (pk2.getEarliest() >= dp1.getLatest()) {
                     continue;
                 }
@@ -590,7 +594,7 @@ public class SimulationRTV extends Simulation {
                     // ######## Materialize visit ######################################################################
                     // #################################################################################################
 
-                    candidateVisit.setup();
+                    setup(candidateVisit);
                 }
             }
         }

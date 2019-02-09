@@ -1,5 +1,4 @@
-import javafx.geometry.Point2D;
-
+import java.awt.geom.Point2D;
 import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -51,7 +50,7 @@ public class DatabaseUtil {
                 listPoints = Arrays.asList(path_line.substring("LINESTRING(".length(),
                         path_line.length() - 1).split(",")).stream().map(p -> {
                     String[] a = p.split(" ");
-                    return new Point2D(Double.valueOf(a[0]), Double.valueOf(a[1]));
+                    return new Point2D.Double(Double.valueOf(a[0]), Double.valueOf(a[1]));
                 }).collect(Collectors.toList());
 
             }
@@ -103,7 +102,7 @@ public class DatabaseUtil {
 
             while (rs.next()) {
                 nodeCoordinates.put(rs.getInt("id"),
-                        new Point2D(rs.getDouble("lon"),
+                        new Point2D.Double(rs.getDouble("lon"),
                                 rs.getDouble("lat")));
             }
 

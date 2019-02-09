@@ -1,10 +1,16 @@
 package simulation;
 
+import config.Rebalance;
 import dao.Dao;
+import dao.ServerUtil;
 import helper.HelperIO;
 import helper.MethodHelper;
+import model.RebalanceEpisode;
 import model.User;
 import model.Vehicle;
+import model.Visit;
+import model.node.Node;
+import model.node.NodeTargetRebalancing;
 
 import java.nio.file.Files;
 import java.util.*;
@@ -16,17 +22,22 @@ public abstract class Simulation {
     public static final byte ROUND_INFO = 2;
     public static final byte NO_INFO = 0;
 
+    // Duration
+    public static final int DURATION_SINGLE_RIDE = 0;
+    public static final int DURATION_1H = 3600;
+    public static final int DURATION_3H = 3 * 3600;
+
 
     // Solution coming from simulation
     protected Solution sol; //Simulation solution
 
-    /* Rebalancing */
-    protected int maxRoundsIdleBeforeRebalance;
-
-    /* Deactivating, hiring */
-    protected int maxRoundsIdleBeforeDeactivating;
+    /* Hiring, unbounding, and rebalancing */
+    protected int contractDuration;
     protected boolean isAllowedToHire; // Simulation can hire new vehicles as needed
-    protected boolean isAllowedToLowerServiceLevel; // Simulation is allowed to
+    protected boolean isAllowedToLowerServiceLevel;
+    protected boolean isAllowedToRebalance;
+    protected Rebalance rebalanceUtil;
+
 
     /*Scenario*/
     protected String serviceRateScenarioLabel;
@@ -35,7 +46,6 @@ public abstract class Simulation {
     /* TIME HORIZON */
     protected int timeWindow; // Size of time bins
     protected int timeHorizon; // Total time horizon
-    protected int maxDelayExtensionsBeforeHiring; // How many times a customer can have its request deferred before hiring new vehicle
 
     /* VEHICLE INFO */
     protected int initialFleetSize; // Fleet size
@@ -62,6 +72,11 @@ public abstract class Simulation {
     protected Set<User> deniedRequests; // Requests with expired pickup time
     protected Set<User> finishedRequests; // Requests whose DP node was visited
     protected List<Vehicle> listVehicles; // List of vehicles
+    protected List<Vehicle> listHiredVehicles; //List of hired vehicles
+    protected Set<Vehicle> setDeactivated; // Vehicles to be deactivated in round
+    protected Set<Vehicle> setHired; // Current set of hired vehicles
+    protected List<User> roundRejectedUsers;
+
     //TODO hot_PK_list
 
 
@@ -70,22 +85,23 @@ public abstract class Simulation {
                       int maxNumberOfTrips,
                       int timeWindow,
                       int timeHorizon,
-                      int maxRoundsIdleBeforeRebalance,
-                      int deactivationFactor,
-                      int maxDelayExtensionsBeforeHiring,
+                      boolean isAllowedToRebalance,
+                      int contractDuration,
                       boolean isAllowedToHire,
-                      boolean isAllowedToLowerServiceLevel) {
+                      boolean isAllowedToLowerServiceLevel,
+                      Rebalance rebalanceUtil) {
+
+
+        /* REBALANCING */
+        this.isAllowedToRebalance = isAllowedToRebalance;
+        this.rebalanceUtil = rebalanceUtil;
 
         /* TIME HORIZON */
         this.timeWindow = timeWindow; // Size of time bins
         this.timeHorizon = timeHorizon; // Total time horizon
-        this.maxDelayExtensionsBeforeHiring = maxDelayExtensionsBeforeHiring; // Delay multiplier before hiring new vehicle
-
-        /* REBALANCING */
-        this.maxRoundsIdleBeforeRebalance = maxRoundsIdleBeforeRebalance;
 
         /* DEACTIVATING */
-        this.maxRoundsIdleBeforeDeactivating = deactivationFactor * maxRoundsIdleBeforeRebalance;
+        this.contractDuration = contractDuration;
         this.isAllowedToHire = isAllowedToHire;
         this.isAllowedToLowerServiceLevel = isAllowedToLowerServiceLevel;
 
@@ -110,17 +126,38 @@ public abstract class Simulation {
         finishedRequests = new HashSet<>(); // Requests whose DP node was visited
         maxRoundsIdle = 40;
         activeFleet = false;
+        setHired = new HashSet<>();
 
 
         listVehicles = MethodHelper.createListVehicles(initialFleetSize, vehicleCapacity, true, leftTW); // List of vehicles
+        listHiredVehicles = new ArrayList<>();
         //TODO hot_PK_list
     }
-
-    public abstract Set<User> getServicedUsersDynamicSizedFleet(int currentTime);
 
     public static void reset() {
         return;
     }
+
+    public boolean canEndContract(Vehicle v, int currentTime) {
+        // Is the vehicle hired?
+        // Has the contracted deadline been met?
+
+        /*
+            System.out.println(v.getContractDeadline() + "-"+ v.getVisit());
+            if (v.isParked()) {
+                System.out.println("Vehicle is parked!");
+            } else if (v.isRebalancing()) {
+                System.out.println("OMG! Rebalancing!");
+            } else if (v.isCruising()) {
+                System.out.println("OMG! Cruising!");
+            }else{
+                System.out.println("OMG! Servicing!");
+            }
+            */
+        return v.isHired() && currentTime >= v.getContractDeadline();
+    }
+
+    public abstract Set<User> getServicedUsersDynamicSizedFleet(int currentTime);
 
     /**
      * Vehicle can:
@@ -131,19 +168,28 @@ public abstract class Simulation {
      */
     public void updateFleetStatus() {
         ////// 1 - GET FINISHED USERS (before current time) ////////////////////////////////////////////////////////
-        Set<Vehicle> setDeactivate = new HashSet<>();
+        setDeactivated = new HashSet<>();
 
         // Vehicles not servicing users nor rebalancing
-        Map<Integer, Vehicle> candidateVehiclesToRebalance = new HashMap<>();
+        List<Vehicle> candidateVehiclesToRebalance = new ArrayList<>();
 
         // Loop vehicles to get set of finished requests and set of active vehicles (servicing users OR rebalancing)
         for (Vehicle v : listVehicles) {
+
+            // Limits the hiring contract
+            v.increaseActiveRounds();
 
             // Return set of users and update rebalancing vehicles
             Set<User> serviced = v.getServicedUsersUntil(rightTW);
 
             if (serviced != null) {
                 finishedRequests.addAll(serviced);
+            }
+
+            // If vehicle is hired, it have to be deactivated as soon as it delivers its last customer
+            if (canEndContract(v, rightTW)) {
+                setDeactivated.add(v);
+                continue;
             }
 
             // If vehicle is not parked, it is either cruising, servicing or rebalancing
@@ -167,36 +213,30 @@ public abstract class Simulation {
                 // Vehicle is not servicing customers
                 v.increaseRoundsIdle();
 
-                // Only rebalance if there are still passengers waiting
-                //if (!setWaitingUsers.isEmpty()) {
-
                 // Check if it is candidate to rebalance
-                if (v.getRoundsIdle() >= maxRoundsIdleBeforeRebalance) {
-                    if (v.getRoundsIdle() < maxRoundsIdleBeforeDeactivating) {
-                        // System.out.println("REBALANCE - - - "+ v.getId() + " - - - - - " + v + " - " + v.getRoundsIdle() + "----" + maxRoundsIdleBeforeRebalance);
-                        candidateVehiclesToRebalance.put(v.getId(), v);
-                        // Vehicle can be deactivated
-                    } else if (v.canDiscard(maxRoundsIdleBeforeDeactivating)) {
-                        // Cannot discard vehicle, it is part of the original fleet
-                        setDeactivate.add(v);
-                    }
+                if (isAllowedToRebalance) {
+                    // System.out.println("REBALANCE - - - "+ v.getId() + " - - - - - " + v + " - " + v.getRoundsIdle() + "----" + maxRoundsIdleBeforeRebalance);
+                    candidateVehiclesToRebalance.add(v);
                 }
-                // }
             }
-
             v.updateMiddle(rightTW);
         }
 
-        listVehicles.removeAll(setDeactivate);
+        // Updating vehicle lists
+        listVehicles.removeAll(setDeactivated);
+        setHired.removeAll(setDeactivated);
+
 
         /*#********************************************************************************************************/
         ////// REBALANCING /////////////////////////////////////////////////////////////////////////////////////////
         /*#********************************************************************************************************/
 
-        /// Rescheduling empty vehicles ////////////////////////////////////////////////////////////////////////////////
-        rebalancingTime = System.nanoTime();
-        Method.rebalanceVehicles(candidateVehiclesToRebalance);
-        rebalancingTime = (System.nanoTime() - rebalancingTime) / 1000000;
+        if (isAllowedToRebalance) {
+            /// Rescheduling empty vehicles ////////////////////////////////////////////////////////////////////////////////
+            rebalancingTime = System.nanoTime();
+            rebalanceUtil.rebalanceVehicles(candidateVehiclesToRebalance);
+            rebalancingTime = (System.nanoTime() - rebalancingTime) / 1000000;
+        }
 
     }
 
@@ -247,8 +287,12 @@ public abstract class Simulation {
                 rightTW,
                 vehicleCapacity,
                 listVehicles,
+                setHired,
+                setDeactivated,
+                listHiredVehicles,
                 setWaitingUsers,
                 finishedRequests,
+                roundRejectedUsers,
                 deniedRequests,
                 listPooledUsersTW,
                 allRequests,
@@ -292,12 +336,16 @@ public abstract class Simulation {
         updateSetWaitingUsers();
 
         ///// 2 - REMOVE USERS THAT CANNOT BE PICKED UP  ///////////////////////////////////////////////////////////////
-        List<User> rejectedUsers = setWaitingUsers.stream()
+        roundRejectedUsers = setWaitingUsers.stream()
                 .filter(u -> !u.canBePickedUp(rightTW))
                 .collect(Collectors.toList());
 
-        deniedRequests.addAll(rejectedUsers);
-        setWaitingUsers.removeAll(rejectedUsers);
+        // Update request status
+        roundRejectedUsers.forEach(User::computeRejection);
+        deniedRequests.addAll(roundRejectedUsers);
+        setWaitingUsers.removeAll(roundRejectedUsers);
+
+
 
         System.out.println("Getting serviced users...");
         ///// 3 - ASSIGN WAITING USERS (previous + current round)  TO VEHICLES /////////////////////////////////////////
@@ -305,6 +353,7 @@ public abstract class Simulation {
         System.out.println("Finished.");
 
         ///// 4 - REMOVE SERVICED USERS FROM WAITING SET////////////////////////////////////////////////////////////////
+        // Vehicles will become idle here (i.e., parked)
         setWaitingUsers.removeAll(setScheduledUsers);
 
     }
@@ -328,6 +377,9 @@ public abstract class Simulation {
 
             // Rebalance, deactivate, and update parking nodes /////////////////////////////////////////////////////////
             System.out.println("Updating fleet status...");
+            // Get serviced users
+            // Remove hired
+            // Rebalance vehicles
             updateFleetStatus();
 
             // Pool, service, and reject users /////////////////////////////////////////////////////////////////////////
@@ -342,26 +394,113 @@ public abstract class Simulation {
             rightTW = leftTW + timeWindow;
             roundCount = roundCount + 1;
 
+            //System.out.println(HelperIO.printJourneys(listHiredVehicles));
+
         } while (!setWaitingUsers.isEmpty() || roundCount < totalRounds || activeFleet);
 
         // Print detailed journeys for each vehicle
         if (infoLevel == Simulation.ALL_INFO) {
             System.out.println(HelperIO.printJourneys(listVehicles));
 
-            // System.out.println("GEOJSON DATA");
+            System.out.println("GEOJSON DATA");
             // Dao dao = Dao.getInstance();
             for (Vehicle v : listVehicles) {
                 System.out.println(v.getOrigin().getNetworkId());
                 //System.out.println(v.getInfo());
 
                 //System.out.println(v.getJourneyInfo());
-                //dao.printGeoJsonJourney(v.getJourney());
+                ServerUtil.printGeoJsonJourney(v);
             }
         }
 
         // Save solution to file (summary of rounds)
         sol.save();
-        sol.saveUserInfo(finishedRequests);
+
+        // Saving user info
+        sol.saveUserInfo(allRequests);
         //sol.saveGeoJson();
+    }
+
+
+    /**
+     * Add user to vehicle and setup visit.
+     * Called when best visit is determined.
+     */
+    public void setup(Visit visit) {
+
+
+        // Check if rebalancing was interrupted to pick up user
+        if (visit.getVehicle().isRebalancing()) {
+            interruptRebalancing(visit);
+        }
+
+        // Add visit to vehicle (circular)
+        visit.getVehicle().setVisit(visit);
+
+        // Vehicle set of users
+        visit.getVehicle().setUsers(visit.getSetUsers());
+
+        // Vehicle is not idle
+        visit.getVehicle().setRoundsIdle(0);
+    }
+
+    private void interruptRebalancing(Visit visit) {
+
+        //System.out.println("STOPPED REBALANCING!" + this);
+        Vehicle vehicle = visit.getVehicle();
+
+        Node currentNode = vehicle.getCurrentNode();
+        Node middleNode = vehicle.getMiddleNode();
+        NodeTargetRebalancing target = (NodeTargetRebalancing) vehicle.getVisit().getTargetNode();
+
+        visit.getVehicle().getJourney().add(target);
+
+        // Target was not reached, it goes back to attractive points
+        if (this.rebalanceUtil.reinsertTargets && !target.isReached()) {
+
+            //TODO Does re-adding the node helps? It looks like YES!
+            //System.out.println("STOPPED REB.:" + target.getGenNode().getUrgent() + " - " + target.getGenNode().getArrival() + " :" + this.getSequenceVisits().getFirst() + "-"+target+"-" + target.getGenNode());
+
+            // If a node was not reached, it means vehicles keep being assigned around its region.
+            // The immediate demand factor is therefore incremented to keep attracting vehicles to this region
+            if (this.rebalanceUtil.useUrgentKey)
+                target.increaseUrgency();
+
+            makeTargetRebalancingCandidate(target);
+        }
+
+        // Vehicle is no longer rebalancing (User was inserted)
+        vehicle.stoppedRebalancingToPickup();
+
+        double distTraveledKmCurrentMiddle = Dao.getInstance().getDistKm(currentNode, middleNode);
+
+        vehicle.increaseDistanceTraveledRebalancing(distTraveledKmCurrentMiddle);
+
+        //double distTraveledKmCurrentMiddle = Dao.getInstance().getDistKm(currentNode, middleNode);
+
+        if (rebalanceUtil.createEpisode) {
+
+            int roundsToFindUser = (Dao.getInstance().getDistSec(currentNode, middleNode) / this.timeWindow);
+
+            double distTraveledKm = Dao.getInstance().getDistKm(currentNode, target);
+            RebalanceEpisode r = new RebalanceEpisode(
+                    currentNode.getNetworkId(),
+                    target.getNetworkId(),
+                    middleNode.getNetworkId(),
+                    vehicle.getRoundsIdle(),
+                    distTraveledKmCurrentMiddle,
+                    distTraveledKm,
+                    roundsToFindUser);
+
+            if (rebalanceUtil.showInfo) {
+                System.out.println(r);
+            }
+        }
+
+
+    }
+
+    private void makeTargetRebalancingCandidate(NodeTargetRebalancing target) {
+        Vehicle.setOfHotPoints.add(target);
     }
 }

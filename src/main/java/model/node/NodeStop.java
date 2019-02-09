@@ -26,4 +26,9 @@ public class NodeStop extends Node {
     public String toString() {
         return String.format("%7s", "ST" + String.valueOf(this.tripId));
     }
+
+    @Override
+    public String getType() {
+        return "stop";
+    }
 }

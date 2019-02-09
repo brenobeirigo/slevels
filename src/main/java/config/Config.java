@@ -9,6 +9,8 @@ import java.util.Map;
 
 public class Config {
 
+    public static final String FIRST_DATE = "2011-02-01 00:00:00";
+    public static InstanceConfig instanceSettings;
     public static DateFormat formatter_t = new SimpleDateFormat("HH:mm:ss");
     public static DateFormat formatter_date_time = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
     private static Config ourInstance = new Config();
@@ -19,12 +21,13 @@ public class Config {
     private Date firstDate;
 
 
+
     private Config() {
 
         qosDic = new HashMap<>();
 
         try {
-            this.firstDate = Config.formatter_date_time.parse("2011-02-01 00:00:00");
+            this.firstDate = Config.formatter_date_time.parse(FIRST_DATE);
         } catch (ParseException e) {
             e.printStackTrace();
         }
@@ -79,6 +82,8 @@ public class Config {
         public int pkDelay, dpDelay;
         public double share;
         public boolean allowedSharing;
+        public String serviceRateLabel;
+        public String customerSegmentationLabel;
 
         public Qos(String id, int pkDelay, int dpDelay, double serviceRate) {
             this.id = id;
@@ -87,6 +92,7 @@ public class Config {
             this.dpDelay = dpDelay;
 
         }
+
 
         public Qos(String id, int pkDelay, int dpDelay, double serviceRate, double share, boolean allowedSharing) {
             this.id = id;
@@ -97,9 +103,20 @@ public class Config {
             this.allowedSharing = allowedSharing;
         }
 
+        public Qos(String id, String serviceRateLabel, String segmentationScenarioLabel, int pkDelay, int dpDelay, double serviceRate, double share, boolean allowedSharing) {
+            this.id = id;
+            this.serviceRate = serviceRate;
+            this.pkDelay = pkDelay;
+            this.dpDelay = dpDelay;
+            this.share = share;
+            this.allowedSharing = allowedSharing;
+            this.serviceRateLabel = serviceRateLabel;
+            this.customerSegmentationLabel = segmentationScenarioLabel;
+        }
+
         @Override
         public String toString() {
-            return "[SQ " + id + "] service rate = " + serviceRate + " - pk delay = " + pkDelay + " - dp delay = " + dpDelay + " - share = " + share + " - allow sharing = " + share;
+            return "[" + serviceRateLabel + " " + customerSegmentationLabel + " " + id + "] service rate = " + serviceRate + " - pk delay = " + pkDelay + " - dp delay = " + dpDelay + " - share = " + share + " - allow sharing = " + share;
         }
 
         @Override

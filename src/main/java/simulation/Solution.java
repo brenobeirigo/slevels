@@ -1,6 +1,8 @@
 package simulation;
 
 import config.Config;
+import config.InstanceConfig;
+import config.Rebalance;
 import dao.Dao;
 import model.User;
 import model.Vehicle;
@@ -29,12 +31,21 @@ public class Solution {
     private String methodName;
     private String serviceRate;
     private String customerSegmentation;
-    private final String OUTPUT_FOLDER = "output";
+
+    // Files contain snapshots of each round
+    private static final String OUTPUT_FOLDER = "round_track";
+
+    //Files contain how each user end up being serviced
+    private static final String OUTPUT_FOLDER_USERS = "request_track";
+
+    //Files contain how each user end up being serviced
+    private static final String OUTPUT_FOLDER_GEOJSON = "geojson_track";
+
     private boolean allowVehicleCreation;
     private boolean allowDelayExtension;
     private Map<String, Map<String, Integer>> sLevelsClass;
     /* Rebalancing */
-    private int maxRoundsIdleBeforeRebalance;
+    private boolean allowRebalancing;
 
     /* Deactivating */
     private int deactivationFactor;
@@ -60,9 +71,8 @@ public class Solution {
                     int vehicleCapacity,
                     int timeHorizon,
                     int totalHorizon,
-                    int maxRoundsIdleBeforeRebalance,
+                    boolean isAllowedToRebalance,
                     int deactivationFactor,
-                    int maxDelayExtensionsBeforeHiring,
                     boolean allowVehicleCreation,
                     boolean allowDelayExtension) {
 
@@ -73,8 +83,7 @@ public class Solution {
         this.timeHorizon = timeHorizon;
         this.totalHorizon = totalHorizon;
         this.deactivationFactor = deactivationFactor;
-        this.maxRoundsIdleBeforeRebalance = maxRoundsIdleBeforeRebalance;
-        this.maxDelayExtensionsBeforeHiring = maxDelayExtensionsBeforeHiring;
+        this.allowRebalancing = isAllowedToRebalance;
         this.allowVehicleCreation = allowVehicleCreation;
         this.allowDelayExtension = allowDelayExtension;
         this.entries = new ArrayList<>();
@@ -89,13 +98,13 @@ public class Solution {
                     int vehicleCapacity,
                     int timeHorizon,
                     int totalHorizon,
-                    int maxRoundsIdleBeforeRebalance,
-                    int deactivationFactor,
-                    int maxDelayExtensionsBeforeHiring,
-                    boolean allowVehicleCreation,
-                    boolean allowDelayExtension,
+                    boolean isAllowedToRebalance,
+                    int contractDuration,
+                    boolean allowVehicleHiring,
+                    boolean allowServiceDeterioration,
                     String serviceRate,
-                    String customerSegmentation) {
+                    String customerSegmentation,
+                    Rebalance rebalance) {
 
         // Initialize solution
         this(methodName,
@@ -104,68 +113,49 @@ public class Solution {
                 vehicleCapacity,
                 timeHorizon,
                 totalHorizon,
-                maxRoundsIdleBeforeRebalance,
-                deactivationFactor,
-                maxDelayExtensionsBeforeHiring,
-                allowVehicleCreation,
-                allowDelayExtension);
+                isAllowedToRebalance,
+                contractDuration,
+                allowVehicleHiring,
+                allowServiceDeterioration);
 
         this.serviceRate = serviceRate;
         this.customerSegmentation = customerSegmentation;
 
 
+        String testCaseName = String.format(
+                "IN-%s_BA-%d_ST-%d_MR-%d_IF-%d_MC-%d_CS-%s",
+                methodName,
+                timeHorizon,
+                totalHorizon,
+                maxNumberOfTrips,
+                nOfVehicles,
+                vehicleCapacity,
+                customerSegmentation);
+        testCaseName += (allowVehicleHiring ? "_CD-" + (contractDuration == Simulation.DURATION_SINGLE_RIDE ? 0 : contractDuration) : "");
+        testCaseName += (allowServiceDeterioration ? "_SR-" + serviceRate : "");
+        testCaseName += (allowVehicleHiring ? "_VH" : "");
+        testCaseName += (allowServiceDeterioration ? "_SD" : "");
+        testCaseName += (isAllowedToRebalance ? "_RE" + rebalance : "");
+
         // File path
         this.outputFile = Paths.get(
-                String.format("%s/%s_V%03d_%s-%02d_R%03d_%s_%s_%s_TW%02d_TH%05d_%s_%s.csv",
-                        OUTPUT_FOLDER,
-                        methodName,
-                        nOfVehicles,
-                        (allowVehicleCreation ? "PLUS" : "ONLY"),
-                        vehicleCapacity,
-                        maxNumberOfTrips,
-                        (maxRoundsIdleBeforeRebalance != Integer.MAX_VALUE ? String.format("REB%03d", maxRoundsIdleBeforeRebalance) : "REB_NO"),
-                        (allowVehicleCreation ? String.format("DEA-%02d", deactivationFactor) : "DEA-NO"),
-                        (allowDelayExtension ? String.format("EXT-%02d", maxDelayExtensionsBeforeHiring) : "EXT-NO"),
-                        timeHorizon,
-                        totalHorizon,
-                        serviceRate,
-                        customerSegmentation
+                String.format("%s/%s.csv",
+                        InstanceConfig.getInstance().getRoundTrackFolder(),
+                        testCaseName
                 ));
 
         // File path
         this.outputGeoJson = Paths.get(
-                String.format("%s/%s_V%03d_%s-%02d_R%03d_%s_%s_%s_TW%02d_TH%05d_%s_%s_GEOJSON.csv",
-                        OUTPUT_FOLDER,
-                        methodName,
-                        nOfVehicles,
-                        (allowVehicleCreation ? "PLUS" : "ONLY"),
-                        vehicleCapacity,
-                        maxNumberOfTrips,
-                        (maxRoundsIdleBeforeRebalance != Integer.MAX_VALUE ? String.format("REB%03d", maxRoundsIdleBeforeRebalance) : "REB_NO"),
-                        (allowVehicleCreation ? String.format("DEA-%02d", deactivationFactor) : "DEA-NO"),
-                        (allowDelayExtension ? String.format("EXT-%02d", maxDelayExtensionsBeforeHiring) : "EXT-NO"),
-                        timeHorizon,
-                        totalHorizon,
-                        serviceRate,
-                        customerSegmentation
+                String.format("%s/%s.csv",
+                        InstanceConfig.getInstance().getGeojsonTrackFolder(),
+                        testCaseName
                 ));
 
         // File path
         this.outputFileUsers = Paths.get(
-                String.format("%s/%s_V%03d_%s-%02d_R%03d_%s_%s_%s_TW%02d_TH%05d_%s_%s_USERS.csv",
-                        OUTPUT_FOLDER,
-                        methodName,
-                        nOfVehicles,
-                        (allowVehicleCreation ? "PLUS" : "ONLY"),
-                        vehicleCapacity,
-                        maxNumberOfTrips,
-                        (maxRoundsIdleBeforeRebalance != Integer.MAX_VALUE ? String.format("REB%03d", maxRoundsIdleBeforeRebalance) : "REB_NO"),
-                        (allowVehicleCreation ? String.format("DEA-%02d", deactivationFactor) : "DEA-NO"),
-                        (allowDelayExtension ? String.format("EXT-%02d", maxDelayExtensionsBeforeHiring) : "EXT-NO"),
-                        timeHorizon,
-                        totalHorizon,
-                        serviceRate,
-                        customerSegmentation
+                String.format("%s/%s.csv",
+                        InstanceConfig.getInstance().getRequestTrackFolder(),
+                        testCaseName
                 ));
     }
 
@@ -203,6 +193,8 @@ public class Solution {
         header.add("empty_seats");
         header.add("total_capacity");
         header.add("active_vehicles");
+        header.add("hired_vehicles");
+        header.add("deactivated_vehicles");
         header.add("enroute_count");
         header.add("pk_delay");
         header.add("total_delay");
@@ -231,6 +223,7 @@ public class Solution {
             header.add(String.format("%s_pk", q));
             header.add(String.format("%s_dp", q));
             header.add(String.format("%s_count", q));
+            header.add(String.format("%s_unmet_slevels", q));
         }
     }
 
@@ -281,16 +274,16 @@ public class Solution {
         }
     }
 
-    public void saveUserInfo(Set<User> listOfServicedUsers) {
+    public void saveUserInfo(Map<Integer, User> listOfServicedUsers) {
 
 
-        List<User> sortedUsersPk = new ArrayList<>(listOfServicedUsers);
+        List<User> sortedUsersPk = new ArrayList<>(listOfServicedUsers.values());
         Collections.sort(sortedUsersPk, comparingInt(o -> o.getNodePk().getEarliest()));
 
 
         try {
             writer = Files.newBufferedWriter(outputFileUsers);
-            String[] a = new String[]{"earliest", "id", "class", "pk_delay", "ride_delay", "pk_time", "dp_time", "id_from", "id_to", "dist", "service"};
+            String[] a = new String[]{"earliest", "id", "class", "pk_delay", "ride_delay", "pk_time", "dp_time", "id_from", "id_to", "dist", "service", "service_level"};
 
             CSVPrinter csvPrinter = new CSVPrinter(writer, CSVFormat.DEFAULT.withHeader(a).withCommentMarker('#'));
 
@@ -310,7 +303,9 @@ public class Solution {
                 entry.add(String.valueOf(u.getNodePk().getNetworkId()));
                 entry.add(String.valueOf(u.getNodeDp().getNetworkId()));
                 entry.add(String.valueOf(Dao.getInstance().getDistSec(u.getNodePk(), u.getNodeDp())));
-                entry.add(String.valueOf(u.isServedByHired() ? "PRIVATE" : u.getNumberOfDelayExtensions() > 0 ? "DELAYED" : "OK"));
+                entry.add(String.valueOf(u.isRejected() ? "DENIED" : u.isServicedByDedicated() ? "FLEET" : "FREELANCE"));
+                entry.add(String.valueOf(u.isServiceLevelLowered() || u.isRejected() ? "UNMET" : "MET"));
+
                 csvPrinter.printRecord(entry);
                 csvPrinter.flush();
             }
@@ -325,8 +320,12 @@ public class Solution {
     public String calculateRoundStats(int currentTime,
                                       int vehicleSize,
                                       List<Vehicle> listVehicles,
+                                      Set<Vehicle> setHiredVehicles,
+                                      Set<Vehicle> setDeactivated,
+                                      List<Vehicle> listHiredVehicles,
                                       List<User> waitingRequests,
                                       Set<User> finishedRequests,
+                                      List<User> roundRejectedUsers,
                                       Set<User> deniedRequests,
                                       List<User> setOfRequests,
                                       Map<Integer, User> allRequests,
@@ -337,8 +336,16 @@ public class Solution {
 
         //The procedure below sweeps all customers so far...
         sLevelsClass.clear();
-
-
+        for (String sqClass : Config.getInstance().qosDic.keySet()) {
+            sLevelsClass.put(sqClass, new HashMap<>());
+            sLevelsClass.get(sqClass).put("pk", 0);
+            sLevelsClass.get(sqClass).put("dp", 0);
+            sLevelsClass.get(sqClass).put("count", 0);
+            sLevelsClass.get(sqClass).put("rejected", 0);
+            sLevelsClass.get(sqClass).put("dedicated", 0);
+            sLevelsClass.get(sqClass).put("private", 0);
+            sLevelsClass.get(sqClass).put("unmet_slevels", 0);
+        }
         // Sum delays of finished users
         for (User u : finishedRequests) {
 
@@ -354,9 +361,18 @@ public class Solution {
             sLevelsClass.get(sqClass).put("pk", sLevelsClass.get(sqClass).getOrDefault("pk", 0) + delayPk);
             sLevelsClass.get(sqClass).put("dp", sLevelsClass.get(sqClass).getOrDefault("dp", 0) + delayDp);
             sLevelsClass.get(sqClass).put("count", sLevelsClass.get(sqClass).getOrDefault("count", 0) + 1);
-            sLevelsClass.get(sqClass).put("low", sLevelsClass.get(sqClass).getOrDefault("low", 0) + (u.getNumberOfDelayExtensions() > 0 ? 1 : 0));
-            sLevelsClass.get(sqClass).put("private", sLevelsClass.get(sqClass).getOrDefault("private", 0) + (u.isServedByHired() ? 1 : 0));
+            sLevelsClass.get(sqClass).put("dedicated", sLevelsClass.get(sqClass).getOrDefault("dedicated", 0) + (u.isServicedByDedicated() ? 1 : 0));
+            sLevelsClass.get(sqClass).put("private", sLevelsClass.get(sqClass).getOrDefault("private", 0) + (u.isServicedByHired() ? 1 : 0));
+            sLevelsClass.get(sqClass).put("unmet_slevels", sLevelsClass.get(sqClass).getOrDefault("unmet_slevels", 0) + (u.isServiceLevelLowered() ? 1 : 0));
+
             //System.out.println("Slevels:" + sLevelsClass);
+        }
+
+        // Sum delays of finished users
+        for (User u : deniedRequests) {
+            String sqClass = u.getPerformanceClass();
+            sLevelsClass.get(sqClass).put("rejected", sLevelsClass.get(sqClass).getOrDefault("rejected", 0) + (u.isRejected() ? 1 : 0));
+            sLevelsClass.get(sqClass).put("unmet_slevels", sLevelsClass.get(sqClass).getOrDefault("unmet_slevels", 0) + (u.isRejected() ? 1 : 0));
         }
 
         //System.out.println("Slevels:" + sLevelsClass);
@@ -370,7 +386,7 @@ public class Solution {
         int nOfAssignedUsers = 0;
         int nOfVehiclesParked = 0;
         int seatCount = 0;
-        int totalCapacity = 0;
+        int totalCurrentCapacity = 0;
         int emptySeats = 0;
 
 
@@ -394,6 +410,23 @@ public class Solution {
         double distTraveledEmpty = 0;
         double distTraveledLoaded = 0;
 
+        //How many seats were hired in this round?
+        int hiredCapacity = 0;
+
+        for (Vehicle v : setHiredVehicles) {
+            hiredCapacity += v.getCapacity();
+        }
+
+        for (Vehicle v : setDeactivated) {
+            distTraveledEmpty += v.getDistanceTraveledEmpty();
+            distTraveledLoaded += v.getDistanceTraveledLoaded();
+            distTraveledRebal += v.getDistanceTraveledRebalancing();
+        }
+
+        //System.out.println( "Dist. empty:"  + distTraveledEmpty);
+        //System.out.println("Dist. loaded:"  + distTraveledLoaded);
+        //System.out.println("Dist. rebalancing:"  + distTraveledRebal);
+
         for (Vehicle v : listVehicles) {
 
             distTraveledEmpty += v.getDistanceTraveledEmpty();
@@ -402,7 +435,7 @@ public class Solution {
             nOfVehiclesStoppedRebalancing += (v.isStoppedRebalanceToPickup() ? 1 : 0);
             v.setStoppedRebalanceToPickup(false);
             // Increment total capacity
-            totalCapacity += v.getCapacity();
+            totalCurrentCapacity += v.getCapacity();
 
             fleetMakeup[v.getCapacity() - 1]++;
 
@@ -446,6 +479,10 @@ public class Solution {
 
         }
 
+        //System.out.println( "Dist. empty2:"  + distTraveledEmpty);
+        //System.out.println("Dist. loaded2:"  + distTraveledLoaded);
+        //System.out.println("Dist. rebalancing2:"  + distTraveledRebal);
+
         //System.out.println(String.format("Parked: %d - Seat: %d - Rebalancing: %d - Cruising: %d - Total: %d", emptySeats, seatCount, nOfSeatsRebalancing, nOfSeatsCruisingVehicles, emptySeats + seatCount + nOfSeatsRebalancing + nOfSeatsCruisingVehicles));
 
         // Stats
@@ -459,8 +496,10 @@ public class Solution {
                 nOfSeatsCruisingVehicles,
                 nOfSeatsRebalancing,
                 emptySeats,
-                totalCapacity,
+                totalCurrentCapacity,
                 nOfVehiclesServicingUsers,
+                setHiredVehicles.size(),
+                setDeactivated.size(),
                 nOfVehiclesCruisingToPickup,
                 nOfVehiclesParked,
                 nOfVehiclesDwellingInOrigin,
@@ -486,11 +525,21 @@ public class Solution {
             int count = e.getValue().get("count");
             int pk = e.getValue().get("pk");
             int dp = e.getValue().get("dp");
-            int slRejectedUsers = e.getValue().get("low");
-            int privateVehicle = e.getValue().get("private");
+            int nUsersInDedicatedVehicles = e.getValue().get("dedicated");
+            int nUsersInPrivateVehicles = e.getValue().get("private");
+            int nUsersRejected = e.getValue().get("rejected");
+            int nUsersUnmetServiceLevels = e.getValue().get("unmet_slevels");
 
-            sLevelsClass.add(String.format("%s (%4.2f, %4.2f) x %6d [Lowered: %3d -- Private: %3d]", e.getKey(), ((double) pk) / count, ((double) dp) / count, count, slRejectedUsers, privateVehicle));
-
+            sLevelsClass.add(String.format("%s (%4.2f, %4.2f) x %6d [Dedicated: %3d -- Private: %3d -- Rejected: %3d] [SL met: %3d -- SL unmet: %3d]",
+                    e.getKey(),
+                    ((double) pk) / count,
+                    ((double) dp) / count,
+                    count + nUsersRejected,
+                    nUsersInDedicatedVehicles,
+                    nUsersInPrivateVehicles,
+                    nUsersRejected,
+                    count,
+                    nUsersUnmetServiceLevels));
         }
 
         /*
@@ -534,7 +583,7 @@ public class Solution {
                         "\n       Inactive: %6s (%.2f%%)" +
                         "\n Stopped rebal.: %6d" +
                         "\n      Occupancy: %s" +
-                        "\n         Makeup: %s (TOTAL CAPACITY: %d)" +
+                        "\n         Makeup: %s (TOTAL CAPACITY: %d - HIRED: %d - #DEACTIVATED: %d)" +
                         "\n       Run time: %.2f s " +
                         "\n      Reb. time: %.2f s ",
                 String.valueOf(nOfAssignedUsers), Math.abs((double) nOfAssignedUsers / allRequests.size()) * 100,
@@ -544,10 +593,10 @@ public class Solution {
                 (int) pkDelay,
                 (int) totalDelay,
                 String.join(" / ", sLevelsClass),
-                String.valueOf(seatCount), (double) seatCount / totalCapacity * 100,
-                String.valueOf(nOfSeatsCruisingVehicles), (double) nOfSeatsCruisingVehicles / totalCapacity * 100,
-                String.valueOf(emptySeats), (double) emptySeats / totalCapacity * 100,
-                String.valueOf(nOfSeatsRebalancing), (double) nOfSeatsRebalancing / totalCapacity * 100,
+                String.valueOf(seatCount), (double) seatCount / totalCurrentCapacity * 100,
+                String.valueOf(nOfSeatsCruisingVehicles), (double) nOfSeatsCruisingVehicles / totalCurrentCapacity * 100,
+                String.valueOf(emptySeats), (double) emptySeats / totalCurrentCapacity * 100,
+                String.valueOf(nOfSeatsRebalancing), (double) nOfSeatsRebalancing / totalCurrentCapacity * 100,
                 String.valueOf(nOfVehiclesServicingUsers), (double) nOfVehiclesServicingUsers * 100 / listVehicles.size(),
                 String.valueOf(nOfVehiclesParked), (double) nOfVehiclesParked * 100 / listVehicles.size(),
                 String.valueOf(nOfVehiclesRebalancing), (double) nOfVehiclesRebalancing * 100 / listVehicles.size(),
@@ -556,7 +605,9 @@ public class Solution {
                 nOfVehiclesStoppedRebalancing,
                 String.valueOf(Arrays.toString(vehicleOccupancy)),
                 String.valueOf(Arrays.toString(fleetMakeup)),
-                totalCapacity,
+                totalCurrentCapacity,
+                setHiredVehicles.size(),
+                setDeactivated.size(),
                 (double) runTime / 1000,
                 (double) rebalancingTime / 1000);
 
@@ -572,6 +623,8 @@ public class Solution {
                             int emptySeats,
                             int totalCapacity,
                             int activeVehicles,
+                            int hiredVehicles,
+                            int deactivatedVehicles,
                             int pickingUp,
                             int parkedVehicles,
                             int originVehicles,
@@ -602,6 +655,8 @@ public class Solution {
         entry.add(String.valueOf(emptySeats));
         entry.add(String.valueOf(totalCapacity));
         entry.add(String.valueOf(activeVehicles));
+        entry.add(String.valueOf(hiredVehicles));
+        entry.add(String.valueOf(deactivatedVehicles));
         entry.add(String.valueOf(enrouteCount));
         entry.add(String.format("%.4f", pkDelay));
         entry.add(String.format("%.4f", totalDelay));
@@ -609,7 +664,7 @@ public class Solution {
         entry.add(String.valueOf(originVehicles));
         entry.add(String.valueOf(rebalancingVehicles));
         entry.add(String.valueOf(stoppedRebalancing));
-        entry.add(String.valueOf(parkedVehicles - originVehicles));
+        entry.add(String.valueOf(parkedVehicles + originVehicles));
         entry.add(String.valueOf(pickingUp));
 
 
@@ -636,10 +691,12 @@ public class Solution {
             int count = e.getValue().get("count");
             int pk = e.getValue().get("pk");
             int dp = e.getValue().get("dp");
+            int unmet = e.getValue().get("unmet_slevels");
 
             entry.add(String.format("%.2f", (double) pk / count));
             entry.add(String.format("%.2f", (double) dp / count));
             entry.add(String.format("%d", count));
+            entry.add(String.format("%d", unmet));
 
         }
 

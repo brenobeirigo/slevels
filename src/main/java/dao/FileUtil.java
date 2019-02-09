@@ -1,9 +1,12 @@
-package simulation;
+package dao;
 
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileReader;
 import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -11,6 +14,25 @@ import java.util.stream.Collectors;
 public class FileUtil {
 
     public static final String DISTANCE_FILES_PATH = "C:\\Users\\breno\\OneDrive\\Phd_TU\\PROJECTS\\rs_heuristic\\data\\gen\\data\\SP\\";
+
+    public static void createDir(String dir) {
+        /*
+         * Use createDirectories method of Files class
+         * to create a directory along with all the
+         * non-existent parent directories
+         */
+
+        //Path of the directory
+        Path dirsPath = Paths.get(dir);
+
+        try {
+
+            Files.createDirectories(dirsPath);
+
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
 
     /**
      * Get shortest path (list of network ids) between two nodes from file.

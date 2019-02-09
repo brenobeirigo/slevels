@@ -2,12 +2,15 @@ package dao;
 
 
 import config.Config;
-import javafx.geometry.Point2D;
+import config.InstanceConfig;
 import model.User;
 import model.node.Node;
 import org.apache.commons.csv.CSVFormat;
 import org.apache.commons.csv.CSVRecord;
+import org.json.simple.JSONObject;
+import org.json.simple.parser.JSONParser;
 
+import java.awt.geom.Point2D;
 import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.io.IOException;
@@ -22,23 +25,28 @@ public class Dao {
 
     // Speed of vehicles m/s
     public static final double SPEED = 30;
+
     public static int numberOfNodes;
     private static Dao ourInstance = new Dao();
     public Random rand;
     //private String file_path = "C:\\Users\\breno\\OneDrive\\Phd_TU\\PROJECTS\\rs_heuristic\\data\\gen\\data\\distance_matrix_m_manhattan-island-new-york-city-new-york-usa.csv";
     //private String trip_path = "C:\\Users\\breno\\OneDrive\\Phd_TU\\PROJECTS\\rs_heuristic\\data\\gen\\data\\tripdata_valentines_2011_ids.csv";
-
-    private String file_path = "C:\\Users\\breno\\OneDrive\\Phd_TU\\PROJECTS\\in\\data\\dist\\distance_matrix_m_manhattan-island-new-york-city-new-york-usa.csv";
-    private String trip_path = "C:\\Users\\breno\\OneDrive\\Phd_TU\\PROJECTS\\in\\data\\tripdata\\tripdata_excerpt_2011-2-1_2011-2-28_ids.csv";
+    private String file_path = "C:\\Users\\LocalAdmin\\OneDrive\\Phd_TU\\PROJECTS\\in\\input_tripdata\\data\\dist\\distance_matrix_m_manhattan-island-new-york-city-new-york-usa.csv";
+    private String trip_path = "C:\\Users\\LocalAdmin\\OneDrive\\Phd_TU\\PROJECTS\\in\\input_tripdata\\data\\tripdata\\tripdata_excerpt_2011-2-1_2011-2-28_ids.csv";
+    //private String file_path = "C:\\Users\\breno\\OneDrive\\Phd_TU\\PROJECTS\\in\\data\\dist\\distance_matrix_m_manhattan-island-new-york-city-new-york-usa.csv";
+    //private String trip_path = "C:\\Users\\breno\\OneDrive\\Phd_TU\\PROJECTS\\in\\data\\tripdata\\tripdata_excerpt_2011-2-1_2011-2-28_ids.csv";
 
     // Geographical data
-    private Map<Integer, Point2D> nodeLocationMap; // Map of node ids and respective coordinates
+    private Map<Short, Point2D> nodeLocationMap; // Map of node ids and respective coordinates
 
     private short[][] distMatrix;
     private double[][] distMatrixKm;
 
     private ArrayList<ArrayList<ArrayList<Short>>> shortestPathsNodeIds;
     private ArrayList<ArrayList<ArrayList<Short>>> shortestPathDistances;
+
+    private Map<Short, Map<String, List<Short>>> canReachClass;
+
     private List<Integer> unreachable;
     private List<User> userBuff;
     private Iterable<CSVRecord> records;
@@ -55,19 +63,21 @@ public class Dao {
             //Class.forName("com.mysql.cj.jdbc.Driver").newInstance();
             //conn = DriverManager.getConnection("jdbc:mysql://localhost/shortest_paths_manhattan?user=root&password=admin123");
 
-            // Pool map of nodes from server. Format: {id=Point(x,y)}
+            // Pull map of nodes from server. Format: {id=Point(x,y)}
             System.out.println("Pulling nodes from server...");
             nodeLocationMap = ParseJsonUtil.getNodeDictionary(ServerUtil.getNodeList());
+
             numberOfNodes = nodeLocationMap.size();
             System.out.println(String.format("%d nodes read.", numberOfNodes));
 
             System.out.println("Calculating distance matrix in seconds...");
-
             distMatrix = getDistanceMatrix(file_path);
+
+            System.out.println("Pulling reachability map for max trip times:" + InstanceConfig.getInstance().getMaxTimeHiringList());
+            canReachClass = getReachabilityMap(nodeLocationMap.keySet());
 
             rand = new Random();
 
-            /*
             shortestPathsNodeIds = new ArrayList<>();
             shortestPathDistances = new ArrayList<>();
 
@@ -79,19 +89,217 @@ public class Dao {
                     shortestPathDistances.get(i).add(j, null);
                 }
             }
-            */
 
             userBuff = new ArrayList<>();
             records = CSVFormat.RFC4180.withFirstRecordAsHeader().parse(new FileReader(trip_path));
 
-        } catch (FileNotFoundException e) {
-            e.printStackTrace();
-        } catch (IOException e) {
-            e.printStackTrace();
         } catch (Exception e) {
             e.printStackTrace();
         }
 
+    }
+
+    public static void main(String[] args) {
+        JSONParser parser = new JSONParser();
+
+        try {
+
+            Object obj = parser.parse(new FileReader("C:\\Users\\LocalAdmin\\IdeaProjects\\slevels\\src\\main\\resources\\instance_settings_test_rebalancing.json"));
+            JSONObject jsonObject = (JSONObject) obj;
+            /*
+            "scenario_config": {
+    "batch_duration": [
+      30
+    ],
+    "time_horizon": [
+      604800
+    ],
+    "max_requests": [
+      1000
+    ],
+    "initial_fleet": [
+      1000
+    ],
+    "max_capacity": [
+      6
+    ],
+    "rebalance": [
+      1
+    ],
+    "contract_duration": [
+      1,
+      2,
+      3
+    ],
+    "allow_service_deterioration": [
+      true,
+      false
+    ],
+    "allow_vehicle_hiring": [
+      true,
+      false
+    ],
+    "allow_vehicle_creation": [
+      true,
+      false
+    ],
+    "service_rate": {
+      "S1": {
+        "A": 1,
+        "B": 0.95,
+        "C": 0.9
+      },
+      "S2": {
+        "A": 0.95,
+        "B": 0.9,
+        "C": 0.85
+      },
+      "S3": {
+        "A": 0.9,
+        "B": 0.85,
+        "C": 0.8
+      }
+    },
+    "customer_segmentation": {
+      "AA": {
+        "A": 0.68,
+        "B": 0.16,
+        "C": 0.16
+      },
+      "BB": {
+        "A": 0.16,
+        "B": 0.68,
+        "C": 0.16
+      },
+      "CC": {
+        "A": 0.16,
+        "B": 0.16,
+        "C": 0.68
+      },
+      "A": {
+        "A": 1,
+        "B": 0,
+        "C": 0
+      },
+      "B": {
+        "A": 0,
+        "B": 1,
+        "C": 0
+      },
+      "C": {
+        "A": 0,
+        "B": 0,
+        "C": 1
+      }
+    },
+    "service_level": {
+      "A": {
+        "pk_delay": 180,
+        "trip_delay": 180,
+        "sharing_preference": false
+      },
+      "B": {
+        "pk_delay": 300,
+        "trip_delay": 600,
+        "sharing_preference": true
+      },
+      "C": {
+        "pk_delay": 600,
+        "trip_delay": 900,
+        "sharing_preference": true
+      }
+    },
+    "allow_many_to_one": [
+      true,
+      false
+    ],
+    "reinsert_targets": [
+      true,
+      false
+    ],
+    "clear_target_list_every_round": [
+      true,
+      false
+    ],
+    "allow_urgent_relocation": [
+      true,
+      false
+    ]
+
+    'BA': 'batch_duration',
+            'CD': 'contract_duration',
+            'CS': 'customer_segmentation',
+            'CT': 'clear_target_list_every_round',
+            'ID': 'instance_description',
+            'IF': 'initial_fleet',
+            'IN': 'instance_name',
+            'MC': 'max_capacity',
+            'MO': 'allow_many_to_one',
+            'MR': 'max_requests',
+            'RE': 'rebalance',
+            'RT': 'reinsert_targets',
+            'SD': 'allow_service_deterioration',
+            'SR': 'service_rate',
+            'ST': 'simulation_time',
+            'UR': 'allow_urgent_relocation',
+            'VH': 'allow_vehicle_hiring'
+             */
+
+            System.out.println(jsonObject.toJSONString());
+            String resultFolder = (String) jsonObject.get("result_folder");
+            String instanceName = (String) jsonObject.get("instance_name");
+            Map<String, String> labels = (HashMap<String, String>) jsonObject.get("labels");
+            for (Entry<String, String> e : labels.entrySet()) {
+                System.out.println(e.getKey() + "-" + e.getValue());
+            }
+            System.out.println(resultFolder);
+            System.out.println(labels);
+
+
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+    /**
+     * Get the array of trip durations between every pair of nodes in the shortest path between "from" and "to"
+     *
+     * @param from
+     * @param to
+     * @return
+     */
+    public static List<Short> getArrayTravelDurationsBetweenInSeconds(Node from, Node to) {
+
+        List<Short> listNodes = ServerUtil.getShortestPathBetween(from.getNetworkId(), to.getNetworkId());
+
+        List<Short> durations = new ArrayList<>();
+
+        for (int i = 0; i < listNodes.size() - 1; i++) {
+            short o = listNodes.get(i);
+            short d = listNodes.get(i + 1);
+            durations.add(Dao.getInstance().getDistSec(o, d));
+        }
+        return durations;
+    }
+
+    private Map<Short, Map<String, List<Short>>> getReachabilityMap(Set<Short> nodeIds) {
+
+        Map<Short, Map<String, List<Short>>> canReachClass = new HashMap<>();
+
+        for (short i : nodeIds) {
+
+            canReachClass.put(i, new HashMap<>());
+
+            for (Entry<String, Integer> e : InstanceConfig.getInstance().getMaxTimeHiringList().entrySet()) {
+                int maxTime = e.getValue();
+                List<Short> canReachNode = ServerUtil.getAllCanReachNode(i, maxTime);
+                //canReachList.get(i).put(maxTime, canReachNode);
+                canReachClass.get(i).put(e.getKey(), canReachNode);
+                //System.out.println(i + " - " + canReachList.get(i).get(maxTime).size());
+            }
+        }
+
+        return canReachClass;
     }
 
     public static Dao getInstance() {
@@ -134,6 +342,7 @@ public class Dao {
 
         return b.toString();
     }
+
 
     /**
      * Get GeoJson of all points that compose a linestring (sequence of Point2D).
@@ -194,64 +403,8 @@ public class Dao {
 
     }
 
-    private short[][] getDistanceMatrix(String file_path) {
-        distMatrixKm = new double[numberOfNodes][numberOfNodes];
-        short[][] dist_matrix = new short[numberOfNodes][numberOfNodes];
-        short[] countInvalid = new short[numberOfNodes];
-        unreachable = new ArrayList<>();
-
-        try {
-
-            System.out.println("Reading distance data...");
-            Reader in = new FileReader(file_path);
-
-            int row = 0;
-
-            Iterable<CSVRecord> records = CSVFormat.DEFAULT.parse(in);
-            for (CSVRecord record : records) {
-                int col = 0;
-
-                for (String r : record) {
-
-                    if (r.equals("INF")) {
-                        countInvalid[col]++;
-                        //System.out.println(String.format("%6d %6d", row, col));
-                        //invalid.add(col);
-                    }
-
-                    double km = r.equals("INF") ? Double.MIN_VALUE : Double.valueOf(r);
-                    short sec = r.equals("INF") ? Short.MIN_VALUE : (short) (3.6 * km / SPEED + 0.5);
-
-                    dist_matrix[row][col] = sec;
-                    distMatrixKm[row][col] = km;
-
-                    //System.out.print(String.format("%10.2f",km));
-                    //todo nodes have distance zero
-                    /*
-                    if(row != col && sec == 0){
-                        System.out.println(row + " - " + col + " - " + sec + " - " + r + Short.MIN_VALUE);
-                    }
-                    */
-                    col++;
-                }
-                //System.out.println();
-                row++;
-            }
-
-
-            for (int i = 0; i < countInvalid.length; i++) {
-
-                if (countInvalid[i] > 4000)
-                    unreachable.add(i);
-            }
-
-            System.out.println(unreachable);
-            //System.out.println("INVALID:" + new ArrayList<>(Arrays.asList(countInvalid)));
-
-        } catch (java.io.IOException e) {
-            e.printStackTrace();
-        }
-        return dist_matrix;
+    public Map<Short, Map<String, List<Short>>> getCanReachList() {
+        return canReachClass;
     }
 
     private double[][] getDistanceMatrixDouble(String file_path) {
@@ -333,6 +486,67 @@ public class Dao {
         }
 
         return listUser;
+    }
+
+    private short[][] getDistanceMatrix(String file_path) {
+        distMatrixKm = new double[numberOfNodes][numberOfNodes];
+        short[][] dist_matrix = new short[numberOfNodes][numberOfNodes];
+        short[] countInvalid = new short[numberOfNodes];
+        unreachable = new ArrayList<>();
+
+        try {
+
+            System.out.println("Reading distance data...");
+            Reader in = new FileReader(file_path);
+
+            int row = 0;
+
+            Iterable<CSVRecord> records = CSVFormat.DEFAULT.parse(in);
+            for (CSVRecord record : records) {
+                int col = 0;
+
+                for (String r : record) {
+
+                    if (r.equals("INF")) {
+                        countInvalid[col]++;
+                        //System.out.println(String.format("%6d %6d", row, col));
+                        //invalid.add(col);
+                    }
+
+                    double km = r.equals("INF") ? Double.MIN_VALUE : Double.valueOf(r);
+                    short sec = r.equals("INF") ? Short.MIN_VALUE : (short) (3.6 * km / SPEED + 0.5);
+
+                    dist_matrix[row][col] = sec;
+                    distMatrixKm[row][col] = km;
+
+                    //System.out.print(String.format("%10.2f",km));
+                    //todo nodes have distance zero
+                    /*
+                    if(row != col && sec == 0){
+                        System.out.println(row + " - " + col + " - " + sec + " - " + r + Short.MIN_VALUE);
+                    }
+                    */
+                    col++;
+                }
+                //System.out.println();
+                ServerUtil.getAllCanReachNode(row, 150);
+                row++;
+            }
+
+
+            for (int i = 0; i < countInvalid.length; i++) {
+
+                if (countInvalid[i] > 4000)
+                    unreachable.add(i);
+            }
+
+            System.out.println(unreachable);
+            //System.out.println("INVALID:" + new ArrayList<>(Arrays.asList(countInvalid)));
+
+        } catch (java.io.IOException e) {
+            e.printStackTrace();
+        }
+        return dist_matrix;
     }
 
     /**
@@ -458,6 +672,7 @@ public class Dao {
         List<User> classed = new ArrayList<>(listUser);
 
         // List of class tags
+
         List<String> classTagList = new ArrayList<>(Config.getInstance().qosDic.keySet());
 
         Map<String, Integer> usersPerClass = new HashMap<>();
@@ -471,6 +686,7 @@ public class Dao {
 
         // Fill the number of users per class (in case proportions failed)
         while (usersPerClass.values().stream().mapToInt(Integer::intValue).sum() < listUser.size()) {
+            //System.out.println("TAG LIST:" + classTagList + "- qosDic: " + Config.getInstance().qosDic);
             int randClass = Dao.getInstance().rand.nextInt(classTagList.size());
             usersPerClass.put(classTagList.get(randClass), usersPerClass.get(classTagList.get(randClass)) + 1);
         }
@@ -599,7 +815,7 @@ public class Dao {
      * @param elapsedTime
      * @return network id, or -1 if there is no intermediate node
      */
-    public int getIntermediateNodeNetworkId(int o, int d, int elapsedTime) {
+    public int getIntermediateNodeNetworkIdNew(int o, int d, int elapsedTime) {
 
         ArrayList<Short> sp = ServerUtil.getShortestPathBetween(o, d);
 
@@ -647,11 +863,11 @@ public class Dao {
      * @param elapsedTime
      * @return network id, or -1 if there is no intermediate node
      */
-    public int getIntermediateNodeNetworkIdOld(int o, int d, int elapsedTime) {
+    public int getIntermediateNodeNetworkId(int o, int d, int elapsedTime) {
 
         //TODO Decide what to do when  elapsed time is zero
-        //ArrayList<Short> sp = getShortestPathBetween(networkIdFrom, networkIdTo);
-        ArrayList<Short> sp = ServerUtil.getShortestPathBetween(o, d);
+        ArrayList<Short> sp = getShortestPathBetween(o, d);
+        //ArrayList<Short> sp = ServerUtil.getShortestPathBetween(o, d);
 
         if (sp == null) {
             System.out.println("NULL" + o + " - " + d);

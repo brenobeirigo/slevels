@@ -34,4 +34,9 @@ public class NodePK extends Node {
 
         return s;
     }
+
+    @Override
+    public String getType() {
+        return "pickup";
+    }
 }

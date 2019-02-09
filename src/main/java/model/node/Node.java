@@ -1,7 +1,6 @@
 package model.node;
 
-import javafx.geometry.Point2D;
-
+import java.awt.geom.Point2D;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
@@ -9,7 +8,7 @@ import java.util.Set;
 
 import static config.Config.*;
 
-public class Node implements Comparable<Node> {
+public abstract class Node implements Comparable<Node> {
 
     public static Map<Integer, Integer> hotSpot = new HashMap<>();
     public static Set<Integer> tabu = new HashSet<>();
@@ -23,6 +22,7 @@ public class Node implements Comparable<Node> {
     protected int load;
     protected int delay;
     protected int tripId;
+
     //TODO: Place this in pk
     protected int urgent;
     protected int hotness; // How many nodes share the same networkID?
@@ -104,12 +104,7 @@ public class Node implements Comparable<Node> {
         return s;
     }
 
-    /**
-     * User was denied service! Strong candidate for rebalancing.
-     */
-    public void increaseUrgency() {
-        this.urgent++;
-    }
+    public abstract String getType();
 
     public void increaseHotness() {
         Node.hotSpot.compute(this.networkId, (tokenKey, oldValue) -> oldValue == null ? 1 : oldValue + 1);
@@ -222,5 +217,9 @@ public class Node implements Comparable<Node> {
 
     public void setUrgent(int urgent) {
         this.urgent = urgent;
+    }
+
+    public void increaseUrgency() {
+        this.urgent++;
     }
 }

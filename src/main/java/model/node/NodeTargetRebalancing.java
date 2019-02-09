@@ -19,10 +19,25 @@ public class NodeTargetRebalancing extends Node {
         super(stop.getId(),
                 stop.getNetworkId());
 
-        this.setGenNode(stop);
+
+        // What if a target re-enters? A new node target have to be formed, but the original node must be passed over.
+        if (stop instanceof NodeTargetRebalancing) {
+            this.setGenNode(((NodeTargetRebalancing) stop).getGenNode());
+        } else {
+
+            this.setGenNode(stop);
+
+        }
         this.arrival = stop.getArrival();
         this.departure = stop.getDeparture();
         this.tripId = stop.getTripId();
+        this.urgent = stop.urgent;
+        this.hotness = stop.hotness;
+    }
+
+    @Override
+    public String getType() {
+        return "target";
     }
 
     public int getVehicleId() {
@@ -39,9 +54,22 @@ public class NodeTargetRebalancing extends Node {
         return String.format("%7s", "RE" + String.valueOf(this.tripId));
     }
 
-
+    /**
+     * Get node that became target.
+     *
+     * @return Node
+     */
     public Node getGenNode() {
         return genNode;
+    }
+
+    /**
+     * Verify if target node (i.e., the node that generated the relocation operation) was reached (valid arrival time)
+     *
+     * @return True, if target was reached
+     */
+    public boolean isReached() {
+        return this.genNode.getArrival() > 0;
     }
 
     public void setGenNode(Node genNode) {

@@ -1,14 +1,16 @@
 package simulation;
 
 import config.Config;
+import config.Rebalance;
 import dao.Dao;
-import helper.MethodHelper;
 import model.User;
 import model.Vehicle;
 import model.Visit;
+import model.node.Node;
 
 import java.nio.file.Path;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 
 public class SimulationFCFS extends Simulation {
@@ -27,13 +29,13 @@ public class SimulationFCFS extends Simulation {
                           int maxRequestsIteration,
                           int timeWindow,
                           int timeHorizon,
-                          int maxRoundsIdleBeforeRebalance,
-                          int deactivationFactor,
-                          int maxDelayExtensionsBeforeHiring,
+                          boolean allowRebalancing,
+                          int contractDuration,
                           boolean isAllowedToHire,
                           boolean isAllowedToLowerServiceLevel,
                           String serviceRateScenarioLabel,
-                          String segmentationScenarioLabel) {
+                          String segmentationScenarioLabel,
+                          Rebalance rebalance) {
 
 
         // Build generic Simulation object
@@ -42,11 +44,11 @@ public class SimulationFCFS extends Simulation {
                 maxRequestsIteration,
                 timeWindow,
                 timeHorizon,
-                maxRoundsIdleBeforeRebalance,
-                deactivationFactor,
-                maxDelayExtensionsBeforeHiring,
+                allowRebalancing,
+                contractDuration,
                 isAllowedToHire,
-                isAllowedToLowerServiceLevel);
+                isAllowedToLowerServiceLevel,
+                rebalance);
 
         // Service rate and segmentation scenarios
         this.serviceRateScenarioLabel = serviceRateScenarioLabel;
@@ -66,13 +68,56 @@ public class SimulationFCFS extends Simulation {
                 vehicleMaxCapacity,
                 timeWindow,
                 timeHorizon,
-                maxRoundsIdleBeforeRebalance,
-                deactivationFactor,
-                maxDelayExtensionsBeforeHiring,
+                allowRebalancing,
+                contractDuration,
                 isAllowedToHire,
                 isAllowedToLowerServiceLevel,
                 serviceRateScenarioLabel,
-                segmentationScenarioLabel);
+                segmentationScenarioLabel,
+                rebalance);
+    }
+
+    /**
+     * Create a vehicle of capacity "capacity" positioned at a random node.
+     *
+     * @param u Capacity of vehicle
+     * @return Vehicle at random position
+     */
+    public static Vehicle createVehicleAtRandomPosition(User u, int currentTime, int contractDuration) {
+
+        // Nodes that can reach user (within max. duration)
+        short userNetworkId = (short) u.getNodePk().getNetworkId();
+        String userClass = u.getPerformanceClass();
+        List<Short> canReach = Dao.getInstance().getCanReachList().get(userNetworkId).get(userClass);
+
+        // Network id
+        short randomVehicleOrigin = canReach.get(Dao.getInstance().rand.nextInt(canReach.size()));
+
+        // When vehicle have to be released
+        int contractDeadline = currentTime;
+        int distOriginPkUser = Dao.getInstance().getDistSec(
+                randomVehicleOrigin,
+                u.getNodePk().getNetworkId());
+
+        int distPkDp = u.getDistFromTo();
+        //System.out.println("Distance origin pickup user: " + distOriginPkUser);
+        //System.out.println("   Distance pickup delivery: " + distPkDp);
+        //System.out.println("               Current time: " + contractDeadline);
+        //System.out.println("              User deadline: (pk:" + u.getNodePk().getLatest() + " / dp:"+ u.getNodeDp().getLatest()+ ")");
+        //System.out.println("   Distance pickup delivery: " + distPkDp);
+
+        // Deadline is the delivery time of user who caused hiring
+        if (contractDuration == Simulation.DURATION_SINGLE_RIDE) {
+            contractDeadline += distOriginPkUser + distPkDp;
+            //System.out.println("  (single) Contract deadline: " + contractDeadline);
+
+        } else {
+            contractDeadline += contractDuration;
+            //System.out.println("          Contract deadline: " + contractDeadline);
+        }
+
+
+        return new Vehicle(u.getNumPassengers(), randomVehicleOrigin, currentTime, true, contractDeadline);
     }
 
     /**
@@ -91,11 +136,6 @@ public class SimulationFCFS extends Simulation {
             return false;
         }
 
-        // User was already chosen to be delayed
-        if (u.getNumberOfDelayExtensions() > 0) {
-            return false;
-        }
-
         // Draw to decide if customer will be serviced
         double draw = Dao.getInstance().rand.nextDouble();
 
@@ -106,7 +146,31 @@ public class SimulationFCFS extends Simulation {
 
         // E.g., B - 0.8 <= 1? Yes! Add vehicle and try again to service customer
         // E.g., A - 1.0 <= 1? Yes! Add vehicle and try again to service customer
-        return (draw <= serviceRate || u.getNumberOfDelayExtensions() >= this.maxDelayExtensionsBeforeHiring);
+        return (draw <= serviceRate);
+    }
+
+    /**
+     * Test whether it is beneficial send different vehicles to service users in the same locations.
+     *
+     * @param u
+     */
+    public void computeAttractivenessLocationUser(User u) {
+
+        Node pk = u.getNodePk();
+
+        // This node should have more vehicles around it
+        pk.increaseHotness();
+
+
+        if (!rebalanceUtil.allowManyToOneTarget) {
+            // Vehicles are sent to the same places in the network
+            Vehicle.setOfHotPoints.add(pk);
+
+            // Do not send vehicles to the same places
+        } else if (!Node.tabu.contains(pk.getNetworkId())) {
+            // Only add points not yet being addressed by other vehicles
+            Vehicle.setOfHotPoints.add(pk);
+        }
     }
 
     /**
@@ -130,11 +194,15 @@ public class SimulationFCFS extends Simulation {
             // User waits one or more rounds
             u.increaseRoundsWaiting();
 
-            // Compute hot point
-            Vehicle.computeHotPoint(u);
+            //################### REBALANCE ##### REBALANCE ##### REBALANCE ############################################
+            // All points are relocation targets BUT failed pickups have priority
+            computeAttractivenessLocationUser(u);
 
             // Aux. best visit for comparison
-            Visit bestVisit = u.getBestVisitByInsertion(listVehicles, currentTime, stopAtFirstBest);
+            Visit bestVisit = u.getBestVisitByInsertion(
+                    listVehicles,
+                    currentTime,
+                    stopAtFirstBest);
 
             //##########################################################################################################
             //## VISIT WAS NOT FOUND ###################################################################################
@@ -143,39 +211,37 @@ public class SimulationFCFS extends Simulation {
             // Depending on user class, decide if new vehicle will be created.
             if (bestVisit == null) {
 
-                // Add unserviced point to set of hot points (customers not serviced)
-                Vehicle.computeMissedUserLocation(u);
+                //################### REBALANCE ##### REBALANCE ##### REBALANCE ########################################
+                // Some vehicle should be sent there urgently to fix supply-demand imbalance
+                if (this.rebalanceUtil.useUrgentKey)
+                    u.getNodePk().increaseUrgency();
 
+                // Try to hire new vehicle to user according to user SQ class
                 if (hireNewVehicleToUser(u)) {
 
-                    //if(u.getNumberOfDelayExtensions()>0){
-                    //    System.out.println(String.format("DELAY FAILED :-(     %s(%d) WILL BE SERVICED BY A THIRD-PARTY VEHICLE.", u, u.getNumberOfDelayExtensions()));
-                    //}
+                    // System.out.println("Hiring a vehicle to pickup user " + u);
 
+                    // The draw was successful, vehicle will be hired immediately
                     Vehicle v = null;
 
-                    u.computeHiring();
-
-                    // Customer gets a private ride every
                     Visit candidateVisit = null;
 
-                    // Add extra delay to user service level and increase urgency to be picked up (=pickup delay)
-                    //u.lowerServiceLevel();
-
-                    //int hiring = 0;
-                    // Update best visit if delay of candidate visit is shorter
-
+                    // Find freelance vehicle around user area
                     while (candidateVisit == null) {
 
-                        //TODO MAJOR FLAW - Vehicles are created at user's position
-                        //v = new Vehicle(u.getNumPassengers(), u.getNodePk().getNetworkId(), currentTime, true);
-                        v = MethodHelper.createVehicleAtRandomPosition(u.getNumPassengers(), currentTime); // List of vehicles
+                        v = createVehicleAtRandomPosition(
+                                u,
+                                currentTime,
+                                contractDuration); // List of vehicles
 
-                        //System.out.println(++hiring + " - "+ v.getOrigin().getNetworkId() + " - " + u.getNodePk().getNetworkId());
+                        //System.out.println("Finding freelance vehicle...");
+                        //v.printHiringInfo();
 
                         //##########################################################################################
                         // Try to get a valid visit by inserting user "u" in newly created vehicle "v"
                         candidateVisit = v.getBestInsertion(u, currentTime);
+
+
                         //##########################################################################################
                     }
 
@@ -184,16 +250,24 @@ public class SimulationFCFS extends Simulation {
 
                     // New vehicle is added in list
                     listVehicles.add(v);
+                    listHiredVehicles.add(v);
+                    setHired.add(v);
 
-                } else if (canLowerServiceLevel(u)) {
-                    /* Customer is serviced using the TRUE availability of the fleet.
-                       The service level is relaxed (unbounded) and an available vehicle is chosen. */
+                } else if (isAllowedToLowerServiceLevel) {
+                    //System.out.println("Lowering service level of user " + u);
 
-                    // Increase number of insertion trials
-                    u.increaseNumberOfDelayExtensions();
+                    /*
+                    Customer is serviced using the current fleet resources.
+                    *** Service level is relaxed (unbounded) and an available vehicle is chosen. */
 
                     // Add enough delay to user service level to guarantee he will be picked up
-                    u.lowerServiceLevel(24 * 3600);
+                    //u.lowerServiceLevel(24 * 3600);
+                    // Double max pickup delay of class
+                    u.lowerServiceLevel(Config.getInstance().qosDic.get(u.getPerformanceClass()).pkDelay);
+
+                    // Compute need for urgent relocation
+                    if (this.rebalanceUtil.useUrgentKey)
+                        u.getNodePk().increaseUrgency();
 
                     // Find a visit using the TRUE fleet availability
                     bestVisit = u.getBestVisitByInsertion(
@@ -201,19 +275,32 @@ public class SimulationFCFS extends Simulation {
                             currentTime,
                             stopAtFirstBest);
 
-                    // There is no vehicle of with capacity == number of passengers
+                    // There is no vehicle with capacity == number of passengers
                     if (bestVisit == null) {
 
                         // Creating vehicle nearby user
-                        Vehicle v = MethodHelper.createVehicleAtRandomPosition(u.getNumPassengers(), currentTime); // List of vehicles
+                        Vehicle v = createVehicleAtRandomPosition(
+                                u,
+                                currentTime,
+                                contractDuration); // List of vehicles
 
                         // Inserting user in newly created vehicle
                         bestVisit = v.getBestInsertion(u, currentTime);
 
                         // Adding created vehicle to fleet
                         listVehicles.add(v);
-
+                        listHiredVehicles.add(v);
+                        setHired.add(v);
                     }
+                } else {
+                    if (rebalanceUtil.showInfo)
+                        System.out.println("CAN'T SERVICE - User:" +
+                                u + " - Node PK: " +
+                                u.getNodePk() +
+                                " - Node PK network id:" +
+                                u.getNodePk().getNetworkId() +
+                                " - Increasing");
+                    // User is rejected if no vehicle could be hired and service level could not be met
                 }
             }
 
@@ -221,7 +308,7 @@ public class SimulationFCFS extends Simulation {
             if (bestVisit != null) {
 
                 // Add user to vehicle and setup visit
-                bestVisit.setup();
+                setup(bestVisit);
 
                 // Model.User u was serviced
                 setServicedUsers.add(u);
@@ -234,7 +321,4 @@ public class SimulationFCFS extends Simulation {
     }
 
 
-    private boolean canLowerServiceLevel(User u) {
-        return this.isAllowedToLowerServiceLevel && u.getNumberOfDelayExtensions() < this.maxDelayExtensionsBeforeHiring;
-    }
 }

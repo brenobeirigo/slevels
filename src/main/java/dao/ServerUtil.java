@@ -1,52 +1,72 @@
 package dao;
 
+import model.Vehicle;
 import model.node.*;
+import visualization.GeoJsonUtil;
 
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
 import java.net.HttpURLConnection;
 import java.net.URL;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 public class ServerUtil {
 
     //SERVER
-    private static final String ADDRESS_SERVER = "http://localhost:5000";
-    private static final String ADDRESS_ALLNODES = "http://localhost:5000/nodes";
+    private static final String ADDRESS_SERVER = "http://TUD256023.tudelft.net:4999";
+    private static final String ADDRESS_ALLNODES = ADDRESS_SERVER + "/nodes";
     private static String restPoint = ADDRESS_SERVER + "/point_style/%d/%%23%s/%s/%s";
     private static String restLine = ADDRESS_SERVER + "/linestring_style/%d/%d/%%23%s/%s/%s";
+    private static String restShortestPath = ADDRESS_SERVER + "/sp/%d/%d";
+    private static String restSmoothShortestPath = ADDRESS_SERVER + "/sp_smooth/%d/%d";
+    private static String restSmoothDurations = ADDRESS_SERVER + "/sp_smooth/%d/%d/%d";
+    private static String restShortestPathCoords = ADDRESS_SERVER + "/sp_coords/%d/%d";
+
+    private static String restCanReachSet = ADDRESS_SERVER + "/can_reach/%d/%d";
+    //http://TUD256023.tudelft.net:4999/sp_coords/1/2
+
     private static Map<String, HashMap<String, String>> styleNode = new HashMap<String, HashMap<String, String>>() {{
 
         put("pickup_point",
                 new HashMap<String, String>() {{
-                    put("marker-color", "00b20b");
+                    put("marker-color", "00ff00");
                     put("marker-size", "small");
                     put("marker-symbol", "circle");
                 }});
         put("origin_point",
                 new HashMap<String, String>() {{
-                    put("marker-color", "0000FF");
+                    put("marker-color", "ffc700");
                     put("marker-size", "small");
                     put("marker-symbol", "circle");
                 }});
         put("destination_point",
                 new HashMap<String, String>() {{
-                    put("marker-color", "FF0000");
+                    put("marker-color", "ff0000");
                     put("marker-size", "small");
                     put("marker-symbol", "circle");
                 }});
 
         put("middle_point",
                 new HashMap<String, String>() {{
-                    put("marker-color", "c1c1c1");
+                    put("marker-color", "cccccc");
                     put("marker-size", "small");
                     put("marker-symbol", "circle");
                 }});
 
-        put("vehicle",
+        put("stop_point",
                 new HashMap<String, String>() {{
-                    put("marker-color", "FF0000");
+                    put("marker-color", "444444");
+                    put("marker-size", "small");
+                    put("marker-symbol", "circle");
+                }});
+
+        put("target_point",
+                new HashMap<String, String>() {{
+                    put("marker-color", "000000");
                     put("marker-size", "small");
                     put("marker-symbol", "circle");
                 }});
@@ -56,39 +76,24 @@ public class ServerUtil {
 
         put("cruising",
                 new HashMap<String, String>() {{
-                    put("stroke", "EEEEEE");
+                    put("stroke", "ff0000");
                     put("stroke-width", "2.0");
                     put("stroke-opacity", "1.0");
                 }});
 
         put("rebalancing",
                 new HashMap<String, String>() {{
-                    put("stroke", "CCCCCC");
+                    put("stroke", "0000ff");
                     put("stroke-width", "2.0");
                     put("stroke-opacity", "1.0");
                 }});
 
-        put("s1",
+        put("servicing",
                 new HashMap<String, String>() {{
-                    put("stroke", "6d6d6d");
+                    put("stroke", "00ff00");
                     put("stroke-width", "2.0");
                     put("stroke-opacity", "1.0");
                 }});
-
-        put("s2",
-                new HashMap<String, String>() {{
-                    put("stroke", "416bf4");
-                    put("stroke-width", "2.0");
-                    put("stroke-opacity", "1.0");
-                }});
-
-        put("s3",
-                new HashMap<String, String>() {{
-                    put("stroke", "f441c1");
-                    put("stroke-width", "2.0");
-                    put("stroke-opacity", "1.0");
-                }});
-
     }};
 
     /**
@@ -129,8 +134,13 @@ public class ServerUtil {
      * @return list of ids
      */
     public static String getGeoJsonSPBetweenODfromServer(Node o, Node d) {
-
-        String lineType = "s1";
+        String lineType = "servicing";
+        System.out.println(o.getClass().getName() + " - " + d.getClass().getName());
+        if (d instanceof NodeTargetRebalancing) {
+            lineType = "rebalancing";
+        } else if ((o instanceof NodeOrigin || o instanceof NodeMiddle || o instanceof NodeTargetRebalancing || o instanceof NodeStop) && d instanceof NodePK) {
+            lineType = "cruising";
+        }
 
         String rest = String.format(
                 restLine,
@@ -140,6 +150,7 @@ public class ServerUtil {
                 styleEdge.get(lineType).get("stroke-width"),
                 styleEdge.get(lineType).get("stroke-opacity"));
 
+        System.out.println("Rest line:" + rest);
         String response = requestTo(rest);
         return response;
     }
@@ -158,7 +169,8 @@ public class ServerUtil {
                 "pickup_point" : n instanceof NodeDP ?
                 "destination_point" : n instanceof NodeMiddle ?
                 "middle_point" : n instanceof NodeOrigin ?
-                "origin_point" : "stop_point";
+                "origin_point" : n instanceof NodeTargetRebalancing ?
+                "target_point" : "stop_point";
 
         String rest = String.format(
                 restPoint,
@@ -197,10 +209,53 @@ public class ServerUtil {
      * @return list of ids
      */
     public static ArrayList<Short> getShortestPathBetween(int o, int d) {
-        String rest = String.format("http://localhost:5000/sp/%d/%d", o, d);
+        String rest = String.format(restShortestPath, o, d);
         ArrayList<Short> list_ids = null;
         list_ids = (ArrayList) Arrays.asList(requestTo(rest).split(";")).stream().map(n -> Short.valueOf(n)).collect(Collectors.toList());
         return list_ids;
+    }
+
+
+    /**
+     * Get the id path between OD (included) from REST server.
+     *
+     * @param n              Reachable node id
+     * @param maxTripTimeSec Destination node id
+     * @return list of ids
+     */
+    public static ArrayList<Short> getAllCanReachNode(int n, int maxTripTimeSec) {
+        String rest = String.format(restCanReachSet, n, maxTripTimeSec);
+        return (ArrayList<Short>) Arrays.stream(requestTo(rest).split(";")).map(Short::valueOf).collect(Collectors.toList());
+    }
+
+
+    /**
+     * Get the id path between OD (included) from REST server.
+     * Also includes the node ids needed to create a smooth path.
+     *
+     * @param o Origin node id
+     * @param d Destination node id
+     * @return list of ids
+     */
+    public static ArrayList<Short> getSmoothShortestPathBetween(int o, int d) {
+        String rest = String.format(restShortestPath, o, d);
+        ArrayList<Short> list_ids = null;
+        list_ids = (ArrayList) Arrays.asList(requestTo(rest).split(";")).stream().map(n -> Short.valueOf(n)).collect(Collectors.toList());
+        return list_ids;
+    }
+
+    /**
+     * Get the id path between OD (included) from REST server.
+     *
+     * @param o Origin node id
+     * @param d Destination node id
+     * @return list of ids
+     */
+    public static ArrayList<String> getShortestPathCoordsBetween(int o, int d) {
+        String rest = String.format(restShortestPathCoords, o, d);
+        ArrayList<String> listCoords = null;
+        listCoords = (ArrayList) Arrays.asList(requestTo(rest).split(";")).stream().collect(Collectors.toList());
+        return listCoords;
     }
 
     /**
@@ -212,19 +267,46 @@ public class ServerUtil {
         return requestTo(ADDRESS_ALLNODES);
     }
 
-    public void printGeoJsonJourney(List<Node> journey) {
-
+    public static void printGeoJsonJourney(Vehicle v) {
+        /*
         List<String> listFeatures = new ArrayList<>();
+        System.out.println("size:"+ journey.size());
+        if(journey.size() == 1){
+            System.out.println(getGeoJsonPointfromServer(journey.get(0)));
+            return;
+        }
+
+        //journey = journey.stream().filter(n -> n instanceof NodeDP).collect(Collectors.toList());
+
         for (int i = 0; i < journey.size() - 1; i++) {
-            String o = getGeoJsonPointfromServer(journey.get(i));
-            String d = getGeoJsonPointfromServer(journey.get(i + 1));
-            String edge = getGeoJsonSPBetweenODfromServer(journey.get(i), journey.get(i + 1));
+            Node nodeO = journey.get(i);
+            Node nodeD = journey.get(i + 1);
+
+            String o = GeoJsonUtil.getGeoJson(nodeO);
+
+
+            String edge = getGeoJsonSPBetweenODfromServer(nodeO, nodeD);
             listFeatures.add(o);
-            listFeatures.add(d);
             listFeatures.add(edge);
         }
 
-        System.out.println(String.join(",", listFeatures));
+        String d = GeoJsonUtil.getGeoJson(journey.get(journey.size()-1));
+        listFeatures.add(d);
+
+        GeoJsonUtil.getJourneyInfo(journey);
+        */
+        //System.out.println("POINTS:" + String.join(",\n", GeoJsonUtil.getJourneyInfo(journey)));
+        //System.out.println("LINES:" + String.join(",\n", GeoJsonUtil.getJourneyInfoLines(journey)));
+
+
+        String geojson = String.format("{\n" +
+                "    \"type\": \"FeatureCollection\",\n" +
+                "    \"features\": %s\n}", String.join(",\n", GeoJsonUtil.getJourneyComplete(v)));
+
+        GeoJsonUtil.saveGeoJson("teste", geojson);
+
+        System.out.println("GEOJSON" + geojson);
+
     }
 
 

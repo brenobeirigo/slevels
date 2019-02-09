@@ -2,7 +2,6 @@ package model;
 
 import dao.Dao;
 import model.node.Node;
-import model.node.NodeTargetRebalancing;
 
 import java.util.*;
 
@@ -54,7 +53,6 @@ public class Visit implements Comparable<Visit> {
     }
 
     public static void reset() {
-        return;
     }
 
     public Visit() {
@@ -170,10 +168,6 @@ public class Visit implements Comparable<Visit> {
     @Override
     public String toString() {
 
-        if (this.vehicle != null) {
-
-        }
-
         Node current = this.vehicle.getCurrentNode();
         int load = this.vehicle.getLoad();
         // Node strings
@@ -214,48 +208,6 @@ public class Visit implements Comparable<Visit> {
                 " - Vehicle: " + vehicle.getInfo();
     }
 
-    public void setup() {
-
-        // If vehicle was rebalancing
-        if (this.vehicle.isRebalancing()) {
-
-
-            //System.out.println("STOPPED REBALANCING!" + this);
-
-            NodeTargetRebalancing target = (NodeTargetRebalancing) this.vehicle.getVisit().getTargetNode();
-
-            // Vehicles can be reschedule to this position again
-            Node.tabu.remove(target.getNetworkId());
-
-            // Target was not reached, back to hot points
-            if (target.getGenNode().getArrival() == 0) {
-                //TODO Does re-adding the node helps? It looks like YES!
-                //System.out.println("STOPPED REB.:" + target.getGenNode().getUrgent() + " - " + target.getGenNode().getArrival() + " :" + this.getSequenceVisits().getFirst() + "-"+target+"-" + target.getGenNode());
-
-                Vehicle.setOfHotPoints.add(target);
-            }
-
-
-            // Vehicle is no longer rebalancing (User was inserted)
-            this.vehicle.stoppedRebalancingToPickup();
-
-
-            double distTraveledKm = Dao.getInstance().getDistKm(this.vehicle.getCurrentNode(), this.vehicle.getVisit().getTargetNode());
-
-            this.vehicle.increaseDistanceTraveledRebalancing(distTraveledKm);
-        }
-
-        // Add visit to vehicle (circular)
-        this.vehicle.setVisit(this);
-
-        // Vehicle set of users
-        this.vehicle.setUsers(this.getSetUsers());
-
-        // Vehicle is not idle
-        this.vehicle.setRoundsIdle(0);
-
-
-    }
 
     /**
      * Get arrival time at first node in sequence of visits

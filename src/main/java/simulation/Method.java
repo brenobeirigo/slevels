@@ -1027,131 +1027,56 @@ public class Method {
         return setServicedUsers;
     }
 
-    /**
-     * Receive the fleet of vehicles and a static set of "hot points", that is, pick up misses.
-     * Only vehicles idle for maxRoundsIdleBeforeRebalance are considered.
-     * <p>
-     * The vehicle idle for the longest time will be assign to a customer.
-     * <p>
-     * tiebreaker is distance (closer vehicles before)
-     *
-     * @param listIdle List of vehicles operating
-     */
-    public static void rebalanceVehicles(Map<Integer, Vehicle> listIdle) {
+    public static Vehicle getBestVehicleToServiceTarget(List<Vehicle> listIdle, Node hotPoint) {
 
-        //System.out.println("Set of hot points: " + Vehicle.setOfHotPoints.size() + " - Idle size: " + listIdle.size());
+        // Closest vehicle to candidate hot point (a previous miss)
+        Vehicle idlestClosestVehicle = listIdle.get(0);
 
-        // Missed pickup nodes are sorted according to their hotness (Hotest first)
-        // The sorting is realized using the network position of the nodes
-        // Every time a miss occurs the hotness of a network id is increased
-        Collections.sort(Vehicle.setOfHotPoints);
+        // If hotpoint is urgent, get closest
+        if (hotPoint.getUrgent() > 0) {
 
-        /*
+            //System.out.println("Addressing urgent...");
 
-        for (Node v :
-                Vehicle.setOfHotPoints) {
-            System.out.println(v + " - " + v.getUrgent());
+            for (int i = 1; i < listIdle.size(); i++) {
 
-        }
+                Vehicle candidateRebalancingVehicle = listIdle.get(i);
 
-        */
+                // Untie using shortest distance
+                int distanceCandidate = Dao.getInstance().getDistSec(hotPoint, candidateRebalancingVehicle.getCurrentNode());
+                int distanceIncumbent = Dao.getInstance().getDistSec(hotPoint, idlestClosestVehicle.getCurrentNode());
 
-        //System.out.println("Set of hot points sorted:" + Vehicle.setOfHotPoints);
-
-        while (!Vehicle.setOfHotPoints.isEmpty()) {
-            //System.out.println( "HOT:" + Vehicle.setOfHotPoints.size());
-
-            // No vehicles to rebalance
-            if (listIdle.isEmpty()) {
-                Vehicle.setOfHotPoints.clear();
-                return;
+                // Untie with distance
+                if (distanceCandidate < distanceIncumbent && distanceCandidate > 0) {
+                    idlestClosestVehicle = candidateRebalancingVehicle;
+                }
             }
+        } else {
+            for (int i = 1; i < listIdle.size(); i++) {
 
-            Node hotPoint = Vehicle.setOfHotPoints.poll();
+                Vehicle candidateRebalancingVehicle = listIdle.get(i);
 
-            List listVehicleIds = new ArrayList(listIdle.keySet());
+                // Get the idlest and closest vehicle to hot point
+                if (candidateRebalancingVehicle.getRoundsIdle() >= idlestClosestVehicle.getRoundsIdle()) {
 
-            // Closest vehicle to candidate hot point (a previous miss)
-            Vehicle idlestClosestVehicle = listIdle.get(listVehicleIds.get(0));
+                    if (candidateRebalancingVehicle.getRoundsIdle() == idlestClosestVehicle.getRoundsIdle()) {
 
-            // If hotpoint is urgent, get closest
-            if (hotPoint.getUrgent() > 0) {
+                        // Untie using shortest distance
+                        int distanceCandidate = Dao.getInstance().getDistSec(hotPoint, candidateRebalancingVehicle.getCurrentNode());
+                        int distanceIncumbent = Dao.getInstance().getDistSec(hotPoint, idlestClosestVehicle.getCurrentNode());
 
-                System.out.println("Addressing urgent...");
-
-                for (int i = 1; i < listVehicleIds.size(); i++) {
-
-                    Vehicle candidateRebalancingVehicle = listIdle.get(listVehicleIds.get(i));
-
-                    // Untie using shortest distance
-                    int distanceCandidate = Dao.getInstance().getDistSec(hotPoint, candidateRebalancingVehicle.getCurrentNode());
-                    int distanceIncumbent = Dao.getInstance().getDistSec(hotPoint, idlestClosestVehicle.getCurrentNode());
-
-                    // Untie with distance
-                    if (distanceCandidate < distanceIncumbent && distanceCandidate > 0) {
+                        // Untie with distance
+                        if (distanceCandidate < distanceIncumbent && distanceCandidate > 0) {
+                            idlestClosestVehicle = candidateRebalancingVehicle;
+                        }
+                    } else {
                         idlestClosestVehicle = candidateRebalancingVehicle;
                     }
                 }
-            } else {
-                for (int i = 1; i < listVehicleIds.size(); i++) {
-
-                    Vehicle candidateRebalancingVehicle = listIdle.get(listVehicleIds.get(i));
-
-                    // Get the idlest and closest vehicle to hot point
-                    if (candidateRebalancingVehicle.getRoundsIdle() >= idlestClosestVehicle.getRoundsIdle()) {
-
-                        if (candidateRebalancingVehicle.getRoundsIdle() == idlestClosestVehicle.getRoundsIdle()) {
-
-                            // Untie using shortest distance
-                            int distanceCandidate = Dao.getInstance().getDistSec(hotPoint, candidateRebalancingVehicle.getCurrentNode());
-                            int distanceIncumbent = Dao.getInstance().getDistSec(hotPoint, idlestClosestVehicle.getCurrentNode());
-
-                            // Untie with distance
-                            if (distanceCandidate < distanceIncumbent && distanceCandidate > 0) {
-                                idlestClosestVehicle = candidateRebalancingVehicle;
-                            }
-                        } else {
-                            idlestClosestVehicle = candidateRebalancingVehicle;
-                        }
-                    }
-                }
             }
-            //Closest vehicle is found
-            if (idlestClosestVehicle != null) {
-
-                //System.out.println(Node.tabu.size() + " - " +  Node.tabu);
-
-                // Make vehicle move to target
-                idlestClosestVehicle.rebalanceTo(hotPoint);
-
-                // Vehicle is already rebalancing
-                listIdle.remove(idlestClosestVehicle.getId());
-
-
-                //System.out.println(Node.tabu.size() + " - " +  Node.tabu);
-
-
-                String logReloc = idlestClosestVehicle +
-                        "(" + idlestClosestVehicle.getRoundsIdle() + ") [" + Node.hotSpot.get(hotPoint.getNetworkId()) + "] [ size: " + Vehicle.setOfHotPoints.size() + "] list size: (" + listIdle.size() + ")   " +
-                        "   Visit: " +
-                        idlestClosestVehicle.getVisit() + "--" +
-                        idlestClosestVehicle.getCurrentNode() +
-                        "[" + idlestClosestVehicle.getCurrentNode().getInfo() + "]" +
-                        " -> " +
-                        Dao.getInstance().getDistSec(idlestClosestVehicle.getCurrentNode(), hotPoint) +
-                        " -> " +
-                        idlestClosestVehicle.getVisit().getTargetNode() + ": " +
-                        "[" + idlestClosestVehicle.getVisit().getTargetNode().getInfo() + "]";
-
-                //System.out.println(logReloc);
-
-            }
-
         }
 
+        return idlestClosestVehicle;
 
-        //System.out.println("Addressed: " + addressedHotNodes.size() + " - - Hot: " + Vehicle.setOfHotPoints.size());
-        //Vehicle.setOfHotPoints.removeAll(addressedHotNodes);
     }
 
     public static void reset() {

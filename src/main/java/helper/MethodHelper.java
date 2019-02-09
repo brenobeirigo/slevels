@@ -19,9 +19,9 @@ public class MethodHelper {
      * @param capacity Capacity of vehicle
      * @return Vehicle at random position
      */
-    public static Vehicle createVehicleAtRandomPosition(int capacity, int currentTime) {
+    public static Vehicle createVehicleAtRandomPosition(int capacity, int currentTime, int numberOfContractedRounds) {
         short randomOrigin = (short) (Math.random() * Dao.getInstance().getDistMatrix().length);
-        return new Vehicle(capacity, randomOrigin, currentTime, true);
+        return new Vehicle(capacity, randomOrigin, currentTime, true, numberOfContractedRounds);
     }
 
     public static List<Vehicle> createListVehicles(int n, int size, boolean uniqueSize, int currentTime) {
@@ -51,7 +51,8 @@ public class MethodHelper {
 
             //
             short randomOrigin = (short) (Math.random() * Dao.getInstance().getDistMatrix().length);
-            System.out.println("Vehicles:" + randomOrigin + "-" + Dao.getInstance().getDistMatrix().length);
+
+            //System.out.println("Vehicles:" + randomOrigin + "-" + Dao.getInstance().getDistMatrix().length);
             //System.out.println(randomOrigin);
             listVehicle.add(new Vehicle(vSize, randomOrigin, currentTime));
         }
@@ -71,7 +72,6 @@ public class MethodHelper {
                 listVehicle.add(new Vehicle(e.getKey(), randomOrigin, 2.3, 3.4));
             }
         }
-
 
         return listVehicle;
     }

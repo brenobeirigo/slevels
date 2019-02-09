@@ -1,0 +1,132 @@
+{
+  "scenario_config": {
+    "batch_duration": [
+      30
+    ],
+    "time_horizon": [
+      600
+    ],
+    "max_requests": [
+      1000
+    ],
+    "initial_fleet": [
+      1000
+    ],
+    "max_capacity": [
+      6
+    ],
+    "rebalance": [
+      false
+    ],
+    "contract_duration": [
+      600
+    ],
+    "allow_service_deterioration": [
+      false
+    ],
+    "allow_vehicle_hiring": [
+      false
+    ],
+    "allow_vehicle_creation": [
+      false
+    ],
+    "service_rate": {
+      "S1": {
+        "A": 1,
+        "B": 0.9,
+        "C": 0.8
+      }
+    },
+    "customer_segmentation": {
+      "AA": {
+        "A": 0.68,
+        "B": 0.16,
+        "C": 0.16
+      },
+      "BB": {
+        "A": 0.16,
+        "B": 0.68,
+        "C": 0.16
+      },
+      "CC": {
+        "A": 0.16,
+        "B": 0.16,
+        "C": 0.68
+      },
+      "A": {
+        "A": 1,
+        "B": 0,
+        "C": 0
+      },
+      "B": {
+        "A": 0,
+        "B": 1,
+        "C": 0
+      },
+      "C": {
+        "A": 0,
+        "B": 0,
+        "C": 1
+      }
+    },
+    "service_level": {
+      "A": {
+        "pk_delay": 180,
+        "trip_delay": 180,
+        "sharing_preference": 0
+      },
+      "B": {
+        "pk_delay": 300,
+        "trip_delay": 600,
+        "sharing_preference": 1
+      },
+      "C": {
+        "pk_delay": 600,
+        "trip_delay": 900,
+        "sharing_preference": 1
+      }
+    }
+  },
+  "rebalancing_config": {
+    "allow_many_to_one": [
+      true,
+      false
+    ],
+    "reinsert_targets": [
+      true,
+      false
+    ],
+    "clear_target_list_every_round": [
+      true,
+      false
+    ],
+    "allow_urgent_relocation": [
+      true,
+      false
+    ]
+  },
+  "labels": {
+    "BA": "batch_duration",
+    "ST": "simulation_time",
+    "MR": "max_requests",
+    "IF": "initial_fleet",
+    "MC": "max_capacity",
+    "RE": "rebalance",
+    "CD": "contract_duration",
+    "SD": "allow_service_deterioration",
+    "VH": "allow_vehicle_hiring",
+    "SR": "service_rate",
+    "CS": "customer_segmentation",
+    "MO": "allow_many_to_one",
+    "RT": "reinsert_targets",
+    "CT": "clear_target_list_every_round",
+    "UR": "allow_urgent_relocation",
+    "IN": "instance_name",
+    "ID": "instance_description"
+  },
+  "instance_description": "Baseline scenario, fixed fleet and no rebalancing 10min",
+  "instance_name": "fixedFleetNoRebalFast",
+  "result_folder": "C:/Users/LocalAdmin/IdeaProjects/slevels/instance_output/fixed_fleet_no_rebalancing_fast/",
+  "instances_folder": "C:/Users/LocalAdmin/IdeaProjects/slevels/instance_output/fixed_fleet_no_rebalancing_fast/",
+  "generate_test_cases": true
+}

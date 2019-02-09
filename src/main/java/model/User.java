@@ -15,13 +15,21 @@ import static config.Config.*;
 
 public class User implements Comparable<User> {
 
+    // Users have the following 3 states
+    public static final int SERVICED_BY_DEDICATED_VEHICLE = 1;
+    public static final int SERVICED_BY_HIRED_VEHICLE = 2;
+    public static final int NOT_SERVICED = 0;
+    public static final int WAITING = -1;
+
+    // If user cannot be picked up, service levels are lowered
+    public boolean serviceLevelLowered;
+
     // Total number of requests
     public static int nTrips = 0;
     // Status of each request
     public static int[][] status = new int[Node.MAX_NUMBER_NODES][5];
     // Map of all users (key = user id)
     public static Map<Integer, User> mapOfUsers = new HashMap<>();
-    private int numberOfDelayExtensions = 0;
 
     // Model.User id
     private int id;
@@ -30,10 +38,11 @@ public class User implements Comparable<User> {
     private int departure, arrival, reqTime;
 
     //Delays
-    private int pk_delay, tt_delay;
     private int distFromTo;
 
-    private boolean servedByHired;
+    // Which type of vehicle serviced the request? Was it even serviced?
+    private int servedBy;
+
     //Number of passengers in request
     private int numPassengers;
 
@@ -59,6 +68,7 @@ public class User implements Comparable<User> {
      * @param record
      */
     public User(CSVRecord record) {
+
         int originId = Integer.valueOf(record.get("pk_id"));
         int destinationId = Integer.valueOf(record.get("dp_id"));
         if (Dao.getInstance().getUnreachable().contains(originId)) {
@@ -71,6 +81,7 @@ public class User implements Comparable<User> {
         this.setNumPassengers(Integer.valueOf(record.get("passenger_count")));
         this.id = ++nTrips;
         this.record = record;
+        this.servedBy = User.WAITING;
     }
 
     public int getDistFromTo() {
@@ -89,6 +100,8 @@ public class User implements Comparable<User> {
                 double originLon,
                 double destinationLat,
                 double destinationLon) {
+
+        this.servedBy = User.WAITING;
 
         this.reqTime = Config.getInstance().date2Seconds(reqTime);
         this.setNumPassengers(numPassengers);
@@ -126,13 +139,6 @@ public class User implements Comparable<User> {
         mapOfUsers = new HashMap<>();
         nTrips = 0;
         status = new int[Node.MAX_NUMBER_NODES][5];
-    }
-
-    /**
-     * Increase how many times user maximum delays had to increase.
-     */
-    public void increaseNumberOfDelayExtensions() {
-        this.numberOfDelayExtensions++;
     }
 
 
@@ -254,32 +260,35 @@ public class User implements Comparable<User> {
         return performanceClass;
     }
 
-    public int getNumberOfDelayExtensions() {
-        return numberOfDelayExtensions;
+    public boolean isServiceLevelLowered() {
+        return serviceLevelLowered;
     }
 
     /**
-     * Increase latest visit times of pickup and drop-off nodes in "extraDelay"units.
+     * Increase latest visit times of pickup and drop-off nodes in "extraDelay" units.
      *
      * @param extraDelay
      */
     public void lowerServiceLevel(int extraDelay) {
         this.nodePk.increaseLatest(extraDelay);
         this.nodeDp.increaseLatest(extraDelay);
-        this.nodePk.increaseUrgency();
-        this.numberOfDelayExtensions++;
+        this.serviceLevelLowered = true;
     }
 
+    public boolean isRejected() {
+        return this.servedBy == User.NOT_SERVICED;
+    }
 
-    /**
-     * Increase latest visit times of pickup and drop-off nodes in "extraDelay = class pk delay"units.
-     */
-    public void lowerServiceLevel() {
-        int extraDelay = Config.getInstance().qosDic.get(this.getPerformanceClass()).pkDelay;
-        this.nodePk.increaseLatest(extraDelay);
-        this.nodeDp.increaseLatest(extraDelay);
-        this.nodePk.increaseUrgency();
-        this.numberOfDelayExtensions++;
+    public boolean isServiced() {
+        return isServicedByDedicated() || isServicedByHired();
+    }
+
+    public boolean isServicedByHired() {
+        return this.servedBy == User.SERVICED_BY_HIRED_VEHICLE;
+    }
+
+    public boolean isServicedByDedicated() {
+        return this.servedBy == User.SERVICED_BY_DEDICATED_VEHICLE;
     }
 
     /**
@@ -492,11 +501,28 @@ public class User implements Comparable<User> {
                 this.numPassengers));
     }
 
-    public void computeHiring() {
-        this.servedByHired = true;
+    /**
+     * Indicates whether a user was serviced by a hired vehicle.
+     */
+    public void computePickupByFreelanceVehicle() {
+        this.servedBy = User.SERVICED_BY_HIRED_VEHICLE;
     }
 
-    public boolean isServedByHired() {
-        return this.servedByHired;
+    /**
+     * Indicates whether a user was serviced by a hired vehicle.
+     */
+    public void computePickupByDedicatedVehicle() {
+        this.servedBy = User.SERVICED_BY_DEDICATED_VEHICLE;
+    }
+
+    /**
+     * Indicates whether a user was serviced by a hired vehicle.
+     */
+    public void computeRejection() {
+        this.servedBy = User.NOT_SERVICED;
+    }
+
+    public int getServedBy() {
+        return this.servedBy;
     }
 }

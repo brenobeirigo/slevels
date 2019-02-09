@@ -32,4 +32,9 @@ public class NodeDP extends Node {
 
         return s;
     }
+
+    @Override
+    public String getType() {
+        return "destination";
+    }
 }

@@ -1,9 +1,11 @@
 package helper;
 
+import config.Config;
 import model.User;
 import model.Vehicle;
 import model.node.NodeOrigin;
 import model.node.NodeStop;
+import model.node.NodeTargetRebalancing;
 import org.apache.commons.csv.CSVFormat;
 import org.apache.commons.csv.CSVPrinter;
 
@@ -30,7 +32,7 @@ public class HelperIO {
                                      int round,
                                      int totalRounds) {
         //String str = String.format("\n###### TW: [%s - %s] ###############################################", config.Config.sec2TStamp(left_tw), config.Config.sec2TStamp(right_tw));
-        String str = String.format("\n###### TW: [%s - %s] ###############################################", left_tw, right_tw);
+        String str = String.format("\n###### TW: [%s - %s] ###############################################", Config.sec2Datetime(left_tw), Config.sec2Datetime(right_tw));
         //str = str + String.format("\n// PK delay: %d  //////  Trip delay: %d",max_pk_time, max_trip_time);
         str = str + String.format("\n||    Start: %10s  ||    Duration: %4s s", String.valueOf(start_time), String.valueOf(duration));
         str = str + String.format("\n|| Vehicles: %10s  ||  T. Horizon: %4s s", String.valueOf(n_vehicles), String.valueOf(t_horizon));
@@ -73,7 +75,7 @@ public class HelperIO {
                     // Add origin
                     origin.add(v);
 
-                } else if (v.getCurrentNode() instanceof NodeStop && showIdle) {
+                } else if ((v.getCurrentNode() instanceof NodeStop || v.getCurrentNode() instanceof NodeTargetRebalancing) && showIdle) {
                     idle.add(v);
                 }
             }

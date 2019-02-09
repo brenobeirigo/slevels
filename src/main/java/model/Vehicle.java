@@ -24,6 +24,8 @@ public class Vehicle implements Comparable<Vehicle> {
     private Node origin; // Origin node
     private int capacity; // vehicle capacity (number of seats)
 
+    private int contractedDuration; // How many rounds vehicle is allowed to work?
+
     /* Vehicle status */
     private Integer load; // Current vehicle load
     private Set<User> users; // Passengers POTENTIALLY being serviced
@@ -34,8 +36,17 @@ public class Vehicle implements Comparable<Vehicle> {
     private boolean rebalancing; // Is this vehicle currently rebalancing?
     private boolean hired; // Was this vehicle hired on the fly?
     private int roundsIdle; // How many rounds this vehicle is idle?
-    private Node middleNode;
+    private Node middleNode; // Where vehicle is now?
     private int distMiddleNode;
+    private int activeRounds;
+    private int contractDeadline;
+
+    public Vehicle(int capacity, int id_network, int currentTime, boolean hired, int contractDeadline) {
+        this(capacity, id_network, currentTime);
+        this.hired = hired;
+        this.contractedDuration = contractDeadline - currentTime;
+        this.contractDeadline = contractDeadline;
+    }
 
 
     private double distanceTraveledRebalancing;
@@ -95,10 +106,9 @@ public class Vehicle implements Comparable<Vehicle> {
         this.hired = hired;
     }
 
-
-    public Vehicle(int capacity, int id_network, int currentTime, boolean hired) {
-        this(capacity, id_network, currentTime);
-        this.hired = hired;
+    public static void reset() {
+        count = Node.MAX_NUMBER_NODES * 2; // Starting index of vehicles
+        Vehicle.setOfHotPoints = new LinkedList<>();
     }
 
 
@@ -106,49 +116,11 @@ public class Vehicle implements Comparable<Vehicle> {
         this(capacity, id_network);
         this.getOrigin().setArrival(currentTime);
         this.getOrigin().setDeparture(currentTime);
-
     }
 
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-    public static void reset() {
-        count = Node.MAX_NUMBER_NODES * 2;
-        Vehicle.setOfHotPoints = new LinkedList<>();
-        Vehicle.count = Node.MAX_NUMBER_NODES * 2; // Starting index of vehicles
-    }
-
-    public static void computeMissedUserLocation(User u) {
-
-        Node pk = u.getNodePk();
-
-        // The node should have more vehicles around it
-
-        pk.increaseHotness();
-
-        // Users previously denied always have their points added
-        if (u.getNumberOfDelayExtensions() > 0) {
-            // Urgent node was denied again
-            pk.increaseUrgency();
-            /*
-            if (Node.tabu.contains(pk.getNetworkId())) {
-                System.out.println(String.format("User %s has been denied here. Removing from TABU!", u));
-                Node.tabu.remove(pk.getNetworkId());
-            }
-            */
-        }
-
-        if (!Node.tabu.contains(pk.getNetworkId())) {
-            //Only add points not yet being addressed by other vehicles
-            Vehicle.setOfHotPoints.add(pk);
-        }
-        //else{
-        //    System.out.println(pk.getNetworkId() + "in TABU!");
-        //}
-
-    }
-
-
-    public static void computeHotPoint(User u) {
+    public static void computeAttractivenessLocationUser(User u) {
 
         Node pk = u.getNodePk();
 
@@ -163,36 +135,28 @@ public class Vehicle implements Comparable<Vehicle> {
         }
     }
 
+    public void increaseActiveRounds() {
+        this.activeRounds++;
+    }
 
-    public static void computeUrgentMissed(NodePK nodePk) {
+    /**
+     * Indicate if vehicle was hired.
+     *
+     * @return True, if vehicle does not belong to dedicated fleet.
+     */
+    public boolean isHired() {
+        return hired;
+    }
 
-        // The node should have more vehicles around it
-        nodePk.increaseHotness();
-
-        //
-        Vehicle.setOfHotPoints.add(nodePk);
-
-        //Only add points not yet being addressed by other vehicles
-        if (!Node.tabu.contains(nodePk.getNetworkId())) {
-            Vehicle.setOfHotPoints.add(nodePk);
-        }
-
+    public int getActiveRounds() {
+        return activeRounds;
     }
 
 
-    public boolean isReadyToRebalance(int maxRoundsIdle) {
-        if (this.roundsIdle >= maxRoundsIdle) {
-            return true;
-        }
-        return false;
+    public void printHiringInfo() {
+        System.out.println(this + " - Deadline:" + this.contractDeadline);
     }
 
-    public boolean canDiscard(int maxRoundsIdle) {
-        if (this.hired && this.roundsIdle >= maxRoundsIdle) {
-            return true;
-        }
-        return false;
-    }
 
 
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -217,33 +181,8 @@ public class Vehicle implements Comparable<Vehicle> {
         }
 
         if (this.isRebalancing()) {
-
-            // If rebalancing is finished (vehicle arrived at target)
-
-            if (currentTime >= this.visit.getTargetArrival()) {
-
-                this.distanceTraveledRebalancing += Dao.getInstance().getDistKm(this.currentNode, this.visit.getTargetNode());
-
-                // Vehicle is no longer rebalancing
-                this.setRebalancing(false);
-
-                // Signalize that vehicle is stopped at last visited node in a stop point
-                this.setCurrentNode(new NodeStop(this.visit.getTargetNode(), this.getId()));
-
-                // Vehicle has reached the missed point, other vehicles do not need to come
-                Node.tabu.add(this.visit.getTargetNode().getNetworkId());
-
-                // Update departure time of vehicle current node
-                this.getCurrentNode().setDeparture(currentTime);
-
-                // Rebalancing routing plan is discarded
-                this.setVisit(null);
-
-                // Vehicle has been recently rebalanced, worth keeping in the fleet
-                this.setRoundsIdle(0);
-
-            }
-
+            // Check if rebalancing can be finished and update vehicle and target location statuses
+            updateRebalancingStatus(currentTime);
             return null;
         }
 
@@ -282,6 +221,37 @@ public class Vehicle implements Comparable<Vehicle> {
             // Update current load in vehicle
             this.load += nextNode.getLoad();
 
+            // Is the current node a stop point? If so, vehicle was recently rebalanced
+            Node target = currentNode;
+
+            if (target instanceof NodeTargetRebalancing) {
+
+                Node origin = this.journey.get(this.journey.size() - 2);
+
+                double distTraveledKm2 = Dao.getInstance().getDistKm(origin, target);
+
+                int roundsToFindUser = ((target.getDeparture() - origin.getDeparture()) / 30);
+
+                RebalanceEpisode r = new RebalanceEpisode(
+                        origin.getNetworkId(),
+                        target.getNetworkId(),
+                        -1,
+                        -1,
+                        -1,
+                        distTraveledKm2,
+                        roundsToFindUser);
+
+                /*
+                System.out.println(String.format("AFTER ROUNDS - %s(%s--%s) -> %s(%s--%s) :%s",
+                        origin,
+                        Config.sec2Datetime(origin.getArrival()),
+                        Config.sec2Datetime(origin.getDeparture()),
+                        target,
+                        Config.sec2Datetime(target.getArrival()),
+                        Config.sec2Datetime(target.getDeparture()),
+                        r));
+                */
+            }
 
             // Update data of current node
             this.currentNode = nextNode;
@@ -321,7 +291,6 @@ public class Vehicle implements Comparable<Vehicle> {
                 // User is locked in vehicle (cannot change to other)
                 this.enroute.remove(currentUser);
 
-
                 // TODO improve representation
                 // Locked node can be removed
 
@@ -330,6 +299,13 @@ public class Vehicle implements Comparable<Vehicle> {
 
                 // Save ride trip ride time
                 currentUser.setRideTime(rideTime);
+
+                // Save which type of vehicle picked up user
+                if (this.isHired()) {
+                    currentUser.computePickupByFreelanceVehicle();
+                } else {
+                    currentUser.computePickupByDedicatedVehicle();
+                }
 
             } else if (currentNode instanceof NodePK) {
 
@@ -361,11 +337,18 @@ public class Vehicle implements Comparable<Vehicle> {
         // If all nodes were visited
         if (this.users.isEmpty()) {
 
+            if (this.currentNode instanceof NodeTargetRebalancing) {
+                System.out.println("Updating target node!" + this.currentNode);
+            }
+
             // Signalize that vehicle is stopped at last visited node in a stop point
             this.currentNode = new NodeStop(this.currentNode, this.id);
 
             // So far, current time is minimum departure time of node
             this.currentNode.setDeparture(currentTime);
+
+            //Adding node stop to journey
+            this.journey.add(this.currentNode);
 
             // Model.Vehicle has no routing plan
             this.setVisit(null);
@@ -376,14 +359,42 @@ public class Vehicle implements Comparable<Vehicle> {
         return serviced;
     }
 
+    /**
+     * If vehicle is rebalancing, check if target node was reached and end process if so.
+     *
+     * @param currentTime current execution time of the simulation
+     */
+    private void updateRebalancingStatus(int currentTime) {
+        // If rebalancing is finished (vehicle arrived at target)
+        if (currentTime >= this.visit.getTargetArrival()) {
 
-    public Set<User> getFlexibleUsers() {
-        return this.flexibleUsers;
+            this.distanceTraveledRebalancing += Dao.getInstance().getDistKm(
+                    this.currentNode,
+                    this.visit.getTargetNode());
+
+            // Vehicle is no longer rebalancing
+            this.setRebalancing(false);
+
+            // Signalize that vehicle is stopped at last visited node in a stop point
+            this.setCurrentNode(this.visit.getTargetNode());
+
+            // Add current node to journey
+            this.journey.add(this.currentNode);
+
+            // Update departure time of vehicle current node
+            this.getCurrentNode().setDeparture(currentTime);
+
+            // Rebalancing routing plan is discarded
+            this.setVisit(null);
+
+            // Vehicle has been recently rebalanced, worth keeping in the fleet
+            this.setRoundsIdle(0);
+
+            // Node can become a rebalancing target again
+            Node.tabu.remove(currentNode.getNetworkId());
+        }
     }
 
-    /**
-     * @return
-     */
     public Visit getVisitWithEnroute() {
 
         if (this.visit == null || this.visit.getSetUsers() == null) return null;
@@ -393,7 +404,6 @@ public class Vehicle implements Comparable<Vehicle> {
         for (User u : this.enroute) {
             deliveries.add(u.getNodeDp());
         }
-
 
         LinkedList<Node> deliveriesOrdered = new LinkedList<>();
         for (Node n : this.visit.getSequenceVisits()) {
@@ -415,14 +425,12 @@ public class Vehicle implements Comparable<Vehicle> {
     /**
      * Drive vehicle to node "hotPoint"
      *
-     * @param hotPoint
+     * @param targetNode
      */
-    public void rebalanceTo(Node hotPoint) {
-
-        Node.tabu.add(hotPoint.getNetworkId());
+    public void rebalanceTo(Node targetNode) {
 
         // Create a target node for rebalancing
-        NodeTargetRebalancing target = new NodeTargetRebalancing(hotPoint);
+        NodeTargetRebalancing target = new NodeTargetRebalancing(targetNode);
 
         // Visit is comprised of single node
         this.visit = new VisitRelocation(target, this);
@@ -431,44 +439,12 @@ public class Vehicle implements Comparable<Vehicle> {
         this.rebalancing = true;
 
         // Signalize there are vehicles going to the point
-        Node.tabu.add(hotPoint.getNetworkId());
+        Node.tabu.add(targetNode.getNetworkId());
     }
 
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     ///// Insertion algorithm //////////////////////////////////////////////////////////////////////////////////////////
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-    /**
-     * If vehicle is rebalancing, check if target node was reached and end process if so.
-     *
-     * @param currentTime current execution time of the simulation
-     */
-    public void updateRebalancingStatus(int currentTime) {
-
-        // If rebalancing
-        if (isRebalancing()) {
-
-            // If rebalancing is finished (vehicle arrived at target)
-
-            if (currentTime >= this.visit.getTargetArrival()) {
-
-                // Vehicle is no longer rebalancing
-                this.setRebalancing(false);
-
-                // Signalize that vehicle is stopped at last visited node in a stop point
-                this.setCurrentNode(new NodeStop(this.visit.getTargetNode(), this.getId()));
-
-                // Update departure time of vehicle current node
-                this.getCurrentNode().setDeparture(currentTime);
-
-                // Rebalancing routing plan is discarded
-                this.setVisit(null);
-
-                // Vehicle has been recently rebalanced, worth keeping in the fleet
-                setRoundsIdle(0);
-            }
-        }
-    }
 
 
     /**
@@ -519,7 +495,7 @@ public class Vehicle implements Comparable<Vehicle> {
     public Visit getVisitFromRebalancing(User candidateUser) {
 
         //CURRENT TO MIDDLE
-        Node middle = this.middleNode;
+        Node middle = this.getMiddleNode();
 
         if (middle == null) {
             return null;
@@ -623,7 +599,7 @@ public class Vehicle implements Comparable<Vehicle> {
             if (pkPos == 0) {
 
                 //CURRENT TO MIDDLE
-                middle = this.middleNode;
+                middle = this.getMiddleNode();
 
                 // Can't move to a middle node, go to next pk
                 if (middle == null) {
@@ -771,7 +747,6 @@ public class Vehicle implements Comparable<Vehicle> {
         this.roundsIdle = roundsIdle + 1;
     }
 
-
     public boolean isRebalancing() {
         return rebalancing;
     }
@@ -914,8 +889,7 @@ public class Vehicle implements Comparable<Vehicle> {
         if (this.isRebalancing()) return false;
         if (this.getCurrentNode() instanceof NodePK) return false;
         if (this.getCurrentNode() instanceof NodeDP) return false;
-        if (this.getCurrentNode() instanceof NodeMiddle) return false;
-        return true;
+        return !(this.getCurrentNode() instanceof NodeMiddle);
     }
 
     public boolean isCruising() {
@@ -937,7 +911,6 @@ public class Vehicle implements Comparable<Vehicle> {
                 servicedUsers,
                 ((this.rebalancing == true) ? "(Rebalancing)" : ""));
     }
-
 
     /**
      * Sort vehicles according to load (lower first).
@@ -1021,7 +994,6 @@ public class Vehicle implements Comparable<Vehicle> {
 
         return bestVisit;
     }
-
 
     /**
      * Try to insert user pickup and drop-off point in base visit sequence occurring in vehicle.
@@ -1219,6 +1191,11 @@ public class Vehicle implements Comparable<Vehicle> {
             }
         }
 
+        // Hired vehicles cannot stay longer than contract deadline
+        if (this.isHired() && arrivalNext > this.contractDeadline) {
+            return false;
+        }
+
 
         //ALLOW ONLY:
         //           PKA ---> DPA
@@ -1280,7 +1257,7 @@ public class Vehicle implements Comparable<Vehicle> {
     public void updateMiddle(int currentTime) {
 
         if (this.visit == null) {
-            this.middleNode = null;
+            this.setMiddleNode(null);
             this.distMiddleNode = 0;
             return;
         }
@@ -1307,16 +1284,17 @@ public class Vehicle implements Comparable<Vehicle> {
 
         // Can't move to a middle node, go to next pk
         if (nodeBetweenId < 0) {
-            this.middleNode = null;
+            this.setMiddleNode(null);
             this.distMiddleNode = 0;
             return;
         }
 
         //CURRENT TO MIDDLE
-        this.middleNode = new NodeMiddle(nodeBetweenId);
+        //this.setMiddleNode(new NodeMiddle(nodeBetweenId));
+        this.setMiddleNode(new NodeMiddle(nodeBetweenId, this.getCurrentNode(), next, elapsedTime));
 
         // Distance from current to middle node
-        this.distMiddleNode = Dao.getInstance().getDistSec(this.getCurrentNode(), this.middleNode);
+        this.distMiddleNode = Dao.getInstance().getDistSec(this.getCurrentNode(), this.getMiddleNode());
     }
 
     public double getDistanceTraveledRebalancing() {
@@ -1362,6 +1340,27 @@ public class Vehicle implements Comparable<Vehicle> {
 
     public List<Node> getJourney() {
         return journey;
+    }
+
+    public Node getMiddleNode() {
+        return middleNode;
+    }
+
+    public void setMiddleNode(Node middleNode) {
+        this.middleNode = middleNode;
+    }
+
+    public int getContractDeadline() {
+        return contractDeadline;
+    }
+
+    public void setContractDeadline(int contractDeadline) {
+        this.contractDeadline = contractDeadline;
+    }
+
+    @Override
+    public int hashCode() {
+        return this.getId();
     }
 }
 
