@@ -15,7 +15,6 @@ import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.io.IOException;
 import java.io.Reader;
-import java.sql.Connection;
 import java.util.*;
 import java.util.Map.Entry;
 import java.util.stream.Collectors;
@@ -31,8 +30,11 @@ public class Dao {
     public Random rand;
     //private String file_path = "C:\\Users\\breno\\OneDrive\\Phd_TU\\PROJECTS\\rs_heuristic\\data\\gen\\data\\distance_matrix_m_manhattan-island-new-york-city-new-york-usa.csv";
     //private String trip_path = "C:\\Users\\breno\\OneDrive\\Phd_TU\\PROJECTS\\rs_heuristic\\data\\gen\\data\\tripdata_valentines_2011_ids.csv";
-    private String file_path = "C:\\Users\\LocalAdmin\\OneDrive\\Phd_TU\\PROJECTS\\in\\input_tripdata\\data\\dist\\distance_matrix_m_manhattan-island-new-york-city-new-york-usa.csv";
-    private String trip_path = "C:\\Users\\LocalAdmin\\OneDrive\\Phd_TU\\PROJECTS\\in\\input_tripdata\\data\\tripdata\\tripdata_excerpt_2011-2-1_2011-2-28_ids.csv";
+    private String file_path;// = "C:\\Users\\LocalAdmin\\OneDrive\\Phd_TU\\PROJECTS\\in\\input_tripdata\\data\\delft-south-holland-netherlands\\dist\\distance_matrix_m_delft-south-holland-netherlands.csv";
+
+    //private String file_path = "C:\\Users\\LocalAdmin\\OneDrive\\Phd_TU\\PROJECTS\\in\\input_tripdata\\data\\dist\\distance_matrix_m_manhattan-island-new-york-city-new-york-usa.csv";
+    //private String trip_path = "C:\\Users\\LocalAdmin\\OneDrive\\Phd_TU\\PROJECTS\\in\\input_tripdata\\data\\tripdata\\tripdata_excerpt_2011-2-1_2011-2-28_ids.csv";
+    private String trip_path;// =  "C:\\Users\\LocalAdmin\\OneDrive\\Phd_TU\\PROJECTS\\in\\input_tripdata\\data\\delft-south-holland-netherlands\\tripdata\\random_clone_tripdata_excerpt_2011-2-1_2011-2-2_ids.csv";
     //private String file_path = "C:\\Users\\breno\\OneDrive\\Phd_TU\\PROJECTS\\in\\data\\dist\\distance_matrix_m_manhattan-island-new-york-city-new-york-usa.csv";
     //private String trip_path = "C:\\Users\\breno\\OneDrive\\Phd_TU\\PROJECTS\\in\\data\\tripdata\\tripdata_excerpt_2011-2-1_2011-2-28_ids.csv";
 
@@ -52,28 +54,27 @@ public class Dao {
     private Iterable<CSVRecord> records;
     private int currentTime = 0;
 
-
-    // Database
-    private Connection conn;
-
     private Dao() {
         try {
 
-            //Starting connection with DB
-            //Class.forName("com.mysql.cj.jdbc.Driver").newInstance();
-            //conn = DriverManager.getConnection("jdbc:mysql://localhost/shortest_paths_manhattan?user=root&password=admin123");
+            // Store distances' file path
+            file_path = InstanceConfig.getInstance().getDistancesPath().toString();
+
+            // Store trips' file path
+            trip_path = InstanceConfig.getInstance().getRequestsPath().toString();
 
             // Pull map of nodes from server. Format: {id=Point(x,y)}
             System.out.println("Pulling nodes from server...");
             nodeLocationMap = ParseJsonUtil.getNodeDictionary(ServerUtil.getNodeList());
-
             numberOfNodes = nodeLocationMap.size();
+
             System.out.println(String.format("%d nodes read.", numberOfNodes));
 
             System.out.println("Calculating distance matrix in seconds...");
             distMatrix = getDistanceMatrix(file_path);
 
-            System.out.println("Pulling reachability map for max trip times:" + InstanceConfig.getInstance().getMaxTimeHiringList());
+            System.out.println("Pulling reachability map for max trip times:"
+                    + InstanceConfig.getInstance().getMaxTimeHiringList());
             canReachClass = getReachabilityMap(nodeLocationMap.keySet());
 
             rand = new Random();
@@ -313,7 +314,7 @@ public class Dao {
      * @return Point2D coordinate
      */
     public Point2D getLocation(int id) {
-        return nodeLocationMap.get(id);
+        return nodeLocationMap.get((short) id);
     }
 
     /**
@@ -519,8 +520,8 @@ public class Dao {
                     dist_matrix[row][col] = sec;
                     distMatrixKm[row][col] = km;
 
-                    //System.out.print(String.format("%10.2f",km));
-                    //todo nodes have distance zero
+                    //System.out.println(String.format("(%d,%d) - %10.2f",row, col, km));
+                    //TODO nodes have distance zero
                     /*
                     if(row != col && sec == 0){
                         System.out.println(row + " - " + col + " - " + sec + " - " + r + Short.MIN_VALUE);

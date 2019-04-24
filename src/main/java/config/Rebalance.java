@@ -17,7 +17,11 @@ public class Rebalance {
     public boolean showInfo;
     public boolean createEpisode;
 
-    public Rebalance(boolean allowManyToOneTarget, boolean reinsertTargets, boolean clearTargetListEachRound, boolean useUrgentKey, String method) {
+    public Rebalance(boolean allowManyToOneTarget,
+                     boolean reinsertTargets,
+                     boolean clearTargetListEachRound,
+                     boolean useUrgentKey,
+                     String method) {
         this.allowManyToOneTarget = allowManyToOneTarget;
         this.reinsertTargets = reinsertTargets;
         this.clearTargetListEachRound = clearTargetListEachRound;

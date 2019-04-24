@@ -20,7 +20,7 @@ public class MainJson {
 
 
         InstanceConfig instanceSettings = InstanceConfig.getInstance();
-
+        int levelInfo = Simulation.ALL_INFO;
 
         // Vary test case parameters
         for (int timeHorizon : instanceSettings.getTimeHorizonArray()) {
@@ -62,7 +62,7 @@ public class MainJson {
                                                                 rebalanceSettings);
 
                                                         // Run simulation
-                                                        fcfs.run(Simulation.ROUND_INFO);
+                                                        fcfs.run(levelInfo);
 
                                                         // Reset classes for next iteration
                                                         Dao.getInstance().resetRecords();
@@ -102,7 +102,7 @@ public class MainJson {
                                                             rebalanceSettings);
 
                                                     // Run simulation
-                                                    fcfs.run(Simulation.ROUND_INFO);
+                                                    fcfs.run(levelInfo);
 
                                                     // Reset classes for next iteration
                                                     Dao.getInstance().resetRecords();

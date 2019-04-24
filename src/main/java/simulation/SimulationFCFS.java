@@ -163,7 +163,7 @@ public class SimulationFCFS extends Simulation {
 
 
         if (!rebalanceUtil.allowManyToOneTarget) {
-            // Vehicles are sent to the same places in the network
+            // Vehicles are sent to the same attractive places in the network repeatedly
             Vehicle.setOfHotPoints.add(pk);
 
             // Do not send vehicles to the same places

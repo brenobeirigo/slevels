@@ -33,15 +33,15 @@
       true
     ],
     "service_rate": {
-      "S1": {
-        "A": 1,
-        "B": 0.9,
-        "C": 0.8
-      },
       "S2": {
         "A": 0.9,
         "B": 0.8,
         "C": 0.7
+      },
+      "S1": {
+        "A": 1.0,
+        "B": 0.9,
+        "C": 0.8
       }
     },
     "customer_segmentation": {
@@ -96,16 +96,16 @@
   },
   "rebalancing_config": {
     "allow_many_to_one": [
-      false
+      true
     ],
     "reinsert_targets": [
       true
     ],
     "clear_target_list_every_round": [
-      true
+      false
     ],
     "allow_urgent_relocation": [
-      true
+      false
     ]
   },
   "labels": {
@@ -128,7 +128,7 @@
     "ID": "instance_description"
   },
   "instance_description": "Whole week experiment (hiring and deteriorating enabled)",
-  "instance_name": "HIRINGWEEKMAXWAITING",
+  "instance_name": "HIRINGWEEKMAXWAITINGREB2",
   "result_folder": "C:/Users/LocalAdmin/IdeaProjects/slevels/instance_output/week/",
   "instances_folder": "C:/Users/LocalAdmin/IdeaProjects/slevels/instance_output/week/"
 }

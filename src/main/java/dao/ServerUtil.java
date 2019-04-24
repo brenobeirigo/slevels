@@ -267,6 +267,7 @@ public class ServerUtil {
         return requestTo(ADDRESS_ALLNODES);
     }
 
+
     public static void printGeoJsonJourney(Vehicle v) {
         /*
         List<String> listFeatures = new ArrayList<>();

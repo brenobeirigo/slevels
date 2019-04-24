@@ -4,22 +4,24 @@
       30
     ],
     "time_horizon": [
-      86400
+      36000
     ],
     "max_requests": [
       1000
     ],
     "initial_fleet": [
-      1000
+      1
     ],
     "max_capacity": [
       4
     ],
     "rebalance": [
-      false
+      true
     ],
     "contract_duration": [
-      86400
+      0,
+      3600,
+      10800
     ],
     "allow_service_deterioration": [
       false
@@ -31,10 +33,10 @@
       false
     ],
     "service_rate": {
-      "S1": {
-        "A": 1,
-        "B": 0.9,
-        "C": 0.8
+      "S2": {
+        "A": 0.9,
+        "B": 0.8,
+        "C": 0.7
       }
     },
     "customer_segmentation": {
@@ -42,31 +44,6 @@
         "A": 0.68,
         "B": 0.16,
         "C": 0.16
-      },
-      "BB": {
-        "A": 0.16,
-        "B": 0.68,
-        "C": 0.16
-      },
-      "CC": {
-        "A": 0.16,
-        "B": 0.16,
-        "C": 0.68
-      },
-      "A": {
-        "A": 1,
-        "B": 0,
-        "C": 0
-      },
-      "B": {
-        "A": 0,
-        "B": 1,
-        "C": 0
-      },
-      "C": {
-        "A": 0,
-        "B": 0,
-        "C": 1
       }
     },
     "service_level": {
@@ -89,19 +66,15 @@
   },
   "rebalancing_config": {
     "allow_many_to_one": [
-      true,
-      false
+      true
     ],
     "reinsert_targets": [
-      true,
-      false
+      true
     ],
     "clear_target_list_every_round": [
-      true,
       false
     ],
     "allow_urgent_relocation": [
-      true,
       false
     ]
   },
@@ -124,9 +97,10 @@
     "IN": "instance_name",
     "ID": "instance_description"
   },
-  "instance_description": "Baseline scenario, fixed fleet and no rebalancing 24h",
-  "instance_name": "FIXED_FLEET_NO_REBAL",
-  "result_folder": "C:/Users/LocalAdmin/IdeaProjects/slevels/instance_output/rebalancing_settings_4/",
-  "instances_folder": "C:/Users/LocalAdmin/IdeaProjects/slevels/instance_output/rebalancing_settings_4/",
-  "generate_test_cases": true
+  "instance_description": "Generate geojson traces",
+  "instance_name": "GEOJSON10H_DELFT_RANDOM",
+  "result_folder": "C:/Users/LocalAdmin/IdeaProjects/slevels/instance_output/geojson_delft_random_trips/",
+  "instances_folder": "C:/Users/LocalAdmin/IdeaProjects/slevels/instance_output/geojson_delft_random_trips/",
+  "distances_file": "C:/Users/LocalAdmin/OneDrive/Phd_TU/PROJECTS/in/input_tripdata/data/delft-south-holland-netherlands/dist/distance_matrix_m_delft-south-holland-netherlands.csv",
+  "requests_file": "C:/Users/LocalAdmin/OneDrive/Phd_TU/PROJECTS/in/input_tripdata/data/delft-south-holland-netherlands/tripdata/random_clone_tripdata_excerpt_2011-02-01_000000_2011-02-02_000000_ids.csv"
 }

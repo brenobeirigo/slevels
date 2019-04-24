@@ -15,24 +15,17 @@ import java.util.*;
 public class InstanceConfig {
     // Files contain snapshots of each round
     public static final String ROUND_TRACK_FOLDER = "round_track";
-    //public static String source = "C:\\Users\\LocalAdmin\\IdeaProjects\\slevels\\src\\main\\resources\\rebalancing\\instance_settings_test_rebalancing.json";
-    //public static String source = "C:\\Users\\LocalAdmin\\IdeaProjects\\slevels\\src\\main\\resources\\rebalancing\\instance_settings_test_rebalancing_finetuning.json";
-
-    //public static String source = "C:\\Users\\LocalAdmin\\IdeaProjects\\slevels\\src\\main\\resources\\week\\service_denial.json";
-    //public static String source = "C:\\Users\\LocalAdmin\\IdeaProjects\\slevels\\src\\main\\resources\\test_1h\\hiring_1h.json";
-    //public static String source = "C:\\Users\\LocalAdmin\\IdeaProjects\\slevels\\src\\main\\resources\\test_1h\\service_denial_1h.json";
     //Files contain how each user end up being serviced
     public static final String REQUEST_TRACK_FOLDER = "request_track";
     //Files contain how each user end up being serviced
     public static final String GEOJSON_TRACK_FOLDER = "geojson_track";
+
     // Json with instance
-    //public static String source = "C:\\Users\\LocalAdmin\\IdeaProjects\\slevels\\src\\main\\resources\\instance_settings_test_rebalancing.json";
-    //public static String source = "C:\\Users\\LocalAdmin\\IdeaProjects\\slevels\\src\\main\\resources\\no_rebalancing.json";
-    //public static String source = "C:\\Users\\LocalAdmin\\IdeaProjects\\slevels\\src\\main\\resources\\instance_settings_test_rebalancing.json";
-    //public static String source = "C:\\Users\\LocalAdmin\\IdeaProjects\\slevels\\src\\main\\resources\\no_rebalancing_fast.json";
-    public static String source = "C:\\Users\\LocalAdmin\\IdeaProjects\\slevels\\src\\main\\resources\\week\\allow_hiring.json";
+    //public static String source = "C:\\Users\\LocalAdmin\\IdeaProjects\\slevels\\src\\main\\resources\\geojson\\onehour_ams.json";
+    public static String source = "C:\\Users\\LocalAdmin\\IdeaProjects\\slevels\\src\\main\\resources\\week\\allow_hiring_geojson.json";
+
+
     private static InstanceConfig instance = new InstanceConfig(source);
-    private static short[] hiring = new short[]{1, 2, 3};
     private int[] timeWindowArray; // Time window of request collection bin
     private int[] timeHorizonArray; // Time horizon of experiment (0 t0 24h)
     private int[] maxRequestsIterationArray; // Max number of requests pooled in during an iteration
@@ -42,21 +35,26 @@ public class InstanceConfig {
     private int[] contractDurationArray; // In rounds of tw_batch seconds
     private boolean[] allowVehicleHiringArray;
     private boolean[] allowServiceDeteriorationArray;
+
     // QoS
     private HashMap<String, Map<String, Double>> serviceRateScenarioMap;
     private HashMap<String, Map<String, Double>> segmentationScenarioMap;
     private HashMap<String, Map<String, Integer>> serviceLevelMap;
     private List<CustomerBaseConfig> customerBaseSettingsArray = new ArrayList<>();
     private Map<String, Integer> maxTimeHiringList = new HashMap<>();
+
     // Rebalancing configuration
     private boolean[] allowManyToOneTarget = new boolean[]{false, true};
     private boolean[] reinsertTargets = new boolean[]{true, false};
     private boolean[] clearTargetListEveryRound = new boolean[]{true, false};
     private boolean[] useUrgentKey = new boolean[]{false, true};
     private List<Rebalance> listRebalanceSettings = new ArrayList<>();
+
     // Info
     private Path instancesPath;
     private Path resultPath;
+    private Path distancesPath;
+    private Path requestsPath;
     private String instanceDescription;
     private String instanceName;
     private String roundTrackFolder;
@@ -80,13 +78,26 @@ public class InstanceConfig {
             //Description
             this.instancesPath = Paths.get(jsonConfig.get("instances_folder").toString());
             this.resultPath = Paths.get(jsonConfig.get("result_folder").toString());
+            this.distancesPath = Paths.get(jsonConfig.get("distances_file").toString());
+            this.requestsPath = Paths.get(jsonConfig.get("requests_file").toString());
             this.instanceDescription = jsonConfig.get("instance_description").toString();
             this.instanceName = jsonConfig.get("instance_name").toString();
 
+            JsonObject scenarioConfig = gson.toJsonTree(jsonConfig
+                    .get("scenario_config"))
+                    .getAsJsonObject();
 
-            JsonObject scenarioConfig = gson.toJsonTree(jsonConfig.get("scenario_config")).getAsJsonObject();
-            this.timeWindowArray = gson.fromJson(scenarioConfig.get("batch_duration").getAsJsonArray(), int[].class); // Time window of request collection bin
-            this.timeHorizonArray = gson.fromJson(scenarioConfig.get("time_horizon").getAsJsonArray(), int[].class); // Time window of request collection bin
+            // Time window of request collection bin
+            this.timeWindowArray = gson.fromJson(scenarioConfig
+                    .get("batch_duration")
+                    .getAsJsonArray(), int[].class);
+
+            // Time window of request collection bin
+            this.timeHorizonArray = gson.fromJson(scenarioConfig
+                    .get("time_horizon")
+                    .getAsJsonArray(), int[].class);
+
+
             this.maxRequestsIterationArray = gson.fromJson(scenarioConfig.get("max_requests").getAsJsonArray(), int[].class);// Max number of requests pooled in during an iteration
             this.initialFleetArray = gson.fromJson(scenarioConfig.get("initial_fleet").getAsJsonArray(), int[].class);// Initial size of fleet
             this.vehicleMaxCapacityArray = gson.fromJson(scenarioConfig.get("max_capacity").getAsJsonArray(), int[].class);// Max capacity of vehicle
@@ -94,6 +105,7 @@ public class InstanceConfig {
             this.contractDurationArray = gson.fromJson(scenarioConfig.get("contract_duration").getAsJsonArray(), int[].class); // In rounds of tw_batch seconds
             this.allowServiceDeteriorationArray = gson.fromJson(scenarioConfig.get("allow_service_deterioration").getAsJsonArray(), boolean[].class);
             this.allowVehicleHiringArray = gson.fromJson(scenarioConfig.get("allow_vehicle_hiring").getAsJsonArray(), boolean[].class);
+
 
             // Customer base settings
             Type segmentationScenarioType = new TypeToken<HashMap<String, HashMap<String, Double>>>() {
@@ -205,16 +217,24 @@ public class InstanceConfig {
         //Map jsonObject = (Map) gson.fromJson(data, Object.class);
     }
 
-    public static InstanceConfig getInstance() {
-        return instance;
-    }
-
-    public static void main(String a[]) {
+    public static void main(String[] a) {
         String s = "C:\\Users\\LocalAdmin\\IdeaProjects\\slevels\\src\\main\\resources\\instance_settings_test_rebalancing.json";
         InstanceConfig instanceConfig = new InstanceConfig(s);
         System.out.println(instanceConfig);
         System.out.println(instanceConfig.customerBaseSettingsArray);
         System.out.println(instanceConfig.listRebalanceSettings);
+    }
+
+    public Path getDistancesPath() {
+        return distancesPath;
+    }
+
+    public static InstanceConfig getInstance() {
+        return instance;
+    }
+
+    public Path getRequestsPath() {
+        return requestsPath;
     }
 
     @Override
@@ -238,11 +258,16 @@ public class InstanceConfig {
                 "\nuseUrgentKey=" + Arrays.toString(useUrgentKey) +
                 "\ninstancesPath=" + instancesPath +
                 "\nresultPath=" + resultPath +
+                "\nrequestsPath=" + requestsPath +
+                "\ndistancesPath=" + distancesPath +
                 "\nmaxTimeHiringList=" + maxTimeHiringList +
                 "\ninstanceDescription='" + instanceDescription + '\'' +
                 '}';
     }
 
+    /**
+     * @return Map of classes and max times
+     */
     public Map<String, Integer> getMaxTimeHiringList() {
         return maxTimeHiringList;
     }

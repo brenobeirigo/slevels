@@ -2,7 +2,6 @@ package simulation;
 
 import config.Rebalance;
 import dao.Dao;
-import dao.ServerUtil;
 import helper.HelperIO;
 import helper.MethodHelper;
 import model.RebalanceEpisode;
@@ -409,16 +408,19 @@ public abstract class Simulation {
                 //System.out.println(v.getInfo());
 
                 //System.out.println(v.getJourneyInfo());
-                ServerUtil.printGeoJsonJourney(v);
+                //ServerUtil.printGeoJsonJourney(v, Simulation.);
             }
         }
+        // Saving vehicles traces
+        sol.saveGeoJsonPerVehicle(listVehicles);
 
         // Save solution to file (summary of rounds)
         sol.save();
 
-        // Saving user info
+        // Saving user info (how user was serviced, for example, pickup, dropoff, hired vehicle, delay, etc.)
         sol.saveUserInfo(allRequests);
-        //sol.saveGeoJson();
+
+
     }
 
 
@@ -427,7 +429,6 @@ public abstract class Simulation {
      * Called when best visit is determined.
      */
     public void setup(Visit visit) {
-
 
         // Check if rebalancing was interrupted to pick up user
         if (visit.getVehicle().isRebalancing()) {
