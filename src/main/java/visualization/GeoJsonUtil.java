@@ -16,7 +16,10 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 public class GeoJsonUtil {
@@ -26,6 +29,8 @@ public class GeoJsonUtil {
     public static String getGeoJson(Node n) {
 
         Point2D location = Dao.getInstance().getLocation(n.getNetworkId());
+
+        /*
         Map<String, String> colors = new HashMap<>();
 
         colors.put("origin", "#ffffff");
@@ -34,16 +39,18 @@ public class GeoJsonUtil {
         colors.put("target", "#0000ff");
         colors.put("stop", "#7e7e7e");
         colors.put("middle", "#f4d742");
+
         String properties_placeholder =
                 "        \"marker-color\": \"%s\",\n" +
                         "        \"marker-size\": \"%s\",\n" +
                         "        \"type\": \"%s\",\n";
-
-        String properties = String.format(properties_placeholder, colors.get(n.getType()), "small", n.getType());
+        */
+        //String properties = String.format(properties_placeholder, colors.get(n.getType()), "small", n.getType());
 
         User u = User.mapOfUsers.getOrDefault(n.getTripId(), null);
         String nodeInfo = String.format(
-                "        \"arrival\": \"%s\",\n" +
+                "        \"type\": \"%s\"," +
+                        "        \"arrival\": \"%s\",\n" +
                         "        \"departure\": \"%s\",\n" +
                         "        \"duration\": %s,\n" +
                         "        \"earliest\": \"%s\",\n" +
@@ -53,6 +60,7 @@ public class GeoJsonUtil {
                         "        \"n_passengers\": %s,\n" +
                         "        \"network_id\": \"%s\",\n" +
                         "        \"id\": \"%s\"\n",
+                n.getType(),
                 Config.sec2Datetime(n.getArrival()),
                 Config.sec2Datetime(n.getDeparture()),
                 n.getDeparture() - n.getArrival(),
@@ -68,7 +76,6 @@ public class GeoJsonUtil {
                 "      \"type\": \"Feature\",\n" +
                 "      \"properties\": {\n" +
                 "%s" +
-                "%s" +
 
                 "      },\n" +
                 "      \"geometry\": {\n" +
@@ -78,7 +85,7 @@ public class GeoJsonUtil {
                 "          %f\n" +
                 "        ]\n" +
                 "      }\n" +
-                "    }", properties, nodeInfo, location.getX(), location.getY());
+                "    }", nodeInfo, location.getX(), location.getY());
 
         return s;
     }
