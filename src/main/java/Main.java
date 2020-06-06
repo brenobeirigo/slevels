@@ -31,6 +31,7 @@ public class Main {
                 Simulation.DURATION_SINGLE_RIDE}; // In rounds of tw_batch seconds
         boolean[] allowVehicleHiringArray = new boolean[]{false};
         boolean[] allowServiceDeteriorationArray = new boolean[]{false};
+        boolean[] sortWaitingUsersByClassArray = new boolean[]{true};
 
         FileUtil.createDir("output");
 
@@ -144,153 +145,157 @@ public class Main {
         };
 
         // Vary test case parameters
-        for (int timeHorizon : timeHorizonArray) {
-            for (int maxRequestsIteration : maxRequestsIterationArray) {
-                for (int timeWindow : timeWindowArray) {
-                    for (int vehicleMaxCapacity : vehicleMaxCapacityArray) {
-                        for (int initialFleet : initialFleetArray) {
-                            for (boolean isAllowedToHire : allowVehicleHiringArray) {
-                                for (boolean isAllowedToLowerServiceLevel : allowServiceDeteriorationArray) {
+        for (boolean sortWaitingUsersByClass : sortWaitingUsersByClassArray) {
+            for (int timeHorizon : timeHorizonArray) {
+                for (int maxRequestsIteration : maxRequestsIterationArray) {
+                    for (int timeWindow : timeWindowArray) {
+                        for (int vehicleMaxCapacity : vehicleMaxCapacityArray) {
+                            for (int initialFleet : initialFleetArray) {
+                                for (boolean isAllowedToHire : allowVehicleHiringArray) {
+                                    for (boolean isAllowedToLowerServiceLevel : allowServiceDeteriorationArray) {
 
-                                    // If can hire than service level have to be lowered
-                                    if (isAllowedToHire != isAllowedToLowerServiceLevel) continue;
+                                        // If can hire than service level have to be lowered
+                                        if (isAllowedToHire != isAllowedToLowerServiceLevel) continue;
 
-                                    for (int contractDuration : contractDurationArray) {
+                                        for (int contractDuration : contractDurationArray) {
 
 
-                                        // All service rate
-                                        for (Map.Entry<String, HashMap<String, Double>> serviceRateScenario :
-                                                serviceRateScenarioMap.entrySet()) {
+                                            // All service rate
+                                            for (Map.Entry<String, HashMap<String, Double>> serviceRateScenario :
+                                                    serviceRateScenarioMap.entrySet()) {
 
-                                            // S1, S2, S3
-                                            String serviceRateScenarioLabel = serviceRateScenario.getKey();
-                                            for (boolean allowRebalancing : allowRebalancingArray) {
-                                                // Segmentation scenario - AA, BB, CC, A, B, C
-                                                for (Map.Entry<String, HashMap<String, Double>> segmentationScenario :
-                                                        segmentationScenarioMap.entrySet()) {
+                                                // S1, S2, S3
+                                                String serviceRateScenarioLabel = serviceRateScenario.getKey();
+                                                for (boolean allowRebalancing : allowRebalancingArray) {
+                                                    // Segmentation scenario - AA, BB, CC, A, B, C
+                                                    for (Map.Entry<String, HashMap<String, Double>> segmentationScenario :
+                                                            segmentationScenarioMap.entrySet()) {
 
-                                                    // AA, BB, CC, A, B, C
-                                                    String segmentationScenarioLabel = segmentationScenario.getKey();
+                                                        // AA, BB, CC, A, B, C
+                                                        String segmentationScenarioLabel = segmentationScenario.getKey();
 
-                                                    // Fixed service levels - A (180, 180), B(300, 600), C(600, 900)
-                                                    for (Map.Entry<String, HashMap<String, Integer>> serviceLevel :
-                                                            serviceLevelMap.entrySet()) {
+                                                        // Fixed service levels - A (180, 180), B(300, 600), C(600, 900)
+                                                        for (Map.Entry<String, HashMap<String, Integer>> serviceLevel :
+                                                                serviceLevelMap.entrySet()) {
 
-                                                        /* Creating QoS class
-                                                         *  - service level class label (A, B, or C)
-                                                         *  - pickup delay
-                                                         *  - trip delay delay
-                                                         *  - service rate (varies according to scenario)
-                                                         *  - customer segmentation (varies according to scenario)
-                                                         */
+                                                            /* Creating QoS class
+                                                             *  - service level class label (A, B, or C)
+                                                             *  - pickup delay
+                                                             *  - trip delay delay
+                                                             *  - service rate (varies according to scenario)
+                                                             *  - customer segmentation (varies according to scenario)
+                                                             */
 
-                                                        // Setup QoS class
-                                                        Qos qos = new Qos(serviceLevel.getKey(),
-                                                                serviceLevel.getValue().get("pk_delay"),
-                                                                serviceLevel.getValue().get("trip_delay"),
-                                                                serviceRateScenario.getValue().get(serviceLevel.getKey()),
-                                                                segmentationScenario.getValue().get(serviceLevel.getKey()),
-                                                                (serviceLevel.getValue().get("sharing_preference") == Qos.ALLOWED_SHARING));
+                                                            // Setup QoS class
+                                                            Qos qos = new Qos(serviceLevel.getKey(),
+                                                                    serviceLevel.getValue().get("pk_delay"),
+                                                                    serviceLevel.getValue().get("trip_delay"),
+                                                                    serviceRateScenario.getValue().get(serviceLevel.getKey()),
+                                                                    segmentationScenario.getValue().get(serviceLevel.getKey()),
+                                                                    (serviceLevel.getValue().get("sharing_preference") == Qos.ALLOWED_SHARING));
 
-                                                        // Update global class configuration to run current test case
-                                                        Config.getInstance().qosDic.put(serviceLevel.getKey(), qos);
-                                                    }
+                                                            // Update global class configuration to run current test case
+                                                            Config.getInstance().qosDic.put(serviceLevel.getKey(), qos);
+                                                        }
 
-                                                    // Print Qos for round
-                                                    Config.getInstance().printQosDic();
-                                                    if (allowRebalancing) {
-                                                        for (boolean n1 : allowManyToOneTarget) {
-                                                            for (boolean reinsert : reinsertTargets) {
-                                                                for (boolean clear : clearTargetListEveryRound) {
-                                                                    for (boolean useUrg : useUrgentKey) {
+                                                        // Print Qos for round
+                                                        Config.getInstance().printQosDic();
+                                                        if (allowRebalancing) {
+                                                            for (boolean n1 : allowManyToOneTarget) {
+                                                                for (boolean reinsert : reinsertTargets) {
+                                                                    for (boolean clear : clearTargetListEveryRound) {
+                                                                        for (boolean useUrg : useUrgentKey) {
 
-                                                                        Rebalance rebalanceUtil = new Rebalance(
-                                                                                n1,
-                                                                                reinsert,
-                                                                                clear,
-                                                                                useUrg,
-                                                                                "TEST",
-                                                                                false,
-                                                                                false
-                                                                        );
+                                                                            Rebalance rebalanceUtil = new Rebalance(
+                                                                                    n1,
+                                                                                    reinsert,
+                                                                                    clear,
+                                                                                    useUrg,
+                                                                                    "TEST",
+                                                                                    false,
+                                                                                    false
+                                                                            );
 
-                                                                        // Create FCFS simulation
-                                                                        Simulation fcfs = new SimulationFCFS(
-                                                                                instanceName,
-                                                                                initialFleet,
-                                                                                vehicleMaxCapacity,
-                                                                                maxRequestsIteration,
-                                                                                timeWindow,
-                                                                                timeHorizon,
-                                                                                allowRebalancing,
-                                                                                contractDuration,
-                                                                                isAllowedToHire,
-                                                                                isAllowedToLowerServiceLevel,
-                                                                                serviceRateScenarioLabel,
-                                                                                segmentationScenarioLabel,
-                                                                                rebalanceUtil);
+                                                                            // Create FCFS simulation
+                                                                            Simulation fcfs = new SimulationFCFS(
+                                                                                    instanceName,
+                                                                                    initialFleet,
+                                                                                    vehicleMaxCapacity,
+                                                                                    maxRequestsIteration,
+                                                                                    timeWindow,
+                                                                                    timeHorizon,
+                                                                                    allowRebalancing,
+                                                                                    contractDuration,
+                                                                                    isAllowedToHire,
+                                                                                    isAllowedToLowerServiceLevel,
+                                                                                    sortWaitingUsersByClass,
+                                                                                    serviceRateScenarioLabel,
+                                                                                    segmentationScenarioLabel,
+                                                                                    rebalanceUtil);
 
-                                                                        // Run simulation
-                                                                        fcfs.run(Simulation.ROUND_INFO);
+                                                                            // Run simulation
+                                                                            fcfs.run(Simulation.ROUND_INFO);
 
-                                                                        // Reset classes for next iteration
-                                                                        Dao.getInstance().resetRecords();
-                                                                        User.reset();
-                                                                        Vehicle.reset();
-                                                                        Node.reset();
-                                                                        NodeMiddle.reset();
-                                                                        Visit.reset();
-                                                                        Simulation.reset();
-                                                                        Solution.reset();
+                                                                            // Reset classes for next iteration
+                                                                            Dao.getInstance().resetRecords();
+                                                                            User.reset();
+                                                                            Vehicle.reset();
+                                                                            Node.reset();
+                                                                            NodeMiddle.reset();
+                                                                            Visit.reset();
+                                                                            Simulation.reset();
+                                                                            Solution.reset();
+                                                                        }
                                                                     }
                                                                 }
                                                             }
+
+                                                        } else {
+
+                                                            Rebalance rebalanceUtil = new Rebalance(
+                                                                    false,
+                                                                    false,
+                                                                    false,
+                                                                    false,
+                                                                    "Rebalancing",
+                                                                    false,
+                                                                    false
+                                                            );
+                                                            // Create FCFS simulation
+                                                            Simulation fcfs = new SimulationFCFS(
+                                                                    instanceName,
+                                                                    initialFleet,
+                                                                    vehicleMaxCapacity,
+                                                                    maxRequestsIteration,
+                                                                    timeWindow,
+                                                                    timeHorizon,
+                                                                    allowRebalancing,
+                                                                    contractDuration,
+                                                                    isAllowedToHire,
+                                                                    isAllowedToLowerServiceLevel,
+                                                                    sortWaitingUsersByClass,
+                                                                    serviceRateScenarioLabel,
+                                                                    segmentationScenarioLabel,
+                                                                    rebalanceUtil
+                                                            );
+
+                                                            // Run simulation
+                                                            fcfs.run(Simulation.ROUND_INFO);
+
+                                                            // Reset classes for next iteration
+                                                            Dao.getInstance().resetRecords();
+                                                            User.reset();
+                                                            Vehicle.reset();
+                                                            Node.reset();
+                                                            NodeMiddle.reset();
+                                                            Visit.reset();
+                                                            Simulation.reset();
+                                                            Solution.reset();
                                                         }
 
-                                                    } else {
-
-                                                        Rebalance rebalanceUtil = new Rebalance(
-                                                                false,
-                                                                false,
-                                                                false,
-                                                                false,
-                                                                "Rebalancing",
-                                                                false,
-                                                                false
-                                                        );
-                                                        // Create FCFS simulation
-                                                        Simulation fcfs = new SimulationFCFS(
-                                                                instanceName,
-                                                                initialFleet,
-                                                                vehicleMaxCapacity,
-                                                                maxRequestsIteration,
-                                                                timeWindow,
-                                                                timeHorizon,
-                                                                allowRebalancing,
-                                                                contractDuration,
-                                                                isAllowedToHire,
-                                                                isAllowedToLowerServiceLevel,
-                                                                serviceRateScenarioLabel,
-                                                                segmentationScenarioLabel,
-                                                                rebalanceUtil
-                                                        );
-
-                                                        // Run simulation
-                                                        fcfs.run(Simulation.ROUND_INFO);
-
-                                                        // Reset classes for next iteration
-                                                        Dao.getInstance().resetRecords();
-                                                        User.reset();
-                                                        Vehicle.reset();
-                                                        Node.reset();
-                                                        NodeMiddle.reset();
-                                                        Visit.reset();
-                                                        Simulation.reset();
-                                                        Solution.reset();
                                                     }
-
+                                                    Config.reset();
                                                 }
-                                                Config.reset();
                                             }
                                         }
                                     }
