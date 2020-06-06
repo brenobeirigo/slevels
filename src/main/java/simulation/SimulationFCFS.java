@@ -9,6 +9,7 @@ import model.Visit;
 import model.node.Node;
 
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -33,6 +34,7 @@ public class SimulationFCFS extends Simulation {
                           int contractDuration,
                           boolean isAllowedToHire,
                           boolean isAllowedToLowerServiceLevel,
+                          boolean sortWaitingUsersByClass,
                           String serviceRateScenarioLabel,
                           String segmentationScenarioLabel,
                           Rebalance rebalance) {
@@ -48,6 +50,7 @@ public class SimulationFCFS extends Simulation {
                 contractDuration,
                 isAllowedToHire,
                 isAllowedToLowerServiceLevel,
+                sortWaitingUsersByClass,
                 rebalance);
 
         // Service rate and segmentation scenarios
@@ -188,6 +191,30 @@ public class SimulationFCFS extends Simulation {
         // Set of users serviced
         Set<User> setServicedUsers = new HashSet<>();
 
+        /*
+        // Loop users
+        List<Visit> population = new ArrayList<>();
+
+        System.out.println("########## FLEET ###################################################");
+        for(Vehicle v:listVehicles){
+            System.out.println(v.getJourney());
+        }
+
+        for (User u : setWaitingUsers) {
+
+            // Aux. best visit for comparison
+            Visit bestVisit = u.getBestVisitByInsertion(
+                    listVehicles,
+                    currentTime,
+                    stopAtFirstBest);
+            population.add(bestVisit);
+        }
+        System.out.println("\n###### POPULATION:");
+        for (Visit visit: population) {
+            System.out.println(visit);
+        }
+        */
+
         // Loop users
         for (User u : setWaitingUsers) {
 
@@ -219,50 +246,11 @@ public class SimulationFCFS extends Simulation {
                 // Try to hire new vehicle to user according to user SQ class
                 if (hireNewVehicleToUser(u)) {
 
-                    // System.out.println("Hiring a vehicle to pickup user " + u);
-
-                    // The draw was successful, vehicle will be hired immediately
-                    Vehicle v = null;
-
-                    Visit candidateVisit = null;
-
-                    // Find freelance vehicle around user area
-                    while (candidateVisit == null) {
-
-                        v = createVehicleAtRandomPosition(
-                                u,
-                                currentTime,
-                                contractDuration); // List of vehicles
-
-                        //System.out.println("Finding freelance vehicle...");
-                        //v.printHiringInfo();
-
-                        //##########################################################################################
-                        // Try to get a valid visit by inserting user "u" in newly created vehicle "v"
-                        candidateVisit = v.getBestInsertion(u, currentTime);
-
-
-                        //##########################################################################################
-                    }
-
-                    // Update best visit
-                    bestVisit = candidateVisit;
-
-                    // New vehicle is added in list
-                    listVehicles.add(v);
-                    listHiredVehicles.add(v);
-                    setHired.add(v);
+                    bestVisit = getVisitHiredVehicleUser(u, currentTime);
 
                 } else if (isAllowedToLowerServiceLevel) {
-                    //System.out.println("Lowering service level of user " + u);
 
-                    /*
-                    Customer is serviced using the current fleet resources.
-                    *** Service level is relaxed (unbounded) and an available vehicle is chosen. */
-
-                    // Add enough delay to user service level to guarantee he will be picked up
-                    //u.lowerServiceLevel(24 * 3600);
-                    // Double max pickup delay of class
+                    // Add  delay to user service level to guarantee he will be picked up
                     u.lowerServiceLevel(Config.getInstance().qosDic.get(u.getPerformanceClass()).pkDelay);
 
                     // Compute need for urgent relocation
@@ -275,22 +263,9 @@ public class SimulationFCFS extends Simulation {
                             currentTime,
                             stopAtFirstBest);
 
-                    // There is no vehicle with capacity == number of passengers
+                    // After lowering service level, user can't be picked up
                     if (bestVisit == null) {
-
-                        // Creating vehicle nearby user
-                        Vehicle v = createVehicleAtRandomPosition(
-                                u,
-                                currentTime,
-                                contractDuration); // List of vehicles
-
-                        // Inserting user in newly created vehicle
-                        bestVisit = v.getBestInsertion(u, currentTime);
-
-                        // Adding created vehicle to fleet
-                        listVehicles.add(v);
-                        listHiredVehicles.add(v);
-                        setHired.add(v);
+                        bestVisit = getVisitHiredVehicleUser(u, currentTime);
                     }
                 } else {
                     if (rebalanceUtil.showInfo)
@@ -318,6 +293,36 @@ public class SimulationFCFS extends Simulation {
         // Return all serviced users
         return setServicedUsers;
 
+    }
+
+    private Visit getVisitHiredVehicleUser(User u, int currentTime) {
+
+        // The draw was successful, vehicle will be hired immediately
+        Vehicle v = null;
+
+        Visit candidateVisitHiredVehicle = null;
+
+        // Find freelance vehicle around user area
+        while (candidateVisitHiredVehicle == null) {
+
+            // For the sake of fairness, position is left to chance
+            v = createVehicleAtRandomPosition(
+                    u,
+                    currentTime,
+                    contractDuration); // List of vehicles
+
+
+            //##########################################################################################
+            // Try to get a valid visit by inserting user "u" in newly created vehicle "v"
+            candidateVisitHiredVehicle = v.getVisitWithInsertedUser(u, currentTime);
+            //##########################################################################################
+        }
+
+        // New vehicle is added in list
+        listVehicles.add(v);
+        listHiredVehicles.add(v);
+        setHired.add(v);
+        return candidateVisitHiredVehicle;
     }
 
 
