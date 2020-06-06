@@ -18,7 +18,7 @@ public class ServerUtil {
 
     //SERVER
     private static final String ADDRESS_SERVER = "http://TUD256023.tudelft.net:4999";
-    private static final String ADDRESS_ALLNODES = ADDRESS_SERVER + "/nodes";
+    private static final String ADDRESS_ALLNODES = ADDRESS_SERVER + "/nodes/GPS";
     private static String restPoint = ADDRESS_SERVER + "/point_style/%d/%%23%s/%s/%s";
     private static String restLine = ADDRESS_SERVER + "/linestring_style/%d/%d/%%23%s/%s/%s";
     private static String restShortestPath = ADDRESS_SERVER + "/sp/%d/%d";
@@ -138,7 +138,7 @@ public class ServerUtil {
         System.out.println(o.getClass().getName() + " - " + d.getClass().getName());
         if (d instanceof NodeTargetRebalancing) {
             lineType = "rebalancing";
-        } else if ((o instanceof NodeOrigin || o instanceof NodeMiddle || o instanceof NodeTargetRebalancing || o instanceof NodeStop) && d instanceof NodePK) {
+        } else if ((o instanceof NodeOrigin || o instanceof NodeMiddle  || o instanceof NodeStop) && d instanceof NodePK) {
             lineType = "cruising";
         }
 
@@ -209,6 +209,7 @@ public class ServerUtil {
      * @return list of ids
      */
     public static ArrayList<Short> getShortestPathBetween(int o, int d) {
+        //System.out.println(o + " ->" + d);
         String rest = String.format(restShortestPath, o, d);
         ArrayList<Short> list_ids = null;
         list_ids = (ArrayList) Arrays.asList(requestTo(rest).split(";")).stream().map(n -> Short.valueOf(n)).collect(Collectors.toList());
