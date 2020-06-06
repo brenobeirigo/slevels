@@ -60,7 +60,7 @@ public class HelperIO {
         for (Vehicle v : vehicles) {
 
             // If vehicle is not empty
-            if (!v.getUsers().isEmpty()) {
+            if (!v.getVisit().getSequenceVisits().isEmpty()) {
 
                 // If there are passengers inside vehicle
                 if (showEnRoute) {
@@ -70,12 +70,12 @@ public class HelperIO {
             } else {
 
                 // if current node is origin
-                if (v.getCurrentNode() instanceof NodeOrigin && showOrigin) {
+                if (v.getLastVisitedNode() instanceof NodeOrigin && showOrigin) {
 
                     // Add origin
                     origin.add(v);
 
-                } else if ((v.getCurrentNode() instanceof NodeStop || v.getCurrentNode() instanceof NodeTargetRebalancing) && showIdle) {
+                } else if ((v.getLastVisitedNode() instanceof NodeStop || v.getLastVisitedNode() instanceof NodeTargetRebalancing) && showIdle) {
                     idle.add(v);
                 }
             }
