@@ -5,7 +5,9 @@ import model.Vehicle;
 import model.node.Node;
 
 import java.util.Collections;
-import java.util.List;
+import java.util.Comparator;
+import java.util.Iterator;
+import java.util.Set;
 
 public class Rebalance {
 
@@ -68,8 +70,8 @@ public class Rebalance {
      *
      * @param listIdle List of vehicles operating
      */
-    public void rebalanceVehicles(List<Vehicle> listIdle) {
-        System.out.println("Rebalancing");
+    public void rebalance(Set<Vehicle> listIdle) {
+        // System.out.println("Rebalancing");
 
         // Missed pickup nodes are sorted according to their attractiveness
         // 1st - Service level fail
@@ -119,23 +121,41 @@ public class Rebalance {
     }
 
 
-    public Vehicle getBestVehicleToServiceTarget(List<Vehicle> listIdle, Node hotPoint) {
+    public Vehicle getBestVehicleToServiceTarget(Set<Vehicle> listIdle, Node hotPoint) {
 
         // Closest vehicle to candidate hot point (a previous miss)
-        Vehicle idlestClosestVehicle = listIdle.get(0);
+        Vehicle idlestClosestVehicle;
+
+        // If hot point is urgent (increaseUrgency method), send closest vehicle
+        if (hotPoint.getUrgent() > 0) {
+            idlestClosestVehicle = listIdle.stream().min(Comparator.comparing(a -> Dao.getInstance().getDistSec(hotPoint, a.getLastVisitedNode()))).get();
+        //If hot point is not urgent, send vehicle idle for the most time and untie by closest distance
+        } else {
+            idlestClosestVehicle = listIdle.stream().max(Comparator
+                .comparing(Vehicle::getRoundsIdle)
+                .thenComparing(a -> Dao.getInstance().getDistSec(hotPoint, a.getLastVisitedNode()), Comparator.reverseOrder())).get();
+    }
+        /*System.out.println("FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFff");
+        for(Vehicle v:listIdle){
+            System.out.println(v + " - " + v.getRoundsIdle() + " - " + "urgent:"+ hotPoint.getUrgent() + " = " + Dao.getInstance().getDistSec(
+                    hotPoint,
+                    v.getLastVisitedNode()) + (v==idlestClosestVehicle? " ---- HERE":""));
+        }*/
+
+        return idlestClosestVehicle;
 
         // If hotpoint is urgent, get closest
-        if (hotPoint.getUrgent() > 0) {
+        /*if (hotPoint.getUrgent() > 0) {
 
             //System.out.println("Addressing urgent...");
 
-            for (int i = 1; i < listIdle.size(); i++) {
+            while (it.hasNext()) {
 
-                Vehicle candidateRebalancingVehicle = listIdle.get(i);
+                Vehicle candidateRebalancingVehicle = it.next();
 
                 // Untie using shortest distance
-                int distanceCandidate = Dao.getInstance().getDistSec(hotPoint, candidateRebalancingVehicle.getCurrentNode());
-                int distanceIncumbent = Dao.getInstance().getDistSec(hotPoint, idlestClosestVehicle.getCurrentNode());
+                int distanceCandidate = Dao.getInstance().getDistSec(hotPoint, candidateRebalancingVehicle.getLastVisitedNode());
+                int distanceIncumbent = Dao.getInstance().getDistSec(hotPoint, idlestClosestVehicle.getLastVisitedNode());
 
                 // Untie with distance
                 if (distanceCandidate < distanceIncumbent && distanceCandidate > 0) {
@@ -143,9 +163,9 @@ public class Rebalance {
                 }
             }
         } else {
-            for (int i = 1; i < listIdle.size(); i++) {
+            while (it.hasNext()) {
 
-                Vehicle candidateRebalancingVehicle = listIdle.get(i);
+                Vehicle candidateRebalancingVehicle = it.next();
 
                 // Get the idlest and closest vehicle to hot point
                 if (candidateRebalancingVehicle.getRoundsIdle() >= idlestClosestVehicle.getRoundsIdle()) {
@@ -153,8 +173,8 @@ public class Rebalance {
                     if (candidateRebalancingVehicle.getRoundsIdle() == idlestClosestVehicle.getRoundsIdle()) {
 
                         // Untie using shortest distance
-                        int distanceCandidate = Dao.getInstance().getDistSec(hotPoint, candidateRebalancingVehicle.getCurrentNode());
-                        int distanceIncumbent = Dao.getInstance().getDistSec(hotPoint, idlestClosestVehicle.getCurrentNode());
+                        int distanceCandidate = Dao.getInstance().getDistSec(hotPoint, candidateRebalancingVehicle.getLastVisitedNode());
+                        int distanceIncumbent = Dao.getInstance().getDistSec(hotPoint, idlestClosestVehicle.getLastVisitedNode());
 
                         // Untie with distance
                         if (distanceCandidate < distanceIncumbent && distanceCandidate > 0) {
@@ -167,15 +187,15 @@ public class Rebalance {
             }
         }
 
-        return idlestClosestVehicle;
+        return idlestClosestVehicle;*/
 
     }
 
 
-    private String getRebalancingLog(List<Vehicle> listIdle, Node target, Vehicle rebalancingVehicle) {
+    private String getRebalancingLog(Set<Vehicle> listIdle, Node target, Vehicle rebalancingVehicle) {
 
-        short distToTarget = Dao.getInstance().getDistSec(rebalancingVehicle.getCurrentNode(), target);
-        Node currentNode = rebalancingVehicle.getCurrentNode();
+        short distToTarget = Dao.getInstance().getDistSec(rebalancingVehicle.getLastVisitedNode(), target);
+        Node currentNode = rebalancingVehicle.getLastVisitedNode();
         int historicalScore = Node.hotSpot.get(target.getNetworkId());
 
         return rebalancingVehicle +
@@ -183,7 +203,7 @@ public class Rebalance {
                 "] #Idle vehicles: (" + listIdle.size() + ")   " +
                 "   Visit: " + rebalancingVehicle.getVisit() +
                 "--" +
-                currentNode + "[" + rebalancingVehicle.getCurrentNode().getInfo() + "]" +
+                currentNode + "[" + rebalancingVehicle.getLastVisitedNode().getInfo() + "]" +
                 " -> " + distToTarget + " -> " +
                 target + "[" + target.getNetworkId() + "]  (Urgent=" + target.getUrgent() + ", Historical=" + historicalScore + "): [" + target.getInfo() + "]";
     }
