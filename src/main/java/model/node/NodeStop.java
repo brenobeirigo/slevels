@@ -2,16 +2,17 @@ package model.node;
 
 public class NodeStop extends Node {
 
+    // Vehicle that generated node Stop
     private int vehicleId;
 
-    public NodeStop(Node stop, int vehicleId) {
+    public NodeStop(Node stop, int vehicleId, int minDeparture) {
         super(stop.getId(),
                 stop.getNetworkId());
 
         this.arrival = stop.getArrival();
         this.tripId = stop.getTripId();
         this.vehicleId = vehicleId;
-        this.departure = stop.getDeparture();
+        this.departure = minDeparture;
     }
 
     public int getVehicleId() {
@@ -24,7 +25,7 @@ public class NodeStop extends Node {
 
     @Override
     public String toString() {
-        return String.format("%7s", "ST" + String.valueOf(this.tripId));
+        return String.format("%7s", "ST" + this.tripId);
     }
 
     @Override
