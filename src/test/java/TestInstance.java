@@ -27,6 +27,7 @@ public class TestInstance {
                 3600,
                 true,
                 true,
+                false,
                 "month",
                 "Hire",
                 new Rebalance(true, true, true, true, "N21"));
