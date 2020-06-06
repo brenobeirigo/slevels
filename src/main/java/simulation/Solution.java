@@ -469,7 +469,7 @@ public class Solution {
 
             if (v.isParked()) {
 
-                if (v.getCurrentNode() == v.getOrigin()) {
+                if (v.getLastVisitedNode() == v.getOrigin()) {
 
                     nOfVehiclesDwellingInOrigin++;
 
@@ -494,14 +494,17 @@ public class Solution {
             } else {
 
                 // Increment occupancy
-                vehicleOccupancy[v.getLoad()]++;
+//                System.out.println(v);
+//                System.out.println(v.getVisit());
+//                System.out.println("____________________________");
+                vehicleOccupancy[v.getCurrentLoad()]++;
 
                 // Sum current load of vehicle
-                seatCount += v.getLoad();
+                seatCount += v.getCurrentLoad();
 
                 nOfVehiclesServicingUsers++;
 
-                emptySeats += v.getCapacity() - v.getLoad();
+                emptySeats += v.getCapacity() - v.getCurrentLoad();
 
             }
 
@@ -514,9 +517,11 @@ public class Solution {
         //System.out.println(String.format("Parked: %d - Seat: %d - Rebalancing: %d - Cruising: %d - Total: %d", emptySeats, seatCount, nOfSeatsRebalancing, nOfSeatsCruisingVehicles, emptySeats + seatCount + nOfSeatsRebalancing + nOfSeatsCruisingVehicles));
 
         // Stats
+
         double finishedRequestsPercentage = (double) finishedRequests.size() / allRequests.size();
         double deniedRequestsPercentage = (double) deniedRequests.size() / allRequests.size();
         double waitingRequestsPercentage = (double) waitingRequests.size() / allRequests.size();
+        nOfAssignedUsers = allRequests.size() - deniedRequests.size() - finishedRequests.size() - waitingRequests.size();
 
         this.addEntryCSV(currentTime,
                 setOfRequests.size(),
@@ -638,8 +643,6 @@ public class Solution {
                 setDeactivated.size(),
                 (double) runTime / 1000,
                 (double) rebalancingTime / 1000);
-
-
     }
 
     public void addEntryCSV(int currentTime,
