@@ -22,10 +22,14 @@ public class InstanceConfig {
 
     // Json with instance
     //public static String source = "C:\\Users\\LocalAdmin\\IdeaProjects\\slevels\\src\\main\\resources\\geojson\\onehour_ams.json";
-    public static String source = "C:\\Users\\LocalAdmin\\IdeaProjects\\slevels\\src\\main\\resources\\week\\allow_hiring_geojson.json";
-
+    //public static String source = "C:\\Users\\LocalAdmin\\IdeaProjects\\slevels\\src\\main\\resources\\week\\allow_hiring_geojson.json";
+    // public static String source = "C:\\Users\\LocalAdmin\\IdeaProjects\\slevels\\src\\main\\resources\\week\\service_denial_2nd_tier.json";
+    // public static String source = "C:\\Users\\LocalAdmin\\IdeaProjects\\slevels\\src\\main\\resources\\week\\service_denial_ABC.json";
+    public static String source = "C:\\Users\\LocalAdmin\\IdeaProjects\\slevels\\src\\main\\resources\\week\\profile_time.json";
+    //public static String source = "C:\\Users\\LocalAdmin\\IdeaProjects\\slevels\\src\\main\\resources\\morning_peak\\service_test.json";
 
     private static InstanceConfig instance = new InstanceConfig(source);
+    private boolean[] sortWaitingUsersByClass;
     private int[] timeWindowArray; // Time window of request collection bin
     private int[] timeHorizonArray; // Time horizon of experiment (0 t0 24h)
     private int[] maxRequestsIterationArray; // Max number of requests pooled in during an iteration
@@ -60,6 +64,14 @@ public class InstanceConfig {
     private String roundTrackFolder;
     private String requestTrackFolder;
     private String geojsonTrackFolder;
+
+    public boolean[] getSortWaitingUsersByClass() {
+        return sortWaitingUsersByClass;
+    }
+
+    public void setSortWaitingUsersByClass(boolean[] sortWaitingUsersByClass) {
+        this.sortWaitingUsersByClass = sortWaitingUsersByClass;
+    }
 
     private InstanceConfig(String jsonFilePath) {
 
@@ -171,6 +183,9 @@ public class InstanceConfig {
                 }
             }
 
+            //Matching configuration
+            JsonObject matchingConfig = gson.toJsonTree(jsonConfig.get("matching_config")).getAsJsonObject();
+            this.sortWaitingUsersByClass = gson.fromJson(matchingConfig.get("sort_waiting_users_by_class").getAsJsonArray(), boolean[].class);
 
             // Rebalancing configuration
             JsonObject rebalancingConfig = gson.toJsonTree(jsonConfig.get("rebalancing_config")).getAsJsonObject();
