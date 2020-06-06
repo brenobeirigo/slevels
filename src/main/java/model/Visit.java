@@ -4,14 +4,15 @@ import dao.Dao;
 import model.node.Node;
 
 import java.util.*;
+import java.util.stream.Collectors;
 
 import static config.Config.*;
 
 public class Visit implements Comparable<Visit> {
     private int arrival;
     protected LinkedList<Node> sequenceVisits; // Sequence of pickup and delivery nodes
-    private Set<User> setUsers; // Users in sequence of visits
-    private Set<User> setFlexibleUsers; // Users that can still be moved
+    private Set<User> passengers; // Users picked up
+    private Set<User> requests; // Users that can still be moved (not picked up)
     protected Vehicle vehicle;
     protected double avgOccupationLeg;
 
@@ -20,8 +21,8 @@ public class Visit implements Comparable<Visit> {
 
     public Visit(Visit v) {
         this.arrival = v.arrival;
-        this.setUsers = new HashSet<>(v.setUsers);
-        this.setFlexibleUsers = new HashSet<>(v.setFlexibleUsers);
+        this.requests = new HashSet<>(v.requests);
+        this.passengers = new HashSet<>(v.passengers);
         this.sequenceVisits = new LinkedList<>(v.sequenceVisits);
         this.vehicle = v.vehicle;
         this.avgOccupationLeg = v.avgOccupationLeg;
@@ -33,14 +34,41 @@ public class Visit implements Comparable<Visit> {
         this.sequenceVisits = sequenceVisits;
         this.delay = delay;
         this.idle = idle;
-        this.setUsers = new HashSet<>();
+        this.passengers = new HashSet<>();
+        this.requests = new HashSet<>();
+    }
+
+    public Visit(LinkedList<Node> sequenceVisits, int delay, int idle, Vehicle v) {
+        this.sequenceVisits = sequenceVisits;
+        this.delay = delay;
+        this.idle = idle;
+        this.vehicle = v;
+        this.passengers = new HashSet<>();
+        this.requests = new HashSet<>();
     }
 
     public Visit(LinkedList<Node> sequenceVisits, int delay) {
         this.sequenceVisits = sequenceVisits;
         this.delay = delay;
-        this.setUsers = new HashSet<>();
-        this.setFlexibleUsers = new HashSet();
+        this.requests = new HashSet();
+        this.passengers = new HashSet<>();
+    }
+
+    public Visit(LinkedList<Node> sequenceVisits, int delay, Vehicle v) {
+        this.sequenceVisits = sequenceVisits;
+        this.delay = delay;
+        this.vehicle = v;
+        this.requests = new HashSet();
+        this.passengers = new HashSet<>();
+    }
+
+    public Visit(LinkedList<Node> sequenceVisits, int delay, Vehicle v, User request) {
+        this.sequenceVisits = sequenceVisits;
+        this.delay = delay;
+        this.vehicle = v;
+        this.requests = new HashSet();
+        this.requests.add(request);
+        this.passengers = new HashSet<>();
     }
 
     public Visit(LinkedList<Node> sequenceVisits,
@@ -59,6 +87,8 @@ public class Visit implements Comparable<Visit> {
         this.delay = Integer.MAX_VALUE;
         this.idle = Integer.MAX_VALUE;
         this.avgOccupationLeg = Double.MIN_VALUE;
+        this.passengers = new HashSet<>();
+        this.requests = new HashSet<>();
     }
 
     /**
@@ -70,7 +100,7 @@ public class Visit implements Comparable<Visit> {
      */
     public static List<Integer> getIdPairListFromUsers(Set<User> passengers) {
 
-        /* Create a sequenceVisits of PK and DL points given a list of passengers. */
+        /* Create a sequenceVisits of PK and DL points given a list of users. */
         List<Integer> sequence = new ArrayList<>();
 
         for (User r : passengers) {
@@ -88,8 +118,12 @@ public class Visit implements Comparable<Visit> {
         return arrival;
     }
 
-    public Set<User> getSetUsers() {
-        return setUsers;
+    public Set<User> getPassengers() {
+        return passengers;
+    }
+
+    public void setPassengers(Set<User> passengers) {
+        this.passengers = passengers;
     }
 
     public LinkedList<Node> getSequenceVisits() {
@@ -122,10 +156,6 @@ public class Visit implements Comparable<Visit> {
         this.delay = delay;
         this.idle = idle;
         this.avgOccupationLeg = avgOccupationLeg;
-    }
-
-    public void setSetUsers(Set<User> setUsers) {
-        this.setUsers = setUsers;
     }
 
     public void setSequenceVisits(LinkedList<Node> sequenceVisits) {
@@ -167,26 +197,55 @@ public class Visit implements Comparable<Visit> {
 
     @Override
     public String toString() {
-
-        Node current = this.vehicle.getCurrentNode();
-        int load = this.vehicle.getLoad();
+        if (this.vehicle == null){
+            return "DUMMY VISIT";
+        }
+        Node current = this.vehicle.getLastVisitedNode();
+        int load = this.vehicle.getCurrentLoad();
         // Node strings
         List<String> nodes = new ArrayList<>();
-        int dep = this.vehicle.getCurrentNode().getDeparture();
-        String n = String.format("<<%s>> - %s[%2d] <%4s | %4s>", vehicle, current, load, String.valueOf(current.getEarliest()), String.valueOf(dep));
+        int dep = this.vehicle.getLastVisitedNode().getDeparture();
+
+        nodes.add(
+                String.format(
+                        "%s[%2d] [P=%2d(%2d), R=%2d(%2d)]",
+                        vehicle,
+                        load,
+                        passengers.size(),
+                        passengers.stream().collect(Collectors.summingInt(p->p.getNumPassengers())),
+                        requests.size(),
+                        requests.stream().collect(Collectors.summingInt(p->p.getNumPassengers()))
+                )
+        );
+
+        //Current node info
+        String n = String.format(
+                "%s %s <%4s | %4s>",
+                (this.vehicle.isRebalancing()?"###":"---"),
+                current,
+                String.valueOf(current.getEarliest()),
+                String.valueOf(dep)
+        );
         nodes.add(n);
 
-        // If there is a sequence of visits
-        if (getSequenceVisits() != null) {
-            for (int i = 0; i < getSequenceVisits().size(); i++) {
-                Node next = getSequenceVisits().get(i);
-                int dist = Dao.getInstance().getDistSec(current, next);
-                dep += dist;
-                dep = Math.max(dep, current.getEarliest());
-                current = next;
-                load += current.getLoad();
-                nodes.add(String.format("--> {%4s} --> %s[%2d] <%4s | %4s>", String.valueOf(dist), current, load, current.getEarliest(), String.valueOf(dep))); // config.Config.sec2TStamp(sequenceArrivals.get(i))));
-            }
+        /*// Visits
+        List<Node> sequence;
+        if (getTargetNode()!=null){
+            sequence = new LinkedList<>();
+            sequence.add(getTargetNode());
+        }else{
+            sequence = this.getSequenceVisits();
+        }*/
+
+        for (int i = 0; i < this.getSequenceVisits().size(); i++) {
+            Node next = this.getSequenceVisits().get(i);
+            int dist = Dao.getInstance().getDistSec(current, next);
+            dep += dist;
+            dep = Math.max(dep, current.getEarliest());
+            current = next;
+            load += current.getLoad();
+            nodes.add(String.format("--> {%4s} --> %s[%2d] <%4s | %4s>", String.valueOf(dist), current, load, current.getEarliest(), String.valueOf(dep))); // config.Config.sec2TStamp(sequenceArrivals.get(i))));
+
         }
         return String.format("%s (delay: %5d - occ.: %5.2f)", String.join(" ", nodes), delay, avgOccupationLeg);
     }
@@ -200,12 +259,34 @@ public class Visit implements Comparable<Visit> {
      */
 
     public String getInfo() {
-        return "  - Users: " + setUsers +
+        return "  - Users: " + passengers + requests +
                 " - Avg. Occupation: " + avgOccupationLeg +
                 " - Visits: " + sequenceVisits +
                 " - Delay: " + delay +
                 " - Idle: " + idle +
                 " - Vehicle: " + vehicle.getInfo();
+    }
+
+    /**
+     * Loop sequence of nodes and check if vehicle load and arrival constraints are satisfied.
+     * @return true, only if visit is feasible
+     */
+    public boolean isFeasible() {
+
+        int[] cumulativeLegPK = new int[]{
+                this.getVehicle().getDepartureCurrent(),
+                this.getVehicle().getCurrentLoad(),
+                0};
+
+        Node currentPK = this.getVehicle().getLastVisitedNode();
+
+        for (Node nextNode:this.getSequenceVisits()) {
+            if (!this.getVehicle().isValidLeg(currentPK, nextNode, cumulativeLegPK)) {
+                return false;
+            }
+            currentPK = nextNode;
+        }
+        return true;
     }
 
 
@@ -214,9 +295,9 @@ public class Visit implements Comparable<Visit> {
      *
      * @return Arrival time
      */
-    public int getTargetArrival() {
+    public int getArrivalTimeAtNext() {
         return this.vehicle.getDepartureCurrent() +
-                Dao.getInstance().getDistSec(this.vehicle.getCurrentNode(),
+                Dao.getInstance().getDistSec(this.vehicle.getLastVisitedNode(),
                         this.sequenceVisits.getFirst());
     }
 
@@ -229,7 +310,11 @@ public class Visit implements Comparable<Visit> {
         return this.sequenceVisits.getFirst();
     }
 
-    public Set<User> getSetFlexibleUsers() {
-        return this.setFlexibleUsers;
+    public Set<User> getRequests() {
+        return this.requests;
+    }
+
+    public void setRequests(Set<User> requests) {
+        this.requests = requests;
     }
 }
