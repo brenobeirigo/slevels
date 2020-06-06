@@ -37,13 +37,13 @@ public class VisitByInsertion extends Visit implements Runnable {
         int[] visitStatus = new int[4];
 
         // Arrival
-        visitStatus[0] = this.vehicle.getCurrentNode().getArrival();
+        visitStatus[0] = this.vehicle.getLastVisitedNode().getArrival();
 
         // Load
-        visitStatus[1] = this.vehicle.getCurrentNode().getLoad();
+        visitStatus[1] = this.vehicle.getLastVisitedNode().getLoad();
 
         // Current node is vehicle
-        Node current = this.vehicle.getCurrentNode();
+        Node current = this.vehicle.getLastVisitedNode();
 
         // #### Before PK ##############################################################################################
         for (int i = 0; i < pkPos; i++) {

@@ -13,14 +13,14 @@ public class VisitRelocation extends Visit {
         this.vehicle = v;
 
         // Arrival at target node (latest time at vehicle current node + distance to target)
-        this.targetArrival = v.getDepartureCurrent() + Dao.getInstance().getDistSec(v.getCurrentNode(), target);
+        this.targetArrival = v.getDepartureCurrent() + Dao.getInstance().getDistSec(v.getLastVisitedNode(), target);
 
         // Arrival at target node
         target.setArrival(this.targetArrival);
     }
 
 
-    public int getTargetArrival() {
+    public int getArrivalTimeAtNext() {
         return this.targetArrival;
     }
 
