@@ -9,11 +9,11 @@ import static config.Config.*;
 
 public class Vehicle implements Comparable<Vehicle> {
 
-    /* Result from leg status */
-    public static final int INVALID_LOAD = 1;
-    public static final int INVALID_ARRIVAL = 2;
-    public static final int INVALID_PATH = 3;
-    public static final int VALID_LEG = 0;
+    // Cumulative leg info saved in array[3] used to build legs step by step (i.e., each od segment at a time)
+    public static final byte ARRIVAL = 0;
+    public static final byte LOAD = 1;
+    public static final byte DELAY = 2;
+
 
     /* Class attributes */
     public static int count = Node.MAX_NUMBER_NODES * 2; // Starting index of vehicles
@@ -27,12 +27,9 @@ public class Vehicle implements Comparable<Vehicle> {
     private int contractedDuration; // How many rounds vehicle is allowed to work?
 
     /* Vehicle status */
-    private Integer load; // Current vehicle load
-    private Set<User> users; // Passengers POTENTIALLY being serviced
-    private Set<User> flexibleUsers; // Passengers POTENTIALLY being serviced
-    private Set<User> enroute; // Passengers who MUST be serviced, since pickup node has been visited
+    private Integer currentLoad; // Current vehicle currentLoad
     private Visit visit; // Passengers, Node sequence, etc.
-    private Node currentNode; // Node where vehicle is, or from where vehicle left
+    private Node lastVisitedNode; // Node where vehicle is, or from where vehicle left
     private boolean rebalancing; // Is this vehicle currently rebalancing?
     private boolean hired; // Was this vehicle hired on the fly?
     private int roundsIdle; // How many rounds this vehicle is idle?
@@ -67,12 +64,9 @@ public class Vehicle implements Comparable<Vehicle> {
         ++count;
         this.id = count;
         this.capacity = capacity;
-        this.enroute = new HashSet<>();
         this.servicedUsers = new ArrayList<>();
-        this.users = new HashSet<>();
-        this.flexibleUsers = new HashSet();
         this.journey = new ArrayList<>();
-        this.load = 0;
+        this.currentLoad = 0;
         this.hired = false;
         this.rebalancing = false;
     }
@@ -83,7 +77,7 @@ public class Vehicle implements Comparable<Vehicle> {
         this(capacity);
 
         // Vehicle current node is its origin
-        this.currentNode = this.origin = new NodeOrigin(count, id_network, 0);
+        this.lastVisitedNode = this.origin = new NodeOrigin(count, id_network, 0);
 
         // Vehicle journey (i.e., list of nodes) always start with origin
         this.journey.add(this.origin);
@@ -95,7 +89,7 @@ public class Vehicle implements Comparable<Vehicle> {
         this(capacity);
 
         // Vehicle current node is its origin
-        this.currentNode = this.origin = new NodeOrigin(count, id_network, lat, lon, 0);
+        this.lastVisitedNode = this.origin = new NodeOrigin(count, id_network, lat, lon, 0);
 
         // Vehicle journey (i.e., list of nodes) always start with origin
         this.journey.add(this.origin);
@@ -164,67 +158,30 @@ public class Vehicle implements Comparable<Vehicle> {
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
     /**
-     * Get set of users serviced until current time.
-     * Loop visit sequence and check if:
-     * 1 - node arrival is lower than pk time, AND
-     * 2 - node is DP
-     * <p>
-     * If so, than costumer was serviced.
+     * Move forward in the sequence of visits.
+     * If car is parked - Do nothing
+     * If car is rebalancing - Do nothing
+     * If car finished rebalancing - Stop car
+     * If car is servicing:
+     *  - Pick up and drop off users and update last visited node
+     *  - Stop car if drops off last user
      *
-     * @param currentTime current time
+     * @param currentSimulationTime current time
      * @return Set of users serviced until current time
      */
-    public Set<User> getServicedUsersUntil(int currentTime) {
+    public Set<User> getServicedUsersUntil(int currentSimulationTime) {
 
         if (this.isParked()) {
             return null;
         }
 
         if (this.isRebalancing()) {
-            // Check if rebalancing can be finished and update vehicle and target location statuses
-            updateRebalancingStatus(currentTime);
-            return null;
-        }
-
-        // Serviced users in current execution round [last current time, current time]
-        Set<User> serviced = new HashSet<>();
-
-        int nRemoved = 0;
-
-        for (Node nextNode : visit.getSequenceVisits()) {
-
-            // Get arrival time at first node of visit sequenceVisits
-            int arrivalNext = this.getCurrentNode().getDeparture() + Dao.getInstance().getDistSec(currentNode, nextNode);
-
-            // Sometimes, distance is zero, therefore the arrival should be earliest time
-            arrivalNext = Math.max(arrivalNext, nextNode.getEarliest());
-
-            // If current time is lower than arrival at next node, the node was not visited yet
-            if (arrivalNext > currentTime) {
-                break;
-            }
-
-            // Node will be removed from sequence
-            nRemoved++;
-
-            if (arrivalNext < nextNode.getEarliest()) {
-                System.out.println(this.getCurrentNode().getDeparture() + "####" + nextNode + " - " + nextNode.getEarliest() + " < " + arrivalNext);
-            }
-
-            double distTraveledKm = Dao.getInstance().getDistKm(this.currentNode, nextNode);
-
-            if (this.load == 0) {
-                this.distanceTraveledEmpty += distTraveledKm;
-            } else {
-                this.distanceTraveledLoaded += distTraveledKm;
-            }
-            // Update current load in vehicle
-            this.load += nextNode.getLoad();
-
+            endRebalanceIfTargetReachedAt(currentSimulationTime);
+            /*
             // Is the current node a stop point? If so, vehicle was recently rebalanced
-            Node target = currentNode;
+            if (lastVisitedNode instanceof NodeTargetRebalancing) {
+                System.out.println("Finished REBALANCING!!!!!!!!!!!!!!!!!");
 
-            if (target instanceof NodeTargetRebalancing) {
 
                 Node origin = this.journey.get(this.journey.size() - 2);
 
@@ -241,7 +198,6 @@ public class Vehicle implements Comparable<Vehicle> {
                         distTraveledKm2,
                         roundsToFindUser);
 
-                /*
                 System.out.println(String.format("AFTER ROUNDS - %s(%s--%s) -> %s(%s--%s) :%s",
                         origin,
                         Config.sec2Datetime(origin.getArrival()),
@@ -250,158 +206,187 @@ public class Vehicle implements Comparable<Vehicle> {
                         Config.sec2Datetime(target.getArrival()),
                         Config.sec2Datetime(target.getDeparture()),
                         r));
-                */
+
             }
+            */
+            return null;
+        }
 
-            // Update data of current node
-            this.currentNode = nextNode;
-            this.currentNode.setArrival(arrivalNext);
-            this.currentNode.setDeparture(arrivalNext);
-            this.journey.add(currentNode);
+        // Round [last current time, current time]
+        Set<User> servicedUsersInRound = new HashSet<>();
 
+        int nOfVisitedNodesInSequence = 0;
 
-            // User data of current node
-            int tripId = currentNode.getTripId();
-            User currentUser = User.mapOfUsers.get(tripId);
+        for (Node nextNode : visit.getSequenceVisits()) {
 
-            // If DP node is visited, it means request is finished
-            if (currentNode instanceof NodeDP) {
+            // Get arrival time at first node of visit sequenceVisits
+            int arrivalNextNode = lastVisitedNode.getDeparture() + Dao.getInstance().getDistSec(lastVisitedNode, nextNode);
 
-                /*####################### Update list of serviced users #############################################*/
-                // Eliminate serviced user from visit
-                this.visit.getSetUsers().remove(currentUser);
+            // Sometimes, distance is zero, therefore the arrival should be earliest time
+            arrivalNextNode = Math.max(arrivalNextNode, nextNode.getEarliest());
 
-                // Add serviced user to vehicle
-                this.servicedUsers.add(currentUser);
+            // If car arrived at next node in sequence
+            if (arrivalNextNode <= currentSimulationTime) {
 
-                // Update serviced users
-                serviced.add(currentUser);
+                nOfVisitedNodesInSequence++;
 
-                /*###################################################################################################*/
+                double legDistanceTraveledKm = Dao.getInstance().getDistKm(this.lastVisitedNode, nextNode);
 
-                // Set arrival time at DP node for request
-                User.status[tripId][1] = arrivalNext;
-
-                // Save DP delay
-                User.status[tripId][3] = currentNode.getDelay();
-
-                // Node visited is removed from vehicle
-                this.users.remove(currentUser);
-
-                // User is locked in vehicle (cannot change to other)
-                this.enroute.remove(currentUser);
-
-                // TODO improve representation
-                // Locked node can be removed
-
-                // Save total ride time in vehicle
-                int rideTime = currentUser.getNodeDp().getArrival() - currentUser.getNodePk().getArrival();
-
-                // Save ride trip ride time
-                currentUser.setRideTime(rideTime);
-
-                // Save which type of vehicle picked up user
-                if (this.isHired()) {
-                    currentUser.computePickupByFreelanceVehicle();
+                if (this.currentLoad == 0) {
+                    this.distanceTraveledEmpty += legDistanceTraveledKm;
                 } else {
-                    currentUser.computePickupByDedicatedVehicle();
+                    this.distanceTraveledLoaded += legDistanceTraveledKm;
                 }
 
-            } else if (currentNode instanceof NodePK) {
+                this.currentLoad += nextNode.getLoad();
 
-                // Set arrival time at PK node for request
-                User.status[tripId][0] = arrivalNext;
-                //currentUser.getNodePk().setArrival(arrivalNext);
+                // Update data of current node
+                this.lastVisitedNode = nextNode;
+                this.lastVisitedNode.setArrival(arrivalNextNode);
+                // Min. departure is arrival time
+                this.lastVisitedNode.setDeparture(arrivalNextNode);
+                this.journey.add(lastVisitedNode);
 
-                // Save PK delay
-                User.status[tripId][2] = currentNode.getDelay();
+                // User associated to current Node
+                User currentUser = User.mapOfUsers.get(lastVisitedNode.getTripId());
 
-                // User is locked in vehicle (cannot change to other)
-                this.enroute.add(currentUser);
+                // If DP node is visited, it means request is finished
+                if (lastVisitedNode instanceof NodeDP) {
 
-                this.flexibleUsers.remove(currentUser);
+                    this.dropoff(currentUser);
+                    servicedUsersInRound.add(currentUser);
 
-                this.visit.getSetFlexibleUsers().remove(currentUser);
+                } else if (lastVisitedNode instanceof NodePK) {
 
-                // TODO: improve this representation
-                // This nodes must be visited by vehicle
-                //this.enrouteNode.add(User.mapOfUsers.get(tripId).getNodeDp());
+                    // Request become passenger
+                    this.pickup(currentUser);
+                }
+            }
+            else{
+                // If car didn't reach nextNode, subsequent nodes cannot be reached too
+                break;
             }
         }
 
-        // Remove first "nRemoved" elements
-        for (int j = 0; j < nRemoved; j++) {
-            visit.getSequenceVisits().removeFirst();
+        // Remove visited nodes from sequence
+        for (int j = 0; j < nOfVisitedNodesInSequence; j++) {
+            this.visit.getSequenceVisits().removeFirst();
         }
 
         // If all nodes were visited
-        if (this.users.isEmpty()) {
-
-            if (this.currentNode instanceof NodeTargetRebalancing) {
-                System.out.println("Updating target node!" + this.currentNode);
-            }
-
-            // Signalize that vehicle is stopped at last visited node in a stop point
-            this.currentNode = new NodeStop(this.currentNode, this.id);
-
-            // So far, current time is minimum departure time of node
-            this.currentNode.setDeparture(currentTime);
-
-            //Adding node stop to journey
-            this.journey.add(this.currentNode);
-
-            // Model.Vehicle has no routing plan
-            this.setVisit(null);
-
+        if (this.visit.getSequenceVisits().isEmpty()) {
+            this.createNodeStopAndFinishVisitAt(currentSimulationTime);
         }
 
         // Serviced users in an execution round
-        return serviced;
+        return servicedUsersInRound;
+    }
+
+    private void dropoff(User passenger) {
+
+        // Eliminate serviced user from visit
+        this.visit.getPassengers().remove(passenger);
+
+        // Add serviced user to vehicle
+        this.servicedUsers.add(passenger);
+
+        // Save total ride time in vehicle
+        int rideTime = passenger.getNodeDp().getArrival() - passenger.getNodePk().getArrival();
+
+        // Save ride trip ride time
+        passenger.setRideTime(rideTime);
+
+        // Save which type of vehicle picked up user
+        if (this.isHired()) {
+            passenger.computePickupByFreelanceVehicle();
+        } else {
+            passenger.computePickupByDedicatedVehicle();
+        }
+
+        /*###################################################################################################*/
+        // Set arrival time at DP node for request
+        int tripId = passenger.getId();
+        User.status[tripId][User.DP_ARRIVAL_TIME] = passenger.getNodeDp().getArrival();
+        // Save DP delay
+        User.status[tripId][User.DP_DELAY] = passenger.getNodeDp().getDelay();
+    }
+
+    private void pickup(User currentUser) {
+
+        // User is locked in vehicle (cannot change to other)
+        this.visit.getPassengers().add(currentUser);
+
+        // User is inside vehicle, no longer a request
+        this.visit.getRequests().remove(currentUser);
+
+        int tripId = currentUser.getId();
+
+        // Set arrival time at PK node for request
+        User.status[tripId][User.PK_ARRIVAL_TIME] = currentUser.getNodePk().getArrival();
+
+        // Save PK delay
+        User.status[tripId][User.PK_DELAY] = currentUser.getNodePk().getDelay();
     }
 
     /**
-     * If vehicle is rebalancing, check if target node was reached and end process if so.
+     * End rebalancing if target node was reached.
+     * t is important to add rebalancing target to journey because:
+     *  - legs (NodeStop, NodeTargetRebalancing) indicate rebalancing
+     *  - legs (NodeTargetRebalancing, NodeStop) indicate waiting
      *
-     * @param currentTime current execution time of the simulation
+     * @param currentSimulationTime current execution time of the simulation
      */
-    private void updateRebalancingStatus(int currentTime) {
+    private void endRebalanceIfTargetReachedAt(int currentSimulationTime) {
+
         // If rebalancing is finished (vehicle arrived at target)
-        if (currentTime >= this.visit.getTargetArrival()) {
+        if (currentSimulationTime >= this.visit.getArrivalTimeAtNext()) {
 
             this.distanceTraveledRebalancing += Dao.getInstance().getDistKm(
-                    this.currentNode,
+                    this.lastVisitedNode,
                     this.visit.getTargetNode());
 
             // Vehicle is no longer rebalancing
             this.setRebalancing(false);
 
             // Signalize that vehicle is stopped at last visited node in a stop point
-            this.setCurrentNode(this.visit.getTargetNode());
-
-            // Add current node to journey
-            this.journey.add(this.currentNode);
-
-            // Update departure time of vehicle current node
-            this.getCurrentNode().setDeparture(currentTime);
-
-            // Rebalancing routing plan is discarded
-            this.setVisit(null);
+            this.setLastVisitedNode(this.visit.getTargetNode());
 
             // Vehicle has been recently rebalanced, worth keeping in the fleet
             this.setRoundsIdle(0);
 
             // Node can become a rebalancing target again
-            Node.tabu.remove(currentNode.getNetworkId());
+            Node.tabu.remove(lastVisitedNode.getNetworkId());
+
+            journey.add(lastVisitedNode);
+
+            createNodeStopAndFinishVisitAt(currentSimulationTime);
+
         }
+    }
+
+    /**
+     * Compute last drop off upon finishing the visit.
+     * @param currentTime
+     */
+    private void createNodeStopAndFinishVisitAt(int currentTime) {
+
+        // Vehicle is stopped at last visited node and can depart at current time
+        this.lastVisitedNode = new NodeStop(this.lastVisitedNode, this.id, currentTime);
+
+        // Add current node to journey
+        this.journey.add(this.lastVisitedNode);
+
+        // Rebalancing routing plan is discarded
+        this.setVisit(null);
     }
 
     public Visit getVisitWithEnroute() {
 
-        if (this.visit == null || this.visit.getSetUsers() == null) return null;
+        if (this.visit == null || this.visit.getPassengers() == null) return null;
 
         Set<Node> deliveries = new HashSet<>();
 
-        for (User u : this.enroute) {
+        for (User u : this.visit.getPassengers()) {
             deliveries.add(u.getNodeDp());
         }
 
@@ -411,7 +396,6 @@ public class Vehicle implements Comparable<Vehicle> {
                 deliveriesOrdered.add(n);
             }
         }
-
 
         Visit newVisit = new Visit(this.visit);
 
@@ -450,40 +434,53 @@ public class Vehicle implements Comparable<Vehicle> {
     /**
      * Try to create a visit out of a single user (called when vehicle is empty)
      *
-     * @param insertedUser
-     * @param currentTime  Simulation current time
-     * @return Visit containing pk and dp nodes of user "insertedUser", or null if visit can't be created
+     * @param candidateRequest
+     * @param iterationTime  Simulation current time
+     * @return Visit containing pk and dp nodes of user "candidateRequest", or null if visit can't be created
      */
-    public Visit getFirstVisit(User insertedUser, int currentTime) {
+    public Visit getVisitFromEmptyVehicle(User candidateRequest, int iterationTime) {
 
-        // tripStatus[0] - arrivalFrom
-        // tripStatus[1] - loadFrom
-        // tripStatus[2] - totalDelay
+        int departureTime;
+        Node departureNode;
 
-        int[] tripStatus = new int[]{currentTime, 0, 0};
+        if (this.isRebalancing()){
+
+            //CURRENT TO MIDDLE
+            Node middle = this.getMiddleNode();
+
+            if (middle == null) {
+                return null;
+            }
+
+            // Time vehicle arrives at the middle node where trip will ACTUALLY start
+            departureTime = this.getDepartureCurrent() + this.distMiddleNode;
+            departureNode = middle;
+
+        } else{
+            departureTime = iterationTime;
+            departureNode = this.getLastVisitedNode();
+        }
+
+        int[] cumulativeLeg = new int[]{departureTime, 0, 0};
 
         // From vehicle current node to user pk
-        if (!this.isValidLeg(this.getCurrentNode(), insertedUser.getNodePk(), tripStatus))
+        if (!this.isValidLeg(departureNode, candidateRequest.getNodePk(), cumulativeLeg))
             return null;
 
         // From user pk to user dp
-        if (!this.isValidLeg(insertedUser.getNodePk(), insertedUser.getNodeDp(), tripStatus))
+        if (!this.isValidLeg(candidateRequest.getNodePk(), candidateRequest.getNodeDp(), cumulativeLeg))
             return null;
 
         // Create linked list (fast adds and removals)
-        LinkedList<Node> sequence = new LinkedList<>();
-        sequence.add(insertedUser.getNodePk());
-        sequence.add(insertedUser.getNodeDp());
+        LinkedList<Node> visitSequence = new LinkedList<>();
 
-        Visit first = new Visit(sequence, tripStatus[2]);
+        if (isRebalancing())
+            visitSequence.add(departureNode);
 
-        // Assign vehicle to best
-        first.setVehicle(this);
+        visitSequence.add(candidateRequest.getNodePk());
+        visitSequence.add(candidateRequest.getNodeDp());
 
-        // Assign user to visit
-        Set<User> candidateRequests = new HashSet<>();
-        candidateRequests.add(insertedUser);
-        first.setSetUsers(candidateRequests);
+        Visit first = new Visit(visitSequence, cumulativeLeg[DELAY], this, candidateRequest);
 
         return first;
     }
@@ -492,83 +489,33 @@ public class Vehicle implements Comparable<Vehicle> {
     ///// Gets & Sets //////////////////////////////////////////////////////////////////////////////////////////////////
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-    public Visit getVisitFromRebalancing(User candidateUser) {
-
-        //CURRENT TO MIDDLE
-        Node middle = this.getMiddleNode();
-
-        if (middle == null) {
-            return null;
-        }
-
-        int[] tripStatus = new int[]{
-                this.getDepartureCurrent() + this.distMiddleNode,
-                0,
-                0};
-
-        // From middle node to user pk
-        if (!this.isValidLeg(middle, candidateUser.getNodePk(), tripStatus))
-            return null;
-
-        // From user pk to user dp
-        if (!this.isValidLeg(candidateUser.getNodePk(), candidateUser.getNodeDp(), tripStatus))
-            return null;
-
-        // Create linked list (fast adds and removals)
-        LinkedList<Node> sequence = new LinkedList<>();
-        sequence.add(middle);
-        sequence.add(candidateUser.getNodePk());
-        sequence.add(candidateUser.getNodeDp());
-
-        Visit first = new Visit(sequence,
-                tripStatus[2]);
-
-        // Assign vehicle to best
-        first.setVehicle(this);
-
-        // Assign user to visit
-        Set<User> candidateRequests = new HashSet<>();
-        candidateRequests.add(candidateUser);
-        first.setSetUsers(candidateRequests);
-
-        return first;
-
-    }
-
     /**
      * Get best insertion of candidate user in vehicle at current time.
      *
-     * @param candidateUser
+     * @param candidateRequest
      * @param currentTime
      * @return Best visit or null
      */
-    public Visit getBestInsertion(User candidateUser, int currentTime) {
-
-
-        if (this.isRebalancing()) {
-            return getVisitFromRebalancing(candidateUser);
-        }
-
-        // First best including new users is initiated blank
-        Visit bestVisit = new Visit();
+    public Visit getVisitWithInsertedUser(User candidateRequest, int currentTime) {
 
         ////////////////////////////////////////////////////////////////////////////////////////////////////////////////
         // Vehicle has NO visit ////////////////////////////////////////////////////////////////////////////////////////
         ////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-        if (this.getVisit() == null ||
-                this.getVisit().getSequenceVisits() == null ||
-                this.getVisit().getSequenceVisits().isEmpty()) {
+        if (this.getVisit() == null || this.isRebalancing()) {
 
             // Try to create a one user visit
-            return getFirstVisit(candidateUser, currentTime);
+            return getVisitFromEmptyVehicle(candidateRequest, currentTime);
         }
 
         ////////////////////////////////////////////////////////////////////////////////////////////////////////////////
         // Vehicle has a visit /////////////////////////////////////////////////////////////////////////////////////////
         ////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-        // Copy elements in vehicle visit to candidate sequence candidate sequence that will be formed
+        // First best including new users is initiated blank
+        Visit bestVisit = new Visit();
+
+        // Copy elements in vehicle visit to candidate sequence that will be formed
         List<Node> visitsVehicle = this.getVisit().getSequenceVisits();
 
         //------------------------------------------------------------------------------------------------------------//
@@ -578,20 +525,20 @@ public class Vehicle implements Comparable<Vehicle> {
         pkcontinue:
         for (int pkPos = 0; pkPos <= visitsVehicle.size(); pkPos++) {
 
-            //int currentLoad = this.getCurrentNode().getLoad();
+            //int currentLoad = this.getLastVisitedNode().getCurrentLoad();
 
-            int currentLoad = this.load;
+            int currentLoad = this.currentLoad;
 
             int departureTimeFromVehicle = this.getDepartureCurrent();
 
-            // Status throughout sequence (arrival, load, delay, idle)
-            int[] tripStatusPK = new int[]{
+            // Status throughout sequence (arrival, currentLoad, delay, idle)
+            int[] cumulativeLegPK = new int[]{
                     departureTimeFromVehicle,
                     currentLoad,
                     0};
 
             // Current node is vehicle
-            Node currentPK = this.getCurrentNode();
+            Node currentPK = this.getLastVisitedNode();
 
             // Check if first leg will be changed. If so, departure time from vehicle is current simulation time
             Node middle = null;
@@ -607,19 +554,19 @@ public class Vehicle implements Comparable<Vehicle> {
                 }
 
                 // Update arrival in middle
-                tripStatusPK[0] += this.distMiddleNode;
+                cumulativeLegPK[ARRIVAL] += this.distMiddleNode;
                 currentPK = middle;
 
 
                 /*
 
                 System.out.println(String.format("Shortest path between %s(%d) and %s(%d): %s",
-                        this.getCurrentNode(),
-                        this.getCurrentNode().getNetworkId(),
+                        this.getLastVisitedNode(),
+                        this.getLastVisitedNode().getNetworkId(),
                         visitsVehicle.get(pkPos),
                         visitsVehicle.get(pkPos).getNetworkId(),
                         Dao.getInstance().getShortestPathBetween(
-                                this.getCurrentNode().getNetworkId(),
+                                this.getLastVisitedNode().getNetworkId(),
                                 visitsVehicle.get(pkPos).getNetworkId())));
                 */
             }
@@ -631,7 +578,7 @@ public class Vehicle implements Comparable<Vehicle> {
                 Node next = visitsVehicle.get(i);
 
                 // Check if it is possible to go from current to next
-                if (!this.isValidLeg(currentPK, next, tripStatusPK)) {
+                if (!this.isValidLeg(currentPK, next, cumulativeLegPK)) {
                     continue pkcontinue;
                 }
 
@@ -640,18 +587,18 @@ public class Vehicle implements Comparable<Vehicle> {
             }
 
             // #### PK #################################################################################################
-            if (!this.isValidLeg(currentPK, candidateUser.getNodePk(), tripStatusPK)) {
+            if (!this.isValidLeg(currentPK, candidateRequest.getNodePk(), cumulativeLegPK)) {
                 continue pkcontinue;
             }
 
             // Update current
-            currentPK = candidateUser.getNodePk();
+            currentPK = candidateRequest.getNodePk();
 
             dpcontinue:
             for (int dpPos = pkPos; dpPos <= visitsVehicle.size(); dpPos++) {
 
                 // Go back to last configuration
-                int[] tripStatus = tripStatusPK.clone();
+                int[] cumulativeLeg = cumulativeLegPK.clone();
                 Node current = currentPK;
 
                 // #### Between PK and DP ##############################################################################
@@ -661,7 +608,7 @@ public class Vehicle implements Comparable<Vehicle> {
                     Node next = visitsVehicle.get(i);
 
                     // Check if it is possible to go from current to next
-                    if (!this.isValidLeg(current, next, tripStatus)) {
+                    if (!this.isValidLeg(current, next, cumulativeLeg)) {
                         continue dpcontinue;
                     }
 
@@ -670,13 +617,13 @@ public class Vehicle implements Comparable<Vehicle> {
                 }
 
                 // #### DP #############################################################################################
-                if (!this.isValidLeg(current, candidateUser.getNodeDp(), tripStatus)) {
+                if (!this.isValidLeg(current, candidateRequest.getNodeDp(), cumulativeLeg)) {
 
                     continue dpcontinue;
                 }
 
                 // Update current
-                current = candidateUser.getNodeDp();
+                current = candidateRequest.getNodeDp();
 
                 // #### After DP #######################################################################################
                 for (int i = dpPos; i < visitsVehicle.size(); i++) {
@@ -685,7 +632,7 @@ public class Vehicle implements Comparable<Vehicle> {
                     Node next = visitsVehicle.get(i);
 
                     // Check if it is possible to go from current to next
-                    if (!this.isValidLeg(current, next, tripStatus)) {
+                    if (!this.isValidLeg(current, next, cumulativeLeg)) {
 
                         continue dpcontinue;
                     }
@@ -697,21 +644,24 @@ public class Vehicle implements Comparable<Vehicle> {
 
                 // Create linked list (fast adds and removals)
                 LinkedList<Node> newSequence = new LinkedList<>(visitsVehicle);
-                newSequence.add(dpPos, candidateUser.getNodeDp());
-                newSequence.add(pkPos, candidateUser.getNodePk());
+                newSequence.add(dpPos, candidateRequest.getNodeDp());
+                newSequence.add(pkPos, candidateRequest.getNodePk());
                 if (pkPos == 0) {
                     newSequence.add(0, middle);
                 }
 
                 Visit candidateVisit = new Visit(
                         newSequence,
-                        tripStatus[2]);
+                        cumulativeLeg[DELAY]);
 
                 candidateVisit.setVehicle(this);
 
-
-                //System.out.println(String.format("Insert %d and %d -%s %s (%s)", pkPos, dpPos, candidateUser, visitSequence, candidateVisit));
-
+                /*
+                System.out.println(String.format("Insert %d and %d -%s %s (%s)", pkPos, dpPos, candidateRequest, newSequence, candidateVisit));
+                System.out.println("VISITS = " + visitsVehicle + " - " + candidateRequest.getNodePk() + "-->" + candidateRequest.getNodeDp());
+                System.out.println("#######" + bestVisit);
+                System.out.println("-------" + candidateVisit + "--" + candidateVisit.getSequenceVisits());
+                 */
                 // Update best visit (Compare delay)
                 if (bestVisit.compareTo(candidateVisit) > 0) {
                     bestVisit = candidateVisit;
@@ -727,10 +677,13 @@ public class Vehicle implements Comparable<Vehicle> {
         // Assign vehicle to best
         bestVisit.setVehicle(this);
 
-        // Update user set of best visit
-        Set<User> candidateRequests = new HashSet<>(this.getUsers());
-        candidateRequests.add(candidateUser);
-        bestVisit.setSetUsers(candidateRequests);
+        // New visit contains vehicle users and new inserted request
+        Set<User> requests = new HashSet<>(this.visit.getRequests());
+        requests.add(candidateRequest);
+        bestVisit.setRequests(requests);
+
+        // New visit contains the vehicle passengers
+        bestVisit.setPassengers(this.visit.getPassengers());
 
         return bestVisit;
     }
@@ -757,7 +710,7 @@ public class Vehicle implements Comparable<Vehicle> {
     }
 
     public int getDepartureCurrent() {
-        return this.currentNode.getDeparture();
+        return this.lastVisitedNode.getDeparture();
     }
 
     public Node getOrigin() {
@@ -768,8 +721,8 @@ public class Vehicle implements Comparable<Vehicle> {
         return id;
     }
 
-    public int getLoad() {
-        return load;
+    public int getCurrentLoad() {
+        return currentLoad;
     }
 
     public Visit getVisit() {
@@ -780,21 +733,12 @@ public class Vehicle implements Comparable<Vehicle> {
         this.visit = visit;
     }
 
-    public Node getCurrentNode() {
-        return currentNode;
+    public Node getLastVisitedNode() {
+        return lastVisitedNode;
     }
 
-    public void setCurrentNode(Node currentNode) {
-        this.currentNode = currentNode;
-    }
-
-    public Set<User> getUsers() {
-        return users;
-    }
-
-    public void setUsers(Set<User> users) {
-        this.users = users;
-        this.flexibleUsers = new HashSet<>(users);
+    public void setLastVisitedNode(Node lastVisitedNode) {
+        this.lastVisitedNode = lastVisitedNode;
     }
 
     public int getCapacity() {
@@ -885,44 +829,53 @@ public class Vehicle implements Comparable<Vehicle> {
         return str.toString();
     }
 
+    /**
+     * @return true, if vehicle is servicing users (passengers or requests)
+     */
+    public boolean isServicing(){
+        return (this.visit != null && (!this.visit.getRequests().isEmpty() || !this.visit.getPassengers().isEmpty()));
+    }
+
     public boolean isParked() {
-        if (!this.getUsers().isEmpty()) return false;
+        if (this.isServicing()) return false;
         if (this.isRebalancing()) return false;
-        if (this.getCurrentNode() instanceof NodePK) return false;
-        if (this.getCurrentNode() instanceof NodeDP) return false;
-        return !(this.getCurrentNode() instanceof NodeMiddle);
+        if (this.getLastVisitedNode() instanceof NodePK) return false;
+        if (this.getLastVisitedNode() instanceof NodeDP) return false;
+        return !(this.getLastVisitedNode() instanceof NodeMiddle);
     }
 
     public boolean isCruising() {
-        return (!this.getUsers().isEmpty() && this.load == 0);
+        // Vehicle is empty and there are requests
+        return (!this.visit.getRequests().isEmpty() && this.currentLoad == 0);
 
     }
 
     public String getOccupancyStatus() {
-        return String.format("(%2s/%d)", (!users.isEmpty() ? String.valueOf(load) : "-"), capacity);
+        return String.format("(%2s/%d)", (!this.visit.getPassengers().isEmpty() ? String.valueOf(currentLoad) : "-"), capacity);
     }
 
     public String getInfo() {
 
-        return String.format("%s(%s) - Journey: %-200s - Users: %-100s - Attended: %s - %s",
+        return String.format("%s(%s) - Journey: %-200s - Passengers: %-100s - Requests: %-100s - Attended: %s - %s",
                 this,
                 getOccupancyStatus(),
                 (this.visit != null ? visit : "---"),
-                users,
+                this.visit.getPassengers(),
+                this.visit.getRequests(),
                 servicedUsers,
                 ((this.rebalancing == true) ? "(Rebalancing)" : ""));
     }
 
     /**
-     * Sort vehicles according to load (lower first).
+     * Sort vehicles according to currentLoad (lower first).
      *
      * @param that Vehicle
      * @return -1 (BEFORE), 0 (EQUAL), 1 (AFTER)
      */
     @Override
     public int compareTo(Vehicle that) {
-        if (this.load < that.load) return BEFORE;
-        if (this.load > that.load) return AFTER;
+        if (this.currentLoad < that.currentLoad) return BEFORE;
+        if (this.currentLoad > that.currentLoad) return AFTER;
         return EQUAL;
     }
 
@@ -988,10 +941,6 @@ public class Vehicle implements Comparable<Vehicle> {
         // Assign vehicle to best
         bestVisit.setVehicle(this);
 
-        // Update user set of best visit
-        Set<User> candidateRequests = new HashSet<>(this.getUsers());
-        candidateRequests.add(candidateUser);
-        bestVisit.setSetUsers(candidateRequests);
 
         return bestVisit;
     }
@@ -1012,12 +961,12 @@ public class Vehicle implements Comparable<Vehicle> {
                                              int dpPos,
                                              int currentTime) {
 
-        // tripStatus[0] - Integer arrivalFrom
-        // tripStatus[1] - Integer loadFrom
-        // tripStatus[2] - Integer totalDelay
+        // cumulativeLeg[ARRIVAL] - Integer arrivalFrom
+        // cumulativeLeg[LOAD] - Integer loadFrom
+        // cumulativeLeg[DELAY] - Integer totalDelay
 
-        // Status throughout sequence (arrival, load, delay, idle)
-        int[] tripStatus = new int[3];
+        // Status throughout sequence (arrival, currentLoad, delay, idle)
+        int[] cumulativeLeg = new int[3];
 
         // Arrival time of vehicle current node (if first node in visit sequence does not change).
         // Otherwise, current time.
@@ -1028,19 +977,19 @@ public class Vehicle implements Comparable<Vehicle> {
         if (pkPos > 0 && this.getVisit() != null && baseSequence.get(0) == this.getVisit().getSequenceVisits().getFirst()) {
 
             // Departure time of vehicle original visit may remain the same since node "pkPos" can still be visited
-            tripStatus[0] = this.getDepartureCurrent();
+            cumulativeLeg[ARRIVAL] = this.getDepartureCurrent();
 
         } else {
             // If first leg will be changed, the earliest arrival time at vehicle
             // current node shall be updated to current time
-            tripStatus[0] = currentTime;
+            cumulativeLeg[ARRIVAL] = currentTime;
         }
 
         // Load
-        tripStatus[1] = this.getCurrentNode().getLoad();
+        cumulativeLeg[LOAD] = this.getLastVisitedNode().getLoad();
 
         // Current node is vehicle
-        Node current = this.getCurrentNode();
+        Node current = this.getLastVisitedNode();
 
         // #### Before PK ##############################################################################################
 
@@ -1051,7 +1000,7 @@ public class Vehicle implements Comparable<Vehicle> {
             Node next = baseSequence.get(i);
 
             // Check if it is possible to go from current to next
-            if (!this.isValidLeg(current, next, tripStatus)) {
+            if (!this.isValidLeg(current, next, cumulativeLeg)) {
                 return null;
             }
 
@@ -1061,7 +1010,7 @@ public class Vehicle implements Comparable<Vehicle> {
         }
 
         // #### PK #####################################################################################################
-        if (!this.isValidLeg(current, insertedUser.getNodePk(), tripStatus)) {
+        if (!this.isValidLeg(current, insertedUser.getNodePk(), cumulativeLeg)) {
             return null;
         }
 
@@ -1076,7 +1025,7 @@ public class Vehicle implements Comparable<Vehicle> {
             Node next = baseSequence.get(i);
 
             // Check if it is possible to go from current to next
-            if (!this.isValidLeg(current, next, tripStatus)) {
+            if (!this.isValidLeg(current, next, cumulativeLeg)) {
                 return null;
             }
 
@@ -1086,12 +1035,11 @@ public class Vehicle implements Comparable<Vehicle> {
         }
 
         // #### DP #####################################################################################################
-        if (!this.isValidLeg(current, insertedUser.getNodeDp(), tripStatus))
+        if (!this.isValidLeg(current, insertedUser.getNodeDp(), cumulativeLeg))
             return null;
 
         // Update current
         current = insertedUser.getNodeDp();
-        //newSequence.add(current);
 
         // #### After DP ###############################################################################################
         for (int i = dpPos; i < baseSequence.size(); i++) {
@@ -1100,13 +1048,12 @@ public class Vehicle implements Comparable<Vehicle> {
             Node next = baseSequence.get(i);
 
             // Check if it is possible to go from current to next
-            if (!this.isValidLeg(current, next, tripStatus)) {
+            if (!this.isValidLeg(current, next, cumulativeLeg)) {
                 return null;
             }
 
             // Update current
             current = next;
-            //newSequence.add(current);
         }
 
         // Create linked list (fast adds and removals)
@@ -1115,7 +1062,7 @@ public class Vehicle implements Comparable<Vehicle> {
         newSequence2.add(pkPos, insertedUser.getNodePk());
 
         Visit visit = new Visit(newSequence2,
-                tripStatus[2]);
+                cumulativeLeg[DELAY]);
 
         return visit;
     }
@@ -1126,20 +1073,20 @@ public class Vehicle implements Comparable<Vehicle> {
      *
      * @param fromNode   Origin node
      * @param nextNode     Destination node
-     * @param tripStatus Precedent status to update
+     * @param cumulativeLeg Precedent status to update
      * @return true, if there is a valid trip, and false, otherwise.
      */
     public boolean isValidLeg(Node fromNode,
                               Node nextNode,
-                              int[] tripStatus) {
+                              int[] cumulativeLeg) {
 
-        // tripStatus[0] - arrivalFrom
-        // tripStatus[1] - loadFrom
-        // tripStatus[2] - totalDelay
+        // cumulativeLeg[ARRIVAL] - arrivalFrom
+        // cumulativeLeg[LOAD] - loadFrom
+        // cumulativeLeg[DELAY] - totalDelay
 
 
         // Update loads (DP nodes have negative loads)
-        int load = tripStatus[1] + nextNode.getLoad();
+        int load = cumulativeLeg[LOAD] + nextNode.getLoad();
 
 
         // Capacity constraint (if lower than zero, sequence is invalid! Visited DP before PK)
@@ -1156,7 +1103,7 @@ public class Vehicle implements Comparable<Vehicle> {
         }
         // Time vehicle arrives at next node (can be earlier or later)
         // If distance is zero, arrival next MUST be at least earliest time at next node
-        int arrivalNext = Math.max(tripStatus[0] + distFromTo, nextNode.getEarliest());
+        int arrivalNext = Math.max(cumulativeLeg[ARRIVAL] + distFromTo, nextNode.getEarliest());
 
         // Arrival cannot be later than latest time in node
         if (arrivalNext > nextNode.getLatest()) {
@@ -1170,10 +1117,8 @@ public class Vehicle implements Comparable<Vehicle> {
             return false;
         }
 
-
         //Can vehicle visit next user?
         User uFrom = User.mapOfUsers.get(fromNode.getTripId());
-
 
         // From user requires private ride?
         if (uFrom != null && fromNode instanceof NodePK && !uFrom.isSharingAllowed()) {
@@ -1222,13 +1167,13 @@ public class Vehicle implements Comparable<Vehicle> {
 
 
         // Update arrival time at next node to >= earliest time of next node
-        tripStatus[0] = arrivalNext;
+        cumulativeLeg[ARRIVAL] = arrivalNext;
 
-        // Update load
-        tripStatus[1] = load;
+        // Update currentLoad
+        cumulativeLeg[LOAD] = load;
 
         // Delay and idleness
-        tripStatus[2] += delay;
+        cumulativeLeg[DELAY] += delay;
 
         /*TODO: previous_arrival: verify if arrival is better than previous arrival saved for node*/
         // In this sequence, one of the customers was already scheduled earlier.
@@ -1245,7 +1190,7 @@ public class Vehicle implements Comparable<Vehicle> {
 
     public void updateDeparture(int currentTime) {
         int dep = Math.max(currentTime, this.getDepartureCurrent());
-        this.getCurrentNode().setDeparture(dep);
+        this.getLastVisitedNode().setDeparture(dep);
     }
 
     /**
@@ -1263,23 +1208,19 @@ public class Vehicle implements Comparable<Vehicle> {
             return;
         }
 
-        Node next;
-        if (this.isRebalancing()) {
-            next = this.visit.getTargetNode();
-        } else {
-            next = this.visit.sequenceVisits.getFirst();
+        // next = rebalancing target (if VisitRelocation) and first node in sequence (if VisitInsertion)
+        Node next = this.visit.getTargetNode();
 
-            // No middle nodes between middle nodes
-            if (next instanceof NodeMiddle) {
-                return;
-            }
+        // No middle nodes between middle nodes
+        if (next instanceof NodeMiddle) {
+            return;
         }
 
         // How long since vehicle left last visited node?
         int elapsedTime = currentTime - this.getDepartureCurrent();
         int nodeBetweenId = Dao.getInstance()
                 .getNodeBetweenAndExtraDelay(
-                        this.getCurrentNode(),
+                        this.getLastVisitedNode(),
                         next,
                         elapsedTime);
 
@@ -1291,11 +1232,10 @@ public class Vehicle implements Comparable<Vehicle> {
         }
 
         //CURRENT TO MIDDLE
-        //this.setMiddleNode(new NodeMiddle(nodeBetweenId));
-        this.setMiddleNode(new NodeMiddle(nodeBetweenId, this.getCurrentNode(), next, elapsedTime));
+        this.setMiddleNode(new NodeMiddle(nodeBetweenId, this.getLastVisitedNode(), next, elapsedTime));
 
         // Distance from current to middle node
-        this.distMiddleNode = Dao.getInstance().getDistSec(this.getCurrentNode(), this.getMiddleNode());
+        this.distMiddleNode = Dao.getInstance().getDistSec(this.getLastVisitedNode(), this.getMiddleNode());
     }
 
     public double getDistanceTraveledRebalancing() {
@@ -1363,6 +1303,7 @@ public class Vehicle implements Comparable<Vehicle> {
     public int hashCode() {
         return this.getId();
     }
+
 }
 
 
