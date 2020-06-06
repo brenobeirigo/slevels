@@ -21,7 +21,13 @@ public class User implements Comparable<User> {
     public static final int NOT_SERVICED = 0;
     public static final int WAITING = -1;
 
-    // If user cannot be picked up, service levels are lowered
+    public static final int PK_ARRIVAL_TIME = 0;
+    public static final int DP_ARRIVAL_TIME = 1;
+    public static final int PK_DELAY = 2;
+    public static final int DP_DELAY = 3;
+
+
+    // If user cannot be picked up, service levels are lowered (this regulates MET and UNMET)
     public boolean serviceLevelLowered;
 
     // Total number of requests
@@ -54,7 +60,7 @@ public class User implements Comparable<User> {
 
     private boolean sharingAllowed;
 
-    // User performance clas (A, B, and C)
+    // User performance class (A, B, and C)
     private String performanceClass;
 
     // Record from data set that originated request
@@ -82,6 +88,10 @@ public class User implements Comparable<User> {
         this.id = ++nTrips;
         this.record = record;
         this.servedBy = User.WAITING;
+    }
+
+    public String getPickupDatetime(){
+        return this.record.get("pickup_datetime");
     }
 
     public int getDistFromTo() {
@@ -311,7 +321,7 @@ public class User implements Comparable<User> {
 
         for (Vehicle v : listVehicles) {
 
-            int dist = Dao.getInstance().getDistSec(v.getCurrentNode(), this.getNodePk());
+            int dist = Dao.getInstance().getDistSec(v.getLastVisitedNode(), this.getNodePk());
 
             if (dist <= maxDistance) {
 
@@ -319,7 +329,7 @@ public class User implements Comparable<User> {
 
                 System.out.println(String.format("%s -> %s - %d - %s", v.getId(), this.getInfo(), dist, v.getInfo()));
 
-                Visit candidateVisit = v.getBestInsertion(this, currentTime);
+                Visit candidateVisit = v.getVisitWithInsertedUser(this, currentTime);
 
                 // Update best visit if delay of candidate visit is shorter
                 if (candidateVisit != null && candidateVisit.compareTo(bestVisit) < 0) {
@@ -341,6 +351,38 @@ public class User implements Comparable<User> {
 
         return bestVisit;
     }
+
+    /**
+     * Find best pair of edges (i,i+1) and (j,j+1) such that replacing
+     * them with (i,j) and (i+1,j+1) minimizes tour length.
+     * @param visit
+     * @return
+     */
+    /*public Visit intensify2Opt(Visit visit){
+
+        do {
+            int minchange = 0;
+            for (int i = 0; i < visit.sequenceVisits.size()-2; i++) {
+                for (int j = i+2; j < visit.sequenceVisits.size()-2; j++) {
+
+                    LinkedList<Node> newSequence = new LinkedList<>(visit);
+                    newSequence.
+                    newSequence.add(dpPos, candidateRequest.getNodeDp());
+                    newSequence.add(pkPos, candidateRequest.getNodePk());
+
+                    Visit v2 = new Visit
+
+                    int change = Dao.getInstance().getDistKm(visit.sequenceVisits.get(i), visit.sequenceVisits.get(j))
+                            + Dao.getInstance().getDistKm(visit.sequenceVisits.get(i+1), visit.sequenceVisits.get(j+1))
+                            - dist(i,i+1) - dist(j,j+1);
+                    if (minchange > change) {
+                        minchange = change;
+                        mini = i; minj = j;
+                    } } }
+            // apply mini/minj move
+        } while (minchange < 0);
+    }*/
+
 
     public boolean canBePickedUp(int currentTime) {
         return currentTime <= this.nodePk.getLatest();
@@ -374,7 +416,7 @@ public class User implements Comparable<User> {
     }
 
     /**
-     * Try to insert the user in a list of vehicles, and return the best best insertion.
+     * Try to insert the user in a list of vehicles, and return the best insertion.
      *
      * @param listVehicles
      * @param currentTime
@@ -405,7 +447,8 @@ public class User implements Comparable<User> {
                 */
 
             //######################################################################################################
-            Visit candidateVisit = v.getBestInsertion(this, currentTime);
+            Visit candidateVisit = v.getVisitWithInsertedUser(this, currentTime);
+            // System.out.println("Visit ("+v+"): "+candidateVisit);
             //Visit candidateVisit = v.getBestInsertionOld(u, currentTime);
             //######################################################################################################
             //if (candidateVisit != null)
@@ -435,50 +478,50 @@ public class User implements Comparable<User> {
      * @param stopAtFirstBest
      * @return Best visit, or null
      */
-    public Visit getBestVisitByInsertion2(List<Vehicle> listVehicles, int currentTime, boolean stopAtFirstBest) {
-
-        Visit bestVisit = null;
-
-        // Try to insert user in each vehicle
-        for (Vehicle v : listVehicles) {
-
-            // Rebalancing vehicles cannot service users
-            //if(v.isRebalancing()){
-            //   continue;
-            //}
-
-                /*todo - CHECK IN PARALLEL
-                if (checkInParallel) {
-
-                    // Sequence with user to be added in vehicle
-                    Set<User> auxUserSequence = new HashSet<>();
-                    auxUserSequence.add(u);
-
-                    candidateVisit = Method.getBestInsertionParallel(auxUserSequence, v, 2, true, maxPermutationsFCFS);
-
-                */
-
-            //######################################################################################################
-            Visit candidateVisit = v.getBestInsertion(this, currentTime);
-            //Visit candidateVisit = v.getBestInsertionOld(u, currentTime);
-            //######################################################################################################
-            //if (candidateVisit != null)
-            //    visitList.add(candidateVisit);
-
-            // Update best visit if delay of candidate visit is shorter
-            if (candidateVisit != null && candidateVisit.compareTo(bestVisit) < 0) {
-
-                // Updating visit
-                bestVisit = candidateVisit;
-
-                // Stop at the first improvement
-                if (stopAtFirstBest) {
-                    break;
-                }
-            }
-        }
-        return bestVisit;
-    }
+//    public Visit getBestVisitByInsertion2(List<Vehicle> listVehicles, int currentTime, boolean stopAtFirstBest) {
+//
+//        Visit bestVisit = null;
+//
+//        // Try to insert user in each vehicle
+//        for (Vehicle v : listVehicles) {
+//
+//            // Rebalancing vehicles cannot service users
+//            //if(v.isRebalancing()){
+//            //   continue;
+//            //}
+//
+//                /*todo - CHECK IN PARALLEL
+//                if (checkInParallel) {
+//
+//                    // Sequence with user to be added in vehicle
+//                    Set<User> auxUserSequence = new HashSet<>();
+//                    auxUserSequence.add(u);
+//
+//                    candidateVisit = Method.getBestInsertionParallel(auxUserSequence, v, 2, true, maxPermutationsFCFS);
+//
+//                */
+//
+//            //######################################################################################################
+//            Visit candidateVisit = v.getVisitWithInsertedUser(this, currentTime);
+//            //Visit candidateVisit = v.getBestInsertionOld(u, currentTime);
+//            //######################################################################################################
+//            //if (candidateVisit != null)
+//            //    visitList.add(candidateVisit);
+//
+//            // Update best visit if delay of candidate visit is shorter
+//            if (candidateVisit != null && candidateVisit.compareTo(bestVisit) < 0) {
+//
+//                // Updating visit
+//                bestVisit = candidateVisit;
+//
+//                // Stop at the first improvement
+//                if (stopAtFirstBest) {
+//                    break;
+//                }
+//            }
+//        }
+//        return bestVisit;
+//    }
 
     public void printDetailed() {
         System.out.println(String.format("%s(%s) - %s[%d](%d << %d - %d << %d) -> %s[%d](%d << %d - %d << %d) - Distance(s): %d - Distance(km): %f -  #Passengers: %d",
