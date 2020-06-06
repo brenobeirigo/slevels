@@ -10,8 +10,11 @@ import model.Vehicle;
 import model.Visit;
 import model.node.Node;
 import model.node.NodeTargetRebalancing;
+import org.boon.collections.ConcurrentHashSet;
 
 import java.nio.file.Files;
+import java.time.Duration;
+import java.time.Instant;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -37,6 +40,8 @@ public abstract class Simulation {
     protected boolean isAllowedToRebalance;
     protected Rebalance rebalanceUtil;
 
+    // Matching
+    protected boolean sortWaitingUsersByClass;
 
     /*Scenario*/
     protected String serviceRateScenarioLabel;
@@ -88,8 +93,10 @@ public abstract class Simulation {
                       int contractDuration,
                       boolean isAllowedToHire,
                       boolean isAllowedToLowerServiceLevel,
+                      boolean sortWaitingUsersByClass,
                       Rebalance rebalanceUtil) {
-
+        /*MATCHING*/
+        this.sortWaitingUsersByClass = sortWaitingUsersByClass;
 
         /* REBALANCING */
         this.isAllowedToRebalance = isAllowedToRebalance;
@@ -158,6 +165,84 @@ public abstract class Simulation {
 
     public abstract Set<User> getServicedUsersDynamicSizedFleet(int currentTime);
 
+    public void updateFleetStatusParallel() {
+        ////// 1 - GET FINISHED USERS (before current time) ////////////////////////////////////////////////////////
+        setDeactivated = new HashSet<>();
+
+        // Vehicles not servicing users nor rebalancing
+        ConcurrentHashSet<Vehicle> candidateVehiclesToRebalance = new ConcurrentHashSet<>();
+
+        //Instant before = Instant.now();
+        // Loop vehicles to get set of finished requests and set of active vehicles (servicing users OR rebalancing)
+        listVehicles.parallelStream().filter(v ->
+        {
+
+            // Limits the hiring contract
+            v.increaseActiveRounds();
+
+            // Return set of users and update rebalancing vehicles
+            Set<User> serviced = v.getServicedUsersUntil(rightTW);
+
+            if (serviced != null) {
+                finishedRequests.addAll(serviced);
+            }
+
+            // If vehicle is hired, it has to be deactivated as soon as it delivers its last customer
+            if (canEndContract(v, rightTW)) {
+                //setDeactivated.add(v);
+                setHired.remove(v);
+                return false;
+            } else
+                return true;
+        }).map(v -> {
+
+            // If vehicle is not parked, it is either cruising, servicing or rebalancing
+            if (!v.isParked()) {
+                activeFleet = true;
+            } else {
+
+                /* Update vehicle's current nodes (if they are of types NodeOrigin and NodeStop)
+                 * with the rightmost time window value. This is the time a vehicle is allowed to
+                 * depart to get the customers.
+                 * E.g.:
+                 * [00:00:00 - 00:00:30] -> Pool requests
+                 * [00:00:30 :] -> Route vehicles
+                 */
+                // Time from current node in vehicle is only updated when:
+                //  - Current node is origin or NodeStop
+                //  - Model.Vehicle is idle
+
+                v.updateDeparture(rightTW);
+
+                // Vehicle is not servicing customers
+                v.increaseRoundsIdle();
+
+                // Check if it is candidate to rebalance
+                if (isAllowedToRebalance) {
+                    // System.out.println("REBALANCE - - - "+ v.getId() + " - - - - - " + v + " - " + v.getRoundsIdle() + "----" + maxRoundsIdleBeforeRebalance);
+                    candidateVehiclesToRebalance.add(v);
+                }
+            }
+            v.updateMiddle(rightTW);
+            return v;
+        }).collect(Collectors.toList());
+
+        //Instant after = Instant.now();
+        //Duration duration = Duration.between(before, after);
+        //System.out.println("Duration update (" + listVehicles.size() + " vehices): " + duration.toMillis());
+        // Updating vehicle lists
+        //listVehicles.removeAll(setDeactivated);
+        //setHired.removeAll(setDeactivated);
+
+
+        /*#********************************************************************************************************/
+        ////// REBALANCING /////////////////////////////////////////////////////////////////////////////////////////
+        /*#********************************************************************************************************/
+
+        rebalance(candidateVehiclesToRebalance);
+
+    }
+
     /**
      * Vehicle can:
      * - Finish rebalance
@@ -165,12 +250,12 @@ public abstract class Simulation {
      * - Be deactivated
      * - Have parking nodes (origin, stop) updated in departure
      */
-    public void updateFleetStatus() {
+    public Set<Vehicle> updateFleetStatus() {
         ////// 1 - GET FINISHED USERS (before current time) ////////////////////////////////////////////////////////
         setDeactivated = new HashSet<>();
 
         // Vehicles not servicing users nor rebalancing
-        List<Vehicle> candidateVehiclesToRebalance = new ArrayList<>();
+        Set<Vehicle> candidateVehiclesToRebalance = new HashSet<>();
 
         // Loop vehicles to get set of finished requests and set of active vehicles (servicing users OR rebalancing)
         for (Vehicle v : listVehicles) {
@@ -188,7 +273,6 @@ public abstract class Simulation {
             // If vehicle is hired, it have to be deactivated as soon as it delivers its last customer
             if (canEndContract(v, rightTW)) {
                 setDeactivated.add(v);
-                continue;
             }
 
             // If vehicle is not parked, it is either cruising, servicing or rebalancing
@@ -225,18 +309,16 @@ public abstract class Simulation {
         listVehicles.removeAll(setDeactivated);
         setHired.removeAll(setDeactivated);
 
+        return candidateVehiclesToRebalance;
+    }
 
-        /*#********************************************************************************************************/
-        ////// REBALANCING /////////////////////////////////////////////////////////////////////////////////////////
-        /*#********************************************************************************************************/
+    private void rebalance(Set<Vehicle> idleVehicles) {
 
         if (isAllowedToRebalance) {
-            /// Rescheduling empty vehicles ////////////////////////////////////////////////////////////////////////////////
             rebalancingTime = System.nanoTime();
-            rebalanceUtil.rebalanceVehicles(candidateVehiclesToRebalance);
+            rebalanceUtil.rebalance(idleVehicles);
             rebalancingTime = (System.nanoTime() - rebalancingTime) / 1000000;
         }
-
     }
 
     /**
@@ -260,6 +342,17 @@ public abstract class Simulation {
             // Add pooled requests into waiting list
             setWaitingUsers.addAll(listPooledUsersTW);
 
+            // Sort by class and earliest time
+            if (sortWaitingUsersByClass){
+                Collections.sort(setWaitingUsers, Comparator.comparing(User::getPerformanceClass)
+                        .thenComparing(User::getReqTime));
+
+                /*System.out.println("##### Users");
+                for (User e: setWaitingUsers) {
+                    System.out.println(e + String.valueOf(e.getReqTime()));
+                }*/
+            }
+
             // Store all requests
             for (User e : listPooledUsersTW) {
                 allRequests.put(e.getId(), e);
@@ -273,8 +366,6 @@ public abstract class Simulation {
      * @param infoLevel If true, show status of all vehicles
      */
     public void printRoundInfo(int infoLevel) {
-
-
          /*#*********************************************************************************************************
              ///// Print round information  ////////////////////////////////////////////////////////////////////////////
             /*#********************************************************************************************************/
@@ -283,20 +374,21 @@ public abstract class Simulation {
         long runTime = (System.nanoTime() - roundTimeNanoSec) / 1000000;
         // Print round statistics (Round info is also calculated here)
         String roundSnapshot = sol.calculateRoundStats(
-                rightTW,
-                vehicleCapacity,
-                listVehicles,
-                setHired,
-                setDeactivated,
-                listHiredVehicles,
-                setWaitingUsers,
-                finishedRequests,
-                roundRejectedUsers,
-                deniedRequests,
-                listPooledUsersTW,
-                allRequests,
-                runTime,
-                rebalancingTime);
+            rightTW,
+            vehicleCapacity,
+            listVehicles,
+            setHired,
+            setDeactivated,
+            listHiredVehicles,
+            setWaitingUsers,
+            finishedRequests,
+            roundRejectedUsers,
+            deniedRequests,
+            listPooledUsersTW,
+            allRequests,
+            runTime,
+            rebalancingTime
+        );
 
 
         if (infoLevel == Simulation.ROUND_INFO || infoLevel == Simulation.ALL_INFO) {
@@ -345,7 +437,6 @@ public abstract class Simulation {
         setWaitingUsers.removeAll(roundRejectedUsers);
 
 
-
         System.out.println("Getting serviced users...");
         ///// 3 - ASSIGN WAITING USERS (previous + current round)  TO VEHICLES /////////////////////////////////////////
         Set<User> setScheduledUsers = getServicedUsersDynamicSizedFleet(rightTW);
@@ -375,16 +466,30 @@ public abstract class Simulation {
 
 
             // Rebalance, deactivate, and update parking nodes /////////////////////////////////////////////////////////
-            System.out.println("Updating fleet status...");
-            // Get serviced users
-            // Remove hired
-            // Rebalance vehicles
-            updateFleetStatus();
+
+            Instant before = Instant.now();
+            // Move vehicles, Compute serviced users, remove hired
+            Set<Vehicle> idleVehicles = updateFleetStatus();
+
+            // TODO Preliminary tests show that parallel stream is slower. Can more cores be of any help?
+            //updateFleetStatusParallel();
+
+
+            long durationUdateFleet = Duration.between(before, Instant.now()).toMillis();
+            System.out.println(String.format("Fleet status updated (%.2f seconds)...", durationUdateFleet/1000.0));
+
+            before = Instant.now();
+            // Rebalance idle vehicles
+            rebalance(idleVehicles);
+
+            long durationRebalancing = Duration.between(before, Instant.now()).toMillis();
+            System.out.println(String.format("Fleet rebalancing (%.2f seconds)...", durationRebalancing/1000.0));
 
             // Pool, service, and reject users /////////////////////////////////////////////////////////////////////////
-            System.out.println("Updating demand status...");
+            before = Instant.now();
             updateDemandStatus();
-
+            long durationUpdateDemand = Duration.between(before, Instant.now()).toMillis();
+            System.out.println(String.format("Demand status updated (%.2f seconds)...",  durationUpdateDemand/1000.0));
 
             printRoundInfo(infoLevel);
 
@@ -412,7 +517,7 @@ public abstract class Simulation {
             }
         }
         // Saving vehicles traces
-        sol.saveGeoJsonPerVehicle(listVehicles);
+        //sol.saveGeoJsonPerVehicle(listVehicles);
 
         // Save solution to file (summary of rounds)
         sol.save();
@@ -422,7 +527,6 @@ public abstract class Simulation {
 
 
     }
-
 
     /**
      * Add user to vehicle and setup visit.
@@ -438,9 +542,6 @@ public abstract class Simulation {
         // Add visit to vehicle (circular)
         visit.getVehicle().setVisit(visit);
 
-        // Vehicle set of users
-        visit.getVehicle().setUsers(visit.getSetUsers());
-
         // Vehicle is not idle
         visit.getVehicle().setRoundsIdle(0);
     }
@@ -450,11 +551,9 @@ public abstract class Simulation {
         //System.out.println("STOPPED REBALANCING!" + this);
         Vehicle vehicle = visit.getVehicle();
 
-        Node currentNode = vehicle.getCurrentNode();
+        Node currentNode = vehicle.getLastVisitedNode();
         Node middleNode = vehicle.getMiddleNode();
         NodeTargetRebalancing target = (NodeTargetRebalancing) vehicle.getVisit().getTargetNode();
-
-        visit.getVehicle().getJourney().add(target);
 
         // Target was not reached, it goes back to attractive points
         if (this.rebalanceUtil.reinsertTargets && !target.isReached()) {
@@ -477,13 +576,13 @@ public abstract class Simulation {
 
         vehicle.increaseDistanceTraveledRebalancing(distTraveledKmCurrentMiddle);
 
-        //double distTraveledKmCurrentMiddle = Dao.getInstance().getDistKm(currentNode, middleNode);
-
+        // Create structure that helps to understand what is happening in the rebalancing process
         if (rebalanceUtil.createEpisode) {
 
             int roundsToFindUser = (Dao.getInstance().getDistSec(currentNode, middleNode) / this.timeWindow);
 
             double distTraveledKm = Dao.getInstance().getDistKm(currentNode, target);
+
             RebalanceEpisode r = new RebalanceEpisode(
                     currentNode.getNetworkId(),
                     target.getNetworkId(),
