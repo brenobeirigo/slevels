@@ -1,12 +1,9 @@
 import dao.Dao;
 import model.User;
 import model.Vehicle;
-import simulation.Method;
 
-import java.util.HashSet;
 import java.util.List;
 import java.util.Scanner;
-import java.util.Set;
 
 public class TestFCFS {
 
@@ -16,12 +13,12 @@ public class TestFCFS {
         for (Vehicle v : vehicles) {
 
             if (v.getVisit() != null) {
-                v.getCurrentNode().setArrival(Math.max(current_time, v.getCurrentNode().getArrival()));
+                v.getLastVisitedNode().setArrival(Math.max(current_time, v.getLastVisitedNode().getArrival()));
             }
             if (v.getVisit() != null && !v.getVisit().getSequenceVisits().isEmpty()) {
                 // Current node stores the last arrival time
                 // This time is updated
-                v.getCurrentNode().setArrival(Math.max(current_time, v.getCurrentNode().getArrival()));
+                v.getLastVisitedNode().setArrival(Math.max(current_time, v.getLastVisitedNode().getArrival()));
             }
         }
     }
@@ -51,7 +48,7 @@ public class TestFCFS {
 
         for (int i = 0; i < 5 * 3600; i = i + 30) {
             System.out.println("TIME:" + i);
-            Set<User> ok = Method.getSolutionFCFS(new HashSet<>(listU), listV, false, true, i, 10, false);
+            //Set<User> ok = Method.getSolutionFCFS(new HashSet<>(listU), listV, false, true, i, 10, false);
 
             System.out.println("USER OK:");
             for (Vehicle v : listV) {
