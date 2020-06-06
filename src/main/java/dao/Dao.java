@@ -15,15 +15,19 @@ import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.io.IOException;
 import java.io.Reader;
+import java.time.Duration;
+import java.time.Instant;
 import java.util.*;
 import java.util.Map.Entry;
+import java.util.concurrent.ExecutionException;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 public class Dao {
 
 
     // Speed of vehicles m/s
-    public static final double SPEED = 30;
+    public static final double SPEED = 20;
 
     public static int numberOfNodes;
     private static Dao ourInstance = new Dao();
@@ -48,14 +52,17 @@ public class Dao {
     private ArrayList<ArrayList<ArrayList<Short>>> shortestPathDistances;
 
     private Map<Short, Map<String, List<Short>>> canReachClass;
-
+    private int iUserNextRound;
     private List<Integer> unreachable;
     private List<User> userBuff;
+    private List<User> allUsers;
     private Iterable<CSVRecord> records;
     private int currentTime = 0;
 
     private Dao() {
         try {
+
+            iUserNextRound = 0;
 
             // Store distances' file path
             file_path = InstanceConfig.getInstance().getDistancesPath().toString();
@@ -82,17 +89,38 @@ public class Dao {
             shortestPathsNodeIds = new ArrayList<>();
             shortestPathDistances = new ArrayList<>();
 
+            // Shortest path info (node ids, node arrivals)
+            System.out.println("Pulling shortest path info...");
             for (int i = 0; i < numberOfNodes; i++) {
                 shortestPathsNodeIds.add(i, new ArrayList<>());
                 shortestPathDistances.add(i, new ArrayList<>());
                 for (int j = 0; j < numberOfNodes; j++) {
                     shortestPathsNodeIds.get(i).add(j, null);
                     shortestPathDistances.get(i).add(j, null);
+                    //pullShortestPathInfo(i,j);
                 }
             }
 
+
+            /*
+            //Try to read all shortest paths in advance
+            Instant before = Instant.now();
+            IntStream.range(0, shortestPathDistances.size()).parallel().forEach(o ->
+                    IntStream.range(0, shortestPathDistances.get(o).size()).parallel().forEach(d ->
+                            shortestPathDistances.get(o).set(d, ServerUtil.getShortestPathBetween(o, d))));
+            Instant after = Instant.now();
+            Duration duration = Duration.between(before, after);
+            System.out.println("DURATION: " + duration.toMillis());*/
+
+
+            allUsers = new ArrayList<>();
             userBuff = new ArrayList<>();
+            System.out.println("Reading all records...");
             records = CSVFormat.RFC4180.withFirstRecordAsHeader().parse(new FileReader(trip_path));
+//            for (CSVRecord record: records) {
+//                User user = new User(record);
+//                allUsers.add(user);
+//            }
 
         } catch (Exception e) {
             e.printStackTrace();
@@ -379,7 +407,7 @@ public class Dao {
      */
     public void resetRecords() {
 
-        System.out.println("Resetting trip records...");
+        // System.out.println("Resetting trip records...");
 
         try {
 
@@ -432,7 +460,7 @@ public class Dao {
 
     public List<User> getListTripsClassed(int timeSpanSec, int maxPassengerCount, int maxNumber) {
 
-        List<User> trips = getListTripsClassed2(timeSpanSec, maxPassengerCount);
+        List<User> trips = getListTripsClassed(timeSpanSec, maxPassengerCount);
 
         if (trips.size() > maxNumber) {
             trips = trips.subList(0, maxNumber);
@@ -489,6 +517,11 @@ public class Dao {
         return listUser;
     }
 
+    /***
+     * Read .csv distance matrix. Assumes KxK acessibility.
+     * @param file_path
+     * @return double[][]
+     */
     private short[][] getDistanceMatrix(String file_path) {
         distMatrixKm = new double[numberOfNodes][numberOfNodes];
         short[][] dist_matrix = new short[numberOfNodes][numberOfNodes];
@@ -520,13 +553,6 @@ public class Dao {
                     dist_matrix[row][col] = sec;
                     distMatrixKm[row][col] = km;
 
-                    //System.out.println(String.format("(%d,%d) - %10.2f",row, col, km));
-                    //TODO nodes have distance zero
-                    /*
-                    if(row != col && sec == 0){
-                        System.out.println(row + " - " + col + " - " + sec + " - " + r + Short.MIN_VALUE);
-                    }
-                    */
                     col++;
                 }
                 //System.out.println();
@@ -541,8 +567,7 @@ public class Dao {
                     unreachable.add(i);
             }
 
-            System.out.println(unreachable);
-            //System.out.println("INVALID:" + new ArrayList<>(Arrays.asList(countInvalid)));
+            System.out.println("Unreachable nodes:" + unreachable);
 
         } catch (java.io.IOException e) {
             e.printStackTrace();
@@ -589,7 +614,7 @@ public class Dao {
         // Number of requests for each class according to their share
 
 
-        //System.out.println(String.format("%d(A) + %d(B) + %d(C) = %d", contA, contB, contC, listUser.size()));
+        //System.out.println(String.format("%d(A) + %d(B) + %d(C) = %d", contA, contB, contC, allUsers.size()));
 
         List<User> classed = new ArrayList<>(listUser);
 
@@ -637,36 +662,43 @@ public class Dao {
         // Start list of users with buffer from last iteration
         // (users read ahead time span to be placed in next iteration)
         List<User> listUser = userBuff;
-
+        // System.out.println("%d",timeSpanSec);
         // Continue reading records
-        for (CSVRecord record : records) {
+        if (listUser.size() > 0){
+            System.out.println("LAST:" + userBuff.get(userBuff.size()-1).getReqTime() + " - " + currentTime + timeSpanSec);
+        }
+//            if (userBuff.get(userBuff.size()-1).getReqTime() < currentTime + timeSpanSec){
+//            return new ArrayList<>();
+//        }
+        for (int i = iUserNextRound; i < allUsers.size(); i++) {
 
+            User user = allUsers.get(i);
             // Skip passenger record with high passenger count
-            if (Integer.valueOf(record.get("passenger_count")) > maxPassengerCount) {
+            if (user.getNumPassengers() > maxPassengerCount) {
                 continue;
             }
-
-            // Create user using record
-            User user = new User(record);
 
             //TODO - User with invalid ids! (clean in python)
             if (user.getDistFromTo() < 0) {
                 continue;
             }
-
             // Stop reading if request is out of time span
             if (user.getReqTime() >= currentTime + timeSpanSec) {
                 currentTime = currentTime + timeSpanSec;
-                userBuff = new ArrayList<>();
-
-                // Save user wrongfully read to next iteration
-                userBuff.add(user);
+                iUserNextRound = i;
                 break;
             }
 
             // Add user to list
             listUser.add(user);
         }
+        //System.out.println("RECORD:");
+        //System.out.println(record);
+        System.out.println("USER BUF:");
+        System.out.println(userBuff);
+        System.out.println();
+        System.out.println("LIST USER:");
+        listUser.forEach(user -> System.out.println(user.getPickupDatetime()));
 
         // Number of requests for each class according to their share
 
@@ -823,14 +855,7 @@ public class Dao {
         // Building array of arrivals
         // e.g.,     List [      o,      1,      2,      3,      4,      5,      d]
         //       Arrivals [      0, d(o,1), d(1,2), d(2,3), d(3,4), d(4,5), d(5,d)]
-        ArrayList<Short> spArrivals = new ArrayList<>();
-        short starting = 0;
-        spArrivals.add(starting);
-        for (int i = 0; i < sp.size() - 1; i++) {
-            short distanceLeg = getDistSec(sp.get(i), sp.get(i + 1));
-            starting += distanceLeg;
-            spArrivals.add(starting);
-        }
+        ArrayList<Short> spArrivals = getSpNodeArrivals(sp);
 
         // No path between nodes
         if (spArrivals.isEmpty())
@@ -856,37 +881,38 @@ public class Dao {
         return sp.get(pos);
     }
 
-    /**
-     * Get the network id of the node in the shortest path connecting two other nodes.
-     *
-     * @param o
-     * @param d
-     * @param elapsedTime
-     * @return network id, or -1 if there is no intermediate node
-     */
+    public void pullShortestPathInfo(int o, int d) {
+        ArrayList<Short> sp = getShortestPathBetween(o, d);
+        ArrayList<Short> spArrivals = getSpNodeArrivals(sp);
+        System.out.println(o + " -> " + d);
+
+        shortestPathDistances.get(o).set(d, spArrivals);
+        shortestPathsNodeIds.get(o).set(d, sp);
+
+        System.out.println((shortestPathsNodeIds.get(o).size()) + "--" + sp);
+        System.out.println((shortestPathDistances.get(o).size()) + "--" + spArrivals);
+    }
+
+
+        /**
+         * Get the network id of the node in the shortest path connecting two other nodes.
+         *
+         * @param o
+         * @param d
+         * @param elapsedTime
+         * @return network id, or -1 if there is no intermediate node
+         */
     public int getIntermediateNodeNetworkId(int o, int d, int elapsedTime) {
 
         //TODO Decide what to do when  elapsed time is zero
         ArrayList<Short> sp = getShortestPathBetween(o, d);
-        //ArrayList<Short> sp = ServerUtil.getShortestPathBetween(o, d);
 
         if (sp == null) {
             System.out.println("NULL" + o + " - " + d);
         }
 
         if (shortestPathDistances.get(o).get(d) == null) {
-
-            ArrayList<Short> spArrivals = new ArrayList<>();
-
-            short starting = 0;
-            spArrivals.add(starting);
-
-            //TODO there are nodes with zero distances between them! Should be removed!
-            for (int i = 0; i < sp.size() - 1; i++) {
-                short distanceLeg = getDistSec(sp.get(i), sp.get(i + 1));
-                starting += distanceLeg;
-                spArrivals.add(starting);
-            }
+            ArrayList<Short> spArrivals = getSpNodeArrivals(sp);
             shortestPathDistances.get(o).set(d, spArrivals);
         }
 
@@ -936,6 +962,32 @@ public class Dao {
         return sp.get(pos);
 
 
+    }
+
+    /**
+     * Build cumulative distance array from distances between nodes in sequence.
+     *  e.g.,     List [o, 1, 2, 3, d]
+     *        Arrivals [0, d(o,1), d(o,1) + d(1,2), d(o,1) + d(1,2) + d(2,3), d(o,1) + d(1,2) + d(2,3) + d(3,d)]
+     * @param sequenceNodeIds
+     * @return cumulativeDistancesKm
+     */
+    private ArrayList<Short> getSpNodeArrivals(ArrayList<Short> sequenceNodeIds) {
+
+        ArrayList<Short> cumulativeDistancesKm = new ArrayList<>();
+
+        short starting = 0;
+
+        cumulativeDistancesKm.add(starting);
+
+        // Building array of arrivals
+        //TODO there are nodes with zero distances between them! Should be removed!
+        for (int i = 0; i < sequenceNodeIds.size() - 1; i++) {
+            short distanceLeg = getDistSec(sequenceNodeIds.get(i), sequenceNodeIds.get(i + 1));
+            starting += distanceLeg;
+            cumulativeDistancesKm.add(starting);
+        }
+
+        return cumulativeDistancesKm;
     }
 
     public short[][] getDistMatrix() {
