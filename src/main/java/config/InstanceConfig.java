@@ -20,16 +20,11 @@ public class InstanceConfig {
     //Files contain how each user end up being serviced
     public static final String GEOJSON_TRACK_FOLDER = "geojson_track";
 
-    // Json with instance
-    //public static String source = "C:\\Users\\LocalAdmin\\IdeaProjects\\slevels\\src\\main\\resources\\geojson\\onehour_ams.json";
-    //public static String source = "C:\\Users\\LocalAdmin\\IdeaProjects\\slevels\\src\\main\\resources\\week\\allow_hiring_geojson.json";
-    // public static String source = "C:\\Users\\LocalAdmin\\IdeaProjects\\slevels\\src\\main\\resources\\week\\service_denial_2nd_tier.json";
-    // public static String source = "C:\\Users\\LocalAdmin\\IdeaProjects\\slevels\\src\\main\\resources\\week\\service_denial_ABC.json";
-    public static String source = "C:\\Users\\LocalAdmin\\IdeaProjects\\slevels\\src\\main\\resources\\week\\profile_time.json";
-    //public static String source = "C:\\Users\\LocalAdmin\\IdeaProjects\\slevels\\src\\main\\resources\\morning_peak\\service_test.json";
+    // Singleton
+    private static InstanceConfig instance;
 
-    private static InstanceConfig instance = new InstanceConfig(source);
-    private boolean[] sortWaitingUsersByClass;
+    private String instanceFilePath; // File path of the instance
+    private boolean[] sortWaitingUsersByClassArray; // If true, sort users according class when matching
     private int[] timeWindowArray; // Time window of request collection bin
     private int[] timeHorizonArray; // Time horizon of experiment (0 t0 24h)
     private int[] maxRequestsIterationArray; // Max number of requests pooled in during an iteration
@@ -65,15 +60,17 @@ public class InstanceConfig {
     private String requestTrackFolder;
     private String geojsonTrackFolder;
 
-    public boolean[] getSortWaitingUsersByClass() {
-        return sortWaitingUsersByClass;
+    public boolean[] getSortWaitingUsersByClassArray() {
+        return sortWaitingUsersByClassArray;
     }
 
-    public void setSortWaitingUsersByClass(boolean[] sortWaitingUsersByClass) {
-        this.sortWaitingUsersByClass = sortWaitingUsersByClass;
+    public void setSortWaitingUsersByClassArray(boolean[] sortWaitingUsersByClassArray) {
+        this.sortWaitingUsersByClassArray = sortWaitingUsersByClassArray;
     }
 
     private InstanceConfig(String jsonFilePath) {
+
+        this.instanceFilePath = jsonFilePath;
 
         Gson gson = new Gson();
 
@@ -185,7 +182,7 @@ public class InstanceConfig {
 
             //Matching configuration
             JsonObject matchingConfig = gson.toJsonTree(jsonConfig.get("matching_config")).getAsJsonObject();
-            this.sortWaitingUsersByClass = gson.fromJson(matchingConfig.get("sort_waiting_users_by_class").getAsJsonArray(), boolean[].class);
+            this.sortWaitingUsersByClassArray = gson.fromJson(matchingConfig.get("sort_waiting_users_by_class").getAsJsonArray(), boolean[].class);
 
             // Rebalancing configuration
             JsonObject rebalancingConfig = gson.toJsonTree(jsonConfig.get("rebalancing_config")).getAsJsonObject();
@@ -245,6 +242,13 @@ public class InstanceConfig {
     }
 
     public static InstanceConfig getInstance() {
+        return instance;
+    }
+
+    public static InstanceConfig getInstance(String source) {
+        if (instance == null){
+             instance = new InstanceConfig(source);
+        }
         return instance;
     }
 
