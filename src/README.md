@@ -28,3 +28,10 @@ The information levels can be set using the following labels:
 |`print_all_round_info`| Shows round stats and detailed vehicle routes.|
 |`print_no_round_info`| Ommit all round info.|
 |`print_summary_round_info`| Only shows rond stats.|
+
+## Rebalancing strategies
+
+|Label|Description|
+|-----|-----------|
+|`rebalance_heuristic`||
+|`rebalance_optimal_alonso_mora`| | 
