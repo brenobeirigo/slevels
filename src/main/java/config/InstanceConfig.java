@@ -43,10 +43,11 @@ public class InstanceConfig {
     private Map<String, Integer> maxTimeHiringList = new HashMap<>();
 
     // Rebalancing configuration
-    private boolean[] allowManyToOneTarget = new boolean[]{false, true};
-    private boolean[] reinsertTargets = new boolean[]{true, false};
-    private boolean[] clearTargetListEveryRound = new boolean[]{true, false};
-    private boolean[] useUrgentKey = new boolean[]{false, true};
+    private String[] rebalancingMethods;
+    private boolean[] allowManyToOneTarget;
+    private boolean[] reinsertTargets;
+    private boolean[] clearTargetListEveryRound;
+    private boolean[] useUrgentKey;
     private List<Rebalance> listRebalanceSettings = new ArrayList<>();
 
     // Info
@@ -186,6 +187,8 @@ public class InstanceConfig {
 
             // Rebalancing configuration
             JsonObject rebalancingConfig = gson.toJsonTree(jsonConfig.get("rebalancing_config")).getAsJsonObject();
+
+            this.rebalancingMethods = gson.fromJson(rebalancingConfig.get("rebalancing_method").getAsJsonArray(), String[].class);// Each round has TW seconds
             this.allowManyToOneTarget = gson.fromJson(rebalancingConfig.get("allow_many_to_one").getAsJsonArray(), boolean[].class);// Each round has TW seconds
             this.reinsertTargets = gson.fromJson(rebalancingConfig.get("reinsert_targets").getAsJsonArray(), boolean[].class);// Each round has TW seconds
             this.clearTargetListEveryRound = gson.fromJson(rebalancingConfig.get("clear_target_list_every_round").getAsJsonArray(), boolean[].class);// Each round has TW seconds
@@ -195,19 +198,20 @@ public class InstanceConfig {
                 for (boolean reinsert : reinsertTargets) {
                     for (boolean clear : clearTargetListEveryRound) {
                         for (boolean useUrg : useUrgentKey) {
+                            for (String method: rebalancingMethods){
 
                             Rebalance rebalanceUtil = new Rebalance(
                                     n1,
                                     reinsert,
                                     clear,
                                     useUrg,
-                                    "TEST",
+                                    method,
                                     false,
                                     false
                             );
 
                             listRebalanceSettings.add(rebalanceUtil);
-                        }
+                        }}
                     }
                 }
             }
@@ -389,6 +393,14 @@ public class InstanceConfig {
 
     public String getInstanceName() {
         return instanceName;
+    }
+
+    public String[] getRebalancingMethods() {
+        return rebalancingMethods;
+    }
+
+    public void setRebalancingMethods(String[] rebalancingMethods) {
+        this.rebalancingMethods = rebalancingMethods;
     }
 }
 
