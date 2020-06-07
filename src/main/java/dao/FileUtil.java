@@ -1,5 +1,7 @@
 package dao;
 
+import com.google.gson.Gson;
+
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileReader;
@@ -9,11 +11,20 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 public class FileUtil {
 
     public static final String DISTANCE_FILES_PATH = "C:\\Users\\breno\\OneDrive\\Phd_TU\\PROJECTS\\rs_heuristic\\data\\gen\\data\\SP\\";
+
+    public static Map getMapFrom(String jsonFilePath) throws IOException {
+        // Reading input settings
+        Path filePath = Paths.get(jsonFilePath);
+        String inputSettings = new String(Files.readAllBytes(filePath));
+        Gson gson = new Gson();
+        return gson.fromJson(inputSettings, Map.class);
+    }
 
     public static void createDir(String dir) {
         /*
