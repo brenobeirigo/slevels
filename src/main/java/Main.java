@@ -89,7 +89,7 @@ public class Main {
                                                                 false,
                                                                 false,
                                                                 false,
-                                                                "Rebalancing",
+                                                                Rebalance.METHOD_HEURISTIC,
                                                                 false,
                                                                 false
                                                         );
