@@ -20,9 +20,9 @@ import java.util.stream.Collectors;
 
 public abstract class Simulation {
 
-    public static final byte ALL_INFO = 1;
-    public static final byte ROUND_INFO = 2;
-    public static final byte NO_INFO = 0;
+    public static final byte PRINT_ALL_ROUND_INFO = 1;
+    public static final byte PRINT_SUMMARY_ROUND_INFO = 2;
+    public static final byte PRINT_NO_ROUND_INFO = 0;
 
     // Duration
     public static final int DURATION_SINGLE_RIDE = 0;
@@ -66,8 +66,6 @@ public abstract class Simulation {
     protected int totalRounds; // How many rounds of time horizon will be pooled
     protected int roundCount;
     protected boolean activeFleet; //True if a single vehicle is still working (rebalancing, picking up, etc.)
-    protected long roundTimeNanoSec;
-    protected long rebalancingTime;
 
     /* SETS OF VEHICLES AND REQUESTS */
     protected Map<Integer, User> allRequests; // Dictionary of all users
@@ -80,9 +78,7 @@ public abstract class Simulation {
     protected Set<Vehicle> setDeactivated; // Vehicles to be deactivated in round
     protected Set<Vehicle> setHired; // Current set of hired vehicles
     protected List<User> roundRejectedUsers;
-
-    //TODO hot_PK_list
-
+    protected Map<String, Long> runTimes;
 
     public Simulation(int initialFleetSize,
                       int vehicleCapacity,
@@ -123,7 +119,6 @@ public abstract class Simulation {
         leftTW = start_timestamp; // Left and right time windows (rightTW = current time)
         rightTW = leftTW + timeWindow;
         roundCount = 0;
-        roundTimeNanoSec = 0;
 
         /* SETS OF VEHICLES AND REQUESTS */
         allRequests = new HashMap<>(); // Dictionary of all users
@@ -134,6 +129,7 @@ public abstract class Simulation {
         activeFleet = false;
         setHired = new HashSet<>();
 
+        runTimes = new HashMap<>();
 
         listVehicles = MethodHelper.createListVehicles(initialFleetSize, vehicleCapacity, true, leftTW); // List of vehicles
         listHiredVehicles = new ArrayList<>();
@@ -142,6 +138,17 @@ public abstract class Simulation {
 
     public static void reset() {
         return;
+    }
+
+    public static int getInfoLevel(String infoLevelLabel) {
+        int infoLevel;
+        switch(infoLevelLabel){
+            case "print_all_round_info": infoLevel = Simulation.PRINT_ALL_ROUND_INFO; break;
+            case "print_no_round_info": infoLevel = Simulation.PRINT_NO_ROUND_INFO; break;
+            case "print_summary_round_info": infoLevel = Simulation.PRINT_SUMMARY_ROUND_INFO; break;
+            default: infoLevel = Simulation.PRINT_SUMMARY_ROUND_INFO;
+        }
+        return infoLevel;
     }
 
     public boolean canEndContract(Vehicle v, int currentTime) {
@@ -233,14 +240,6 @@ public abstract class Simulation {
         // Updating vehicle lists
         //listVehicles.removeAll(setDeactivated);
         //setHired.removeAll(setDeactivated);
-
-
-        /*#********************************************************************************************************/
-        ////// REBALANCING /////////////////////////////////////////////////////////////////////////////////////////
-        /*#********************************************************************************************************/
-
-        rebalance(candidateVehiclesToRebalance);
-
     }
 
     /**
@@ -312,14 +311,6 @@ public abstract class Simulation {
         return candidateVehiclesToRebalance;
     }
 
-    private void rebalance(Set<Vehicle> idleVehicles) {
-
-        if (isAllowedToRebalance) {
-            rebalancingTime = System.nanoTime();
-            rebalanceUtil.rebalance(idleVehicles);
-            rebalancingTime = (System.nanoTime() - rebalancingTime) / 1000000;
-        }
-    }
 
     /**
      * Pool new requests (within TW) from database
@@ -343,7 +334,7 @@ public abstract class Simulation {
             setWaitingUsers.addAll(listPooledUsersTW);
 
             // Sort by class and earliest time
-            if (sortWaitingUsersByClass){
+            if (sortWaitingUsersByClass) {
                 Collections.sort(setWaitingUsers, Comparator.comparing(User::getPerformanceClass)
                         .thenComparing(User::getReqTime));
 
@@ -366,32 +357,26 @@ public abstract class Simulation {
      * @param infoLevel If true, show status of all vehicles
      */
     public void printRoundInfo(int infoLevel) {
-         /*#*********************************************************************************************************
-             ///// Print round information  ////////////////////////////////////////////////////////////////////////////
-            /*#********************************************************************************************************/
 
-
-        long runTime = (System.nanoTime() - roundTimeNanoSec) / 1000000;
         // Print round statistics (Round info is also calculated here)
         String roundSnapshot = sol.calculateRoundStats(
-            rightTW,
-            vehicleCapacity,
-            listVehicles,
-            setHired,
-            setDeactivated,
-            listHiredVehicles,
-            setWaitingUsers,
-            finishedRequests,
-            roundRejectedUsers,
-            deniedRequests,
-            listPooledUsersTW,
-            allRequests,
-            runTime,
-            rebalancingTime
+                rightTW,
+                vehicleCapacity,
+                listVehicles,
+                setHired,
+                setDeactivated,
+                listHiredVehicles,
+                setWaitingUsers,
+                finishedRequests,
+                roundRejectedUsers,
+                deniedRequests,
+                listPooledUsersTW,
+                allRequests,
+                runTimes
         );
 
 
-        if (infoLevel == Simulation.ROUND_INFO || infoLevel == Simulation.ALL_INFO) {
+        if (infoLevel == Simulation.PRINT_SUMMARY_ROUND_INFO || infoLevel == Simulation.PRINT_ALL_ROUND_INFO) {
             // Print the time window reading
             System.out.println(HelperIO.getHeaderTW(start_timestamp,
                     time_slot,
@@ -409,7 +394,7 @@ public abstract class Simulation {
         }
 
 
-        if (infoLevel == Simulation.ALL_INFO) {
+        if (infoLevel == Simulation.PRINT_ALL_ROUND_INFO) {
 
             // Print vehicle details
             System.out.println(HelperIO.getVehicleInfo(
@@ -436,16 +421,25 @@ public abstract class Simulation {
         deniedRequests.addAll(roundRejectedUsers);
         setWaitingUsers.removeAll(roundRejectedUsers);
 
-
-        System.out.println("Getting serviced users...");
         ///// 3 - ASSIGN WAITING USERS (previous + current round)  TO VEHICLES /////////////////////////////////////////
         Set<User> setScheduledUsers = getServicedUsersDynamicSizedFleet(rightTW);
-        System.out.println("Finished.");
 
         ///// 4 - REMOVE SERVICED USERS FROM WAITING SET////////////////////////////////////////////////////////////////
         // Vehicles will become idle here (i.e., parked)
         setWaitingUsers.removeAll(setScheduledUsers);
 
+    }
+
+    public void rebalance(Set<Vehicle> idleVehicles){
+        List<Node> targets = null;
+        if (rebalanceUtil.method.equals(Rebalance.METHOD_OPTIMAL)){
+            if (roundRejectedUsers != null){
+                targets = roundRejectedUsers.stream().map(User::getNodePk).collect(Collectors.toList());
+            }
+        }else if (rebalanceUtil.method.equals(Rebalance.METHOD_HEURISTIC)){
+            targets = Vehicle.setOfHotPoints;
+        }
+        rebalanceUtil.executeStrategy(idleVehicles, targets);
     }
 
     public void run(int infoLevel) {
@@ -459,53 +453,45 @@ public abstract class Simulation {
 
         // Loop rounds of TW
         do {
+
             // Status will change if vehicles are still working or there are users to service
             activeFleet = false;
 
-            roundTimeNanoSec = System.nanoTime();
-
-
             // Rebalance, deactivate, and update parking nodes /////////////////////////////////////////////////////////
-
-            Instant before = Instant.now();
             // Move vehicles, Compute serviced users, remove hired
+            runTimes.put(Solution.TIME_UPDATE_FLEET_STATUS, System.nanoTime());
             Set<Vehicle> idleVehicles = updateFleetStatus();
-
             // TODO Preliminary tests show that parallel stream is slower. Can more cores be of any help?
             //updateFleetStatusParallel();
+            runTimes.put(Solution.TIME_UPDATE_FLEET_STATUS, System.nanoTime() - runTimes.get(Solution.TIME_UPDATE_FLEET_STATUS));
 
-
-            long durationUdateFleet = Duration.between(before, Instant.now()).toMillis();
-            System.out.println(String.format("Fleet status updated (%.2f seconds)...", durationUdateFleet/1000.0));
-
-            before = Instant.now();
             // Rebalance idle vehicles
-            rebalance(idleVehicles);
+            if (isAllowedToRebalance)
+                runTimes.put(Solution.TIME_REBALANCING_FLEET, System.nanoTime());
+                rebalance(idleVehicles);
+                runTimes.put(Solution.TIME_REBALANCING_FLEET, System.nanoTime() - runTimes.get(Solution.TIME_REBALANCING_FLEET));
 
-            long durationRebalancing = Duration.between(before, Instant.now()).toMillis();
-            System.out.println(String.format("Fleet rebalancing (%.2f seconds)...", durationRebalancing/1000.0));
 
             // Pool, service, and reject users /////////////////////////////////////////////////////////////////////////
-            before = Instant.now();
+            runTimes.put(Solution.TIME_UPDATE_DEMAND, System.nanoTime());
             updateDemandStatus();
-            long durationUpdateDemand = Duration.between(before, Instant.now()).toMillis();
-            System.out.println(String.format("Demand status updated (%.2f seconds)...",  durationUpdateDemand/1000.0));
+            runTimes.put(Solution.TIME_UPDATE_DEMAND, System.nanoTime() - runTimes.get(Solution.TIME_UPDATE_DEMAND));
 
+            // Save solution and print round info
             printRoundInfo(infoLevel);
+
+            //System.out.println(HelperIO.printJourneys(listHiredVehicles));
 
             //// UPDATING TW ///////////////////////////////////////////////////////////////////////////////////////////
             leftTW = rightTW;
             rightTW = leftTW + timeWindow;
             roundCount = roundCount + 1;
 
-            //System.out.println(HelperIO.printJourneys(listHiredVehicles));
-
         } while (!setWaitingUsers.isEmpty() || roundCount < totalRounds || activeFleet);
 
         // Print detailed journeys for each vehicle
-        if (infoLevel == Simulation.ALL_INFO) {
+        if (infoLevel == Simulation.PRINT_ALL_ROUND_INFO) {
             System.out.println(HelperIO.printJourneys(listVehicles));
-
             System.out.println("GEOJSON DATA");
             // Dao dao = Dao.getInstance();
             for (Vehicle v : listVehicles) {
@@ -603,4 +589,6 @@ public abstract class Simulation {
     private void makeTargetRebalancingCandidate(NodeTargetRebalancing target) {
         Vehicle.setOfHotPoints.add(target);
     }
+
+
 }
