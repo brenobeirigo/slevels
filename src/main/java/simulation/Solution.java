@@ -22,12 +22,12 @@ import static java.util.Comparator.comparingInt;
 
 public class Solution {
 
-    // Files contain snapshots of each round
-    private static final String OUTPUT_FOLDER = "round_track";
-    //Files contain how each user end up being serviced
-    private static final String OUTPUT_FOLDER_USERS = "request_track";
-    //Files contain how each user end up being serviced
-    private static final String OUTPUT_FOLDER_GEOJSON = "geojson_track";
+    // Execution time headers
+    public static final String TIME_UPDATE_FLEET_STATUS = "time_update_fleet_status_ms";
+    public static final String TIME_REBALANCING_FLEET = "time_vehicle_rebalancing_ms";
+    public static final String TIME_UPDATE_DEMAND = "time_ride_matching_ms";
+    public static final String[] TIME_HEADERS = new String[]{TIME_UPDATE_DEMAND, TIME_UPDATE_FLEET_STATUS, TIME_REBALANCING_FLEET};
+
     private BufferedWriter writer;
     /* Instance */
     private int nOfVehicles;
@@ -52,7 +52,7 @@ public class Solution {
 
     /* CSV output
     departureVehicleCurrent;seatCount;activeVehicles;enrouteCount;deniedRequests.size();finishedRequests.size();
-    vehicleOccupancy;fleetMakeup;pkDelay;totalDelay;runTime; */
+    vehicleOccupancy;fleetMakeup;pkDelay;totalDelay;runTimes; */
     private ArrayList<List<String>> listRoundEntries;
     private List<String> listRoundHeaders;
 
@@ -60,8 +60,6 @@ public class Solution {
     private Path outputFile;
     private Path outputFileUsers;
     private Path outputGeoJson;
-
-    private long runTime;
 
     public Solution(String methodName,
                     int nOfVehicles,
@@ -137,8 +135,7 @@ public class Solution {
 
         // File path
         this.outputFile = Paths.get(
-                String.format("%s/%s.csv",
-                        InstanceConfig.getInstance().getRoundTrackFolder(),
+                String.format("%s/%s.csv", InstanceConfig.getInstance().getRoundTrackFolder(),
                         testCaseName
                 ));
 
@@ -214,7 +211,9 @@ public class Solution {
         listRoundHeaders.add("distance_traveled_cruising");
         listRoundHeaders.add("distance_traveled_loaded");
         listRoundHeaders.add("distance_traveled_rebalancing");
-        listRoundHeaders.add("run_time");
+        for (String h :Solution.TIME_HEADERS) {
+            listRoundHeaders.add(h);
+        }
 
         for (String q :
                 Config.getInstance().qosDic.keySet()) {
@@ -351,8 +350,7 @@ public class Solution {
                                       Set<User> deniedRequests,
                                       List<User> setOfRequests,
                                       Map<Integer, User> allRequests,
-                                      long runTime,
-                                      long rebalancingTime) {
+                                      Map<String, Long> runTimes) {
         double pkDelay = 0;
         double totalDelay = 0;
 
@@ -386,8 +384,6 @@ public class Solution {
             sLevelsClass.get(sqClass).put("dedicated", sLevelsClass.get(sqClass).getOrDefault("dedicated", 0) + (u.isServicedByDedicated() ? 1 : 0));
             sLevelsClass.get(sqClass).put("private", sLevelsClass.get(sqClass).getOrDefault("private", 0) + (u.isServicedByHired() ? 1 : 0));
             sLevelsClass.get(sqClass).put("unmet_slevels", sLevelsClass.get(sqClass).getOrDefault("unmet_slevels", 0) + (u.isServiceLevelLowered() ? 1 : 0));
-
-            //System.out.println("Slevels:" + sLevelsClass);
         }
 
         // Sum delays of finished users
@@ -396,9 +392,6 @@ public class Solution {
             sLevelsClass.get(sqClass).put("rejected", sLevelsClass.get(sqClass).getOrDefault("rejected", 0) + (u.isRejected() ? 1 : 0));
             sLevelsClass.get(sqClass).put("unmet_slevels", sLevelsClass.get(sqClass).getOrDefault("unmet_slevels", 0) + (u.isRejected() ? 1 : 0));
         }
-
-        //System.out.println("Slevels:" + sLevelsClass);
-
 
         // Average delays
         pkDelay = pkDelay / finishedRequests.size();
@@ -446,10 +439,6 @@ public class Solution {
             distTraveledRebal += v.getDistanceTraveledRebalancing();
         }
 
-        //System.out.println( "Dist. empty:"  + distTraveledEmpty);
-        //System.out.println("Dist. loaded:"  + distTraveledLoaded);
-        //System.out.println("Dist. rebalancing:"  + distTraveledRebal);
-
         for (Vehicle v : listVehicles) {
 
             // Update distance statistics
@@ -459,6 +448,7 @@ public class Solution {
 
             // Update rebalancing statistics
             nOfVehiclesStoppedRebalancing += (v.isStoppedRebalanceToPickup() ? 1 : 0);
+
             // Clear interrupted rebalancing counter
             v.setStoppedRebalanceToPickup(false);
 
@@ -494,9 +484,6 @@ public class Solution {
             } else {
 
                 // Increment occupancy
-//                System.out.println(v);
-//                System.out.println(v.getVisit());
-//                System.out.println("____________________________");
                 vehicleOccupancy[v.getCurrentLoad()]++;
 
                 // Sum current load of vehicle
@@ -510,14 +497,7 @@ public class Solution {
 
         }
 
-        //System.out.println( "Dist. empty2:"  + distTraveledEmpty);
-        //System.out.println("Dist. loaded2:"  + distTraveledLoaded);
-        //System.out.println("Dist. rebalancing2:"  + distTraveledRebal);
-
-        //System.out.println(String.format("Parked: %d - Seat: %d - Rebalancing: %d - Cruising: %d - Total: %d", emptySeats, seatCount, nOfSeatsRebalancing, nOfSeatsCruisingVehicles, emptySeats + seatCount + nOfSeatsRebalancing + nOfSeatsCruisingVehicles));
-
-        // Stats
-
+        // Percentage requests finished, denied, waiting, assigned
         double finishedRequestsPercentage = (double) finishedRequests.size() / allRequests.size();
         double deniedRequestsPercentage = (double) deniedRequests.size() / allRequests.size();
         double waitingRequestsPercentage = (double) waitingRequests.size() / allRequests.size();
@@ -549,7 +529,7 @@ public class Solution {
                 distTraveledEmpty,
                 distTraveledLoaded,
                 distTraveledRebal,
-                runTime);
+                runTimes);
 
         ArrayList<String> sLevelsClass = new ArrayList<>();
         for (Map.Entry<String, Map<String, Integer>> e :
@@ -575,26 +555,7 @@ public class Solution {
                     nUsersUnmetServiceLevels));
         }
 
-        /*
-
-        if(!deniedRequests.isEmpty()){
-            System.out.println("####### Denied...");
-            for (User u:deniedRequests) {
-                u.printDetailed();
-            }
-        }
-
-
-        if(!waitingRequests.isEmpty()){
-            System.out.println("####### Waiting...");
-            for (User u:waitingRequests) {
-                u.printDetailed();
-            }
-        }
-
-        */
         return String.format(
-
                 "\n## REQUESTS MAKEUP ################" +
                         "\n       En-route: %6s (%.2f%%)" +
                         "\n        Waiting: %6s (%.2f%%)" +
@@ -617,8 +578,9 @@ public class Solution {
                         "\n Stopped rebal.: %6d" +
                         "\n      Occupancy: %s" +
                         "\n         Makeup: %s (TOTAL CAPACITY: %d - HIRED: %d - #DEACTIVATED: %d)" +
-                        "\n       Run time: %.2f s " +
-                        "\n      Reb. time: %.2f s ",
+                        "\n   Update fleet: %8.4f ms " +
+                        "\n    Rebalancing: %8.4f ms " +
+                        "\n  Update demand: %8.4f ms ",
                 String.valueOf(nOfAssignedUsers), Math.abs((double) nOfAssignedUsers / allRequests.size()) * 100,
                 String.valueOf(waitingRequests.size()), waitingRequestsPercentage * 100,
                 String.valueOf(deniedRequests.size()), deniedRequestsPercentage * 100,
@@ -641,8 +603,10 @@ public class Solution {
                 totalCurrentCapacity,
                 setHiredVehicles.size(),
                 setDeactivated.size(),
-                (double) runTime / 1000,
-                (double) rebalancingTime / 1000);
+                runTimes.get(Solution.TIME_UPDATE_FLEET_STATUS) / 1000000000.0,
+                runTimes.get(Solution.TIME_REBALANCING_FLEET) / 1000000000.0,
+                runTimes.get(Solution.TIME_UPDATE_DEMAND)/ 1000000000.0
+        );
     }
 
     public void addEntryCSV(int currentTime,
@@ -671,7 +635,7 @@ public class Solution {
                             double distTraveledEmpty,
                             double distTraveledLoaded,
                             double distTraveledRebal,
-                            long runTime) {
+                            Map<String, Long> runTimes) {
 
         List<String> roundEntry = new ArrayList<>();
         roundEntry.add(Config.sec2Datetime(currentTime));
@@ -709,11 +673,10 @@ public class Solution {
         roundEntry.add(String.format("%.4f", distTraveledEmpty));
         roundEntry.add(String.format("%.4f", distTraveledLoaded));
         roundEntry.add(String.format("%.4f", distTraveledRebal));
-        roundEntry.add(String.valueOf(runTime));
+        for (String h :Solution.TIME_HEADERS) {
+            roundEntry.add(String.valueOf(runTimes.get(h)/1000000000.0));
+        }
 
-
-        //System.out.println("Service levels per class");
-        //System.out.println(sLevelsClass);
 
         for (Map.Entry<String, Map<String, Integer>> e :
                 this.sLevelsClass.entrySet()) {
