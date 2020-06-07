@@ -13,9 +13,6 @@ import model.node.NodeMiddle;
 import simulation.Simulation;
 import simulation.SimulationFCFS;
 import simulation.Solution;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -145,24 +142,6 @@ public class Main {
                         }
                     }
                 }
-
-                // Setup QoS class
-        /*
-        Qos qos1 = new Qos("A", 180, 180, 1,0);
-        Qos qos2 = new Qos("B", 300, 600, 0.95,1);
-        Qos qos3 = new Qos("C", 600, 900, 0.8,0);
-        Config.getInstance().qosDic.put("A", qos1);
-        Config.getInstance().qosDic.put("B", qos2);
-        Config.getInstance().qosDic.put("C", qos3);
-
-        Simulation fcfs = new SimulationFCFS(1000, 10, 1000, 30, 24*3600, "S1", "B");
-        fcfs.run();
-
-        //System.out.println(Config.getInstance().qosDic);
-
-        //SimulationRTV fcfs = new SimulationRTV();
-        */
-
 
             }
         }
