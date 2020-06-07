@@ -1,5 +1,7 @@
 package model.node;
 
+import dao.Dao;
+
 import java.awt.geom.Point2D;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -189,14 +191,17 @@ public abstract class Node implements Comparable<Node> {
 
 
     public double getLat() {
-        return Node.nodeDic.get(networkId)[0];
-        //return Dao.getInstance().getLocation(networkId).getY();
+        //return Node.nodeDic.get(networkId)[0];
+        return Dao.getInstance().getLocation(networkId).getY();
     }
 
     public double getLon() {
-        System.out.println(networkId);
-        //return Dao.getInstance().getLocation(networkId).getX();
-        return Node.nodeDic.get(networkId)[1];
+        // System.out.println(networkId);
+        // System.out.println(this);
+        // TODO where coordinates  come from?
+        return Dao.getInstance().getLocation(networkId).getX();
+        //System.out.println(Node.nodeDic.keySet());
+        //return Node.nodeDic.get(networkId)[1];
     }
 
     @Override
