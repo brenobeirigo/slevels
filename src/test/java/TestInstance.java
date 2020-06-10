@@ -32,6 +32,5 @@ public class TestInstance {
                 "Hire",
                 new Rebalance(true, true, true, true, "N21"));
 
-        fcfs.run(Simulation.ROUND_INFO);
     }
 }
