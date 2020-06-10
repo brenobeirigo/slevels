@@ -1,4 +1,3 @@
-import com.google.gson.Gson;
 import config.Config;
 import config.CustomerBaseConfig;
 import config.InstanceConfig;
@@ -16,6 +15,7 @@ import simulation.Solution;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -28,7 +28,7 @@ public class Main {
     public static void main(String[] args) {
 
         String jsonConfigFilePath;
-        int infoLevel;
+        Map<String, Boolean> infoHandling = new HashMap<>();
 
         try {
 
@@ -43,15 +43,31 @@ public class Main {
             // Round information level (no information, round summary, all information)
             String infoLevelLabel = jsonConfig.get("info_level").toString();
             System.out.println("Round information level: " + infoLevelLabel);
-            infoLevel = Simulation.getInfoLevel(infoLevelLabel);
 
+            //TODO read infoHandling from file
+            infoHandling.put(Simulation.SAVE_VEHICLE_ROUND_GEOJSON, false);
+            infoHandling.put(Simulation.SAVE_REQUEST_INFO_CSV , true);
+            infoHandling.put(Simulation.SAVE_ROUND_INFO_CSV , true);
+
+            // Print info in console
+            infoHandling.put(Simulation.SHOW_ALL_VEHICLE_JOURNEYS , false);
+            infoHandling.put(Simulation.SHOW_ROUND_FLEET_STATUS , false);
+            infoHandling.put(Simulation.SHOW_ROUND_INFO , true);
         }
         catch (Exception e){
             System.out.println("Cannot load configuration: "+ e);
             System.out.println("Loading default instance (show round summary)...");
             // Json with instance
             jsonConfigFilePath = "C:\\Users\\LocalAdmin\\IdeaProjects\\slevels\\src\\main\\resources\\default_instance.json";
-            infoLevel = Simulation.PRINT_NO_ROUND_INFO;
+
+            infoHandling.put(Simulation.SAVE_VEHICLE_ROUND_GEOJSON, true);
+            infoHandling.put(Simulation.SAVE_REQUEST_INFO_CSV , true);
+            infoHandling.put(Simulation.SAVE_ROUND_INFO_CSV , true);
+
+            // Print info in console
+            infoHandling.put(Simulation.SHOW_ALL_VEHICLE_JOURNEYS , true);
+            infoHandling.put(Simulation.SHOW_ROUND_FLEET_STATUS , true);
+            infoHandling.put(Simulation.SHOW_ROUND_INFO , true);
         }
 
         InstanceConfig instanceSettings = InstanceConfig.getInstance(jsonConfigFilePath);
@@ -115,7 +131,7 @@ public class Main {
                                                                 rebalanceSettings);
 
                                                         // Run simulation
-                                                        fcfs.run(infoLevel);
+                                                        fcfs.run(infoHandling);
 
                                                         // Reset classes for next iteration
                                                         Dao.getInstance().resetRecords();
