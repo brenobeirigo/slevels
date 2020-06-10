@@ -228,17 +228,17 @@ public class Visit implements Comparable<Visit> {
         );
         nodes.add(n);
 
-        /*// Visits
+        // Visits
         List<Node> sequence;
         if (getTargetNode()!=null){
             sequence = new LinkedList<>();
             sequence.add(getTargetNode());
         }else{
             sequence = this.getSequenceVisits();
-        }*/
+        }
 
-        for (int i = 0; i < this.getSequenceVisits().size(); i++) {
-            Node next = this.getSequenceVisits().get(i);
+        for (int i = 0; i < sequence.size(); i++) {
+            Node next = sequence.get(i);
             int dist = Dao.getInstance().getDistSec(current, next);
             dep += dist;
             dep = Math.max(dep, current.getEarliest());
