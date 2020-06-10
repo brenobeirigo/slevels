@@ -54,6 +54,7 @@ public class InstanceConfig {
     private Path instancesPath;
     private Path resultPath;
     private Path distancesPath;
+    private Path adjacencyMatrixPath;
     private Path requestsPath;
     private String instanceDescription;
     private String instanceName;
@@ -89,6 +90,7 @@ public class InstanceConfig {
             this.instancesPath = Paths.get(jsonConfig.get("instances_folder").toString());
             this.resultPath = Paths.get(jsonConfig.get("result_folder").toString());
             this.distancesPath = Paths.get(jsonConfig.get("distances_file").toString());
+            this.adjacencyMatrixPath = Paths.get(jsonConfig.get("adjacency_matrix_file").toString());
             this.requestsPath = Paths.get(jsonConfig.get("requests_file").toString());
             this.instanceDescription = jsonConfig.get("instance_description").toString();
             this.instanceName = jsonConfig.get("instance_name").toString();
@@ -243,6 +245,10 @@ public class InstanceConfig {
 
     public Path getDistancesPath() {
         return distancesPath;
+    }
+
+    public Path getAdjacencyMatrixPath() {
+        return adjacencyMatrixPath;
     }
 
     public static InstanceConfig getInstance() {
