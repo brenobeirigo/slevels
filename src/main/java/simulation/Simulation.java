@@ -13,8 +13,6 @@ import model.node.NodeTargetRebalancing;
 import org.boon.collections.ConcurrentHashSet;
 
 import java.nio.file.Files;
-import java.time.Duration;
-import java.time.Instant;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -24,10 +22,20 @@ public abstract class Simulation {
     public static final byte PRINT_SUMMARY_ROUND_INFO = 2;
     public static final byte PRINT_NO_ROUND_INFO = 0;
 
+    public static final String SAVE_VEHICLE_ROUND_GEOJSON = "save_vehicle_round_geojson";
+    public static final String SAVE_REQUEST_INFO_CSV = "save_request_info_csv";
+    public static final String SAVE_ROUND_INFO_CSV = "save_round_info_csv";
+
+    // Print info in console
+    public static final String SHOW_ALL_VEHICLE_JOURNEYS = "show_all_vehicle_journeys";
+    public static final String SHOW_ROUND_FLEET_STATUS = "show_round_fleet_status";
+    public static final String SHOW_ROUND_INFO = "show_round_info";
+
     // Duration
     public static final int DURATION_SINGLE_RIDE = 0;
     public static final int DURATION_1H = 3600;
     public static final int DURATION_3H = 3 * 3600;
+
 
 
     // Solution coming from simulation
@@ -354,31 +362,16 @@ public abstract class Simulation {
     /**
      * Round info
      *
-     * @param infoLevel If true, show status of all vehicles
+     * @param showRoundInfo If true, show status of all vehicles
      */
-    public void printRoundInfo(int infoLevel) {
+    public void computeRoundInfoAndShow(boolean showRoundInfo, boolean saveRoundCsv, boolean showVehicleStatusInfo) {
 
         // Print round statistics (Round info is also calculated here)
-        String roundSnapshot = sol.calculateRoundStats(
-                rightTW,
-                vehicleCapacity,
-                listVehicles,
-                setHired,
-                setDeactivated,
-                listHiredVehicles,
-                setWaitingUsers,
-                finishedRequests,
-                roundRejectedUsers,
-                deniedRequests,
-                listPooledUsersTW,
-                allRequests,
-                runTimes
-        );
+        String roundHeader = null;
+        String roundSnapshot = null;
 
-
-        if (infoLevel == Simulation.PRINT_SUMMARY_ROUND_INFO || infoLevel == Simulation.PRINT_ALL_ROUND_INFO) {
-            // Print the time window reading
-            System.out.println(HelperIO.getHeaderTW(start_timestamp,
+        if (showRoundInfo) {
+            roundHeader = HelperIO.getHeaderTW(start_timestamp,
                     time_slot,
                     leftTW,
                     rightTW,
@@ -388,13 +381,36 @@ public abstract class Simulation {
                     timeWindow,
                     roundCount,
                     totalRounds
-            ));
+            );
+        }
 
+        if (showRoundInfo || saveRoundCsv) {
+            roundSnapshot = sol.calculateRoundStats(
+                    rightTW,
+                    vehicleCapacity,
+                    listVehicles,
+                    setHired,
+                    setDeactivated,
+                    listHiredVehicles,
+                    setWaitingUsers,
+                    finishedRequests,
+                    roundRejectedUsers,
+                    deniedRequests,
+                    listPooledUsersTW,
+                    allRequests,
+                    runTimes,
+                    saveRoundCsv,
+                    showRoundInfo
+            );
+        }
+
+        if (showRoundInfo) {
+            // Print the time window reading
+            System.out.println(roundHeader);
             System.out.println(roundSnapshot);
         }
 
-
-        if (infoLevel == Simulation.PRINT_ALL_ROUND_INFO) {
+        if (showVehicleStatusInfo) {
 
             // Print vehicle details
             System.out.println(HelperIO.getVehicleInfo(
@@ -442,7 +458,7 @@ public abstract class Simulation {
         rebalanceUtil.executeStrategy(idleVehicles, targets);
     }
 
-    public void run(int infoLevel) {
+    public void run(Map<String, Boolean> infoHandling) {
 
         if (Files.exists(this.sol.getOutputFile())) {
             System.out.println(this.sol.getOutputFile() + " already exists.");
@@ -471,14 +487,18 @@ public abstract class Simulation {
                 rebalance(idleVehicles);
                 runTimes.put(Solution.TIME_REBALANCING_FLEET, System.nanoTime() - runTimes.get(Solution.TIME_REBALANCING_FLEET));
 
-
             // Pool, service, and reject users /////////////////////////////////////////////////////////////////////////
             runTimes.put(Solution.TIME_UPDATE_DEMAND, System.nanoTime());
             updateDemandStatus();
             runTimes.put(Solution.TIME_UPDATE_DEMAND, System.nanoTime() - runTimes.get(Solution.TIME_UPDATE_DEMAND));
 
             // Save solution and print round info
-            printRoundInfo(infoLevel);
+            if (infoHandling.get(Simulation.SHOW_ROUND_INFO) || infoHandling.get(Simulation.SAVE_ROUND_INFO_CSV))
+                computeRoundInfoAndShow(
+                        infoHandling.get(Simulation.SHOW_ROUND_INFO),
+                        infoHandling.get(Simulation.SAVE_ROUND_INFO_CSV),
+                        infoHandling.get(Simulation.SHOW_ROUND_FLEET_STATUS)
+                );
 
             //System.out.println(HelperIO.printJourneys(listHiredVehicles));
 
@@ -490,28 +510,21 @@ public abstract class Simulation {
         } while (!setWaitingUsers.isEmpty() || roundCount < totalRounds || activeFleet);
 
         // Print detailed journeys for each vehicle
-        if (infoLevel == Simulation.PRINT_ALL_ROUND_INFO) {
-            System.out.println(HelperIO.printJourneys(listVehicles));
-            System.out.println("GEOJSON DATA");
-            // Dao dao = Dao.getInstance();
-            for (Vehicle v : listVehicles) {
-                System.out.println(v.getOrigin().getNetworkId());
-                //System.out.println(v.getInfo());
-
-                //System.out.println(v.getJourneyInfo());
-                //ServerUtil.printGeoJsonJourney(v, Simulation.);
-            }
+        if (infoHandling.get(Simulation.SHOW_ALL_VEHICLE_JOURNEYS)) {
+            sol.printAllJourneys(listVehicles);
         }
+
         // Saving vehicles traces
-        //sol.saveGeoJsonPerVehicle(listVehicles);
+        if (infoHandling.get(Simulation.SAVE_VEHICLE_ROUND_GEOJSON))
+            sol.saveGeoJsonPerVehicle(listVehicles);
 
         // Save solution to file (summary of rounds)
-        sol.save();
+        if (infoHandling.get(Simulation.SAVE_ROUND_INFO_CSV))
+            sol.saveRoundInfo();
 
         // Saving user info (how user was serviced, for example, pickup, dropoff, hired vehicle, delay, etc.)
-        sol.saveUserInfo(allRequests);
-
-
+        if (infoHandling.get(Simulation.SAVE_REQUEST_INFO_CSV))
+            sol.saveUserInfo(allRequests);
     }
 
     /**
@@ -582,8 +595,6 @@ public abstract class Simulation {
                 System.out.println(r);
             }
         }
-
-
     }
 
     private void makeTargetRebalancingCandidate(NodeTargetRebalancing target) {
