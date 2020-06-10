@@ -1,10 +1,17 @@
 {
+  "instance_description": "Parallel vs. Sequential execution - update fleet status",
+  "instance_name": "S1",
+  "result_folder": "C:/Users/LocalAdmin/IdeaProjects/slevels/instance_output/profile_time/",
+  "instances_folder": "C:/Users/LocalAdmin/IdeaProjects/slevels/instance_output/profile_time/",
+  "distances_file": "C:/Users/LocalAdmin/OneDrive/leap_forward/street_network_server/tenv/data/out/manhattan_nyc/distance/dist_matrix_m.csv",
+  "adjacency_matrix_file": "C:/Users/LocalAdmin/OneDrive/leap_forward/street_network_server/tenv/data/out/manhattan_nyc/distance/adjacency_matrix.csv",
+  "requests_file": "C:/Users/LocalAdmin/OneDrive/leap_forward/street_network_server/tenv/data/out/manhattan_nyc/tripdata/ids/tripdata_ids_2011-02-01_000000_2011-02-07_235959.csv",
   "scenario_config": {
     "batch_duration": [
       30
     ],
     "time_horizon": [
-      864800
+      86400
     ],
     "max_requests": [
       1000
@@ -16,13 +23,10 @@
       4
     ],
     "rebalance": [
-      true,
-      false
+      true
     ],
     "contract_duration": [
-      0,
-      3600,
-      10800
+      0
     ],
     "allow_service_deterioration": [
       false
@@ -35,41 +39,16 @@
     ],
     "service_rate": {
       "S1": {
-        "A": 1,
-        "B": 0.9,
-        "C": 0.8
+        "A": 0.9,
+        "B": 0.8,
+        "C": 0.7
       }
     },
     "customer_segmentation": {
-      "AA": {
-        "A": 0.68,
-        "B": 0.16,
-        "C": 0.16
-      },
       "BB": {
         "A": 0.16,
         "B": 0.68,
         "C": 0.16
-      },
-      "CC": {
-        "A": 0.16,
-        "B": 0.16,
-        "C": 0.68
-      },
-      "A": {
-        "A": 1,
-        "B": 0,
-        "C": 0
-      },
-      "B": {
-        "A": 0,
-        "B": 1,
-        "C": 0
-      },
-      "C": {
-        "A": 0,
-        "B": 0,
-        "C": 1
       }
     },
     "service_level": {
@@ -90,18 +69,28 @@
       }
     }
   },
-  "rebalancing_config": {
-    "allow_many_to_one": [
+  "matching_config": {
+    "sort_waiting_users_by_class": [
       false
+    ]
+  },
+  "rebalancing_config": {
+    "rebalancing_method": [
+
+      "rebalance_heuristic",
+      "rebalance_optimal_alonso_mora"
+    ],
+    "allow_many_to_one": [
+      false, true
     ],
     "reinsert_targets": [
-      true
+      true, false
     ],
     "clear_target_list_every_round": [
-      true
+      true, false
     ],
     "allow_urgent_relocation": [
-      true
+      true, false
     ]
   },
   "labels": {
@@ -121,10 +110,8 @@
     "CT": "clear_target_list_every_round",
     "UR": "allow_urgent_relocation",
     "IN": "instance_name",
-    "ID": "instance_description"
-  },
-  "instance_description": "Whole week experiment, allow denying",
-  "instance_name": "WEEKDENY",
-  "result_folder": "C:/Users/LocalAdmin/IdeaProjects/slevels/instance_output/week/",
-  "instances_folder": "C:/Users/LocalAdmin/IdeaProjects/slevels/instance_output/week/"
+    "ID": "instance_description",
+    "HE": "heuristic_rebalancing",
+    "OP": "optimal_rebalancing"
+  }
 }

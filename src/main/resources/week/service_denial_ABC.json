@@ -4,7 +4,7 @@
       30
     ],
     "time_horizon": [
-      864800
+      604800
     ],
     "max_requests": [
       1000
@@ -16,8 +16,7 @@
       4
     ],
     "rebalance": [
-      true,
-      false
+      true
     ],
     "contract_duration": [
       0,
@@ -55,21 +54,6 @@
         "A": 0.16,
         "B": 0.16,
         "C": 0.68
-      },
-      "A": {
-        "A": 1,
-        "B": 0,
-        "C": 0
-      },
-      "B": {
-        "A": 0,
-        "B": 1,
-        "C": 0
-      },
-      "C": {
-        "A": 0,
-        "B": 0,
-        "C": 1
       }
     },
     "service_level": {
@@ -123,8 +107,10 @@
     "IN": "instance_name",
     "ID": "instance_description"
   },
-  "instance_description": "Whole week experiment, allow denying",
-  "instance_name": "WEEKDENY",
-  "result_folder": "C:/Users/LocalAdmin/IdeaProjects/slevels/instance_output/week/",
-  "instances_folder": "C:/Users/LocalAdmin/IdeaProjects/slevels/instance_output/week/"
+  "instance_description": "Whole week experiment, allow denying. Sort users before inserting.",
+  "instance_name": "WEEKDENYABC",
+  "result_folder": "C:/Users/LocalAdmin/IdeaProjects/slevels/instance_output/week_deny_ABC/",
+  "instances_folder": "C:/Users/LocalAdmin/IdeaProjects/slevels/instance_output/week_deny_ABC/",
+  "distances_file": "C:/Users/LocalAdmin/OneDrive/leap_forward/street_network_server/input_tripdata/data/manhattan-island-new-york-city-new-york-usa/dist/distance_matrix_m_manhattan-island-new-york-city-new-york-usa.csv",
+  "requests_file": "C:/Users/LocalAdmin/OneDrive/leap_forward/street_network_server/input_tripdata/data/manhattan-island-new-york-city-new-york-usa/tripdata/tripdata_excerpt_2011-2-1_2011-2-28_ids.csv"
 }

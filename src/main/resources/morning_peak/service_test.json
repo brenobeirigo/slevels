@@ -1,23 +1,22 @@
 {
   "scenario_config": {
     "batch_duration": [
-      30
+      60
     ],
     "time_horizon": [
-      864800
+      19800
     ],
     "max_requests": [
       1000
     ],
     "initial_fleet": [
-      1000
+      300
     ],
     "max_capacity": [
-      4
+      1
     ],
     "rebalance": [
-      true,
-      false
+      true
     ],
     "contract_duration": [
       0,
@@ -41,35 +40,10 @@
       }
     },
     "customer_segmentation": {
-      "AA": {
-        "A": 0.68,
-        "B": 0.16,
-        "C": 0.16
-      },
-      "BB": {
-        "A": 0.16,
-        "B": 0.68,
-        "C": 0.16
-      },
-      "CC": {
-        "A": 0.16,
-        "B": 0.16,
-        "C": 0.68
-      },
-      "A": {
-        "A": 1,
-        "B": 0,
-        "C": 0
-      },
       "B": {
         "A": 0,
         "B": 1,
         "C": 0
-      },
-      "C": {
-        "A": 0,
-        "B": 0,
-        "C": 1
       }
     },
     "service_level": {
@@ -79,7 +53,7 @@
         "sharing_preference": 0
       },
       "B": {
-        "pk_delay": 300,
+        "pk_delay": 600,
         "trip_delay": 600,
         "sharing_preference": 1
       },
@@ -121,10 +95,14 @@
     "CT": "clear_target_list_every_round",
     "UR": "allow_urgent_relocation",
     "IN": "instance_name",
-    "ID": "instance_description"
+    "ID": "instance_description",
+    "HE": "heuristic_rebalancing",
+    "OP": "optimal_rebalancing"
   },
   "instance_description": "Whole week experiment, allow denying",
-  "instance_name": "WEEKDENY",
-  "result_folder": "C:/Users/LocalAdmin/IdeaProjects/slevels/instance_output/week/",
-  "instances_folder": "C:/Users/LocalAdmin/IdeaProjects/slevels/instance_output/week/"
+  "instance_name": "MPEAK",
+  "result_folder": "C:/Users/LocalAdmin/IdeaProjects/slevels/instance_output/morning_peak/",
+  "instances_folder": "C:/Users/LocalAdmin/IdeaProjects/slevels/instance_output/morning_peak/",
+  "distances_file": "C:/Users/LocalAdmin/OneDrive/leap_forward/street_network_server/tenv/data/out/GIANTmanhattan-island-new-york-city-new-york-usa/distance/distance_matrix_m_manhattan-island-new-york-city-new-york-usa.csv",
+  "requests_file": "C:/Users/LocalAdmin/OneDrive/leap_forward/phd_project/reb/code/mod/trips_0000.csv"
 }
