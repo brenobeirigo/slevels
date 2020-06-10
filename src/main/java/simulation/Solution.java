@@ -5,6 +5,7 @@ import config.InstanceConfig;
 import config.Rebalance;
 import dao.Dao;
 import dao.FileUtil;
+import helper.HelperIO;
 import model.User;
 import model.Vehicle;
 import org.apache.commons.csv.CSVFormat;
@@ -132,6 +133,7 @@ public class Solution {
         testCaseName += (allowVehicleHiring ? "_VH" : "");
         testCaseName += (allowServiceDeterioration ? "_SD" : "");
         testCaseName += (isAllowedToRebalance ? "_RE" + rebalance : "");
+        testCaseName += (rebalance.method.equals(Rebalance.METHOD_OPTIMAL)?"_OP":"_HE");
 
         // File path
         this.outputFile = Paths.get(
@@ -228,7 +230,7 @@ public class Solution {
         return outputFile;
     }
 
-    public void save() {
+    public void saveRoundInfo() {
 
         System.out.println(">>>>>>> " + this.outputFile);
 
@@ -350,7 +352,14 @@ public class Solution {
                                       Set<User> deniedRequests,
                                       List<User> setOfRequests,
                                       Map<Integer, User> allRequests,
-                                      Map<String, Long> runTimes) {
+                                      Map<String, Long> runTimes,
+                                      boolean saveRoundInfoCSV,
+                                      boolean showRoundInfo) {
+
+        if (saveRoundInfoCSV==false && showRoundInfo==false){
+            return null;
+        }
+
         double pkDelay = 0;
         double totalDelay = 0;
 
@@ -503,34 +512,6 @@ public class Solution {
         double waitingRequestsPercentage = (double) waitingRequests.size() / allRequests.size();
         nOfAssignedUsers = allRequests.size() - deniedRequests.size() - finishedRequests.size() - waitingRequests.size();
 
-        this.addEntryCSV(currentTime,
-                setOfRequests.size(),
-                seatCount,
-                nOfSeatsCruisingVehicles,
-                nOfSeatsRebalancing,
-                emptySeats,
-                totalCurrentCapacity,
-                nOfVehiclesServicingUsers,
-                setHiredVehicles.size(),
-                setDeactivated.size(),
-                nOfVehiclesCruisingToPickup,
-                nOfVehiclesParked,
-                nOfVehiclesDwellingInOrigin,
-                nOfVehiclesRebalancing,
-                nOfVehiclesStoppedRebalancing,
-                nOfAssignedUsers,
-                waitingRequests.size(),
-                deniedRequests.size(),
-                finishedRequests.size(),
-                vehicleOccupancy,
-                fleetMakeup,
-                pkDelay,
-                totalDelay,
-                distTraveledEmpty,
-                distTraveledLoaded,
-                distTraveledRebal,
-                runTimes);
-
         ArrayList<String> sLevelsClass = new ArrayList<>();
         for (Map.Entry<String, Map<String, Integer>> e :
                 this.sLevelsClass.entrySet()) {
@@ -554,6 +535,38 @@ public class Solution {
                     count,
                     nUsersUnmetServiceLevels));
         }
+
+        if(saveRoundInfoCSV==true){
+            this.addEntryCSV(currentTime,
+                    setOfRequests.size(),
+                    seatCount,
+                    nOfSeatsCruisingVehicles,
+                    nOfSeatsRebalancing,
+                    emptySeats,
+                    totalCurrentCapacity,
+                    nOfVehiclesServicingUsers,
+                    setHiredVehicles.size(),
+                    setDeactivated.size(),
+                    nOfVehiclesCruisingToPickup,
+                    nOfVehiclesParked,
+                    nOfVehiclesDwellingInOrigin,
+                    nOfVehiclesRebalancing,
+                    nOfVehiclesStoppedRebalancing,
+                    nOfAssignedUsers,
+                    waitingRequests.size(),
+                    deniedRequests.size(),
+                    finishedRequests.size(),
+                    vehicleOccupancy,
+                    fleetMakeup,
+                    pkDelay,
+                    totalDelay,
+                    distTraveledEmpty,
+                    distTraveledLoaded,
+                    distTraveledRebal,
+                    runTimes);
+        }
+
+
 
         return String.format(
                 "\n## REQUESTS MAKEUP ################" +
@@ -694,5 +707,19 @@ public class Solution {
         }
 
         this.listRoundEntries.add(roundEntry);
+    }
+
+    public void printAllJourneys(List<Vehicle> listVehicles) {
+
+        System.out.println(HelperIO.printJourneys(listVehicles));
+        System.out.println("GEOJSON DATA");
+        // Dao dao = Dao.getInstance();
+        for (Vehicle v : listVehicles) {
+            System.out.println(v.getOrigin().getNetworkId());
+            //System.out.println(v.getInfo());
+
+            //System.out.println(v.getJourneyInfo());
+            //ServerUtil.printGeoJsonJourney(v, Simulation.);
+        }
     }
 }
