@@ -811,9 +811,9 @@ public class Vehicle implements Comparable<Vehicle> {
 
         for (int i = 0; i < journey.size() - 1; i++) {
             int fromId = journey.get(i).getNetworkId();
-            //coordJourney.add(String.format("[%f, %f]", journey.get(i).getLon(),journey.get(i).getLat()));
+            coordJourney.add(String.format("[%f, %f]", journey.get(i).getLon(),journey.get(i).getLat()));
             int toId = journey.get(i + 1).getNetworkId();
-            //coordJourney.add(String.format("[%f, %f]", journey.get(i + 1).getLon(),journey.get(i + 1).getLat()));
+            coordJourney.add(String.format("[%f, %f]", journey.get(i + 1).getLon(),journey.get(i + 1).getLat()));
             int dist = Dao.getInstance().getDistSec(fromId, toId);
             int waiting = journey.get(i + 1).getArrival() - dist - journey.get(i).getDeparture();
             str.append("\n" + journey.get(i).getInfo());
@@ -851,7 +851,7 @@ public class Vehicle implements Comparable<Vehicle> {
     }
 
     public String getOccupancyStatus() {
-        return String.format("(%2s/%d)", (!this.visit.getPassengers().isEmpty() ? String.valueOf(currentLoad) : "-"), capacity);
+        return String.format("(%2s/%d)", (this.visit!=null && !this.visit.getPassengers().isEmpty() ? String.valueOf(currentLoad) : "-"), capacity);
     }
 
     public String getInfo() {
@@ -860,8 +860,8 @@ public class Vehicle implements Comparable<Vehicle> {
                 this,
                 getOccupancyStatus(),
                 (this.visit != null ? visit : "---"),
-                this.visit.getPassengers(),
-                this.visit.getRequests(),
+                (this.visit != null ? this.visit.getPassengers(): "---"),
+                (this.visit != null ? this.visit.getRequests(): "---"),
                 servicedUsers,
                 ((this.rebalancing == true) ? "(Rebalancing)" : ""));
     }
