@@ -7,6 +7,9 @@ import model.User;
 import model.node.Node;
 import org.apache.commons.csv.CSVFormat;
 import org.apache.commons.csv.CSVRecord;
+import org.jgrapht.alg.shortestpath.BellmanFordShortestPath;
+import org.jgrapht.graph.DefaultWeightedEdge;
+import org.jgrapht.graph.SimpleDirectedWeightedGraph;
 import org.json.simple.JSONObject;
 import org.json.simple.parser.JSONParser;
 
@@ -15,13 +18,10 @@ import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.io.IOException;
 import java.io.Reader;
-import java.time.Duration;
-import java.time.Instant;
 import java.util.*;
 import java.util.Map.Entry;
-import java.util.concurrent.ExecutionException;
 import java.util.stream.Collectors;
-import java.util.stream.IntStream;
+
 
 public class Dao {
 
@@ -32,21 +32,19 @@ public class Dao {
     public static int numberOfNodes;
     private static Dao ourInstance = new Dao();
     public Random rand;
-    //private String file_path = "C:\\Users\\breno\\OneDrive\\Phd_TU\\PROJECTS\\rs_heuristic\\data\\gen\\data\\distance_matrix_m_manhattan-island-new-york-city-new-york-usa.csv";
-    //private String trip_path = "C:\\Users\\breno\\OneDrive\\Phd_TU\\PROJECTS\\rs_heuristic\\data\\gen\\data\\tripdata_valentines_2011_ids.csv";
-    private String file_path;// = "C:\\Users\\LocalAdmin\\OneDrive\\Phd_TU\\PROJECTS\\in\\input_tripdata\\data\\delft-south-holland-netherlands\\dist\\distance_matrix_m_delft-south-holland-netherlands.csv";
 
-    //private String file_path = "C:\\Users\\LocalAdmin\\OneDrive\\Phd_TU\\PROJECTS\\in\\input_tripdata\\data\\dist\\distance_matrix_m_manhattan-island-new-york-city-new-york-usa.csv";
-    //private String trip_path = "C:\\Users\\LocalAdmin\\OneDrive\\Phd_TU\\PROJECTS\\in\\input_tripdata\\data\\tripdata\\tripdata_excerpt_2011-2-1_2011-2-28_ids.csv";
-    private String trip_path;// =  "C:\\Users\\LocalAdmin\\OneDrive\\Phd_TU\\PROJECTS\\in\\input_tripdata\\data\\delft-south-holland-netherlands\\tripdata\\random_clone_tripdata_excerpt_2011-2-1_2011-2-2_ids.csv";
-    //private String file_path = "C:\\Users\\breno\\OneDrive\\Phd_TU\\PROJECTS\\in\\data\\dist\\distance_matrix_m_manhattan-island-new-york-city-new-york-usa.csv";
-    //private String trip_path = "C:\\Users\\breno\\OneDrive\\Phd_TU\\PROJECTS\\in\\data\\tripdata\\tripdata_excerpt_2011-2-1_2011-2-28_ids.csv";
+    private String file_path;
+    private String trip_path;
+    private String adjacencyMatrixPath;
 
     // Geographical data
     private Map<Short, Point2D> nodeLocationMap; // Map of node ids and respective coordinates
 
     private short[][] distMatrix;
-    private double[][] distMatrixKm;
+    private double[][] distMatrixMeters;
+    private short[][] adjacencyMatrix;
+    private BellmanFordShortestPath bellmanFordShortestPath;
+    private SimpleDirectedWeightedGraph<Integer, DefaultWeightedEdge> networkGraph;
 
     private ArrayList<ArrayList<ArrayList<Short>>> shortestPathsNodeIds;
     private ArrayList<ArrayList<ArrayList<Short>>> shortestPathDistances;
@@ -64,10 +62,9 @@ public class Dao {
 
             iUserNextRound = 0;
 
-            // Store distances' file path
+            // Info
             file_path = InstanceConfig.getInstance().getDistancesPath().toString();
-
-            // Store trips' file path
+            adjacencyMatrixPath = InstanceConfig.getInstance().getAdjacencyMatrixPath().toString();
             trip_path = InstanceConfig.getInstance().getRequestsPath().toString();
 
             // Pull map of nodes from server. Format: {id=Point(x,y)}
@@ -91,9 +88,11 @@ public class Dao {
 
             // Shortest path info (node ids, node arrivals)
             System.out.println("Pulling shortest path info...");
+
             for (int i = 0; i < numberOfNodes; i++) {
                 shortestPathsNodeIds.add(i, new ArrayList<>());
                 shortestPathDistances.add(i, new ArrayList<>());
+
                 for (int j = 0; j < numberOfNodes; j++) {
                     shortestPathsNodeIds.get(i).add(j, null);
                     shortestPathDistances.get(i).add(j, null);
@@ -117,15 +116,61 @@ public class Dao {
             userBuff = new ArrayList<>();
             System.out.println("Reading all records...");
             records = CSVFormat.RFC4180.withFirstRecordAsHeader().parse(new FileReader(trip_path));
-//            for (CSVRecord record: records) {
-//                User user = new User(record);
-//                allUsers.add(user);
-//            }
+
+            adjacencyMatrix = getAdjacencyMatrix(adjacencyMatrixPath);
+
+            networkGraph = getWeightedGraphFromAdjacencyMatrix(adjacencyMatrix, distMatrixMeters);
+            bellmanFordShortestPath = new BellmanFordShortestPath(networkGraph);
+            for (int i = 0; i < distMatrixMeters.length; i++) {
+                System.out.println("Processing " + i);
+                for (int j = 0; j < distMatrixMeters.length; j++) {
+                    System.out.println(i + "==" + j);
+                    getShortestPathBetween(i, j);
+                }
+            }
+
 
         } catch (Exception e) {
             e.printStackTrace();
         }
 
+    }
+
+    /** Weighted directed graph is used in conjunction with shortest path method to determine where each vehicle is
+     * at each time.
+     *
+     * @param adjacencyMatrix
+     * @param distMatrixMeters
+     * @return
+     */
+    private SimpleDirectedWeightedGraph<Integer, DefaultWeightedEdge> getWeightedGraphFromAdjacencyMatrix(short[][] adjacencyMatrix, double[][] distMatrixMeters) {
+
+        SimpleDirectedWeightedGraph<Integer, DefaultWeightedEdge> graph = new SimpleDirectedWeightedGraph<>(DefaultWeightedEdge.class);
+
+        for (int i = 0; i < distMatrixMeters.length; i++) {
+            graph.addVertex(i);
+        }
+
+        for (int i = 0; i < distMatrixMeters.length; i++) {
+            for (int j = 0; j < distMatrixMeters.length; j++) {
+
+                if (adjacencyMatrix[i][j] != 0) {
+                    DefaultWeightedEdge edge = graph.addEdge(i, j);
+                    graph.setEdgeWeight(edge, distMatrixMeters[i][j]);
+                }
+            }
+        }
+
+        return graph;
+    }
+
+    public List<String> getLonLatList(List<Short> shortestPathB) {
+        return shortestPathB.stream().map(
+                v -> String.format(
+                        "[%f, %f]",
+                        nodeLocationMap.get(v).getX(),
+                        nodeLocationMap.get(v).getY())
+        ).collect(Collectors.toList());
     }
 
     public static void main(String[] args) {
@@ -135,144 +180,6 @@ public class Dao {
 
             Object obj = parser.parse(new FileReader("C:\\Users\\LocalAdmin\\IdeaProjects\\slevels\\src\\main\\resources\\instance_settings_test_rebalancing.json"));
             JSONObject jsonObject = (JSONObject) obj;
-            /*
-            "scenario_config": {
-    "batch_duration": [
-      30
-    ],
-    "time_horizon": [
-      604800
-    ],
-    "max_requests": [
-      1000
-    ],
-    "initial_fleet": [
-      1000
-    ],
-    "max_capacity": [
-      6
-    ],
-    "rebalance": [
-      1
-    ],
-    "contract_duration": [
-      1,
-      2,
-      3
-    ],
-    "allow_service_deterioration": [
-      true,
-      false
-    ],
-    "allow_vehicle_hiring": [
-      true,
-      false
-    ],
-    "allow_vehicle_creation": [
-      true,
-      false
-    ],
-    "service_rate": {
-      "S1": {
-        "A": 1,
-        "B": 0.95,
-        "C": 0.9
-      },
-      "S2": {
-        "A": 0.95,
-        "B": 0.9,
-        "C": 0.85
-      },
-      "S3": {
-        "A": 0.9,
-        "B": 0.85,
-        "C": 0.8
-      }
-    },
-    "customer_segmentation": {
-      "AA": {
-        "A": 0.68,
-        "B": 0.16,
-        "C": 0.16
-      },
-      "BB": {
-        "A": 0.16,
-        "B": 0.68,
-        "C": 0.16
-      },
-      "CC": {
-        "A": 0.16,
-        "B": 0.16,
-        "C": 0.68
-      },
-      "A": {
-        "A": 1,
-        "B": 0,
-        "C": 0
-      },
-      "B": {
-        "A": 0,
-        "B": 1,
-        "C": 0
-      },
-      "C": {
-        "A": 0,
-        "B": 0,
-        "C": 1
-      }
-    },
-    "service_level": {
-      "A": {
-        "pk_delay": 180,
-        "trip_delay": 180,
-        "sharing_preference": false
-      },
-      "B": {
-        "pk_delay": 300,
-        "trip_delay": 600,
-        "sharing_preference": true
-      },
-      "C": {
-        "pk_delay": 600,
-        "trip_delay": 900,
-        "sharing_preference": true
-      }
-    },
-    "allow_many_to_one": [
-      true,
-      false
-    ],
-    "reinsert_targets": [
-      true,
-      false
-    ],
-    "clear_target_list_every_round": [
-      true,
-      false
-    ],
-    "allow_urgent_relocation": [
-      true,
-      false
-    ]
-
-    'BA': 'batch_duration',
-            'CD': 'contract_duration',
-            'CS': 'customer_segmentation',
-            'CT': 'clear_target_list_every_round',
-            'ID': 'instance_description',
-            'IF': 'initial_fleet',
-            'IN': 'instance_name',
-            'MC': 'max_capacity',
-            'MO': 'allow_many_to_one',
-            'MR': 'max_requests',
-            'RE': 'rebalance',
-            'RT': 'reinsert_targets',
-            'SD': 'allow_service_deterioration',
-            'SR': 'service_rate',
-            'ST': 'simulation_time',
-            'UR': 'allow_urgent_relocation',
-            'VH': 'allow_vehicle_hiring'
-             */
 
             System.out.println(jsonObject.toJSONString());
             String resultFolder = (String) jsonObject.get("result_folder");
@@ -393,10 +300,16 @@ public class Dao {
     public ArrayList<Short> getShortestPathBetween(int o, int d) {
 
         if (shortestPathsNodeIds.get(o).get(d) == null) {
-            //ArrayList<Short> sp = getShortestPathBetweenODfromFile(fromNode, toNode); // FROM FILE
             //ArrayList<Short> sp = getShortestPathBetweenODfromDB(fromNode, toNode); // FROM DB
-            ArrayList<Short> sp = ServerUtil.getShortestPathBetween(o, d);
-            shortestPathsNodeIds.get(o).set(d, sp);
+            //ArrayList<Short> sp = ServerUtil.getShortestPathBetween(o, d);
+            List<Integer> sp = bellmanFordShortestPath.getPath(o, d).getVertexList();
+            ArrayList<Short> sp3 = new ArrayList<>();
+
+            for (int i = 0; i < sp.size(); i++) {
+                sp3.add(sp.get(i).shortValue());
+            }
+
+            shortestPathsNodeIds.get(o).set(d, sp3);
         }
 
         return shortestPathsNodeIds.get(o).get(d);
@@ -436,11 +349,11 @@ public class Dao {
         return canReachClass;
     }
 
-    private double[][] getDistanceMatrixDouble(String file_path) {
+    private double[][] getDistanceMatrixMeters(String file_path) {
         double[][] dist_matrix = new double[numberOfNodes][numberOfNodes];
 
         try {
-            System.out.println("Reading distance data...");
+            System.out.println("Reading distance data (meters)...");
             Reader in = new FileReader(file_path);
             int row = 0;
             Iterable<CSVRecord> records = CSVFormat.DEFAULT.parse(in);
@@ -523,7 +436,7 @@ public class Dao {
      * @return double[][]
      */
     private short[][] getDistanceMatrix(String file_path) {
-        distMatrixKm = new double[numberOfNodes][numberOfNodes];
+        distMatrixMeters = new double[numberOfNodes][numberOfNodes];
         short[][] dist_matrix = new short[numberOfNodes][numberOfNodes];
         short[] countInvalid = new short[numberOfNodes];
         unreachable = new ArrayList<>();
@@ -547,11 +460,11 @@ public class Dao {
                         //invalid.add(col);
                     }
 
-                    double km = r.equals("INF") ? Double.MIN_VALUE : Double.valueOf(r);
-                    short sec = r.equals("INF") ? Short.MIN_VALUE : (short) (3.6 * km / SPEED + 0.5);
+                    double meters = r.equals("INF") ? Double.MIN_VALUE : Double.valueOf(r);
+                    short sec = r.equals("INF") ? Short.MIN_VALUE : (short) (3.6 * meters / SPEED + 0.5);
 
                     dist_matrix[row][col] = sec;
-                    distMatrixKm[row][col] = km;
+                    distMatrixMeters[row][col] = meters;
 
                     col++;
                 }
@@ -573,6 +486,39 @@ public class Dao {
             e.printStackTrace();
         }
         return dist_matrix;
+    }
+
+
+    /***
+     * Read .csv distance matrix. Assumes KxK acessibility.
+     * @param file_path
+     * @return double[][]
+     */
+    private short[][] getAdjacencyMatrix(String file_path) {
+        short[][] adjacencyMatrix = new short[numberOfNodes][numberOfNodes];
+
+        try {
+
+            System.out.println(String.format("Reading adjacency data from \"%s\"...", file_path));
+            Reader in = new FileReader(file_path);
+
+            int row = 0;
+
+            Iterable<CSVRecord> records = CSVFormat.DEFAULT.parse(in);
+            for (CSVRecord record : records) {
+                int col = 0;
+
+                for (String r : record) {
+                    short v = Short.valueOf(r);
+                    adjacencyMatrix[row][col] = v;
+                    col++;
+                }
+                row++;
+            }
+        } catch (java.io.IOException e) {
+            e.printStackTrace();
+        }
+        return adjacencyMatrix;
     }
 
     /**
@@ -664,8 +610,8 @@ public class Dao {
         List<User> listUser = userBuff;
         // System.out.println("%d",timeSpanSec);
         // Continue reading records
-        if (listUser.size() > 0){
-            System.out.println("LAST:" + userBuff.get(userBuff.size()-1).getReqTime() + " - " + currentTime + timeSpanSec);
+        if (listUser.size() > 0) {
+            System.out.println("LAST:" + userBuff.get(userBuff.size() - 1).getReqTime() + " - " + currentTime + timeSpanSec);
         }
 //            if (userBuff.get(userBuff.size()-1).getReqTime() < currentTime + timeSpanSec){
 //            return new ArrayList<>();
@@ -770,6 +716,14 @@ public class Dao {
         return (int) (3.6 * distMatrix[from][to] / SPEED);
     }
 
+    public double getLon(int networkId) {
+        return Dao.getInstance().getLocation(networkId).getX();
+    }
+
+    public double getLat(int networkId) {
+        return Dao.getInstance().getLocation(networkId).getY();
+    }
+
     /**
      * Get distance in km
      *
@@ -778,7 +732,7 @@ public class Dao {
      * @return distance in km
      */
     public double getDistKm(int from, int to) {
-        return distMatrixKm[from][to];
+        return distMatrixMeters[from][to];
     }
 
     /**
@@ -894,14 +848,14 @@ public class Dao {
     }
 
 
-        /**
-         * Get the network id of the node in the shortest path connecting two other nodes.
-         *
-         * @param o
-         * @param d
-         * @param elapsedTime
-         * @return network id, or -1 if there is no intermediate node
-         */
+    /**
+     * Get the network id of the node in the shortest path connecting two other nodes.
+     *
+     * @param o
+     * @param d
+     * @param elapsedTime
+     * @return network id, or -1 if there is no intermediate node
+     */
     public int getIntermediateNodeNetworkId(int o, int d, int elapsedTime) {
 
         //TODO Decide what to do when  elapsed time is zero
@@ -966,8 +920,9 @@ public class Dao {
 
     /**
      * Build cumulative distance array from distances between nodes in sequence.
-     *  e.g.,     List [o, 1, 2, 3, d]
-     *        Arrivals [0, d(o,1), d(o,1) + d(1,2), d(o,1) + d(1,2) + d(2,3), d(o,1) + d(1,2) + d(2,3) + d(3,d)]
+     * e.g.,     List [o, 1, 2, 3, d]
+     * Arrivals [0, d(o,1), d(o,1) + d(1,2), d(o,1) + d(1,2) + d(2,3), d(o,1) + d(1,2) + d(2,3) + d(3,d)]
+     *
      * @param sequenceNodeIds
      * @return cumulativeDistancesKm
      */
