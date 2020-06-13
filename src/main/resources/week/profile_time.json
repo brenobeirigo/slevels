@@ -1,11 +1,12 @@
 {
   "instance_description": "Parallel vs. Sequential execution - update fleet status",
-  "instance_name": "S1",
+  "instance_name": "S2",
   "result_folder": "C:/Users/LocalAdmin/IdeaProjects/slevels/instance_output/profile_time/",
   "instances_folder": "C:/Users/LocalAdmin/IdeaProjects/slevels/instance_output/profile_time/",
-  "distances_file": "C:/Users/LocalAdmin/OneDrive/leap_forward/street_network_server/tenv/data/out/manhattan_nyc/distance/dist_matrix_m.csv",
-  "adjacency_matrix_file": "C:/Users/LocalAdmin/OneDrive/leap_forward/street_network_server/tenv/data/out/manhattan_nyc/distance/adjacency_matrix.csv",
-  "requests_file": "C:/Users/LocalAdmin/OneDrive/leap_forward/street_network_server/tenv/data/out/manhattan_nyc/tripdata/ids/tripdata_ids_2011-02-01_000000_2011-02-07_235959.csv",
+  "distances_file": "C:/Users/LocalAdmin/OneDrive/leap_forward/street_network_server/tenv/data/out/manhattan/distance/dist_matrix_m.csv",
+  "adjacency_matrix_file": "C:/Users/LocalAdmin/OneDrive/leap_forward/street_network_server/tenv/data/out/manhattan/network_info/adjacency_matrix.csv",
+  "requests_file": "C:/Users/LocalAdmin/OneDrive/leap_forward/street_network_server/tenv/data/out/manhattan/tripdata/ids/tripdata_ids_2011-02-01_000000_2011-02-07_235959.csv",
+  "network_node_info_file": "C:/Users/LocalAdmin/OneDrive/leap_forward/street_network_server/tenv/data/out/manhattan/network_info/nodeset_info.json",
   "scenario_config": {
     "batch_duration": [
       30
@@ -29,13 +30,13 @@
       0
     ],
     "allow_service_deterioration": [
-      false
+      true
     ],
     "allow_vehicle_hiring": [
-      false
+      true
     ],
     "allow_vehicle_creation": [
-      false
+      true
     ],
     "service_rate": {
       "S1": {
@@ -76,21 +77,19 @@
   },
   "rebalancing_config": {
     "rebalancing_method": [
-
-      "rebalance_heuristic",
       "rebalance_optimal_alonso_mora"
     ],
     "allow_many_to_one": [
-      false, true
+      true
     ],
     "reinsert_targets": [
-      true, false
+      true
     ],
     "clear_target_list_every_round": [
-      true, false
+      true
     ],
     "allow_urgent_relocation": [
-      true, false
+      true
     ]
   },
   "labels": {
@@ -111,7 +110,7 @@
     "UR": "allow_urgent_relocation",
     "IN": "instance_name",
     "ID": "instance_description",
-    "HE": "heuristic_rebalancing",
-    "OP": "optimal_rebalancing"
+    "HE": "rebalance_heuristic",
+    "OP": "rebalance_optimal_alonso_mora"
   }
 }
