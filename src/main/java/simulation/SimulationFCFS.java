@@ -1,6 +1,7 @@
 package simulation;
 
 import config.Config;
+import config.InstanceConfig;
 import config.Rebalance;
 import dao.Dao;
 import model.User;
@@ -9,10 +10,7 @@ import model.Visit;
 import model.node.Node;
 
 import java.nio.file.Path;
-import java.util.ArrayList;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
+import java.util.*;
 
 public class SimulationFCFS extends Simulation {
 
@@ -88,19 +86,11 @@ public class SimulationFCFS extends Simulation {
      */
     public static Vehicle createVehicleAtRandomPosition(User u, int currentTime, int contractDuration) {
 
-        // Nodes that can reach user (within max. duration)
-        short userNetworkId = (short) u.getNodePk().getNetworkId();
-        String userClass = u.getPerformanceClass();
-        List<Short> canReach = Dao.getInstance().getCanReachList().get(userNetworkId).get(userClass);
-
-        // Network id
-        short randomVehicleOrigin = canReach.get(Dao.getInstance().rand.nextInt(canReach.size()));
+        int closestRegionCenterId = Dao.getInstance().getClosestRegion(u.getNodePk().getNetworkId(), u.getPerformanceClass());
 
         // When vehicle have to be released
         int contractDeadline = currentTime;
-        int distOriginPkUser = Dao.getInstance().getDistSec(
-                randomVehicleOrigin,
-                u.getNodePk().getNetworkId());
+        int distOriginPkUser = Dao.getInstance().getDistSec(closestRegionCenterId, u.getNodePk().getNetworkId());
 
         int distPkDp = u.getDistFromTo();
         //System.out.println("Distance origin pickup user: " + distOriginPkUser);
@@ -119,8 +109,7 @@ public class SimulationFCFS extends Simulation {
             //System.out.println("          Contract deadline: " + contractDeadline);
         }
 
-
-        return new Vehicle(u.getNumPassengers(), randomVehicleOrigin, currentTime, true, contractDeadline);
+        return new Vehicle(u.getNumPassengers(), closestRegionCenterId, currentTime, true, contractDeadline);
     }
 
     /**
@@ -246,6 +235,8 @@ public class SimulationFCFS extends Simulation {
                 // Try to hire new vehicle to user according to user SQ class
                 if (hireNewVehicleToUser(u)) {
 
+                    roundPrivateRides.add(u);
+
                     bestVisit = getVisitHiredVehicleUser(u, currentTime);
 
                 } else if (isAllowedToLowerServiceLevel) {
@@ -324,6 +315,4 @@ public class SimulationFCFS extends Simulation {
         setHired.add(v);
         return candidateVisitHiredVehicle;
     }
-
-
 }

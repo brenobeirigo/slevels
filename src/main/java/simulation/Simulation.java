@@ -86,6 +86,7 @@ public abstract class Simulation {
     protected Set<Vehicle> setDeactivated; // Vehicles to be deactivated in round
     protected Set<Vehicle> setHired; // Current set of hired vehicles
     protected List<User> roundRejectedUsers;
+    protected List<User> roundPrivateRides;
     protected Map<String, Long> runTimes;
 
     public Simulation(int initialFleetSize,
@@ -131,6 +132,7 @@ public abstract class Simulation {
         /* SETS OF VEHICLES AND REQUESTS */
         allRequests = new HashMap<>(); // Dictionary of all users
         setWaitingUsers = new ArrayList<>(); // Requests whose pickup time is lower than the current time
+        roundPrivateRides = new ArrayList<>();
         deniedRequests = new HashSet<>(); // Requests with expired pickup time
         finishedRequests = new HashSet<>(); // Requests whose DP node was visited
         maxRoundsIdle = 40;
@@ -436,6 +438,7 @@ public abstract class Simulation {
         roundRejectedUsers.forEach(User::computeRejection);
         deniedRequests.addAll(roundRejectedUsers);
         setWaitingUsers.removeAll(roundRejectedUsers);
+        roundPrivateRides.clear();
 
         ///// 3 - ASSIGN WAITING USERS (previous + current round)  TO VEHICLES /////////////////////////////////////////
         Set<User> setScheduledUsers = getServicedUsersDynamicSizedFleet(rightTW);
@@ -449,8 +452,10 @@ public abstract class Simulation {
     public void rebalance(Set<Vehicle> idleVehicles){
         List<Node> targets = null;
         if (rebalanceUtil.method.equals(Rebalance.METHOD_OPTIMAL)){
-            if (roundRejectedUsers != null){
+            if (roundRejectedUsers!=null && !roundRejectedUsers.isEmpty()){
                 targets = roundRejectedUsers.stream().map(User::getNodePk).collect(Collectors.toList());
+            }else if (roundPrivateRides!=null && !roundPrivateRides.isEmpty()){
+                targets = roundPrivateRides.stream().map(User::getNodePk).collect(Collectors.toList());
             }
         }else if (rebalanceUtil.method.equals(Rebalance.METHOD_HEURISTIC)){
             targets = Vehicle.setOfHotPoints;
@@ -464,7 +469,7 @@ public abstract class Simulation {
             System.out.println(this.sol.getOutputFile() + " already exists.");
             return;
         } else {
-            System.out.println(this.sol.getOutputFile() + " instance being processed...");
+            System.out.println(String.format("# Processing instance \"%s\"...", this.sol.getOutputFile()));
         }
 
         // Loop rounds of TW
