@@ -32,17 +32,17 @@ public class Main {
 
         try {
 
-            System.out.println("Reading configuration...");
+            System.out.println("# Reading configuration...");
             // Reading input settings
             Map jsonConfig = FileUtil.getMapFrom(args[0]);
 
             // Instances
             jsonConfigFilePath = jsonConfig.get("instance_file_path").toString();
-            System.out.println("Executing configuration at \""+jsonConfigFilePath+"\"...");
+            System.out.println("# Executing configuration at \""+jsonConfigFilePath+"\"...");
 
             // Round information level (no information, round summary, all information)
             String infoLevelLabel = jsonConfig.get("info_level").toString();
-            System.out.println("Round information level: " + infoLevelLabel);
+            System.out.println("# Round information level: " + infoLevelLabel);
 
             //TODO read infoHandling from file
             infoHandling.put(Simulation.SAVE_VEHICLE_ROUND_GEOJSON, false);
