@@ -55,6 +55,7 @@ public class InstanceConfig {
     private Path resultPath;
     private Path distancesPath;
     private Path adjacencyMatrixPath;
+    private Path networkNodeInfoPath;
     private Path requestsPath;
     private String instanceDescription;
     private String instanceName;
@@ -83,14 +84,15 @@ public class InstanceConfig {
             String inputSettings = new String(Files.readAllBytes(filePath));
 
             Map jsonConfig = gson.fromJson(inputSettings, Map.class);
-            System.out.println("INSTANCE DATA (from json)");
-            System.out.println(jsonConfig);
+            System.out.println(String.format("# Reading instance data from \"%s\"...", jsonFilePath));
+            System.out.println(String.format("# JSON data: %s...", jsonConfig));
 
             //Description
             this.instancesPath = Paths.get(jsonConfig.get("instances_folder").toString());
             this.resultPath = Paths.get(jsonConfig.get("result_folder").toString());
             this.distancesPath = Paths.get(jsonConfig.get("distances_file").toString());
             this.adjacencyMatrixPath = Paths.get(jsonConfig.get("adjacency_matrix_file").toString());
+            this.networkNodeInfoPath = Paths.get(jsonConfig.get("network_node_info_file").toString());
             this.requestsPath = Paths.get(jsonConfig.get("requests_file").toString());
             this.instanceDescription = jsonConfig.get("instance_description").toString();
             this.instanceName = jsonConfig.get("instance_name").toString();
@@ -120,8 +122,7 @@ public class InstanceConfig {
 
 
             // Customer base settings
-            Type segmentationScenarioType = new TypeToken<HashMap<String, HashMap<String, Double>>>() {
-            }.getType();
+            Type segmentationScenarioType = new TypeToken<HashMap<String, HashMap<String, Double>>>() {}.getType();
             this.segmentationScenarioMap = gson.fromJson(scenarioConfig.get("customer_segmentation"), segmentationScenarioType);
             Type serviceLevelMapType = new TypeToken<HashMap<String, HashMap<String, Integer>>>() {
             }.getType();
@@ -138,8 +139,7 @@ public class InstanceConfig {
                 }
             }
 
-            System.out.println("MAXTIME HIRING LIST");
-            System.out.println(this.maxTimeHiringList);
+            System.out.println(String.format("# Max. time to reach classes (sec): %s",this.maxTimeHiringList));
 
 
             // All service rate
@@ -249,6 +249,9 @@ public class InstanceConfig {
 
     public Path getAdjacencyMatrixPath() {
         return adjacencyMatrixPath;
+    }
+    public Path getNetworkNodeInfoPath() {
+        return networkNodeInfoPath;
     }
 
     public static InstanceConfig getInstance() {
