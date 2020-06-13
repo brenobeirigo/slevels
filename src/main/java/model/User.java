@@ -77,12 +77,7 @@ public class User implements Comparable<User> {
 
         int originId = Integer.valueOf(record.get("pk_id"));
         int destinationId = Integer.valueOf(record.get("dp_id"));
-        if (Dao.getInstance().getUnreachable().contains(originId)) {
-            this.distFromTo = Short.MIN_VALUE;
-        } else {
-            this.distFromTo = Dao.getInstance().getDistSec(originId, destinationId);
-        }
-
+        this.distFromTo = Dao.getInstance().getDistSec(originId, destinationId);
         this.reqTime = Config.getInstance().date2Seconds(record.get("pickup_datetime"));
         this.setNumPassengers(Integer.valueOf(record.get("passenger_count")));
         this.id = ++nTrips;
