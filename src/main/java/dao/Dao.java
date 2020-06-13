@@ -3,16 +3,15 @@ package dao;
 
 import config.Config;
 import config.InstanceConfig;
+import helper.HelperIO;
 import model.User;
 import model.node.Node;
+import model.node.NodeNetwork;
 import org.apache.commons.csv.CSVFormat;
 import org.apache.commons.csv.CSVRecord;
-import org.jgrapht.alg.shortestpath.BellmanFordShortestPath;
+import org.jgrapht.alg.shortestpath.DijkstraShortestPath;
 import org.jgrapht.graph.DefaultWeightedEdge;
 import org.jgrapht.graph.SimpleDirectedWeightedGraph;
-import org.json.simple.JSONObject;
-import org.json.simple.parser.JSONParser;
-
 import java.awt.geom.Point2D;
 import java.io.FileNotFoundException;
 import java.io.FileReader;
@@ -27,67 +26,70 @@ public class Dao {
 
 
     // Speed of vehicles m/s
-    public static final double SPEED = 20;
+    public static final double SPEED = 30;
 
     public static int numberOfNodes;
     private static Dao ourInstance = new Dao();
     public Random rand;
 
-    private String file_path;
-    private String trip_path;
-    private String adjacencyMatrixPath;
+    private String pathDistanceMatrix;
+    private String pathRequestList;
+    private String pathadjacencyMatrix;
+    private String pathNetworkNodeInfo;
 
     // Geographical data
-    private Map<Short, Point2D> nodeLocationMap; // Map of node ids and respective coordinates
+    private Map<Integer, NodeNetwork> nodeNetworkInfo; // Map of node ids and respective coordinates
 
     private short[][] distMatrix;
     private double[][] distMatrixMeters;
-    private short[][] adjacencyMatrix;
-    private BellmanFordShortestPath bellmanFordShortestPath;
+    private int[][] adjacencyMatrix;
+    protected DijkstraShortestPath<Integer, Integer> dijkstraShortestPath;
     private SimpleDirectedWeightedGraph<Integer, DefaultWeightedEdge> networkGraph;
 
-    private ArrayList<ArrayList<ArrayList<Short>>> shortestPathsNodeIds;
-    private ArrayList<ArrayList<ArrayList<Short>>> shortestPathDistances;
+    protected ArrayList<ArrayList<List<Integer>>> shortestPathsNodeIds;
+    protected ArrayList<ArrayList<List<Integer>>> shortestPathDistances;
 
-    private Map<Short, Map<String, List<Short>>> canReachClass;
+    private Map<Integer, Map<String, List<Integer>>> canReachClass;
     private int iUserNextRound;
-    private List<Integer> unreachable;
     private List<User> userBuff;
     private List<User> allUsers;
     private Iterable<CSVRecord> records;
     private int currentTime = 0;
 
-    private Dao() {
+    public Dao() {
         try {
+
+            // Log user data
+            allUsers = new ArrayList<>();
+            userBuff = new ArrayList<>();
+
+            // Set seed to guarantee reproducibility
+            rand = new Random(0);
 
             iUserNextRound = 0;
 
-            // Info
-            file_path = InstanceConfig.getInstance().getDistancesPath().toString();
-            adjacencyMatrixPath = InstanceConfig.getInstance().getAdjacencyMatrixPath().toString();
-            trip_path = InstanceConfig.getInstance().getRequestsPath().toString();
+            // Get paths from configuration file ///////////////////////////////////////////////////////////////////////
+            pathDistanceMatrix = InstanceConfig.getInstance().getDistancesPath().toString();
+            pathadjacencyMatrix = InstanceConfig.getInstance().getAdjacencyMatrixPath().toString();
+            pathNetworkNodeInfo = InstanceConfig.getInstance().getNetworkNodeInfoPath().toString();
+            pathRequestList = InstanceConfig.getInstance().getRequestsPath().toString();
 
-            // Pull map of nodes from server. Format: {id=Point(x,y)}
-            System.out.println("Pulling nodes from server...");
-            nodeLocationMap = ParseJsonUtil.getNodeDictionary(ServerUtil.getNodeList());
-            numberOfNodes = nodeLocationMap.size();
+            // Reading map data ////////////////////////////////////////////////////////////////////////////////////////
 
-            System.out.println(String.format("%d nodes read.", numberOfNodes));
+            System.out.println(String.format("# Reading nodeset data from \"%s\"...", pathNetworkNodeInfo));
+            nodeNetworkInfo = ParseJsonUtil.getNodeDictionaryFromJsonString(HelperIO.readFileFromPath(pathNetworkNodeInfo));
+            numberOfNodes = nodeNetworkInfo.size();
 
-            System.out.println("Calculating distance matrix in seconds...");
-            distMatrix = getDistanceMatrix(file_path);
+            distMatrix = getDistanceMatrixFrom(pathDistanceMatrix);
 
-            System.out.println("Pulling reachability map for max trip times:"
-                    + InstanceConfig.getInstance().getMaxTimeHiringList());
-            canReachClass = getReachabilityMap(nodeLocationMap.keySet());
+            adjacencyMatrix = getAdjacencyMatrix(pathadjacencyMatrix);
 
-            rand = new Random();
-
-            shortestPathsNodeIds = new ArrayList<>();
-            shortestPathDistances = new ArrayList<>();
+            networkGraph = getWeightedGraphFromAdjacencyMatrix(adjacencyMatrix, distMatrixMeters);
+            dijkstraShortestPath = new DijkstraShortestPath(networkGraph);
 
             // Shortest path info (node ids, node arrivals)
-            System.out.println("Pulling shortest path info...");
+            shortestPathsNodeIds = new ArrayList<>();
+            shortestPathDistances = new ArrayList<>();
 
             for (int i = 0; i < numberOfNodes; i++) {
                 shortestPathsNodeIds.add(i, new ArrayList<>());
@@ -96,10 +98,27 @@ public class Dao {
                 for (int j = 0; j < numberOfNodes; j++) {
                     shortestPathsNodeIds.get(i).add(j, null);
                     shortestPathDistances.get(i).add(j, null);
-                    //pullShortestPathInfo(i,j);
                 }
             }
 
+            System.out.println(String.format("# Reading all records from \"%s\"...", pathRequestList));
+            records = CSVFormat.RFC4180.withFirstRecordAsHeader().parse(new FileReader(pathRequestList));
+
+
+            // TODO Read nodes from server
+            // System.out.println("Pulling shortest path info...");
+            //
+            // Pull map of nodes from server. Format: {id=Point(x,y)}
+            // System.out.println("Pulling nodes from server...");
+            // nodeNetworkInfo = ParseJsonUtil.getNodeDictionaryFromJsonString(ServerUtil.getNodeList());
+            /*System.out.println("Pulling reachability map for max trip times:"
+                    + InstanceConfig.getInstance().getMaxTimeHiringList());
+            canReachClass = getReachabilityMap(nodeNetworkInfo.keySet());
+            System.out.println(canReachClass);
+            //System.out.println();
+            ServerUtil.getAllCanReachNode(row, 150);
+
+            */
 
             /*
             //Try to read all shortest paths in advance
@@ -111,23 +130,15 @@ public class Dao {
             Duration duration = Duration.between(before, after);
             System.out.println("DURATION: " + duration.toMillis());*/
 
-
-            allUsers = new ArrayList<>();
-            userBuff = new ArrayList<>();
-            System.out.println("Reading all records...");
-            records = CSVFormat.RFC4180.withFirstRecordAsHeader().parse(new FileReader(trip_path));
-
-            adjacencyMatrix = getAdjacencyMatrix(adjacencyMatrixPath);
-
-            networkGraph = getWeightedGraphFromAdjacencyMatrix(adjacencyMatrix, distMatrixMeters);
-            bellmanFordShortestPath = new BellmanFordShortestPath(networkGraph);
+            /*
+            // Save all shortest paths before execution
             for (int i = 0; i < distMatrixMeters.length; i++) {
                 System.out.println("Processing " + i);
                 for (int j = 0; j < distMatrixMeters.length; j++) {
                     System.out.println(i + "==" + j);
                     getShortestPathBetween(i, j);
                 }
-            }
+            }*/
 
 
         } catch (Exception e) {
@@ -143,7 +154,7 @@ public class Dao {
      * @param distMatrixMeters
      * @return
      */
-    private SimpleDirectedWeightedGraph<Integer, DefaultWeightedEdge> getWeightedGraphFromAdjacencyMatrix(short[][] adjacencyMatrix, double[][] distMatrixMeters) {
+    private SimpleDirectedWeightedGraph<Integer, DefaultWeightedEdge> getWeightedGraphFromAdjacencyMatrix(int[][] adjacencyMatrix, double[][] distMatrixMeters) {
 
         SimpleDirectedWeightedGraph<Integer, DefaultWeightedEdge> graph = new SimpleDirectedWeightedGraph<>(DefaultWeightedEdge.class);
 
@@ -164,37 +175,13 @@ public class Dao {
         return graph;
     }
 
-    public List<String> getLonLatList(List<Short> shortestPathB) {
+    public List<String> getLonLatList(List<Integer> shortestPathB) {
         return shortestPathB.stream().map(
                 v -> String.format(
                         "[%f, %f]",
-                        nodeLocationMap.get(v).getX(),
-                        nodeLocationMap.get(v).getY())
+                        nodeNetworkInfo.get(v).getPoint().getX(),
+                        nodeNetworkInfo.get(v).getPoint().getY())
         ).collect(Collectors.toList());
-    }
-
-    public static void main(String[] args) {
-        JSONParser parser = new JSONParser();
-
-        try {
-
-            Object obj = parser.parse(new FileReader("C:\\Users\\LocalAdmin\\IdeaProjects\\slevels\\src\\main\\resources\\instance_settings_test_rebalancing.json"));
-            JSONObject jsonObject = (JSONObject) obj;
-
-            System.out.println(jsonObject.toJSONString());
-            String resultFolder = (String) jsonObject.get("result_folder");
-            String instanceName = (String) jsonObject.get("instance_name");
-            Map<String, String> labels = (HashMap<String, String>) jsonObject.get("labels");
-            for (Entry<String, String> e : labels.entrySet()) {
-                System.out.println(e.getKey() + "-" + e.getValue());
-            }
-            System.out.println(resultFolder);
-            System.out.println(labels);
-
-
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
     }
 
     /**
@@ -204,31 +191,31 @@ public class Dao {
      * @param to
      * @return
      */
-    public static List<Short> getArrayTravelDurationsBetweenInSeconds(Node from, Node to) {
+    public static List<Integer> getArrayTravelDurationsBetweenInSeconds(Node from, Node to) {
 
-        List<Short> listNodes = ServerUtil.getShortestPathBetween(from.getNetworkId(), to.getNetworkId());
+        List<Integer> listNodes = ServerUtil.getShortestPathBetween(from.getNetworkId(), to.getNetworkId());
 
-        List<Short> durations = new ArrayList<>();
+        List<Integer> durations = new ArrayList<>();
 
         for (int i = 0; i < listNodes.size() - 1; i++) {
-            short o = listNodes.get(i);
-            short d = listNodes.get(i + 1);
+            int o = listNodes.get(i);
+            int d = listNodes.get(i + 1);
             durations.add(Dao.getInstance().getDistSec(o, d));
         }
         return durations;
     }
 
-    private Map<Short, Map<String, List<Short>>> getReachabilityMap(Set<Short> nodeIds) {
+    private Map<Integer, Map<String, List<Integer>>> getReachabilityMap(Set<Integer> nodeIds) {
 
-        Map<Short, Map<String, List<Short>>> canReachClass = new HashMap<>();
+        Map<Integer, Map<String, List<Integer>>> canReachClass = new HashMap<>();
 
-        for (short i : nodeIds) {
+        for (int i : nodeIds) {
 
             canReachClass.put(i, new HashMap<>());
 
             for (Entry<String, Integer> e : InstanceConfig.getInstance().getMaxTimeHiringList().entrySet()) {
                 int maxTime = e.getValue();
-                List<Short> canReachNode = ServerUtil.getAllCanReachNode(i, maxTime);
+                List<Integer> canReachNode = ServerUtil.getAllCanReachNode(i, maxTime);
                 //canReachList.get(i).put(maxTime, canReachNode);
                 canReachClass.get(i).put(e.getKey(), canReachNode);
                 //System.out.println(i + " - " + canReachList.get(i).get(maxTime).size());
@@ -249,7 +236,7 @@ public class Dao {
      * @return Point2D coordinate
      */
     public Point2D getLocation(int id) {
-        return nodeLocationMap.get((short) id);
+        return nodeNetworkInfo.get((int) id).getPoint();
     }
 
     /**
@@ -297,21 +284,12 @@ public class Dao {
     }
 
 
-    public ArrayList<Short> getShortestPathBetween(int o, int d) {
+    public List<Integer> getShortestPathBetween(int o, int d) {
 
         if (shortestPathsNodeIds.get(o).get(d) == null) {
-            //ArrayList<Short> sp = getShortestPathBetweenODfromDB(fromNode, toNode); // FROM DB
-            //ArrayList<Short> sp = ServerUtil.getShortestPathBetween(o, d);
-            List<Integer> sp = bellmanFordShortestPath.getPath(o, d).getVertexList();
-            ArrayList<Short> sp3 = new ArrayList<>();
-
-            for (int i = 0; i < sp.size(); i++) {
-                sp3.add(sp.get(i).shortValue());
-            }
-
-            shortestPathsNodeIds.get(o).set(d, sp3);
+            List<Integer> sp = dijkstraShortestPath.getPath(o, d).getVertexList();
+            shortestPathsNodeIds.get(o).set(d, sp);
         }
-
         return shortestPathsNodeIds.get(o).get(d);
     }
 
@@ -328,7 +306,7 @@ public class Dao {
             currentTime = 0;
 
             // Read the requests from the beginning
-            records = CSVFormat.RFC4180.withFirstRecordAsHeader().parse(new FileReader(trip_path));
+            records = CSVFormat.RFC4180.withFirstRecordAsHeader().parse(new FileReader(pathRequestList));
 
             // Start random again
             rand = new Random();
@@ -345,7 +323,7 @@ public class Dao {
 
     }
 
-    public Map<Short, Map<String, List<Short>>> getCanReachList() {
+    public Map<Integer, Map<String, List<Integer>>> getCanReachList() {
         return canReachClass;
     }
 
@@ -432,19 +410,16 @@ public class Dao {
 
     /***
      * Read .csv distance matrix. Assumes KxK acessibility.
-     * @param file_path
+     * @param filePath
      * @return double[][]
      */
-    private short[][] getDistanceMatrix(String file_path) {
+    private short[][] getDistanceMatrixFrom(String filePath) {
         distMatrixMeters = new double[numberOfNodes][numberOfNodes];
         short[][] dist_matrix = new short[numberOfNodes][numberOfNodes];
-        short[] countInvalid = new short[numberOfNodes];
-        unreachable = new ArrayList<>();
 
         try {
-
-            System.out.println("Reading distance data...");
-            Reader in = new FileReader(file_path);
+            System.out.println(String.format("# Reading distance matrix from \"%s\"...", filePath));
+            Reader in = new FileReader(filePath);
 
             int row = 0;
 
@@ -453,35 +428,16 @@ public class Dao {
                 int col = 0;
 
                 for (String r : record) {
-
-                    if (r.equals("INF")) {
-                        countInvalid[col]++;
-                        //System.out.println(String.format("%6d %6d", row, col));
-                        //invalid.add(col);
-                    }
-
-                    double meters = r.equals("INF") ? Double.MIN_VALUE : Double.valueOf(r);
-                    short sec = r.equals("INF") ? Short.MIN_VALUE : (short) (3.6 * meters / SPEED + 0.5);
+                    double meters = Double.valueOf(r);
+                    short sec = (short) (3.6 * meters / SPEED + 0.5);
 
                     dist_matrix[row][col] = sec;
                     distMatrixMeters[row][col] = meters;
 
                     col++;
                 }
-                //System.out.println();
-                ServerUtil.getAllCanReachNode(row, 150);
                 row++;
             }
-
-
-            for (int i = 0; i < countInvalid.length; i++) {
-
-                if (countInvalid[i] > 4000)
-                    unreachable.add(i);
-            }
-
-            System.out.println("Unreachable nodes:" + unreachable);
-
         } catch (java.io.IOException e) {
             e.printStackTrace();
         }
@@ -490,16 +446,15 @@ public class Dao {
 
 
     /***
-     * Read .csv distance matrix. Assumes KxK acessibility.
+     * Read .csv distance matrix. Assumes KxK accessibility.
      * @param file_path
      * @return double[][]
      */
-    private short[][] getAdjacencyMatrix(String file_path) {
-        short[][] adjacencyMatrix = new short[numberOfNodes][numberOfNodes];
+    private int[][] getAdjacencyMatrix(String file_path) {
+        int[][] adjacencyMatrix = new int[numberOfNodes][numberOfNodes];
 
         try {
-
-            System.out.println(String.format("Reading adjacency data from \"%s\"...", file_path));
+            System.out.println(String.format("# Reading adjacency data from \"%s\"...", file_path));
             Reader in = new FileReader(file_path);
 
             int row = 0;
@@ -509,7 +464,7 @@ public class Dao {
                 int col = 0;
 
                 for (String r : record) {
-                    short v = Short.valueOf(r);
+                    int v = Integer.valueOf(r);
                     adjacencyMatrix[row][col] = v;
                     col++;
                 }
@@ -753,7 +708,7 @@ public class Dao {
      * @param to   node id
      * @return distance in seconds
      */
-    public short getDistSec(int from, int to) {
+    public int getDistSec(int from, int to) {
         return distMatrix[from][to];
     }
 
@@ -804,12 +759,12 @@ public class Dao {
      */
     public int getIntermediateNodeNetworkIdNew(int o, int d, int elapsedTime) {
 
-        ArrayList<Short> sp = ServerUtil.getShortestPathBetween(o, d);
+        ArrayList<Integer> sp = ServerUtil.getShortestPathBetween(o, d);
 
         // Building array of arrivals
         // e.g.,     List [      o,      1,      2,      3,      4,      5,      d]
         //       Arrivals [      0, d(o,1), d(1,2), d(2,3), d(3,4), d(4,5), d(5,d)]
-        ArrayList<Short> spArrivals = getSpNodeArrivals(sp);
+        ArrayList<Integer> spArrivals = getSpNodeArrivals(sp);
 
         // No path between nodes
         if (spArrivals.isEmpty())
@@ -823,7 +778,7 @@ public class Dao {
             return -1;
 
         // Find position of first higher arrival
-        int pos = Collections.binarySearch(spArrivals, (short) elapsedTime);
+        int pos = Collections.binarySearch(spArrivals, elapsedTime);
 
         // Correct for elapsedTime not in shortest path (<0)
         pos = pos >= 0 ? pos : -1 - pos;
@@ -836,8 +791,8 @@ public class Dao {
     }
 
     public void pullShortestPathInfo(int o, int d) {
-        ArrayList<Short> sp = getShortestPathBetween(o, d);
-        ArrayList<Short> spArrivals = getSpNodeArrivals(sp);
+        List<Integer> sp = getShortestPathBetween(o, d);
+        ArrayList<Integer> spArrivals = getSpNodeArrivals(sp);
         System.out.println(o + " -> " + d);
 
         shortestPathDistances.get(o).set(d, spArrivals);
@@ -859,18 +814,18 @@ public class Dao {
     public int getIntermediateNodeNetworkId(int o, int d, int elapsedTime) {
 
         //TODO Decide what to do when  elapsed time is zero
-        ArrayList<Short> sp = getShortestPathBetween(o, d);
+        List<Integer> sp = getShortestPathBetween(o, d);
 
         if (sp == null) {
             System.out.println("NULL" + o + " - " + d);
         }
 
         if (shortestPathDistances.get(o).get(d) == null) {
-            ArrayList<Short> spArrivals = getSpNodeArrivals(sp);
+            List<Integer> spArrivals = getSpNodeArrivals(sp);
             shortestPathDistances.get(o).set(d, spArrivals);
         }
 
-        ArrayList<Short> intermediateArrivalsList = shortestPathDistances.get(o).get(d);
+        List<Integer> intermediateArrivalsList = shortestPathDistances.get(o).get(d);
 
 
         //System.out.println(intermediateArrivalsList.stream().map(p -> String.format("%5s", String.valueOf(p))).collect(Collectors.joining()));
@@ -888,7 +843,7 @@ public class Dao {
             return -1;
 
         // Find position of first higher arrival
-        int pos = Collections.binarySearch(intermediateArrivalsList, (short) elapsedTime);
+        int pos = Collections.binarySearch(intermediateArrivalsList, elapsedTime);
 
 
         // Correct for elapsedTime not in shortest path (<0)
@@ -926,18 +881,18 @@ public class Dao {
      * @param sequenceNodeIds
      * @return cumulativeDistancesKm
      */
-    private ArrayList<Short> getSpNodeArrivals(ArrayList<Short> sequenceNodeIds) {
+    private ArrayList<Integer> getSpNodeArrivals(List<Integer> sequenceNodeIds) {
 
-        ArrayList<Short> cumulativeDistancesKm = new ArrayList<>();
+        ArrayList<Integer> cumulativeDistancesKm = new ArrayList<>();
 
-        short starting = 0;
+        int starting = 0;
 
         cumulativeDistancesKm.add(starting);
 
         // Building array of arrivals
         //TODO there are nodes with zero distances between them! Should be removed!
         for (int i = 0; i < sequenceNodeIds.size() - 1; i++) {
-            short distanceLeg = getDistSec(sequenceNodeIds.get(i), sequenceNodeIds.get(i + 1));
+            int distanceLeg = getDistSec(sequenceNodeIds.get(i), sequenceNodeIds.get(i + 1));
             starting += distanceLeg;
             cumulativeDistancesKm.add(starting);
         }
@@ -949,7 +904,21 @@ public class Dao {
         return distMatrix;
     }
 
-    public List<Integer> getUnreachable() {
-        return unreachable;
+    public Map<Integer, NodeNetwork> getNodeNetworkInfo() { return nodeNetworkInfo; }
+
+    public int getClosestRegion(int networkId, String performanceClass) {
+
+        int maxTimeToReach = InstanceConfig.getInstance().getMaxTimeHiringList().get(performanceClass);
+
+        // System.out.println(networkId + " - " + performanceClass + " - " + maxTimeToReach);
+        // Network id
+        // int closestRegionCenterId = canReach.get(Dao.getInstance().rand.nextInt(canReach.size()));
+        // List<Integer> canReach = Dao.getInstance().getCanReachList().get(userNetworkId).get(userClass);
+        Map<Integer, Integer> centers = Dao.getInstance().getNodeNetworkInfo().get(networkId).getClosestRegionCenter();
+
+        int closestRegionCenterId = centers.get(maxTimeToReach);
+
+        return closestRegionCenterId;
     }
 }
+
