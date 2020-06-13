@@ -208,11 +208,11 @@ public class ServerUtil {
      * @param d Destination node id
      * @return list of ids
      */
-    public static ArrayList<Short> getShortestPathBetween(int o, int d) {
+    public static ArrayList<Integer> getShortestPathBetween(int o, int d) {
         //System.out.println(o + " ->" + d);
         String rest = String.format(restShortestPath, o, d);
-        ArrayList<Short> list_ids = null;
-        list_ids = (ArrayList) Arrays.asList(requestTo(rest).split(";")).stream().map(n -> Short.valueOf(n)).collect(Collectors.toList());
+        ArrayList<Integer> list_ids = null;
+        list_ids = (ArrayList) Arrays.asList(requestTo(rest).split(";")).stream().map(n -> Integer.valueOf(n)).collect(Collectors.toList());
         return list_ids;
     }
 
@@ -224,9 +224,9 @@ public class ServerUtil {
      * @param maxTripTimeSec Destination node id
      * @return list of ids
      */
-    public static ArrayList<Short> getAllCanReachNode(int n, int maxTripTimeSec) {
+    public static ArrayList<Integer> getAllCanReachNode(int n, int maxTripTimeSec) {
         String rest = String.format(restCanReachSet, n, maxTripTimeSec);
-        return (ArrayList<Short>) Arrays.stream(requestTo(rest).split(";")).map(Short::valueOf).collect(Collectors.toList());
+        return (ArrayList<Integer>) Arrays.stream(requestTo(rest).split(";")).map(Integer::valueOf).collect(Collectors.toList());
     }
 
 
@@ -238,10 +238,10 @@ public class ServerUtil {
      * @param d Destination node id
      * @return list of ids
      */
-    public static ArrayList<Short> getSmoothShortestPathBetween(int o, int d) {
+    public static ArrayList<Integer> getSmoothShortestPathBetween(int o, int d) {
         String rest = String.format(restShortestPath, o, d);
-        ArrayList<Short> list_ids = null;
-        list_ids = (ArrayList) Arrays.asList(requestTo(rest).split(";")).stream().map(n -> Short.valueOf(n)).collect(Collectors.toList());
+        ArrayList<Integer> list_ids = null;
+        list_ids = (ArrayList) Arrays.asList(requestTo(rest).split(";")).stream().map(n -> Integer.valueOf(n)).collect(Collectors.toList());
         return list_ids;
     }
 
