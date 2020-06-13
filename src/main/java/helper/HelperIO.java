@@ -42,6 +42,15 @@ public class HelperIO {
         return str;
     }
 
+    public static String readFileFromPath(String pathFile){
+        String contentFile = null;
+        try {
+            contentFile = Files.readString(Paths.get(pathFile));
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+        return contentFile;
+    }
 
     public static String getVehicleInfo(List<Vehicle> vehicles,
                                         int currentTime,
@@ -60,25 +69,30 @@ public class HelperIO {
         for (Vehicle v : vehicles) {
 
             // If vehicle is not empty
-            if (!v.getVisit().getSequenceVisits().isEmpty()) {
+            try{
+                if (v.getVisit()!=null) {
 
-                // If there are passengers inside vehicle
-                if (showEnRoute) {
-                    enroute.add(v);
+                    // If there are passengers inside vehicle
+                    if (showEnRoute) {
+                        enroute.add(v);
+                    }
+
+                } else {
+
+                    // if current node is origin
+                    if (v.getLastVisitedNode() instanceof NodeOrigin && showOrigin) {
+
+                        // Add origin
+                        origin.add(v);
+
+                    } else if ((v.getLastVisitedNode() instanceof NodeStop || v.getLastVisitedNode() instanceof NodeTargetRebalancing) && showIdle) {
+                        idle.add(v);
+                    }
                 }
-
-            } else {
-
-                // if current node is origin
-                if (v.getLastVisitedNode() instanceof NodeOrigin && showOrigin) {
-
-                    // Add origin
-                    origin.add(v);
-
-                } else if ((v.getLastVisitedNode() instanceof NodeStop || v.getLastVisitedNode() instanceof NodeTargetRebalancing) && showIdle) {
-                    idle.add(v);
-                }
+            }catch (Exception e){
+                System.out.println("AAAAAAAAAAAAAAAAaaaa" + v);
             }
+
         }
 
         if (showEnRoute && !enroute.isEmpty()) {
