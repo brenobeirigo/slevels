@@ -557,7 +557,6 @@ public class Vehicle implements Comparable<Vehicle> {
                 cumulativeLegPK[ARRIVAL] += this.distMiddleNode;
                 currentPK = middle;
 
-
                 /*
 
                 System.out.println(String.format("Shortest path between %s(%d) and %s(%d): %s",
@@ -646,6 +645,8 @@ public class Vehicle implements Comparable<Vehicle> {
                 LinkedList<Node> newSequence = new LinkedList<>(visitsVehicle);
                 newSequence.add(dpPos, candidateRequest.getNodeDp());
                 newSequence.add(pkPos, candidateRequest.getNodePk());
+
+                // Insert middle node in first leg
                 if (pkPos == 0) {
                     newSequence.add(0, middle);
                 }
