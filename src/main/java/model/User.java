@@ -49,6 +49,8 @@ public class User implements Comparable<User> {
     // Which type of vehicle serviced the request? Was it even serviced?
     private int servedBy;
 
+    private Visit currentVisit;
+
     //Number of passengers in request
     private int numPassengers;
 
@@ -396,6 +398,15 @@ public class User implements Comparable<User> {
         if (this.waitingRounds < that.waitingRounds) return AFTER;
 
         return EQUAL;
+    }
+
+
+    public Visit getCurrentVisit() {
+        return currentVisit;
+    }
+
+    public void setCurrentVisit(Visit currentVisit) {
+        this.currentVisit = currentVisit;
     }
 
     public short getWaitingRounds() {
