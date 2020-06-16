@@ -546,6 +546,12 @@ public abstract class Simulation {
         // Add visit to vehicle (circular)
         visit.getVehicle().setVisit(visit);
 
+        for(User request:visit.getRequests()){
+            request.setCurrentVisit(visit);
+        }
+
+        visit.updateArrivalSoFar();
+
         // Vehicle is not idle
         visit.getVehicle().setRoundsIdle(0);
     }
