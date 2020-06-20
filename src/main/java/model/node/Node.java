@@ -20,7 +20,11 @@ public abstract class Node implements Comparable<Node> {
     public static Map<Integer, Double[]> nodeDic = new HashMap<>();
 
     protected int networkId, id;
-    protected int earliest, arrival, departure, latest;
+    protected int earliest;
+    protected int arrival; // Updated when picked up (User is a passenger)
+    protected int departure;
+    protected int latest;
+    protected int arrivalSoFar; // Updated on the first match (User is a request)
     protected int load;
     protected int delay;
     protected int tripId;
@@ -44,6 +48,7 @@ public abstract class Node implements Comparable<Node> {
         this.earliest = n.earliest;
         this.latest = n.latest;
         this.arrival = n.arrival;
+        this.arrivalSoFar = n.arrivalSoFar;
         this.tripId = n.tripId;
 
         //Node.hotSpot.compute(this.networkId, (tokenKey, oldValue) -> oldValue == null ? 1 : oldValue + 1);
@@ -226,5 +231,13 @@ public abstract class Node implements Comparable<Node> {
 
     public void increaseUrgency() {
         this.urgent++;
+    }
+
+    public int getArrivalSoFar() {
+        return arrivalSoFar;
+    }
+
+    public void setArrivalSoFar(int arrivalSoFar) {
+        this.arrivalSoFar = arrivalSoFar;
     }
 }
