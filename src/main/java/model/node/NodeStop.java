@@ -6,8 +6,8 @@ public class NodeStop extends Node {
     private int vehicleId;
 
     public NodeStop(Node stop, int vehicleId, int minDeparture) {
-        super(stop.getId(),
-                stop.getNetworkId());
+        super(stop.getId(), stop.getNetworkId());
+
 
         this.arrival = stop.getArrival();
         this.tripId = stop.getTripId();
@@ -25,7 +25,9 @@ public class NodeStop extends Node {
 
     @Override
     public String toString() {
-        return String.format("%7s", "ST" + this.tripId);
+
+        // SM = Stop in middle (happens when vehicle is disrupted), ST = Stop in destination
+        return String.format("%7s", (this.tripId < 0 ? "SM" + (this.tripId + Integer.MAX_VALUE) : "ST" + this.tripId));
     }
 
     @Override

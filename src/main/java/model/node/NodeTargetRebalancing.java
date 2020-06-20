@@ -16,9 +16,8 @@ public class NodeTargetRebalancing extends Node {
 
 
     public NodeTargetRebalancing(Node stop) {
-        super(stop.getId(),
-                stop.getNetworkId());
 
+        super(stop.getId(), stop.getNetworkId());
 
         // What if a target re-enters? A new node target have to be formed, but the original node must be passed over.
         if (stop instanceof NodeTargetRebalancing) {
@@ -51,7 +50,8 @@ public class NodeTargetRebalancing extends Node {
 
     @Override
     public String toString() {
-        return String.format("%7s", "RE" + String.valueOf(this.tripId));
+        // RM = Middle node becomes rebalancing target (happens when vehicle is disrupted)
+        return String.format("%7s", (this.tripId < 0 ? "RM" + (this.tripId + Integer.MAX_VALUE) : "RE" + this.tripId));
     }
 
     /**

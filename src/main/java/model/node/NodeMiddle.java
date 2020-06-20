@@ -1,7 +1,7 @@
 package model.node;
 
 public class NodeMiddle extends Node {
-
+    // Negative to differentiate from trip ids
     public static int nodeMiddleIds = Integer.MIN_VALUE;
     private Node nodeTo;
     private int elapsed;
