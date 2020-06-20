@@ -66,6 +66,8 @@ public class HelperIO {
 
         List<Vehicle> origin = new ArrayList<>();
 
+        List<Vehicle> rebalancing = new ArrayList<>();
+
         for (Vehicle v : vehicles) {
 
             // If vehicle is not empty
@@ -74,6 +76,9 @@ public class HelperIO {
 
                     // If there are passengers inside vehicle
                     if (showEnRoute) {
+                        if (v.isRebalancing())
+                            rebalancing.add(v);
+                        else
                         enroute.add(v);
                     }
 
@@ -116,11 +121,20 @@ public class HelperIO {
 
         }
 
-        if (showOrigin && !idle.isEmpty()) {
+        if (showOrigin && origin.isEmpty()) {
             Collections.sort(origin);
             str.append("\n>>>>>>> ORIGIN >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>");
 
             for (Vehicle v : origin) {
+                str.append(String.format("\n %s", v.getInfo()));
+            }
+        }
+
+        if (showOrigin && !rebalancing.isEmpty()) {
+            Collections.sort(rebalancing);
+            str.append("\n>>>>>>> REBALANCING >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>");
+
+            for (Vehicle v : rebalancing) {
                 str.append(String.format("\n %s", v.getInfo()));
             }
         }
