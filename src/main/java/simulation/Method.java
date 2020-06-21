@@ -8,10 +8,15 @@ import model.Visit;
 import model.VisitByInsertion;
 import model.node.MultiSet;
 import model.node.Node;
+import org.paukov.combinatorics.CombinatoricsVector;
+import org.paukov.combinatorics.Generator;
+import org.paukov.combinatorics.ICombinatoricsVector;
 
 import java.util.*;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+
+import static org.paukov.combinatorics.CombinatoricsFactory.createPermutationGenerator;
 
 public class Method {
 
@@ -930,18 +935,18 @@ public class Method {
         return visit;
     }
 
-    /**
-     * Try to insert a user in every vehicle, and return the set of users inserted.
-     *
-     * @param listUsers       List of users to be assigned to a vehicle
-     * @param listVehicles    List of vehicles operating
-     * @param allPermutations True, if all permutations (considering user+vehicle stops) should be tested
-     * @param stopAtFirstBest True, if solution is returned when first user/vehicle combination is found
-     * @param currentTime     Refers to current latest TW time
-     * @param maxPermutations Restrict the number of permutations
-     * @param checkInParallel True, if visits should be checked in parallel
-     * @return setServicedUsers Set of all users that could be inserted into vehicles
-     */
+//    /**
+//     * Try to insert a user in every vehicle, and return the set of users inserted.
+//     *
+//     * @param listUsers       List of users to be assigned to a vehicle
+//     * @param listVehicles    List of vehicles operating
+//     * @param allPermutations True, if all permutations (considering user+vehicle stops) should be tested
+//     * @param stopAtFirstBest True, if solution is returned when first user/vehicle combination is found
+//     * @param currentTime     Refers to current latest TW time
+//     * @param maxPermutations Restrict the number of permutations
+//     * @param checkInParallel True, if visits should be checked in parallel
+//     * @return setServicedUsers Set of all users that could be inserted into vehicles
+//     */
 //    public static Set<User> getSolutionFCFS(Set<User> listUsers,
 //                                            List<Vehicle> listVehicles,
 //                                            boolean allPermutations,
@@ -1079,6 +1084,152 @@ public class Method {
         return idlestClosestVehicle;
 
     }
+
+    /**
+     * Add last visited node to the start of the sequence and subsequent breakpoint IF:
+     * - Vehicle is rebalancing, e.g., ST-->RE = ST-->BP-->SEQ
+     * - Vehicle is moving to pickup different node, e.g., ST-->PK1 = ST-->BK-->SEQ (with SEQ[0] != PK1)
+     *
+     * @param sequence
+     * @param vehicle
+     * @return
+     */
+    public static LinkedList<Node> addLastVisitedAndMiddleNodesToStart(List<Node> sequence, Vehicle vehicle) {
+
+        // Sequence has to start from last vehicle visited node
+        LinkedList<Node> sequenceWithVehicleNode = new LinkedList<>(sequence);
+
+        Node middle = vehicle.getMiddleNode();
+
+        /*if (vehicle.isServicing())
+            System.out.println(String.format(
+                    ">>>>>> Servicing: %s, target: %s, sequence: %s, middle: %s",
+                    vehicle.isServicing(),
+                    vehicle.getVisit().getTargetNode(),
+                    sequenceWithVehicleNode,
+                    middle));*/
+
+        // When vehicle is rebalancing, middle node has to be included
+        if (vehicle.isRebalancing()) {
+
+            // If middle node does not exist, discard sequence
+            // TODO add the rebalancing target?
+            if (middle != null) {
+                sequenceWithVehicleNode.add(0, middle);
+            } else {
+                return null;
+            }
+
+            // When next node in visit sequence is not the node in potential visits, vehicle has to break path
+        } else if (vehicle.isServicing() && vehicle.getVisit().getTargetNode() != sequenceWithVehicleNode.getFirst()) {
+
+            // TODO If next in sequence is middle, is it worth it breaking again???
+            //assert !(vehicle.getVisit().getTargetNode() instanceof NodeMiddle) : String.format("First is middle (current middle = %s) - Visit: %s", middle, vehicle.getVisit());
+
+            if (middle != null) {
+                sequenceWithVehicleNode.add(0, middle);
+            } else {
+                // Cannot break, vehicle will be available in the next iteration
+                return null;
+            }
+        }
+
+        sequenceWithVehicleNode.add(0, vehicle.getLastVisitedNode());
+
+
+        return sequenceWithVehicleNode;
+    }
+
+    /**
+     * Generator of all combinations of stops from the request list and vehicle stops (passenger delivery nodes).
+     * Notice that:
+     * - Some sequence may be invalid (e.g., {dp1, pk1}
+     * - Sequences do not include breakpoints (use addLastVisitedAndMiddleNodesToStart to get feasible)
+     *
+     * @param requests
+     * @param vehicle
+     * @return
+     */
+    public static Generator getGeneratorOfNodeSequence(Set<User> requests, Vehicle vehicle) {
+
+        // TODO here we assume the requests include vehicle requests to
+        ICombinatoricsVector<Node> vector = new CombinatoricsVector<>();
+        for (User user : requests) {
+            vector.addValue(user.getNodePk());
+            vector.addValue(user.getNodeDp());
+        }
+
+        // Passengers have been picked up
+        if (vehicle.isServicing()) {
+            for (User passenger : vehicle.getVisit().getPassengers()) {
+                vector.addValue(passenger.getNodeDp());
+            }
+        }
+
+        Generator<Node> gen = createPermutationGenerator(vector);
+        return gen;
+    }
+
+    public static Visit getBestVisitFor(Vehicle vehicle, Set<User> requests) {
+
+        Generator<Node> gen = getGeneratorOfNodeSequence(requests, vehicle);
+        // System.out.println("Setting up sequence " + vehicle.getVisit());
+
+        // A single request can be inserted in a vehicle in multiple ways. Only the best (lowest delay) visit is
+        // inserted in the RTV graph.
+
+        Visit visit = null;
+        int lowestDelay = Integer.MAX_VALUE;
+        for (ICombinatoricsVector<Node> combination : gen) {
+
+            List<Node> sequence = combination.getVector();
+
+            /*if (requests.isEmpty() && sequence.size() > 2) {
+                System.out.println("start tracking empty request" + vehicle.getVisit());
+            }*/
+
+            LinkedList<Node> sequenceFromVehiclePositionToLastDelivery = addLastVisitedAndMiddleNodesToStart(sequence, vehicle);
+
+            // System.out.println("Seq. from last: " + sequenceFromVehiclePositionToLastDelivery);
+
+            if (sequenceFromVehiclePositionToLastDelivery == null)
+                continue;
+
+            int delay = Visit.isValidSequence(
+                    sequenceFromVehiclePositionToLastDelivery,
+                    vehicle.getDepartureCurrent(),
+                    vehicle.getCurrentLoad(),
+                    vehicle.getCapacity()
+            );
+
+            if (delay >= 0 && delay < lowestDelay) {
+
+                lowestDelay = delay;
+
+                // Remove last visited node from sequence
+                sequenceFromVehiclePositionToLastDelivery.poll();
+
+                // Setup new visit
+                visit = new Visit(sequenceFromVehiclePositionToLastDelivery, delay);
+                //System.out.println("     # comb " + sequence + " - " + delay + " = " + visit);
+            }
+        }
+
+        if (visit != null) {
+
+            // Finish visit configuration
+            visit.setVehicle(vehicle);
+            visit.getRequests().addAll(requests);
+
+            // All passengers in vehicle belong to visit (they need to be drop off)
+            if (vehicle.isServicing()) {
+                visit.setPassengers(vehicle.getVisit().getPassengers());
+            }
+        }
+
+        return visit;
+    }
+
 
     public static void reset() {
         return;
