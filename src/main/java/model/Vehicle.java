@@ -4,6 +4,7 @@ import dao.Dao;
 import model.node.*;
 
 import java.util.*;
+import java.util.stream.Collectors;
 
 import static config.Config.*;
 
@@ -152,7 +153,6 @@ public class Vehicle implements Comparable<Vehicle> {
     }
 
 
-
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     ///// Rebalancing //////////////////////////////////////////////////////////////////////////////////////////////////
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -163,8 +163,8 @@ public class Vehicle implements Comparable<Vehicle> {
      * If car is rebalancing - Do nothing
      * If car finished rebalancing - Stop car
      * If car is servicing:
-     *  - Pick up and drop off users and update last visited node
-     *  - Stop car if drops off last user
+     * - Pick up and drop off users and update last visited node
+     * - Stop car if drops off last user
      *
      * @param currentSimulationTime current time
      * @return Set of users serviced until current time
@@ -261,8 +261,7 @@ public class Vehicle implements Comparable<Vehicle> {
                     // Request become passenger
                     this.pickup(currentUser);
                 }
-            }
-            else{
+            } else {
                 // If car didn't reach nextNode, subsequent nodes cannot be reached too
                 break;
             }
@@ -331,8 +330,8 @@ public class Vehicle implements Comparable<Vehicle> {
     /**
      * End rebalancing if target node was reached.
      * t is important to add rebalancing target to journey because:
-     *  - legs (NodeStop, NodeTargetRebalancing) indicate rebalancing
-     *  - legs (NodeTargetRebalancing, NodeStop) indicate waiting
+     * - legs (NodeStop, NodeTargetRebalancing) indicate rebalancing
+     * - legs (NodeTargetRebalancing, NodeStop) indicate waiting
      *
      * @param currentSimulationTime current execution time of the simulation
      */
@@ -366,9 +365,12 @@ public class Vehicle implements Comparable<Vehicle> {
 
     /**
      * Compute last drop off upon finishing the visit.
+     *
      * @param currentTime
      */
     private void createNodeStopAndFinishVisitAt(int currentTime) {
+
+        assert this.rebalancing == false : "Rebalancing is false";
 
         // Vehicle is stopped at last visited node and can depart at current time
         this.lastVisitedNode = new NodeStop(this.lastVisitedNode, this.id, currentTime);
@@ -376,7 +378,7 @@ public class Vehicle implements Comparable<Vehicle> {
         // Add current node to journey
         this.journey.add(this.lastVisitedNode);
 
-        // Rebalancing routing plan is discarded
+        // Previous routing plan is discarded
         this.setVisit(null);
     }
 
@@ -435,7 +437,7 @@ public class Vehicle implements Comparable<Vehicle> {
      * Try to create a visit out of a single user (called when vehicle is empty)
      *
      * @param candidateRequest
-     * @param iterationTime  Simulation current time
+     * @param iterationTime    Simulation current time
      * @return Visit containing pk and dp nodes of user "candidateRequest", or null if visit can't be created
      */
     public Visit getVisitFromEmptyVehicle(User candidateRequest, int iterationTime) {
@@ -443,7 +445,7 @@ public class Vehicle implements Comparable<Vehicle> {
         int departureTime;
         Node departureNode;
 
-        if (this.isRebalancing()){
+        if (this.isRebalancing()) {
 
             //CURRENT TO MIDDLE
             Node middle = this.getMiddleNode();
@@ -456,7 +458,7 @@ public class Vehicle implements Comparable<Vehicle> {
             departureTime = this.getDepartureCurrent() + this.distMiddleNode;
             departureNode = middle;
 
-        } else{
+        } else {
             departureTime = iterationTime;
             departureNode = this.getLastVisitedNode();
         }
@@ -812,9 +814,9 @@ public class Vehicle implements Comparable<Vehicle> {
 
         for (int i = 0; i < journey.size() - 1; i++) {
             int fromId = journey.get(i).getNetworkId();
-            coordJourney.add(String.format("[%f, %f]", journey.get(i).getLon(),journey.get(i).getLat()));
+            coordJourney.add(String.format("[%f, %f]", journey.get(i).getLon(), journey.get(i).getLat()));
             int toId = journey.get(i + 1).getNetworkId();
-            coordJourney.add(String.format("[%f, %f]", journey.get(i + 1).getLon(),journey.get(i + 1).getLat()));
+            coordJourney.add(String.format("[%f, %f]", journey.get(i + 1).getLon(), journey.get(i + 1).getLat()));
             int dist = Dao.getInstance().getDistSec(fromId, toId);
             int waiting = journey.get(i + 1).getArrival() - dist - journey.get(i).getDeparture();
             str.append("\n" + journey.get(i).getInfo());
@@ -833,26 +835,21 @@ public class Vehicle implements Comparable<Vehicle> {
     /**
      * @return true, if vehicle is servicing users (passengers or requests)
      */
-    public boolean isServicing(){
-        return (this.visit != null && (!this.visit.getRequests().isEmpty() || !this.visit.getPassengers().isEmpty()));
+    public boolean isServicing() {
+        return (this.visit != null && !this.isRebalancing());
     }
 
     public boolean isParked() {
-        if (this.isServicing()) return false;
-        if (this.isRebalancing()) return false;
-        if (this.getLastVisitedNode() instanceof NodePK) return false;
-        if (this.getLastVisitedNode() instanceof NodeDP) return false;
-        return !(this.getLastVisitedNode() instanceof NodeMiddle);
+        return (this.visit == null);
     }
 
     public boolean isCruising() {
         // Vehicle is empty and there are requests
         return (!this.visit.getRequests().isEmpty() && this.currentLoad == 0);
-
     }
 
     public String getOccupancyStatus() {
-        return String.format("(%2s/%d)", (this.visit!=null && !this.visit.getPassengers().isEmpty() ? String.valueOf(currentLoad) : "-"), capacity);
+        return String.format("(%2s/%d)", (this.visit != null && !this.visit.getPassengers().isEmpty() ? String.valueOf(currentLoad) : "-"), capacity);
     }
 
     public String getInfo() {
@@ -860,9 +857,9 @@ public class Vehicle implements Comparable<Vehicle> {
         return String.format("%s(%s) - Journey: %-200s - Passengers: %-100s - Requests: %-100s - Attended: %s - %s",
                 this,
                 getOccupancyStatus(),
-                (this.visit != null ? visit : "---"),
-                (this.visit != null ? this.visit.getPassengers(): "---"),
-                (this.visit != null ? this.visit.getRequests(): "---"),
+                (this.visit != null ? visit : "Stopped at " + lastVisitedNode),
+                (this.visit != null ? this.visit.getPassengers() : "---"),
+                (this.visit != null ? this.visit.getRequests() : "---"),
                 servicedUsers,
                 ((this.rebalancing == true) ? "(Rebalancing)" : ""));
     }
@@ -1072,8 +1069,8 @@ public class Vehicle implements Comparable<Vehicle> {
      * Check if there is a valid trip between "fromNode" and "toNode" occurring in vehicle "v".
      * If true, update trip intermediate status to reflect the addition of leg checked
      *
-     * @param fromNode   Origin node
-     * @param nextNode     Destination node
+     * @param fromNode      Origin node
+     * @param nextNode      Destination node
      * @param cumulativeLeg Precedent status to update
      * @return true, if there is a valid trip, and false, otherwise.
      */
@@ -1203,7 +1200,7 @@ public class Vehicle implements Comparable<Vehicle> {
      */
     public void updateMiddle(int currentTime) {
 
-        if (this.visit == null) {
+        if (this.isParked()) {
             this.setMiddleNode(null);
             this.distMiddleNode = 0;
             return;
@@ -1211,11 +1208,6 @@ public class Vehicle implements Comparable<Vehicle> {
 
         // next = rebalancing target (if VisitRelocation) and first node in sequence (if VisitInsertion)
         Node next = this.visit.getTargetNode();
-
-        // No middle nodes between middle nodes
-        if (next instanceof NodeMiddle) {
-            return;
-        }
 
         // How long since vehicle left last visited node?
         int elapsedTime = currentTime - this.getDepartureCurrent();
@@ -1225,15 +1217,14 @@ public class Vehicle implements Comparable<Vehicle> {
                         next,
                         elapsedTime);
 
-        // Can't move to a middle node, go to next pk
+        // Can't move to a middle node, closest middle node is next pickup
         if (nodeBetweenId < 0) {
-            this.setMiddleNode(null);
-            this.distMiddleNode = 0;
-            return;
+            nodeBetweenId = next.getNetworkId();
         }
 
         //CURRENT TO MIDDLE
-        this.setMiddleNode(new NodeMiddle(nodeBetweenId, this.getLastVisitedNode(), next, elapsedTime));
+        Node middle = new NodeMiddle(nodeBetweenId, this.getLastVisitedNode(), next, elapsedTime);
+        this.setMiddleNode(middle);
 
         // Distance from current to middle node
         this.distMiddleNode = Dao.getInstance().getDistSec(this.getLastVisitedNode(), this.getMiddleNode());
@@ -1292,6 +1283,45 @@ public class Vehicle implements Comparable<Vehicle> {
         this.middleNode = middleNode;
     }
 
+    /**
+     * When vehicle is disrupted, users are discarded and it rebalances to the closest node (middle).
+     * 1 - Make a stop node out of the last visited node.
+     * 2 - Rebalance to middle
+     */
+    public void rebalanceToClosestNode() {
+
+        // Middle node between last visited and target (if null, middle = target)
+        Node middle = this.getMiddleNode();
+
+        // If vehicle has passengers
+        Node target = this.getVisit().getTargetNode();
+
+        assert this.lastVisitedNode instanceof NodeDP : "Last visited is not DP" + this.visit;
+
+        // For the sake of correctness, vehicle has to depart from a stop node created from last visited node.
+        // Last visited node, is ALWAYS a departure node
+
+        //TODO Is it necessary to create a stop node before changing route (rebalance to middle?)
+        this.createNodeStopAndFinishVisitAt(this.lastVisitedNode.getArrival());
+
+        System.out.println(String.format(
+                " - Previous user is %s (target=%s)",
+                User.mapOfUsers.get(target.getTripId()), target)
+        );
+
+        System.out.println(String.format(
+                "Vehicle rebalance to closest middle point %s. Visit %s",
+                this.getMiddleNode(),
+                this.getVisit()));
+
+        this.rebalanceTo(middle);
+
+        System.out.println(String.format(
+                "Vehicle rebalance to closest middle point %s. Visit %s",
+                this.getMiddleNode(),
+                this.getVisit()));
+    }
+
     public int getContractDeadline() {
         return contractDeadline;
     }
@@ -1303,6 +1333,13 @@ public class Vehicle implements Comparable<Vehicle> {
     @Override
     public int hashCode() {
         return this.getId();
+    }
+
+    public static Set<Vehicle> getVehiclesWithPassengers(List<Vehicle> listVehicles) {
+        return listVehicles
+                .stream()
+                .filter(vehicle -> vehicle.getVisit() != null && !vehicle.getVisit().getPassengers().isEmpty())
+                .collect(Collectors.toSet());
     }
 
 }
