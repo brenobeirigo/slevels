@@ -9,6 +9,7 @@ import model.User;
 import model.Vehicle;
 import model.Visit;
 import model.node.Node;
+import model.node.NodeStop;
 import model.node.NodeTargetRebalancing;
 import org.boon.collections.ConcurrentHashSet;
 
@@ -17,6 +18,7 @@ import java.util.*;
 import java.util.stream.Collectors;
 
 public abstract class Simulation {
+
 
     public static final byte PRINT_ALL_ROUND_INFO = 1;
     public static final byte PRINT_SUMMARY_ROUND_INFO = 2;
@@ -35,7 +37,6 @@ public abstract class Simulation {
     public static final int DURATION_SINGLE_RIDE = 0;
     public static final int DURATION_1H = 3600;
     public static final int DURATION_3H = 3 * 3600;
-
 
 
     // Solution coming from simulation
@@ -152,11 +153,18 @@ public abstract class Simulation {
 
     public static int getInfoLevel(String infoLevelLabel) {
         int infoLevel;
-        switch(infoLevelLabel){
-            case "print_all_round_info": infoLevel = Simulation.PRINT_ALL_ROUND_INFO; break;
-            case "print_no_round_info": infoLevel = Simulation.PRINT_NO_ROUND_INFO; break;
-            case "print_summary_round_info": infoLevel = Simulation.PRINT_SUMMARY_ROUND_INFO; break;
-            default: infoLevel = Simulation.PRINT_SUMMARY_ROUND_INFO;
+        switch (infoLevelLabel) {
+            case "print_all_round_info":
+                infoLevel = Simulation.PRINT_ALL_ROUND_INFO;
+                break;
+            case "print_no_round_info":
+                infoLevel = Simulation.PRINT_NO_ROUND_INFO;
+                break;
+            case "print_summary_round_info":
+                infoLevel = Simulation.PRINT_SUMMARY_ROUND_INFO;
+                break;
+            default:
+                infoLevel = Simulation.PRINT_SUMMARY_ROUND_INFO;
         }
         return infoLevel;
     }
@@ -312,6 +320,8 @@ public abstract class Simulation {
                 }
             }
             v.updateMiddle(rightTW);
+            if (v.isRebalancing() && v.getMiddleNode() == null)
+                System.out.println(v);
         }
 
         // Updating vehicle lists
@@ -449,15 +459,33 @@ public abstract class Simulation {
 
     }
 
-    public void rebalance(Set<Vehicle> idleVehicles){
+    /**
+     * Join new requests (current period) with all matched requests (not yet picked up).
+     * There can have better matches (i.e., requests can be serviced by different vehicles)
+     *
+     * @return all requests
+     */
+    public List<User> getExtendedRequestList() {
+        List<User> allRequests = new ArrayList<>(setWaitingUsers);
+
+        // Requests can still be picked up by other vehicles, add them to request list
+        for (Vehicle vehicle : listVehicles) {
+            if (vehicle.isServicing()) {
+                allRequests.addAll(vehicle.getVisit().getRequests());
+            }
+        }
+        return allRequests;
+    }
+
+    public void rebalance(Set<Vehicle> idleVehicles) {
         List<Node> targets = null;
-        if (rebalanceUtil.method.equals(Rebalance.METHOD_OPTIMAL)){
-            if (roundRejectedUsers!=null && !roundRejectedUsers.isEmpty()){
+        if (rebalanceUtil.method.equals(Rebalance.METHOD_OPTIMAL)) {
+            if (roundRejectedUsers != null && !roundRejectedUsers.isEmpty()) {
                 targets = roundRejectedUsers.stream().map(User::getNodePk).collect(Collectors.toList());
-            }else if (roundPrivateRides!=null && !roundPrivateRides.isEmpty()){
+            } else if (roundPrivateRides != null && !roundPrivateRides.isEmpty()) {
                 targets = roundPrivateRides.stream().map(User::getNodePk).collect(Collectors.toList());
             }
-        }else if (rebalanceUtil.method.equals(Rebalance.METHOD_HEURISTIC)){
+        } else if (rebalanceUtil.method.equals(Rebalance.METHOD_HEURISTIC)) {
             targets = Vehicle.setOfHotPoints;
         }
         rebalanceUtil.executeStrategy(idleVehicles, targets);
@@ -489,8 +517,8 @@ public abstract class Simulation {
             // Rebalance idle vehicles
             if (isAllowedToRebalance)
                 runTimes.put(Solution.TIME_REBALANCING_FLEET, System.nanoTime());
-                rebalance(idleVehicles);
-                runTimes.put(Solution.TIME_REBALANCING_FLEET, System.nanoTime() - runTimes.get(Solution.TIME_REBALANCING_FLEET));
+            rebalance(idleVehicles);
+            runTimes.put(Solution.TIME_REBALANCING_FLEET, System.nanoTime() - runTimes.get(Solution.TIME_REBALANCING_FLEET));
 
             // Pool, service, and reject users /////////////////////////////////////////////////////////////////////////
             runTimes.put(Solution.TIME_UPDATE_DEMAND, System.nanoTime());
@@ -539,14 +567,16 @@ public abstract class Simulation {
     public void setup(Visit visit) {
 
         // Check if rebalancing was interrupted to pick up user
-        if (visit.getVehicle().isRebalancing()) {
+        if (visit.getVehicle().isRebalancing() == true) {
+            if ((visit.getVehicle().getLastVisitedNode() instanceof NodeStop) && visit.getVehicle().getMiddleNode() == null)
+                System.out.println("AQUI");
             interruptRebalancing(visit);
         }
 
         // Add visit to vehicle (circular)
         visit.getVehicle().setVisit(visit);
 
-        for(User request:visit.getRequests()){
+        for (User request : visit.getRequests()) {
             request.setCurrentVisit(visit);
         }
 
@@ -582,6 +612,9 @@ public abstract class Simulation {
         // Vehicle is no longer rebalancing (User was inserted)
         vehicle.stoppedRebalancingToPickup();
 
+        if (middleNode == null)
+            System.out.println("Middle node");
+
         double distTraveledKmCurrentMiddle = Dao.getInstance().getDistKm(currentNode, middleNode);
 
         vehicle.increaseDistanceTraveledRebalancing(distTraveledKmCurrentMiddle);
@@ -612,5 +645,52 @@ public abstract class Simulation {
         Vehicle.setOfHotPoints.add(target);
     }
 
+
+    /******************************************************************************************************************/
+    /***** ASSERTIONS *************************************************************************************************/
+    /******************************************************************************************************************/
+
+    public boolean allVehicleVisitsAreValid() {
+        for (Vehicle vehicle : listVehicles) {
+            if (vehicle.getVisit() != null && !vehicle.getVisit().isValid()) {
+                System.out.println(String.format("Sequence of vehicle %s is invalid!", vehicle));
+                return false;
+            }
+        }
+        return true;
+    }
+
+    public boolean thereAreNoRepeatedRequests(List<User> allRequests) {
+        return (new HashSet<>(allRequests)).size() == allRequests.size();
+    }
+
+    public boolean eachUserIsAssignedToSingleVehicle() {
+
+        for (int i = 0; i < listVehicles.size() - 1; i++) {
+            Vehicle v1 = listVehicles.get(i);
+            if (!v1.isServicing())
+                continue;
+
+            for (int j = i + 1; j < listVehicles.size(); j++) {
+
+                Vehicle v2 = listVehicles.get(j);
+
+                if (!v2.isServicing())
+                    continue;
+
+                Set<User> intersection = new HashSet<>(v1.getVisit().getRequests());
+                intersection.retainAll(v2.getVisit().getRequests());
+
+                if (intersection.size() > 0) {
+
+                    System.out.println(intersection);
+                    System.out.println(v1.getVisit());
+                    System.out.println(v2.getVisit());
+                    return false;
+                }
+            }
+        }
+        return true;
+    }
 
 }
