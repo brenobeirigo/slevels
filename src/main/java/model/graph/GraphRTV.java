@@ -99,14 +99,16 @@ public class GraphRTV {
         this.graphRV = graphRV;
 
         // Add the data of current trips in the RTV graph
-        System.out.println(" - Initializing data structures...");
+        long start = System.nanoTime();
         initDataStructures(allRequests, listVehicles, graphRTV, feasibleTrips);
+        System.out.println(String.format(" - Initializing data structures (%.2f sec)", (System.nanoTime() - start) / 1000000000.0));
 
         // this.printFeasibleTrips("\n##################### Current visits ##############################");
 
         // Create request-trip-vehicle (RTV) structure
-        System.out.println(" - Building graph...");
+        start = System.nanoTime();
         this.buildGraph();
+        System.out.println(String.format(" - Building graph (%.2f sec)", (System.nanoTime() - start) / 1000000000.0));
 
         //this.printFeasibleTrips("\n##################### Current visits + RTV visits #################");
 
