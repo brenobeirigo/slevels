@@ -1,7 +1,7 @@
 package model;
 
 import dao.Dao;
-import model.node.Node;
+import model.node.*;
 
 import java.util.*;
 import java.util.stream.Collectors;
@@ -197,57 +197,362 @@ public class Visit implements Comparable<Visit> {
 
     @Override
     public String toString() {
-        if (this.vehicle == null){
+        if (this.vehicle == null) {
             return "DUMMY VISIT";
         }
-        Node current = this.vehicle.getLastVisitedNode();
-        int load = this.vehicle.getCurrentLoad();
-        // Node strings
-        List<String> nodes = new ArrayList<>();
-        int dep = this.vehicle.getLastVisitedNode().getDeparture();
 
-        nodes.add(
-                String.format(
-                        "%s[%2d] [P=%2d(%2d), R=%2d(%2d)]",
-                        vehicle,
-                        load,
-                        passengers.size(),
-                        passengers.stream().collect(Collectors.summingInt(p->p.getNumPassengers())),
-                        requests.size(),
-                        requests.stream().collect(Collectors.summingInt(p->p.getNumPassengers()))
-                )
+        String vehicleData = String.format(
+                "%s[%2d] [P=%2d(%2d), R=%2d(%2d)]",
+                vehicle,
+                this.vehicle.getCurrentLoad(),
+                passengers.size(),
+                passengers.stream().collect(Collectors.summingInt(p -> p.getNumPassengers())),
+                requests.size(),
+                requests.stream().collect(Collectors.summingInt(p -> p.getNumPassengers()))
         );
+
+        // If rebalancing, create sequence with rebalancing node
+        List<Node> sequenceNodesToVisit;
+        if (this.vehicle.isRebalancing()) {
+            sequenceNodesToVisit = new LinkedList<>();
+
+            // Add rebalancing target to list
+            sequenceNodesToVisit.add(getTargetNode());
+        } else {
+            sequenceNodesToVisit = this.getSequenceVisits();
+        }
+
+        //List<Node> sequenceNodesToVisit = this.getSequenceVisits();
+
+        Node lastVisitedNode = this.vehicle.getLastVisitedNode();
+        int loadUntilLastVisited = this.vehicle.getCurrentLoad();
+        int departureLastVisited = this.vehicle.getLastVisitedNode().getDeparture();
 
         //Current node info
-        String n = String.format(
-                "%s %s <%4s | %4s>",
-                (this.vehicle.isRebalancing()?"###":"---"),
-                current,
-                String.valueOf(current.getEarliest()),
-                String.valueOf(dep)
+        String lastVisitedNodeInfo = String.format(
+                "%s ||| %s :::%s:::",
+                (this.vehicle.isRebalancing() ? "--RE--" : "--ST--"),
+                legInfo(lastVisitedNode, loadUntilLastVisited, departureLastVisited, 0),
+                this.vehicle.getMiddleNode()
         );
-        nodes.add(n);
 
-        // Visits
-        List<Node> sequence;
-        if (getTargetNode()!=null){
-            sequence = new LinkedList<>();
-            sequence.add(getTargetNode());
-        }else{
-            sequence = this.getSequenceVisits();
-        }
+        // Node strings
+        List<String> pkDpNodeInfo = new ArrayList<>();
+        for (int i = 0; i < sequenceNodesToVisit.size(); i++) {
 
-        for (int i = 0; i < sequence.size(); i++) {
-            Node next = sequence.get(i);
-            int dist = Dao.getInstance().getDistSec(current, next);
-            dep += dist;
-            dep = Math.max(dep, current.getEarliest());
-            current = next;
-            load += current.getLoad();
-            nodes.add(String.format("--> {%4s} --> %s[%2d] <%4s | %4s>", String.valueOf(dist), current, load, current.getEarliest(), String.valueOf(dep))); // config.Config.sec2TStamp(sequenceArrivals.get(i))));
+            Node next = sequenceNodesToVisit.get(i);
+            int dist = Dao.getInstance().getDistSec(lastVisitedNode, next);
+
+            // Update data from last visited node
+            lastVisitedNode = next;
+            departureLastVisited = Math.max(departureLastVisited + dist, lastVisitedNode.getEarliest());
+            loadUntilLastVisited += lastVisitedNode.getLoad();
+
+            String nodeInfo = legInfo(lastVisitedNode, loadUntilLastVisited, departureLastVisited, dist);
+            pkDpNodeInfo.add(nodeInfo); // config.Config.sec2TStamp(sequenceArrivals.get(i))));
 
         }
-        return String.format("%s (delay: %5d - occ.: %5.2f)", String.join(" ", nodes), delay, avgOccupationLeg);
+        String delayInfo = String.format("(delay: %5d - occ.: %5.2f)", delay, avgOccupationLeg);
+        return String.format(
+                "%s %s %s %s --- %s",
+                delayInfo,
+                vehicleData,
+                lastVisitedNodeInfo,
+                String.join(" ", pkDpNodeInfo),
+                this.getUserInfo());
+    }
+
+    private String legInfo(Node lastVisitedNode, int loadUntilLastVisited, int departureLastVisited, int dist) {
+        return String.format(
+                "%s%s[%2d] (%4s, %4s, %4s)",
+                dist>0? String.format("--> {%4s} -->", dist):"",
+                lastVisitedNode,
+                loadUntilLastVisited,
+                lastVisitedNode.getEarliest(),
+                String.valueOf(departureLastVisited),
+                lastVisitedNode.getLatest() == Integer.MAX_VALUE ? "INF" : String.valueOf(lastVisitedNode.getLatest())
+        );
+    }
+
+    public int isValidSequence() {
+
+        LinkedList<Node> allNodes = new LinkedList<>(Arrays.asList(this.vehicle.getLastVisitedNode()));
+        allNodes.addAll(this.sequenceVisits);
+
+        return isValidSequence(allNodes, this.vehicle.getDepartureCurrent(), this.vehicle.getCurrentLoad(), this.vehicle.getCapacity());
+
+    }
+
+    public boolean isValid() {
+
+        if (this.vehicle.isRebalancing()) {
+
+            if (this.sequenceVisits != null) {
+                System.out.println("Vehicle is rebalancing but sequence is full!" + this);
+                return false;
+            }
+
+            if (!this.passengers.isEmpty() || !this.requests.isEmpty()) {
+                System.out.println("Vehicle is rebalancing but has users! " + this.getUserInfo() + " Visit: " + this);
+                return false;
+            }
+
+            if (!(this.getVehicle().getLastVisitedNode() instanceof NodeStop) && !(this.getTargetNode() instanceof NodeTargetRebalancing)) {
+                System.out.println("Vehicle is rebalancing but current node and target node are invalid! " + this.getUserInfo() + " Visit: " + this);
+                return false;
+            }
+            return true;
+        }
+
+        if (this.sequenceVisits == null) {
+            System.out.println("Vehicle is not rebalancing but sequence is null!" + this);
+            return true;
+        }
+
+        if (this.isValidSequence() < 0) {
+            System.out.println("Invalid sequence! " + this.getUserInfo() + " - Visit: " + this + " - Target: " + this.getTargetNode() + " - Rebalancing: " + this.vehicle.isRebalancing());
+            return false;
+        }
+
+        List<Integer> passengerIds = this.passengers.stream().map(User::getId).collect(Collectors.toList());
+
+        if ((new HashSet<>(passengerIds)).size() != passengerIds.size()) {
+            System.out.println("Repeated passengers! " + passengerIds);
+            return false;
+        }
+
+        List<Integer> requestIds = this.requests.stream().map(User::getId).collect(Collectors.toList());
+
+
+        if ((new HashSet<>(requestIds)).size() != requestIds.size()) {
+            System.out.println("Repeated requests!");
+            return false;
+        }
+        List<Integer> pk = new ArrayList<>();
+        List<Integer> dp = new ArrayList<>();
+
+        if (this.vehicle.getLastVisitedNode() instanceof NodeDP)
+            dp.add(this.vehicle.getLastVisitedNode().getTripId());
+
+        if (this.vehicle.getLastVisitedNode() instanceof NodePK)
+            pk.add(this.vehicle.getLastVisitedNode().getTripId());
+
+        if (this.sequenceVisits == null) {
+            System.out.println("Sequence is null! " + this.getUserInfo() + " - Visit: " + this + " - Sequence: " + this.getSequenceVisits() + " (Rebalancing: " + this.vehicle.isRebalancing() + ")");
+            return false;
+        }
+
+        for (int i = 0; i < this.sequenceVisits.size(); i++) {
+
+            Node node = this.sequenceVisits.get(i);
+
+            // Found first node different than middle
+            if (i > 1 && node instanceof NodeMiddle) {
+                System.out.println("Node middle found in the middle of the sequence! " + this.getUserInfo() + " - Visit: " + this);
+                return false;
+            }
+            if (node instanceof NodeDP)
+                dp.add(node.getTripId());
+
+            if (node instanceof NodePK)
+                pk.add(node.getTripId());
+        }
+
+        // Picked more than once
+        if (pk.size() != new HashSet<>(pk).size()) {
+            System.out.println("Picked up more than once!" + this.getUserInfo() + " - PK nodes: " + pk + " - Visit: " + this);
+            return false;
+        }
+
+        // Dropped more than once
+        if (dp.size() != new HashSet<>(dp).size()) {
+            System.out.println("Dropped of more than once!" + this.getUserInfo() + " - DP nodes: " + dp + " - Visit: " + this);
+            return false;
+        }
+
+        if (!dp.containsAll(passengerIds)) {
+            System.out.println("There are dropoffs not included in passenger list! Users: " + this.getUserInfo() + " - Visit: " + this);
+            return false;
+        }
+        if (!pk.containsAll(requestIds)) {
+            System.out.println("There are pickups not included in request list! Users: " + this.getUserInfo() + " - Visit: " + this);
+            return false;
+        }
+
+        return true;
+    }
+
+    public String getUserInfo() {
+        return String.format("P: %s - R: %s", this.getPassengers(), this.getRequests());
+    }
+
+
+    public static int isValidSequence(LinkedList<Node> sequence, int departureTimeFromVehicle, int load, int maxCapacity) {
+
+        // All valid trips finish at delivery nodes
+        if (!(sequence.getLast() instanceof NodeDP)) {
+            return -1;
+        }
+
+        // If a pickup node is visited after its destination, trip is invalid
+        Map<Integer, Boolean> destinationAlreadyVisited = new HashMap<>();
+
+        // Data passed over legs
+        int[] cumulativeLegPK = new int[]{
+                departureTimeFromVehicle,
+                load,
+                0};
+
+
+        for (int i = 0; i < sequence.size() - 1; i++) {
+
+            // Mark trip id all destinations visited
+            if (sequence.get(i) instanceof NodeDP)
+                destinationAlreadyVisited.put(sequence.get(i).getTripId(), true);
+
+            // If pickup from same trip id is visited and destination have been marked, trip is invalid
+            if (sequence.get(i) instanceof NodePK && destinationAlreadyVisited.containsKey(sequence.get(i).getTripId()))
+                return -1;
+
+            if (!Visit.isValidLeg(sequence.get(i), sequence.get(i + 1), cumulativeLegPK, maxCapacity)) {
+                return -1;
+            }
+        }
+        return cumulativeLegPK[Vehicle.DELAY];
+    }
+
+
+    public void updateArrivalSoFar() {
+
+        int arrival = this.getVehicle().getLastVisitedNode().getDeparture();
+        Node first = this.getVehicle().getLastVisitedNode();
+        for (Node next : this.getSequenceVisits()) {
+            next.setArrivalSoFar(arrival + Dao.getInstance().getDistSec(first, next));
+            first = next;
+        }
+    }
+
+    /**
+     * Check if there is a valid trip between "fromNode" and "toNode" occurring in vehicle "v".
+     * If true, update trip intermediate status to reflect the addition of leg checked
+     *
+     * @param fromNode      Origin node
+     * @param nextNode      Destination node
+     * @param cumulativeLeg Precedent status to update
+     * @return true, if there is a valid trip, and false, otherwise.
+     */
+    public static boolean isValidLeg(Node fromNode,
+                                     Node nextNode,
+                                     int[] cumulativeLeg,
+                                     int maxCapacity) {
+
+        // cumulativeLeg[ARRIVAL] - arrivalFrom
+        // cumulativeLeg[LOAD] - loadFrom
+        // cumulativeLeg[DELAY] - totalDelay
+
+
+        // Update loads (DP nodes have negative loads)
+        int load = cumulativeLeg[Vehicle.LOAD] + nextNode.getLoad();
+
+
+        // Capacity constraint (if lower than zero, sequence is invalid! Visited DP before PK)
+        if (load < 0 || load > maxCapacity) {
+            return false;
+        }
+
+        /////////////////////////* VIABLE NEXT */////////////////////////////////////
+        int distFromTo = Dao.getInstance().getDistSec(fromNode, nextNode);
+
+        // No path available
+        if (distFromTo < 0) {
+            return false;
+        }
+        // Time vehicle arrives at next node (can be earlier or later)
+        // If distance is zero, arrival next MUST be at least earliest time at next node
+        int arrivalNext = Math.max(cumulativeLeg[Vehicle.ARRIVAL] + distFromTo, nextNode.getEarliest());
+
+        // Arrival cannot be later than latest time in node
+        if (arrivalNext > nextNode.getLatest()) {
+            return false;
+        }
+
+        int delay = arrivalNext - nextNode.getEarliest();
+
+        // Arrival cannot be later than latest time in node
+        if (delay < 0) {
+            return false;
+        }
+
+        //Can vehicle visit next user?
+        User uFrom = User.mapOfUsers.get(fromNode.getTripId());
+
+        // From user requires private ride?
+        if (uFrom != null && fromNode instanceof NodePK && !uFrom.isSharingAllowed()) {
+            if (fromNode.getTripId() != nextNode.getTripId()) {
+                //System.out.println(String.format("FR: Cannot go from %s(%s) to %s", fromNode, uFrom.getPerformanceClass(), nextNode));
+                return false;
+            }
+        }
+
+        // Next user requires private ride?
+        User uTo = User.mapOfUsers.get(nextNode.getTripId());
+        if (uTo != null && nextNode instanceof NodeDP && !uTo.isSharingAllowed()) {
+            if (fromNode.getTripId() != nextNode.getTripId()) {
+                //System.out.println(String.format("TO: Cannot go from %s(%s) to %s", fromNode, uFrom.getPerformanceClass(), nextNode));
+                return false;
+            }
+        }
+
+//        // Hired vehicles cannot stay longer than contract deadline
+//        if (this.isHired() && arrivalNext > this.contractDeadline) {
+//            return false;
+//        }
+
+
+        //ALLOW ONLY:
+        //           PKA ---> DPA
+        //           DPA ---> ANY
+        //           MI ----> PKA
+        //           ST ----> PKA
+        //           O  ----> PKA
+        //           PKA ---> DPA
+        /*
+         DENY:  PK(B) ----> DP(A)
+                PK(B) ----> DP(A)
+                PK
+
+        */
+        //
+
+        //      DPB ---> DPA
+        //
+        //if(uTo != null && !uTo.isSharingAllowed() && uFrom!=uTo && (fromNode instanceof NodePK)){
+        //    System.out.println(String.format("Cannot go from %s(%s) to %s(%s)", fromNode, uFrom.getPerformanceClass(), nextNode, uTo.getPerformanceClass()));
+        //    return false;
+        //}
+
+
+        // Update arrival time at next node to >= earliest time of next node
+        cumulativeLeg[Vehicle.ARRIVAL] = arrivalNext;
+
+        // Update currentLoad
+        cumulativeLeg[Vehicle.LOAD] = load;
+
+        // Delay and idleness
+        if (nextNode instanceof NodeDP)
+            cumulativeLeg[Vehicle.DELAY] += delay;
+
+        /*TODO: previous_arrival: verify if arrival is better than previous arrival saved for node*/
+        // In this sequence, one of the customers was already scheduled earlier.
+        // The new journey must decrease waiting time of all passengers.
+
+        //if( previous_arrival >= 0 && next_node in previous_arrival and previous_arrival[next_node]<arrivalTo){
+        //    Model.Node.Model.Node.memo_dic[id_viable] = (None,None)
+        //    return delays;
+
+        ///////////////////////////////////////////////////////////////////////////////
+        // Update sequences
+        return true;
     }
 
 
@@ -265,28 +570,6 @@ public class Visit implements Comparable<Visit> {
                 " - Delay: " + delay +
                 " - Idle: " + idle +
                 " - Vehicle: " + vehicle.getInfo();
-    }
-
-    /**
-     * Loop sequence of nodes and check if vehicle load and arrival constraints are satisfied.
-     * @return true, only if visit is feasible
-     */
-    public boolean isFeasible() {
-
-        int[] cumulativeLegPK = new int[]{
-                this.getVehicle().getDepartureCurrent(),
-                this.getVehicle().getCurrentLoad(),
-                0};
-
-        Node currentPK = this.getVehicle().getLastVisitedNode();
-
-        for (Node nextNode:this.getSequenceVisits()) {
-            if (!this.getVehicle().isValidLeg(currentPK, nextNode, cumulativeLegPK)) {
-                return false;
-            }
-            currentPK = nextNode;
-        }
-        return true;
     }
 
 
