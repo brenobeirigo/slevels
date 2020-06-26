@@ -206,14 +206,17 @@ public class Visit implements Comparable<Visit> {
                 vehicle,
                 this.vehicle.getCurrentLoad(),
                 passengers.size(),
-                passengers.stream().collect(Collectors.summingInt(p -> p.getNumPassengers())),
+                passengers.stream().mapToInt(User::getNumPassengers).sum(),
                 requests.size(),
-                requests.stream().collect(Collectors.summingInt(p -> p.getNumPassengers()))
+                requests.stream().mapToInt(User::getNumPassengers).sum()
         );
+
+        // When visit was not yet setup to vehicle, shows that it refers to a draft visit
+        String draftVisit = this.vehicle.getVisit() == this ? "[SETUP]" : "[DRAFT]";
 
         // If rebalancing, create sequence with rebalancing node
         List<Node> sequenceNodesToVisit;
-        if (this.vehicle.isRebalancing()) {
+        if (this.vehicle.isRebalancing() && this.vehicle.getVisit().getSequenceVisits() == null) {
             sequenceNodesToVisit = new LinkedList<>();
 
             // Add rebalancing target to list
@@ -230,10 +233,13 @@ public class Visit implements Comparable<Visit> {
 
         //Current node info
         String lastVisitedNodeInfo = String.format(
-                "%s ||| %s :::%s:::",
+                "%s [target=%s]||| %s ::: {%4s} %s {%4s}:::",
                 (this.vehicle.isRebalancing() ? "--RE--" : "--ST--"),
+                this.getTargetNode(),
                 legInfo(lastVisitedNode, loadUntilLastVisited, departureLastVisited, 0),
-                this.vehicle.getMiddleNode()
+                this.vehicle.getMiddleNode() == null ? " -- " : Dao.getInstance().getDistSec(this.vehicle.getLastVisitedNode(), this.vehicle.getMiddleNode()),
+                this.vehicle.getMiddleNode() == null ? "-------": this.vehicle.getMiddleNode(),
+                this.vehicle.getMiddleNode() == null || sequenceNodesToVisit.isEmpty() ? " -- " : Dao.getInstance().getDistSec(this.vehicle.getMiddleNode(), sequenceNodesToVisit.get(0))
         );
 
         // Node strings
@@ -254,7 +260,8 @@ public class Visit implements Comparable<Visit> {
         }
         String delayInfo = String.format("(delay: %5d - occ.: %5.2f)", delay, avgOccupationLeg);
         return String.format(
-                "%s %s %s %s --- %s",
+                "%s %s %s %s %s --- %s",
+                draftVisit,
                 delayInfo,
                 vehicleData,
                 lastVisitedNodeInfo,
@@ -264,13 +271,14 @@ public class Visit implements Comparable<Visit> {
 
     private String legInfo(Node lastVisitedNode, int loadUntilLastVisited, int departureLastVisited, int dist) {
         return String.format(
-                "%s%s[%2d] (%4s, %4s, %4s)",
-                dist>0? String.format("--> {%4s} -->", dist):"",
+                "%s%s[%2d] (%3s, %7s, %3s, %3s)",
+                dist > 0 ? String.format("--> {%4s} -->", dist) : "",
                 lastVisitedNode,
                 loadUntilLastVisited,
-                lastVisitedNode.getEarliest(),
-                String.valueOf(departureLastVisited),
-                lastVisitedNode.getLatest() == Integer.MAX_VALUE ? "INF" : String.valueOf(lastVisitedNode.getLatest())
+                lastVisitedNode.getEarliest() == 0 ? "-" : departureLastVisited - lastVisitedNode.getEarliest(),
+                departureLastVisited,
+                lastVisitedNode.getArrivalSoFar() == Integer.MAX_VALUE ? "INF" : lastVisitedNode.getArrivalSoFar() - departureLastVisited,
+                lastVisitedNode.getLatest() == Integer.MAX_VALUE ? "INF" : lastVisitedNode.getLatest() - departureLastVisited
         );
     }
 
@@ -427,7 +435,8 @@ public class Visit implements Comparable<Visit> {
         int arrival = this.getVehicle().getLastVisitedNode().getDeparture();
         Node first = this.getVehicle().getLastVisitedNode();
         for (Node next : this.getSequenceVisits()) {
-            next.setArrivalSoFar(arrival + Dao.getInstance().getDistSec(first, next));
+            arrival += Dao.getInstance().getDistSec(first, next);
+            next.setArrivalSoFar(arrival);
             first = next;
         }
     }
@@ -470,6 +479,9 @@ public class Visit implements Comparable<Visit> {
         // Time vehicle arrives at next node (can be earlier or later)
         // If distance is zero, arrival next MUST be at least earliest time at next node
         int arrivalNext = Math.max(cumulativeLeg[Vehicle.ARRIVAL] + distFromTo, nextNode.getEarliest());
+
+//        if (nextNode instanceof NodePK && arrivalNext > nextNode.getArrivalSoFar())
+//            return false;
 
         // Arrival cannot be later than latest time in node
         if (arrivalNext > nextNode.getLatest()) {
@@ -542,16 +554,6 @@ public class Visit implements Comparable<Visit> {
         if (nextNode instanceof NodeDP)
             cumulativeLeg[Vehicle.DELAY] += delay;
 
-        /*TODO: previous_arrival: verify if arrival is better than previous arrival saved for node*/
-        // In this sequence, one of the customers was already scheduled earlier.
-        // The new journey must decrease waiting time of all passengers.
-
-        //if( previous_arrival >= 0 && next_node in previous_arrival and previous_arrival[next_node]<arrivalTo){
-        //    Model.Node.Model.Node.memo_dic[id_viable] = (None,None)
-        //    return delays;
-
-        ///////////////////////////////////////////////////////////////////////////////
-        // Update sequences
         return true;
     }
 
@@ -599,5 +601,9 @@ public class Visit implements Comparable<Visit> {
 
     public void setRequests(Set<User> requests) {
         this.requests = requests;
+    }
+
+    public void discountDelay(int delayServicedUser) {
+        this.delay -= delayServicedUser;
     }
 }
