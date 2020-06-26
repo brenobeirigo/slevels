@@ -5,12 +5,12 @@ public class NodeOrigin extends Node {
 
 
     public NodeOrigin(int id, int id_network, double lat, double lon, int load) {
-        super(id, id_network, lat, lon, 0, 0, load);
+        super(id, id_network, lat, lon, 0, Integer.MAX_VALUE, load);
         this.tripId = id;
     }
 
     public NodeOrigin(int id, int id_network, int load) {
-        super(id, id_network, 0, 0, load);
+        super(id, id_network, 0, Integer.MAX_VALUE, load);
         this.tripId = id;
     }
 
