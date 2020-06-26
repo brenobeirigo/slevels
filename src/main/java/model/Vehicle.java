@@ -252,7 +252,6 @@ public class Vehicle implements Comparable<Vehicle> {
 
                 // If DP node is visited, it means request is finished
                 if (lastVisitedNode instanceof NodeDP) {
-
                     this.dropoff(currentUser);
                     servicedUsersInRound.add(currentUser);
 
@@ -308,6 +307,9 @@ public class Vehicle implements Comparable<Vehicle> {
         User.status[tripId][User.DP_ARRIVAL_TIME] = passenger.getNodeDp().getArrival();
         // Save DP delay
         User.status[tripId][User.DP_DELAY] = passenger.getNodeDp().getDelay();
+
+        // Visit total delay is reduced
+        this.getVisit().discountDelay(passenger.getNodeDp().getDelay());
     }
 
     private void pickup(User currentUser) {
@@ -1078,112 +1080,7 @@ public class Vehicle implements Comparable<Vehicle> {
                               Node nextNode,
                               int[] cumulativeLeg) {
 
-        // cumulativeLeg[ARRIVAL] - arrivalFrom
-        // cumulativeLeg[LOAD] - loadFrom
-        // cumulativeLeg[DELAY] - totalDelay
-
-
-        // Update loads (DP nodes have negative loads)
-        int load = cumulativeLeg[LOAD] + nextNode.getLoad();
-
-
-        // Capacity constraint (if lower than zero, sequence is invalid! Visited DP before PK)
-        if (load < 0 || load > this.getCapacity()) {
-            return false;
-        }
-
-        /////////////////////////* VIABLE NEXT */////////////////////////////////////
-        int distFromTo = Dao.getInstance().getDistSec(fromNode, nextNode);
-
-        // No path available
-        if (distFromTo < 0) {
-            return false;
-        }
-        // Time vehicle arrives at next node (can be earlier or later)
-        // If distance is zero, arrival next MUST be at least earliest time at next node
-        int arrivalNext = Math.max(cumulativeLeg[ARRIVAL] + distFromTo, nextNode.getEarliest());
-
-        // Arrival cannot be later than latest time in node
-        if (arrivalNext > nextNode.getLatest()) {
-            return false;
-        }
-
-        int delay = arrivalNext - nextNode.getEarliest();
-
-        // Arrival cannot be later than latest time in node
-        if (delay < 0) {
-            return false;
-        }
-
-        //Can vehicle visit next user?
-        User uFrom = User.mapOfUsers.get(fromNode.getTripId());
-
-        // From user requires private ride?
-        if (uFrom != null && fromNode instanceof NodePK && !uFrom.isSharingAllowed()) {
-            if (fromNode.getTripId() != nextNode.getTripId()) {
-                //System.out.println(String.format("FR: Cannot go from %s(%s) to %s", fromNode, uFrom.getPerformanceClass(), nextNode));
-                return false;
-            }
-        }
-
-        // Next user requires private ride?
-        User uTo = User.mapOfUsers.get(nextNode.getTripId());
-        if (uTo != null && nextNode instanceof NodeDP && !uTo.isSharingAllowed()) {
-            if (fromNode.getTripId() != nextNode.getTripId()) {
-                //System.out.println(String.format("TO: Cannot go from %s(%s) to %s", fromNode, uFrom.getPerformanceClass(), nextNode));
-                return false;
-            }
-        }
-
-        // Hired vehicles cannot stay longer than contract deadline
-        if (this.isHired() && arrivalNext > this.contractDeadline) {
-            return false;
-        }
-
-
-        //ALLOW ONLY:
-        //           PKA ---> DPA
-        //           DPA ---> ANY
-        //           MI ----> PKA
-        //           ST ----> PKA
-        //           O  ----> PKA
-        //           PKA ---> DPA
-        /*
-         DENY:  PK(B) ----> DP(A)
-                PK(B) ----> DP(A)
-                PK
-
-        */
-        //
-
-        //      DPB ---> DPA
-        //
-        //if(uTo != null && !uTo.isSharingAllowed() && uFrom!=uTo && (fromNode instanceof NodePK)){
-        //    System.out.println(String.format("Cannot go from %s(%s) to %s(%s)", fromNode, uFrom.getPerformanceClass(), nextNode, uTo.getPerformanceClass()));
-        //    return false;
-        //}
-
-
-        // Update arrival time at next node to >= earliest time of next node
-        cumulativeLeg[ARRIVAL] = arrivalNext;
-
-        // Update currentLoad
-        cumulativeLeg[LOAD] = load;
-
-        // Delay and idleness
-        cumulativeLeg[DELAY] += delay;
-
-        /*TODO: previous_arrival: verify if arrival is better than previous arrival saved for node*/
-        // In this sequence, one of the customers was already scheduled earlier.
-        // The new journey must decrease waiting time of all passengers.
-
-        //if( previous_arrival >= 0 && next_node in previous_arrival and previous_arrival[next_node]<arrivalTo){
-        //    Model.Node.Model.Node.memo_dic[id_viable] = (None,None)
-        //    return delays;
-
-        ///////////////////////////////////////////////////////////////////////////////
-        // Update sequences
-        return true;
+        return Visit.isValidLeg(fromNode, nextNode, cumulativeLeg, this.capacity);
     }
 
     public void updateDeparture(int currentTime) {
@@ -1290,36 +1187,15 @@ public class Vehicle implements Comparable<Vehicle> {
      */
     public void rebalanceToClosestNode() {
 
-        // Middle node between last visited and target (if null, middle = target)
-        Node middle = this.getMiddleNode();
-
-        // If vehicle has passengers
-        Node target = this.getVisit().getTargetNode();
-
-        assert this.lastVisitedNode instanceof NodeDP : "Last visited is not DP" + this.visit;
+        assert !(this.lastVisitedNode instanceof NodePK): "Last visited is not DP" + this.visit;
 
         // For the sake of correctness, vehicle has to depart from a stop node created from last visited node.
-        // Last visited node, is ALWAYS a departure node
+        if (this.lastVisitedNode instanceof NodeDP)
+            this.createNodeStopAndFinishVisitAt(this.lastVisitedNode.getArrival());
 
-        //TODO Is it necessary to create a stop node before changing route (rebalance to middle?)
-        this.createNodeStopAndFinishVisitAt(this.lastVisitedNode.getArrival());
-
-        System.out.println(String.format(
-                " - Previous user is %s (target=%s)",
-                User.mapOfUsers.get(target.getTripId()), target)
-        );
-
-        System.out.println(String.format(
-                "Vehicle rebalance to closest middle point %s. Visit %s",
-                this.getMiddleNode(),
-                this.getVisit()));
-
+        // Middle node between last visited and target (if null, middle = target)
+        Node middle = this.getMiddleNode();
         this.rebalanceTo(middle);
-
-        System.out.println(String.format(
-                "Vehicle rebalance to closest middle point %s. Visit %s",
-                this.getMiddleNode(),
-                this.getVisit()));
     }
 
     public int getContractDeadline() {
