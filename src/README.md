@@ -80,3 +80,15 @@ The information levels can be set using the following labels:
         Waiting:       0
       ST543 (---- | 1513 - 3600 | ----) [----]
      Path: [[-73.951427, 40.785196],[-73.983180, 40.750341],[-73.983180, 40.750341],[-73.988753, 40.745289],[-73.988753, 40.745289],[-73.937425, 40.804385],[-73.937425, 40.804385],[-73.970915, 40.748406],[-73.970915, 40.748406],[-73.983887, 40.713201],[-73.983887, 40.713201],[-73.928206, 40.863614],[-73.928206, 40.863614],[-73.928206, 40.863614]]
+
+## Duration X Distance
+
+The distance between points can be derived from two sources in the `.csv` configuration file:
+1) `distances_file` - Distance matrix in meters created from network graph. Conversion to durations is done using 
+SPEED parameter.
+2) `durations_file` - Duration matrix (considering 30Km/h) in seconds created from network graph.
+
+Working with the duration matrix is more stable because we guarantee that the sum of the durations of every leg throughout 
+the shortest path from `o` to `d` will be equal to the total duration from  `o` to `d`.
+This guarantee cannot be made for the distance matrix due to accumulated approximation errors.
+The sum of individual leg durations (converted from leg lengths) can be different from the converted total distance.
