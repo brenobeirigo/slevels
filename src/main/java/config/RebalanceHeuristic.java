@@ -148,7 +148,7 @@ public class RebalanceHeuristic implements RebalanceStrategy {
 
     private String getRebalancingLog(Set<Vehicle> idleVehicles, Node target, Vehicle rebalancingVehicle) {
 
-        short distToTarget = Dao.getInstance().getDistSec(rebalancingVehicle.getLastVisitedNode(), target);
+        int distToTarget = Dao.getInstance().getDistSec(rebalancingVehicle.getLastVisitedNode(), target);
         Node currentNode = rebalancingVehicle.getLastVisitedNode();
         int historicalScore = Node.hotSpot.get(target.getNetworkId());
 
