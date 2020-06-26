@@ -38,6 +38,7 @@ public abstract class Node implements Comparable<Node> {
         this.networkId = networkId;
         this.latest = Integer.MAX_VALUE;
         this.earliest = 0;
+        this.arrivalSoFar = Integer.MAX_VALUE;
     }
 
 
@@ -70,6 +71,7 @@ public abstract class Node implements Comparable<Node> {
         this.earliest = earliest;
         this.latest = latest;
         Node.nodeDic.put(networkId, new Double[]{lat, lon});
+        this.arrivalSoFar = Integer.MAX_VALUE;
         //Node.hotSpot.compute(this.networkId, (tokenKey, oldValue) -> oldValue == null ? 1 : oldValue + 1);
     }
 
@@ -80,6 +82,7 @@ public abstract class Node implements Comparable<Node> {
         this.earliest = earliest;
         this.latest = latest;
         Node.nodeDic.put(networkId, new Double[]{0.0, 0.0});
+        this.arrivalSoFar = Integer.MAX_VALUE;
         //Node.hotSpot.compute(this.networkId, (tokenKey, oldValue) -> oldValue == null ? 1 : oldValue + 1);
     }
 
