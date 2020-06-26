@@ -95,8 +95,9 @@ public class TestSPReading {
                 List<Short> result = br.lines().map(Short::parseShort).collect(Collectors.toList());
 
                 sps.get(fromNode).get(toNode).addAll(result);
+
             } catch (IOException e) {
-                //e.printStackTrace();
+                // e.printStackTrace();
                 continue;
             }
             //System.out.println(fileName);
