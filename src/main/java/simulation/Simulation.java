@@ -567,7 +567,7 @@ public abstract class Simulation {
     public void setup(Visit visit) {
 
         // Check if rebalancing was interrupted to pick up user
-        if (visit.getVehicle().isRebalancing() == true) {
+        if (visit.getVehicle().isRebalancing()) {
             if ((visit.getVehicle().getLastVisitedNode() instanceof NodeStop) && visit.getVehicle().getMiddleNode() == null)
                 System.out.println("AQUI");
             interruptRebalancing(visit);
@@ -653,7 +653,7 @@ public abstract class Simulation {
     public boolean allVehicleVisitsAreValid() {
         for (Vehicle vehicle : listVehicles) {
             if (vehicle.getVisit() != null && !vehicle.getVisit().isValid()) {
-                System.out.println(String.format("Sequence of vehicle %s is invalid!", vehicle));
+                System.out.println(String.format("Sequence of vehicle %s is invalid! Visit: %s", vehicle, vehicle.getVisit()));
                 return false;
             }
         }
