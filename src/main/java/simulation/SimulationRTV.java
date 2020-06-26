@@ -264,8 +264,7 @@ public class SimulationRTV extends Simulation {
             assert disruptedUsersAreServicedByDifferentVehicles(vehicleDisrupted) : "Disrupted users (unmatched) are not inserted in different vehicles.";
 
             // Stop vehicle at middle point or next target
-            Node middle = vehicleDisrupted.getMiddleNode();
-            vehicleDisrupted.rebalanceTo(middle);
+            vehicleDisrupted.rebalanceToClosestNode();
 
             // vehicleDisrupted.rebalanceToClosestNode();
 
@@ -289,7 +288,8 @@ public class SimulationRTV extends Simulation {
 
         // Are all requests serviced in another visits?
         if (requestsServicedByDifferentVehicles.size() != requestsFormerlyServicedByDisruptedVehicle.size()) {
-            System.out.println(String.format(" - Users %s from vehicle %s were left unmatched", requestsFormerlyServicedByDisruptedVehicle.removeAll(requestsServicedByDifferentVehicles), vehicleDisrupted));
+            requestsFormerlyServicedByDisruptedVehicle.removeAll(requestsServicedByDifferentVehicles);
+            System.out.println(String.format(" - Users %s from vehicle %s were left unmatched", requestsFormerlyServicedByDisruptedVehicle, vehicleDisrupted));
             return false;
         }
 
@@ -372,8 +372,9 @@ public class SimulationRTV extends Simulation {
             System.out.println("Unassigned requests from vehicle carrying: " + unassignedRequestFromVehicleCarrying);
 
             Visit visitWithoutRequests = Method.getBestVisitFor(vehicleUnassignedAndCarrying, unassignedRequestFromVehicleCarrying);
-            if (visitWithoutRequests == null)
+            if (visitWithoutRequests == null) {
                 System.out.println(vehicleUnassignedAndCarrying + " - " + visitWithoutRequests);
+            }
             System.out.println(String.format("Best visit %s", visitWithoutRequests));
             setupVisitAndUpdate(visitWithoutRequests);
         }
