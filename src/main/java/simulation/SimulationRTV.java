@@ -253,9 +253,7 @@ public class SimulationRTV extends Simulation {
         }
 
         assert displacedUsers.isEmpty() : "There are displaced " + displacedUsers;
-
-        if (!displacedUsers.isEmpty())
-            assert !Collections.disjoint(unassignedUsers, displacedUsers) : "Displaced users are not unassigned " + displacedUsers;
+        assert !Collections.disjoint(unassignedUsers, displacedUsers) : "Displaced users are not unassigned " + displacedUsers;
 
         // All vehicles that lost requests rebalance to closest node (middle or next target)
         for (Vehicle vehicleDisrupted : vehiclesDisrupted) {
@@ -265,8 +263,6 @@ public class SimulationRTV extends Simulation {
 
             // Stop vehicle at middle point or next target
             vehicleDisrupted.rebalanceToClosestNode();
-
-            // vehicleDisrupted.rebalanceToClosestNode();
 
             /*for (User u : requestsFormerlyServicedByDisruptedVehicle) {
                 assert u.getCurrentVisit() != null && u.getCurrentVisit() != vehicleDisrupted.getVisit() : String.format("User %s in vehicle %s is still associated with the vehicle", u, vehicleDisrupted);
