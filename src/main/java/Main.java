@@ -11,6 +11,7 @@ import model.node.Node;
 import model.node.NodeMiddle;
 import simulation.Simulation;
 import simulation.SimulationFCFS;
+import simulation.SimulationRTV;
 import simulation.Solution;
 import java.time.Duration;
 import java.time.Instant;
@@ -51,7 +52,7 @@ public class Main {
 
             // Print info in console
             infoHandling.put(Simulation.SHOW_ALL_VEHICLE_JOURNEYS , false);
-            infoHandling.put(Simulation.SHOW_ROUND_FLEET_STATUS , false);
+            infoHandling.put(Simulation.SHOW_ROUND_FLEET_STATUS , true);
             infoHandling.put(Simulation.SHOW_ROUND_INFO , true);
         }
         catch (Exception e){
@@ -113,8 +114,7 @@ public class Main {
                                                     }
                                                     for (Rebalance rebalanceSettings : allRebalancingSettings) {
 
-                                                        // Create FCFS simulation
-                                                        Simulation fcfs = new SimulationFCFS(
+                                                        Simulation rtv = new SimulationRTV(
                                                                 instanceSettings.getInstanceName(),
                                                                 initialFleet,
                                                                 vehicleMaxCapacity,
@@ -130,8 +130,27 @@ public class Main {
                                                                 customerBaseSettings.customerSegmentationLabel,
                                                                 rebalanceSettings);
 
-                                                        // Run simulation
-                                                        fcfs.run(infoHandling);
+                                                        rtv.run(infoHandling);
+
+//                                                        // Create FCFS simulation
+//                                                        Simulation fcfs = new SimulationFCFS(
+//                                                                instanceSettings.getInstanceName(),
+//                                                                initialFleet,
+//                                                                vehicleMaxCapacity,
+//                                                                maxRequestsIteration,
+//                                                                timeWindow,
+//                                                                timeHorizon,
+//                                                                allowRebalancing,
+//                                                                contractDuration,
+//                                                                isAllowedToHire,
+//                                                                isAllowedToLowerServiceLevel,
+//                                                                sortWaitingUsersByClass,
+//                                                                customerBaseSettings.serviceRateLabel,
+//                                                                customerBaseSettings.customerSegmentationLabel,
+//                                                                rebalanceSettings);
+//
+//                                                        // Run simulation
+//                                                        fcfs.run(infoHandling);
 
                                                         // Reset classes for next iteration
                                                         Dao.getInstance().resetRecords();
