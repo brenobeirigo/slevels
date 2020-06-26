@@ -157,12 +157,12 @@ public class User implements Comparable<User> {
 
         this.performanceClass = performanceClass;
 
-        int originId = Integer.valueOf(record.get("pk_id"));
-        int destinationId = Integer.valueOf(record.get("dp_id"));
-        double originLat = Double.valueOf(record.get("pickup_latitude"));
-        double originLon = Double.valueOf(record.get("pickup_longitude"));
-        double destinationLat = Double.valueOf(record.get("dropoff_latitude"));
-        double destinationLon = Double.valueOf(record.get("dropoff_longitude"));
+        int originId = Integer.parseInt(record.get("pk_id"));
+        int destinationId = Integer.parseInt(record.get("dp_id"));
+        double originLat = Double.parseDouble(record.get("pickup_latitude"));
+        double originLon = Double.parseDouble(record.get("pickup_longitude"));
+        double destinationLat = Double.parseDouble(record.get("dropoff_latitude"));
+        double destinationLon = Double.parseDouble(record.get("dropoff_longitude"));
 
         int pk_latest = Method.getLatestPK(this.reqTime, performanceClass);
         int dp_earliest = Method.getEarliestDp(this.reqTime, originId, destinationId, performanceClass);
@@ -352,8 +352,6 @@ public class User implements Comparable<User> {
     /**
      * Find best pair of edges (i,i+1) and (j,j+1) such that replacing
      * them with (i,j) and (i+1,j+1) minimizes tour length.
-     * @param visit
-     * @return
      */
     /*public Visit intensify2Opt(Visit visit){
 
