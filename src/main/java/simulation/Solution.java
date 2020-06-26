@@ -232,7 +232,7 @@ public class Solution {
 
     public void saveRoundInfo() {
 
-        System.out.println(">>>>>>> " + this.outputFile);
+        System.out.println(">>>>>>> Round log: " + this.outputFile);
 
         try {
             writer = Files.newBufferedWriter(outputFile);
@@ -301,8 +301,10 @@ public class Solution {
 
     public void saveUserInfo(Map<Integer, User> listOfServicedUsers) {
 
+        System.out.println(">>>>>>> User service log: " + this.outputFileUsers);
+
         List<User> sortedUsersPk = new ArrayList<>(listOfServicedUsers.values());
-        Collections.sort(sortedUsersPk, comparingInt(o -> o.getNodePk().getEarliest()));
+        sortedUsersPk.sort(comparingInt(o -> o.getNodePk().getEarliest()));
 
         try {
             writer = Files.newBufferedWriter(outputFileUsers);
