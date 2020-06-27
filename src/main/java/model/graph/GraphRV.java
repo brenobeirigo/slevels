@@ -30,8 +30,6 @@ public class GraphRV {
                 maxVehReqEdges,
                 maxReqReqEdges
         );
-
-
     }
 
 
@@ -94,36 +92,43 @@ public class GraphRV {
                 if (edgesRV++ >= maxNumberOfEdges) {
                     break;
                 }
-                Generator<Node> gen = Method.getGeneratorOfNodeSequence(new HashSet<>(Arrays.asList(request)), vehicle);
 
-                for (ICombinatoricsVector<Node> combinationUsersPickupsAndDeliveries : gen) {
+                // Try to find at least ONE way pickup request
+                createEdge(graphRV, request, vehicle);
+            }
+        }
+    }
 
-                    List<Node> sequencePickupsAndDeliveries = combinationUsersPickupsAndDeliveries.getVector();
+    private void createEdge(SimpleGraph<Object, DefaultEdge> graphRV, User request, Vehicle vehicle) {
 
-                    LinkedList<Node> sequenceFromVehiclePositionToLastDelivery = Method.addLastVisitedAndMiddleNodesToStart(sequencePickupsAndDeliveries, vehicle);
+        Generator<Node> gen = Method.getGeneratorOfNodeSequence(new HashSet<>(Collections.singletonList(request)), vehicle);
 
-                    if (sequenceFromVehiclePositionToLastDelivery == null)
-                        continue;
+        for (ICombinatoricsVector<Node> combinationUsersPickupsAndDeliveries : gen) {
 
-                    int delay = Visit.isValidSequence(
-                            sequenceFromVehiclePositionToLastDelivery,
-                            vehicle.getDepartureCurrent(),
-                            vehicle.getCurrentLoad(),
-                            vehicle.getCapacity());
+            List<Node> sequencePickupsAndDeliveries = combinationUsersPickupsAndDeliveries.getVector();
+
+            LinkedList<Node> sequenceFromVehiclePositionToLastDelivery = Method.addLastVisitedAndMiddleNodesToStart(sequencePickupsAndDeliveries, vehicle);
+
+            if (sequenceFromVehiclePositionToLastDelivery == null)
+                continue;
+
+            int delay = Visit.isValidSequence(
+                    sequenceFromVehiclePositionToLastDelivery,
+                    vehicle.getDepartureCurrent(),
+                    vehicle.getCurrentLoad(),
+                    vehicle.getCapacity());
 
 
-                    if (delay >= 0) {
+            if (delay >= 0) {
 
-                        // System.out.println(vehicle.getLastVisitedNode() + "(" +vehicle.getLastVisitedNode()+ ") - Departure: " + vehicle.getDepartureCurrent() + "(" + currentTime + "), delay=" + delay + " - seq:" + sequenceFromVehiclePositionToLastDelivery + " - Visit:" + vehicle.getVisit());
+                // Connect vehicle to request
+                graphRV.addEdge(vehicle, request);
 
-                        // Connect vehicle to request
-                        graphRV.addEdge(vehicle, request);
-                        // graphRV.setEdgeWeight(graphRV.addEdge(vehicle, request), delay);
+                // If RV exists, there is at least ONE way to pickup up the request.
+                // The BEST way will be generated the RTV graph.
+                break;
 
-                        // Stop after picking up
-                        continue;
-                    }
-                }
+                // System.out.println(vehicle.getLastVisitedNode() + "(" +vehicle.getLastVisitedNode()+ ") - Departure: " + vehicle.getDepartureCurrent() + "(" + currentTime + "), delay=" + delay + " - seq:" + sequenceFromVehiclePositionToLastDelivery + " - Visit:" + vehicle.getVisit());
             }
         }
     }
@@ -158,9 +163,8 @@ public class GraphRV {
         updateRR(listWaitingUsers, graphRV, maxReqReqEdges, vehicleCapacity);
 
         // A request r and a vehicle v are connected if the request can be served by the vehicle while satisfying the
-        // constraints Z, as given by travel(v, r). Every vehicle is conected to "maxNumberOfEdges" users.
+        // constraints Z, as given by travel(v, r). Every vehicle is connected to "maxNumberOfEdges" users.
         updateRV(listVehicles, listWaitingUsers, graphRV, maxVehReqEdges);
-
 
         return graphRV;
     }
