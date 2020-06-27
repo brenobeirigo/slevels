@@ -422,7 +422,7 @@ public class Visit implements Comparable<Visit> {
             if (sequence.get(i) instanceof NodePK && destinationAlreadyVisited.containsKey(sequence.get(i).getTripId()))
                 return -1;
 
-            if (!Visit.isValidLeg(sequence.get(i), sequence.get(i + 1), cumulativeLegPK, maxCapacity)) {
+            if (Visit.isLegInvalid(sequence.get(i), sequence.get(i + 1), cumulativeLegPK, maxCapacity)) {
                 return -1;
             }
         }
@@ -450,10 +450,10 @@ public class Visit implements Comparable<Visit> {
      * @param cumulativeLeg Precedent status to update
      * @return true, if there is a valid trip, and false, otherwise.
      */
-    public static boolean isValidLeg(Node fromNode,
-                                     Node nextNode,
-                                     int[] cumulativeLeg,
-                                     int maxCapacity) {
+    public static boolean isLegInvalid(Node fromNode,
+                                       Node nextNode,
+                                       int[] cumulativeLeg,
+                                       int maxCapacity) {
 
         // cumulativeLeg[ARRIVAL] - arrivalFrom
         // cumulativeLeg[LOAD] - loadFrom
@@ -466,7 +466,7 @@ public class Visit implements Comparable<Visit> {
 
         // Capacity constraint (if lower than zero, sequence is invalid! Visited DP before PK)
         if (load < 0 || load > maxCapacity) {
-            return false;
+            return true;
         }
 
         /////////////////////////* VIABLE NEXT */////////////////////////////////////
@@ -474,25 +474,25 @@ public class Visit implements Comparable<Visit> {
 
         // No path available
         if (distFromTo < 0) {
-            return false;
+            return true;
         }
         // Time vehicle arrives at next node (can be earlier or later)
         // If distance is zero, arrival next MUST be at least earliest time at next node
         int arrivalNext = Math.max(cumulativeLeg[Vehicle.ARRIVAL] + distFromTo, nextNode.getEarliest());
 
-//        if (nextNode instanceof NodePK && arrivalNext > nextNode.getArrivalSoFar())
-//            return false;
+        if (nextNode instanceof NodePK && arrivalNext > nextNode.getArrivalSoFar())
+            return false;
 
         // Arrival cannot be later than latest time in node
         if (arrivalNext > nextNode.getLatest()) {
-            return false;
+            return true;
         }
 
         int delay = arrivalNext - nextNode.getEarliest();
 
         // Arrival cannot be later than latest time in node
         if (delay < 0) {
-            return false;
+            return true;
         }
 
         //Can vehicle visit next user?
@@ -502,7 +502,7 @@ public class Visit implements Comparable<Visit> {
         if (uFrom != null && fromNode instanceof NodePK && !uFrom.isSharingAllowed()) {
             if (fromNode.getTripId() != nextNode.getTripId()) {
                 //System.out.println(String.format("FR: Cannot go from %s(%s) to %s", fromNode, uFrom.getPerformanceClass(), nextNode));
-                return false;
+                return true;
             }
         }
 
@@ -511,7 +511,7 @@ public class Visit implements Comparable<Visit> {
         if (uTo != null && nextNode instanceof NodeDP && !uTo.isSharingAllowed()) {
             if (fromNode.getTripId() != nextNode.getTripId()) {
                 //System.out.println(String.format("TO: Cannot go from %s(%s) to %s", fromNode, uFrom.getPerformanceClass(), nextNode));
-                return false;
+                return true;
             }
         }
 
@@ -554,7 +554,7 @@ public class Visit implements Comparable<Visit> {
         if (nextNode instanceof NodeDP)
             cumulativeLeg[Vehicle.DELAY] += delay;
 
-        return true;
+        return false;
     }
 
 

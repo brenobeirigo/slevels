@@ -468,11 +468,11 @@ public class Vehicle implements Comparable<Vehicle> {
         int[] cumulativeLeg = new int[]{departureTime, 0, 0};
 
         // From vehicle current node to user pk
-        if (!this.isValidLeg(departureNode, candidateRequest.getNodePk(), cumulativeLeg))
+        if (this.isLegInvalid(departureNode, candidateRequest.getNodePk(), cumulativeLeg))
             return null;
 
         // From user pk to user dp
-        if (!this.isValidLeg(candidateRequest.getNodePk(), candidateRequest.getNodeDp(), cumulativeLeg))
+        if (this.isLegInvalid(candidateRequest.getNodePk(), candidateRequest.getNodeDp(), cumulativeLeg))
             return null;
 
         // Create linked list (fast adds and removals)
@@ -554,7 +554,7 @@ public class Vehicle implements Comparable<Vehicle> {
 
                 // Can't move to a middle node, go to next pk
                 if (middle == null) {
-                    continue pkcontinue;
+                    continue;
                 }
 
                 // Update arrival in middle
@@ -581,7 +581,7 @@ public class Vehicle implements Comparable<Vehicle> {
                 Node next = visitsVehicle.get(i);
 
                 // Check if it is possible to go from current to next
-                if (!this.isValidLeg(currentPK, next, cumulativeLegPK)) {
+                if (this.isLegInvalid(currentPK, next, cumulativeLegPK)) {
                     continue pkcontinue;
                 }
 
@@ -590,8 +590,8 @@ public class Vehicle implements Comparable<Vehicle> {
             }
 
             // #### PK #################################################################################################
-            if (!this.isValidLeg(currentPK, candidateRequest.getNodePk(), cumulativeLegPK)) {
-                continue pkcontinue;
+            if (this.isLegInvalid(currentPK, candidateRequest.getNodePk(), cumulativeLegPK)) {
+                continue;
             }
 
             // Update current
@@ -611,7 +611,7 @@ public class Vehicle implements Comparable<Vehicle> {
                     Node next = visitsVehicle.get(i);
 
                     // Check if it is possible to go from current to next
-                    if (!this.isValidLeg(current, next, cumulativeLeg)) {
+                    if (this.isLegInvalid(current, next, cumulativeLeg)) {
                         continue dpcontinue;
                     }
 
@@ -620,9 +620,8 @@ public class Vehicle implements Comparable<Vehicle> {
                 }
 
                 // #### DP #############################################################################################
-                if (!this.isValidLeg(current, candidateRequest.getNodeDp(), cumulativeLeg)) {
-
-                    continue dpcontinue;
+                if (this.isLegInvalid(current, candidateRequest.getNodeDp(), cumulativeLeg)) {
+                    continue;
                 }
 
                 // Update current
@@ -635,7 +634,7 @@ public class Vehicle implements Comparable<Vehicle> {
                     Node next = visitsVehicle.get(i);
 
                     // Check if it is possible to go from current to next
-                    if (!this.isValidLeg(current, next, cumulativeLeg)) {
+                    if (this.isLegInvalid(current, next, cumulativeLeg)) {
 
                         continue dpcontinue;
                     }
@@ -863,7 +862,7 @@ public class Vehicle implements Comparable<Vehicle> {
                 (this.visit != null ? this.visit.getPassengers() : "---"),
                 (this.visit != null ? this.visit.getRequests() : "---"),
                 servicedUsers,
-                ((this.rebalancing == true) ? "(Rebalancing)" : ""));
+                ((this.rebalancing) ? "(Rebalancing)" : ""));
     }
 
     /**
@@ -1000,7 +999,7 @@ public class Vehicle implements Comparable<Vehicle> {
             Node next = baseSequence.get(i);
 
             // Check if it is possible to go from current to next
-            if (!this.isValidLeg(current, next, cumulativeLeg)) {
+            if (this.isLegInvalid(current, next, cumulativeLeg)) {
                 return null;
             }
 
@@ -1010,7 +1009,7 @@ public class Vehicle implements Comparable<Vehicle> {
         }
 
         // #### PK #####################################################################################################
-        if (!this.isValidLeg(current, insertedUser.getNodePk(), cumulativeLeg)) {
+        if (this.isLegInvalid(current, insertedUser.getNodePk(), cumulativeLeg)) {
             return null;
         }
 
@@ -1025,7 +1024,7 @@ public class Vehicle implements Comparable<Vehicle> {
             Node next = baseSequence.get(i);
 
             // Check if it is possible to go from current to next
-            if (!this.isValidLeg(current, next, cumulativeLeg)) {
+            if (this.isLegInvalid(current, next, cumulativeLeg)) {
                 return null;
             }
 
@@ -1035,7 +1034,7 @@ public class Vehicle implements Comparable<Vehicle> {
         }
 
         // #### DP #####################################################################################################
-        if (!this.isValidLeg(current, insertedUser.getNodeDp(), cumulativeLeg))
+        if (this.isLegInvalid(current, insertedUser.getNodeDp(), cumulativeLeg))
             return null;
 
         // Update current
@@ -1048,7 +1047,7 @@ public class Vehicle implements Comparable<Vehicle> {
             Node next = baseSequence.get(i);
 
             // Check if it is possible to go from current to next
-            if (!this.isValidLeg(current, next, cumulativeLeg)) {
+            if (this.isLegInvalid(current, next, cumulativeLeg)) {
                 return null;
             }
 
@@ -1076,11 +1075,11 @@ public class Vehicle implements Comparable<Vehicle> {
      * @param cumulativeLeg Precedent status to update
      * @return true, if there is a valid trip, and false, otherwise.
      */
-    public boolean isValidLeg(Node fromNode,
-                              Node nextNode,
-                              int[] cumulativeLeg) {
+    public boolean isLegInvalid(Node fromNode,
+                                Node nextNode,
+                                int[] cumulativeLeg) {
 
-        return Visit.isValidLeg(fromNode, nextNode, cumulativeLeg, this.capacity);
+        return Visit.isLegInvalid(fromNode, nextNode, cumulativeLeg, this.capacity);
     }
 
     public void updateDeparture(int currentTime) {
@@ -1166,6 +1165,10 @@ public class Vehicle implements Comparable<Vehicle> {
     public void stoppedRebalancingToPickup() {
         this.stoppedRebalanceToPickup = true;
         this.rebalancing = false;
+    }
+
+    public boolean isCarryingPassengers(){
+        return this.visit != null && !this.visit.getPassengers().isEmpty();
     }
 
     public List<Node> getJourney() {
