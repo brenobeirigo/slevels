@@ -221,6 +221,7 @@ public class SimulationRTV extends Simulation {
             }
         }
 
+        // Displaced user were associated to a visit earlier
         List<User> displacedUsers = unassignedUsers.stream()
                 .filter(user -> user.getCurrentVisit() != null)
                 .collect(Collectors.toList());
@@ -253,7 +254,6 @@ public class SimulationRTV extends Simulation {
         }
 
         assert displacedUsers.isEmpty() : "There are displaced " + displacedUsers;
-        assert !Collections.disjoint(unassignedUsers, displacedUsers) : "Displaced users are not unassigned " + displacedUsers;
 
         // All vehicles that lost requests rebalance to closest node (middle or next target)
         for (Vehicle vehicleDisrupted : vehiclesDisrupted) {
@@ -326,6 +326,10 @@ public class SimulationRTV extends Simulation {
         return true;
     }
 
+    /**
+     * Vehicles carrying passengers HAVE to continue to do so. Hence, they are matched to visits first, before flexible
+     * vehicles (i.e., vehicles not carrying passengers).
+     */
     private void greedyAssignmentVehiclesCarryingPassengers() {
 
         // Vehicles with passengers
@@ -335,6 +339,7 @@ public class SimulationRTV extends Simulation {
             System.out.println("Vehicles with passenger: " + vehiclesWithPassengers.size());
         }
 
+        // Setup visits of vehicle carrying passengers. Notice that many
         for (Vehicle vehicleCarryingPassenger : vehiclesWithPassengers) {
 
             List<Visit> visitsVehicleCarryingPassenger = graphRTV.getListOfSortedVisitsFromVehicle(vehicleCarryingPassenger);
@@ -342,9 +347,10 @@ public class SimulationRTV extends Simulation {
             // Loop candidate visits for vehicle carrying passenger
             for (Visit visit : visitsVehicleCarryingPassenger) {
 
+                // Visit is valid only if all requests are still unassigned up to this point
                 if (allRequestsUnmatched(visit)) {
                     setupVisitAndUpdate(visit);
-                    // Vehicle is setup, jump to next vehicle
+                    // Best visit found, jump to next vehicle
                     break;
                 }
             }
@@ -355,25 +361,26 @@ public class SimulationRTV extends Simulation {
         System.out.println("# Vehicles: " + vehiclesOK);
         System.out.println("# Visits: " + visitsOK.size());
 
+        // Some visits carrying passengers cannot be setup because the trips they
         Set<Vehicle> unmatchedVehiclesWithPassengers = new HashSet<>(vehiclesWithPassengers);
         unmatchedVehiclesWithPassengers.removeAll(vehiclesOK);
         System.out.println("# Unmatched: " + unmatchedVehiclesWithPassengers.size());
-
-        for (Vehicle vehicleUnassignedAndCarrying : unmatchedVehiclesWithPassengers) {
-            System.out.println(String.format("Setting up vehicle with passenger. %s - Visit: %s", vehicleUnassignedAndCarrying.getVisit().getUserInfo(), vehicleUnassignedAndCarrying.getVisit()));
-
-            // Refurbishing user set (remove from visit user that have been serviced)
-            Set<User> unassignedRequestFromVehicleCarrying = new HashSet<>(vehicleUnassignedAndCarrying.getVisit().getRequests());
-            unassignedRequestFromVehicleCarrying.removeAll(requestsOK);
-            System.out.println("Unassigned requests from vehicle carrying: " + unassignedRequestFromVehicleCarrying);
-
-            Visit visitWithoutRequests = Method.getBestVisitFor(vehicleUnassignedAndCarrying, unassignedRequestFromVehicleCarrying);
-            if (visitWithoutRequests == null) {
-                System.out.println(vehicleUnassignedAndCarrying + " - " + visitWithoutRequests);
-            }
-            System.out.println(String.format("Best visit %s", visitWithoutRequests));
-            setupVisitAndUpdate(visitWithoutRequests);
-        }
+        assert unmatchedVehiclesWithPassengers.isEmpty(): String.format("There are still unmatched vehicles = %s", unmatchedVehiclesWithPassengers);
+//
+//        for (Vehicle vehicleUnassignedAndCarrying : unmatchedVehiclesWithPassengers) {
+//            System.out.println(String.format("Setting up vehicle with passenger. %s - Visit: %s", vehicleUnassignedAndCarrying.getVisit().getUserInfo(), vehicleUnassignedAndCarrying.getVisit()));
+//
+//            // Refurbishing user set (remove from visit user that have been serviced)
+//            Set<User> unassignedRequestFromVehicleCarrying = new HashSet<>(vehicleUnassignedAndCarrying.getVisit().getRequests());
+//            unassignedRequestFromVehicleCarrying.removeAll(requestsOK);
+//            System.out.println("Unassigned requests from vehicle carrying: " + unassignedRequestFromVehicleCarrying);
+//
+//            assert unassignedRequestFromVehicleCarrying.size() == 0 : "There are unassigned request from vehicle carrying " + unassignedRequestFromVehicleCarrying;
+//            // There should always exist a visit for a vehicle carrying passengers
+//
+//            System.out.println(String.format("Best visit %s", visitWithoutRequests));
+//            setupVisitAndUpdate(visitWithoutRequests);
+//        }
 
         assert vehiclesOK.size() == vehiclesWithPassengers.size() : String.format("Vehicles %s HAVE passengers and could not be assigned!", unmatchedVehiclesWithPassengers);
     }
