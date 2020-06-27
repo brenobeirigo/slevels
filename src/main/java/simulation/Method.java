@@ -1146,11 +1146,11 @@ public class Method {
      * - Some sequence may be invalid (e.g., {dp1, pk1}
      * - Sequences do not include breakpoints (use addLastVisitedAndMiddleNodesToStart to get feasible)
      *
-     * @param requests
-     * @param vehicle
-     * @return
+     * @param requests List of requests to build a visit (add pickup and drop-off nodes)
+     * @param vehicle Vehicle whose visit will be the basis to generate visit sequences (consider passenger nodes)
+     * @return Generator of sequences containing passenger and request nodes
      */
-    public static Generator getGeneratorOfNodeSequence(Set<User> requests, Vehicle vehicle) {
+    public static Generator<Node> getGeneratorOfNodeSequence(Set<User> requests, Vehicle vehicle) {
 
         // TODO here we assume the requests include vehicle requests to
         ICombinatoricsVector<Node> vector = new CombinatoricsVector<>();
@@ -1166,8 +1166,7 @@ public class Method {
             }
         }
 
-        Generator<Node> gen = createPermutationGenerator(vector);
-        return gen;
+        return createPermutationGenerator(vector);
     }
 
     public static Visit getBestVisitFor(Vehicle vehicle, Set<User> requests) {
@@ -1177,6 +1176,8 @@ public class Method {
 
         // A single request can be inserted in a vehicle in multiple ways. Only the best (lowest delay) visit is
         // inserted in the RTV graph.
+
+        List<List<Node>> sequences = new LinkedList<>();
 
         Visit visit = null;
         int lowestDelay = Integer.MAX_VALUE;
@@ -1189,6 +1190,7 @@ public class Method {
             }*/
 
             LinkedList<Node> sequenceFromVehiclePositionToLastDelivery = addLastVisitedAndMiddleNodesToStart(sequence, vehicle);
+            sequences.add(sequenceFromVehiclePositionToLastDelivery);
 
             // System.out.println("Seq. from last: " + sequenceFromVehiclePositionToLastDelivery);
 
@@ -1226,7 +1228,18 @@ public class Method {
                 visit.setPassengers(vehicle.getVisit().getPassengers());
             }
         }
-
+        if (visit == null && requests.isEmpty()) {
+            System.out.println(sequences);
+            System.out.println("Invalid sequence!");
+            for (List<Node> seq : sequences) {
+                int delay = Visit.isValidSequence(
+                        (LinkedList<Node>) seq,
+                        vehicle.getDepartureCurrent(),
+                        vehicle.getCurrentLoad(),
+                        vehicle.getCapacity()
+                );
+            }
+        }
         return visit;
     }
 
