@@ -17,6 +17,7 @@ import org.jgrapht.graph.SimpleGraph;
 import simulation.Method;
 
 import java.util.*;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 
 public class GraphRTV {
@@ -182,6 +183,34 @@ public class GraphRTV {
         }
     }
 
+    public void buildGraph() {
+
+        /*
+        List<List<Visit>> feasibleVisitsCurrentVehicleAtLevel2 = new ArrayList<>();
+        for (int i = 0; i < vehicleCapacity; i++) {
+            feasibleVisitsCurrentVehicleAtLevel2.add(new ArrayList<>());
+        }
+
+        this.listVehicles.stream()
+                .map(this::getFeasibleTripsVehicle)
+                .collect(
+                        ArrayList::new,
+                        (listOfLevels, visits) -> {
+                            for (int i = 0; i < visits.size(); i++) {
+                                feasibleVisitsCurrentVehicleAtLevel2.get(i).addAll(visits.get(i));
+                            }
+                            }, (lists, lists2) -> { });*/
+
+        for (Vehicle vehicle : this.listVehicles) {
+
+            List<List<Visit>> feasibleVisitsCurrentVehicleAtLevel = getFeasibleTripsVehicle(vehicle);
+
+            for (int i = 0; i < vehicle.getCapacity(); i++) {
+                this.feasibleTrips.get(i).addAll(feasibleVisitsCurrentVehicleAtLevel.get(i));
+            }
+        }
+    }
+
     /**!
      * The request-trip-vehicle RTV-graph contains edges "e(r, T)", between a request "r" and a trip "T" and feasible
      * edges "e(T, v)", between a trip "T" and a vehicle "v". Namely,
@@ -201,76 +230,83 @@ public class GraphRTV {
      * <p>
      * Therefore, a trip T only needs to by checked for existence if there exists a vehicle v for which all of its
      * sub-trips T' present an edge e(T', v) in the RTV-graph.
-     *
+
+     * @param vehicle
      * @return
      */
-    public void buildGraph() {
+    private List<List<Visit>> getFeasibleTripsVehicle(Vehicle vehicle) {
+        // Feasible visits of size k={1,2,3, ..., capacity(vehicle)}
+        List<List<Visit>> feasibleVisitsCurrentVehicleAtLevel = new ArrayList<>();
+        for (int i = 0; i < vehicle.getCapacity(); i++) {
+            feasibleVisitsCurrentVehicleAtLevel.add(new ArrayList<>());
+        }
 
-        for (Vehicle vehicle : this.listVehicles) {
+        //**********************************************************************************************************
+        // Adding feasible visits of size = 1 **********************************************************************
+        //**********************************************************************************************************
+        for (DefaultEdge edge : this.graphRV.edgesOf(vehicle)) {
 
-            // Feasible visits of size k={1,2,3, ..., capacity(vehicle)}
-            List<List<Visit>> feasibleVisitsCurrentVehicleAtLevel = new ArrayList();
-            for (int i = 0; i < vehicle.getCapacity(); i++) {
-                feasibleVisitsCurrentVehicleAtLevel.add(new ArrayList<>());
-            }
+            User request = (User) this.graphRV.getEdgeTarget(edge);
 
-            //**********************************************************************************************************
-            // Adding feasible visits of size = 1 **********************************************************************
-            //**********************************************************************************************************
-            for (DefaultEdge edge : this.graphRV.edgesOf(vehicle)) {
+            // Try ALL insertions of request in vehicle visit sequence
+            addRTVEdgeAtLevel(vehicle, new HashSet<>(Arrays.asList(request)), feasibleVisitsCurrentVehicleAtLevel, 0);
+        }
 
-                User request = (User) this.graphRV.getEdgeTarget(edge);
+        //**********************************************************************************************************
+        // Adding feasible visits of size = 2 **********************************************************************
+        //**********************************************************************************************************
+        for (int i = 0; i < feasibleVisitsCurrentVehicleAtLevel.get(0).size() - 1; i++) {
+            for (int j = i + 1; j < feasibleVisitsCurrentVehicleAtLevel.get(0).size(); j++) {
 
-                // Try ALL insertions of request in vehicle visit sequence
-                Visit visit = Method.getBestVisitFor(vehicle, new HashSet<>(Arrays.asList(request)));
+                Visit visit1 = feasibleVisitsCurrentVehicleAtLevel.get(0).get(i);
+                Visit visit2 = feasibleVisitsCurrentVehicleAtLevel.get(0).get(j);
 
-                if (visit != null) {
-                    addRequestTripVehicleEdges(this.graphRTV, vehicle, new HashSet<>(Arrays.asList(request)), visit);
-                    feasibleVisitsCurrentVehicleAtLevel.get(0).add(visit);
+
+                User request1 = visit1.getRequests().iterator().next();
+                User request2 = visit2.getRequests().iterator().next();
+
+                assert visit1.getRequests().size() == 1 : String.format("More than 1 request: %s", visit1.getRequests());
+                assert visit2.getRequests().size() == 1 : String.format("More than 1 request: %s", visit2.getRequests());
+
+                //TODO visit1 and visit2 share the same request when vehicle has already serviced other users. Fixed using SET
+
+                // If RV edge exists, there is a possible trip including request1 and request2
+                if (this.graphRV.getEdge(request1, request2) != null) {
+
+                    Set<User> requests = new HashSet<>(visit1.getRequests());
+                    requests.addAll(visit2.getRequests());
+                    addRTVEdgeAtLevel(vehicle, requests, feasibleVisitsCurrentVehicleAtLevel, 1);
                 }
             }
+        }
 
-            //**********************************************************************************************************
-            // Adding feasible visits of size = 2 **********************************************************************
-            //**********************************************************************************************************
-            for (int i = 0; i < feasibleVisitsCurrentVehicleAtLevel.get(0).size() - 1; i++) {
-                for (int j = i + 1; j < feasibleVisitsCurrentVehicleAtLevel.get(0).size(); j++) {
+        // Add TV edge (create visit with passengers only)
+        addVisitWithPassengers(vehicle, feasibleVisitsCurrentVehicleAtLevel);
+        return feasibleVisitsCurrentVehicleAtLevel;
+    }
 
-                    Visit visit1 = feasibleVisitsCurrentVehicleAtLevel.get(0).get(i);
-                    Visit visit2 = feasibleVisitsCurrentVehicleAtLevel.get(0).get(j);
+    private void addVisitWithPassengers(Vehicle vehicle, List<List<Visit>> feasibleVisitsCurrentVehicleAtLevel) {
+        if (vehicle.isCarryingPassengers()){
+            Visit visitWithoutRequests = Method.getBestVisitFor(vehicle, new HashSet<>());
 
-                    //TODO not really... There can be multiple requests if vehicle has already serviced someone before
-                    // There is only one user in level 0 visits
-                    User request1 = visit1.getRequests().iterator().next();
-                    User request2 = visit2.getRequests().iterator().next();
+            // Add best visit to RTV graph
+            assert visitWithoutRequests != null : String.format("Cannot find visit for vehicle %s (carrying passengers) with current visit = %s", vehicle, vehicle.getVisit());
 
-                    assert visit1.getRequests().size() == 1 : String.format("More than 1 request: %s", visit1.getRequests());
-                    assert visit2.getRequests().size() == 1 : String.format("More than 1 request: %s", visit2.getRequests());
+            feasibleVisitsCurrentVehicleAtLevel.get(0).add(visitWithoutRequests);
+            graphRTV.addVertex(visitWithoutRequests);
+            graphRTV.addEdge(visitWithoutRequests, vehicle);
+        }
+    }
 
-                    //TODO visit1 and visit2 share the same request when vehicle has already serviced other users. Fixed using SET
+    private void addRTVEdgeAtLevel(Vehicle vehicle, Set<User> requests, List<List<Visit>> feasibleVisitsCurrentVehicleAtLevel, int level) {
+        // System.out.println(String.format("Best visit: %s: requests = %s", vehicle, requests));
+        Visit visit = Method.getBestVisitFor(vehicle, requests);
+        //System.out.println("Best:" + visit);
 
-                    // If RV edge exists, there is a possible trip including request1 and request2
-                    if (this.graphRV.getEdge(request1, request2) != null) {
-
-                        Set<User> requests = new HashSet<>(visit1.getRequests());
-                        requests.addAll(visit2.getRequests());
-
-                        // System.out.println(String.format("Best visit: %s: requests = %s", vehicle, requests));
-                        Visit visit = Method.getBestVisitFor(vehicle, requests);
-                        //System.out.println("Best:" + visit);
-
-                        if (visit != null) {
-                            addRequestTripVehicleEdges(this.graphRTV, vehicle, requests, visit);
-                            feasibleVisitsCurrentVehicleAtLevel.get(1).add(visit);
-                        }
-                    }
-                }
-            }
-
-            for (int i = 0; i < vehicle.getCapacity(); i++) {
-                this.feasibleTrips.get(i).addAll(feasibleVisitsCurrentVehicleAtLevel.get(i));
-
-            }
+        if (visit != null) {
+            addRequestTripVehicleEdges(this.graphRTV, vehicle, requests, visit);
+            // System.out.println(String.format("2 - Adding %s to level %d -- visit = %s", visit.getVehicle(), visit.getRequests().size() - 1, visit));
+            feasibleVisitsCurrentVehicleAtLevel.get(level).add(visit);
         }
     }
 
