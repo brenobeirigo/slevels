@@ -216,7 +216,8 @@ public class Visit implements Comparable<Visit> {
 
         // If rebalancing, create sequence with rebalancing node
         List<Node> sequenceNodesToVisit;
-        if (this.vehicle.isRebalancing() && this.vehicle.getVisit().getSequenceVisits() == null) {
+        //if (this.vehicle.isRebalancing() && this.vehicle.getVisit().getSequenceVisits() == null) {
+        if (this instanceof VisitRelocation) {
             sequenceNodesToVisit = new LinkedList<>();
 
             // Add rebalancing target to list
@@ -238,7 +239,7 @@ public class Visit implements Comparable<Visit> {
                 this.getTargetNode(),
                 legInfo(lastVisitedNode, loadUntilLastVisited, departureLastVisited, 0),
                 this.vehicle.getMiddleNode() == null ? " -- " : Dao.getInstance().getDistSec(this.vehicle.getLastVisitedNode(), this.vehicle.getMiddleNode()),
-                this.vehicle.getMiddleNode() == null ? "-------": this.vehicle.getMiddleNode(),
+                this.vehicle.getMiddleNode() == null ? "-------" : this.vehicle.getMiddleNode(),
                 this.vehicle.getMiddleNode() == null || sequenceNodesToVisit.isEmpty() ? " -- " : Dao.getInstance().getDistSec(this.vehicle.getMiddleNode(), sequenceNodesToVisit.get(0))
         );
 
