@@ -4,10 +4,7 @@ import config.Rebalance;
 import dao.Dao;
 import helper.HelperIO;
 import helper.MethodHelper;
-import model.RebalanceEpisode;
-import model.User;
-import model.Vehicle;
-import model.Visit;
+import model.*;
 import model.node.Node;
 import model.node.NodeStop;
 import model.node.NodeTargetRebalancing;
@@ -566,10 +563,19 @@ public abstract class Simulation {
      */
     public void setup(Visit visit) {
 
-        // Check if rebalancing was interrupted to pick up user
+        // Dummy visit does not alter vehicle setup
+        if (visit instanceof VisitStop){
+            return;
+        }
+
+        // Relocation visit -> Vehicle drop scheduled requests and stop at the closest node
+        if (visit instanceof VisitRelocation) {
+            visit.getVehicle().rebalanceToClosestNode();
+            return;
+        }
+
+        // If vehicle was rebalancing, interrupt first
         if (visit.getVehicle().isRebalancing()) {
-            if ((visit.getVehicle().getLastVisitedNode() instanceof NodeStop) && visit.getVehicle().getMiddleNode() == null)
-                System.out.println("AQUI");
             interruptRebalancing(visit);
         }
 
