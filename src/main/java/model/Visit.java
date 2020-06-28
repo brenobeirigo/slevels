@@ -50,7 +50,7 @@ public class Visit implements Comparable<Visit> {
     public Visit(LinkedList<Node> sequenceVisits, int delay) {
         this.sequenceVisits = sequenceVisits;
         this.delay = delay;
-        this.requests = new HashSet();
+        this.requests = new HashSet<>();
         this.passengers = new HashSet<>();
     }
 
@@ -58,7 +58,7 @@ public class Visit implements Comparable<Visit> {
         this.sequenceVisits = sequenceVisits;
         this.delay = delay;
         this.vehicle = v;
-        this.requests = new HashSet();
+        this.requests = new HashSet<>();
         this.passengers = new HashSet<>();
     }
 
@@ -66,7 +66,7 @@ public class Visit implements Comparable<Visit> {
         this.sequenceVisits = sequenceVisits;
         this.delay = delay;
         this.vehicle = v;
-        this.requests = new HashSet();
+        this.requests = new HashSet<>();
         this.requests.add(request);
         this.passengers = new HashSet<>();
     }
@@ -430,7 +430,10 @@ public class Visit implements Comparable<Visit> {
         return cumulativeLegPK[Vehicle.DELAY];
     }
 
-
+    /**
+     * When visits are setup, define for each node the expected arrival time. This can be used to invalidate routes:
+     * visit is valid only when pickup times decrease.
+     */
     public void updateArrivalSoFar() {
 
         int arrival = this.getVehicle().getLastVisitedNode().getDeparture();
@@ -481,8 +484,8 @@ public class Visit implements Comparable<Visit> {
         // If distance is zero, arrival next MUST be at least earliest time at next node
         int arrivalNext = Math.max(cumulativeLeg[Vehicle.ARRIVAL] + distFromTo, nextNode.getEarliest());
 
-        if (nextNode instanceof NodePK && arrivalNext > nextNode.getArrivalSoFar())
-            return false;
+//        if (nextNode instanceof NodePK && arrivalNext > nextNode.getArrivalSoFar())
+//            return false;
 
         // Arrival cannot be later than latest time in node
         if (arrivalNext > nextNode.getLatest()) {
@@ -606,5 +609,13 @@ public class Visit implements Comparable<Visit> {
 
     public void discountDelay(int delayServicedUser) {
         this.delay -= delayServicedUser;
+    }
+
+    public String getVarId() {
+        return String.format(
+                "%s_P=[%s]-R[%s]",
+                this.getVehicle().toString().trim(),
+                this.getPassengers().stream().map(user -> user.toString().trim()).collect(Collectors.joining("_")),
+                this.getRequests().stream().map(user -> user.toString().trim()).collect(Collectors.joining("_")));
     }
 }
