@@ -562,6 +562,10 @@ public abstract class Simulation {
      * Called when best visit is determined.
      */
     public void setup(Visit visit) {
+        
+        // Does nothing if same visit chosen (e.g., continue rebalancing)
+        if (visit.getVehicle().getVisit() == visit)
+            return;
 
         // Dummy visit does not alter vehicle setup
         if (visit instanceof VisitStop){
@@ -652,9 +656,9 @@ public abstract class Simulation {
     }
 
 
-    /******************************************************************************************************************/
-    /***** ASSERTIONS *************************************************************************************************/
-    /******************************************************************************************************************/
+    //****************************************************************************************************************//
+    //***** ASSERTIONS ***********************************************************************************************//
+    //****************************************************************************************************************//
 
     public boolean allVehicleVisitsAreValid() {
         for (Vehicle vehicle : listVehicles) {
