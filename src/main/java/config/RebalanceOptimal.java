@@ -50,7 +50,7 @@ public class RebalanceOptimal implements RebalanceStrategy {
                     double distance_vehicle_target = Dao.getInstance().getDistKm(vehicle.getLastVisitedNode(), target);
                     //String label = String.format("%d_%d_%d_%d", v ,vehicle.getId(), n ,target.getTripId());
                     String label = String.format("%d_%d", v, n);
-                    x[v][n] = model.addVar(0, 1, distance_vehicle_target, GRB.CONTINUOUS, label);
+                    x[v][n] = model.addVar(0, 1, distance_vehicle_target, GRB.BINARY, label);
                     constrMaxNumberOfRelocations.addTerm(1, x[v][n]);
                     constrVehicleConservation.addTerm(1, x[v][n]);
                     n++;
@@ -98,9 +98,7 @@ public class RebalanceOptimal implements RebalanceStrategy {
 
                     for (Node target : targets) {
 
-                        int result = (int) x[v][n].get(GRB.DoubleAttr.X);
-
-                        if (result > 0) {
+                        if (x[v][n].get(GRB.DoubleAttr.X) > 0.99) {
 
                             // Make vehicle move to target
                             if (vehicle.getLastVisitedNode().getNetworkId() != target.getNetworkId()) {
