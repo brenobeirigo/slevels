@@ -384,6 +384,15 @@ public class Vehicle implements Comparable<Vehicle> {
         this.setVisit(null);
     }
 
+    private Node getStop(){
+        assert this.getLastVisitedNode() instanceof NodePK: "Stop cant be pickup " + this.lastVisitedNode;
+        if (this.lastVisitedNode instanceof NodeDP)
+            return new NodeStop(this.lastVisitedNode, this.id, this.lastVisitedNode.getDeparture());
+        else{
+            return this.lastVisitedNode;
+        }
+    }
+
     public Visit getVisitWithEnroute() {
 
         if (this.visit == null || this.visit.getPassengers() == null) return null;
@@ -1199,6 +1208,22 @@ public class Vehicle implements Comparable<Vehicle> {
         // Middle node between last visited and target (if null, middle = target)
         Node middle = this.getMiddleNode();
         this.rebalanceTo(middle);
+    }
+
+    public Visit getRebalanceVisit(){
+
+        Node middle = this.getMiddleNode();
+
+        // Create a target node for rebalancing
+        NodeTargetRebalancing target = new NodeTargetRebalancing(middle);
+
+        // Visit is comprised of single node
+        Visit visit = new VisitRelocation(target, this);
+
+        visit.delay = 0;
+        visit.idle = 0;
+
+        return visit;
     }
 
     public int getContractDeadline() {
