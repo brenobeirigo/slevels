@@ -445,6 +445,27 @@ public class Visit implements Comparable<Visit> {
         }
     }
 
+
+    public Map<User, Integer> getUserDelayPairs() {
+        if (this.getSequenceVisits() == null)
+            return null;
+
+        Map<User, Integer> userDelayPair = new HashMap<>();
+        int arrival = this.getVehicle().getLastVisitedNode().getDeparture();
+        Node first = this.getVehicle().getLastVisitedNode();
+        for (Node next : this.getSequenceVisits()) {
+            arrival += Dao.getInstance().getDistSec(first, next);
+            if (next instanceof NodePK) {
+                User u = User.mapOfUsers.get(next.getTripId());
+                System.out.println(u);
+                userDelayPair.put(u, arrival - next.getEarliest());
+            }
+            first = next;
+        }
+
+        return userDelayPair;
+    }
+
     /**
      * Check if there is a valid trip between "fromNode" and "toNode" occurring in vehicle "v".
      * If true, update trip intermediate status to reflect the addition of leg checked
