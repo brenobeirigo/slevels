@@ -1,30 +1,22 @@
-/**
- * Create request-vehicle (RV) structure
- * <p>
- * /-----P1
- * V1---- TRIP[2]
- * \           \-----P2
- * \          /-----P1
- * \ TRIP[3] -----P2
- * \-----P3
- */
 package model.graph;
 
 import model.User;
 import model.Vehicle;
 import model.Visit;
 import model.VisitStop;
-import model.node.Node;
-import model.node.NodeStop;
 import org.jgrapht.graph.DefaultEdge;
 import org.jgrapht.graph.SimpleGraph;
 import simulation.Method;
+import simulation.ResultAssignment;
+import simulation.Solution;
 
 import java.util.*;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 
 public class GraphRTV {
+
+    private final int maxVehReqEdges = 100000;
+    private final int maxReqReqEdges = 100000;
 
     public List<List<Visit>> getFeasibleTrips() {
         return feasibleTrips;
@@ -41,72 +33,39 @@ public class GraphRTV {
 
     private int vehicleCapacity;
 
-
     private List<Vehicle> listVehicles;
 
     private List<User> allRequests;
 
-
     private GraphRV graphRV;
 
-    public Set<Object> vertexSet() {
-        return graphRTV.vertexSet();
-    }
+    private Map<String, Long> runTimes;
 
-    public int getVisitCount() {
-        return (int) graphRTV.vertexSet().stream().filter(o -> o instanceof Visit).count();
-    }
+    public GraphRTV(List<User> allRequests, List<Vehicle> listVehicles, int vehicleCapacity) {
 
-    public List<Visit> getAllVisits() {
-        return graphRTV.vertexSet().stream().filter(o -> o instanceof Visit).map(o -> (Visit) o).collect(Collectors.toList());
-    }
+        runTimes = new HashMap<>();
 
-    public int getVisitCountSetVertex() {
-        return graphRTV.vertexSet().stream().filter(o -> o instanceof Visit).collect(Collectors.toSet()).size();
-    }
+        // Populate list of feasible trips with current trips
+        this.feasibleTrips = new ArrayList<>();
+        this.vehicleCapacity = vehicleCapacity;
+        this.graphRTV = new SimpleGraph<>(DefaultEdge.class);
+        this.allRequests = allRequests;
+        this.listVehicles = listVehicles;
 
-    public int getVehicleCapacity() {
-        return (int) graphRTV.vertexSet().stream().filter(o -> o instanceof Vehicle).count();
-    }
+        // REQUEST - TRIP (RV)
+        this.runTimes.put(Solution.TIME_CREATE_RV, System.nanoTime());
+        this.graphRV = new GraphRV(allRequests, listVehicles, vehicleCapacity, maxVehReqEdges, maxReqReqEdges);
+        this.runTimes.put(Solution.TIME_CREATE_RV, System.nanoTime() - this.runTimes.get(Solution.TIME_CREATE_RV));
+        System.out.println(String.format("# RV created (%.2f sec)", (this.runTimes.get(Solution.TIME_CREATE_RV)) / 1000000000.0));
 
-    public int getUserCountVertex() {
-        return (int) graphRTV.vertexSet().stream().filter(o -> o instanceof User).count();
-    }
+        // Add the data of current trips in the RTV graph
+        this.initDataStructures();
 
-    public int getTotalVertex() {
-        return graphRTV.vertexSet().size();
-    }
-
-    public int getFeasibleVisitCount() {
-        return feasibleTrips.stream().map(visits -> visits.size()).collect(Collectors.summingInt(value -> value.intValue()));
-    }
-
-    public void removeVisit(Visit visit) {
-
-        // Remove vehicle and users matched from graph
-        for (User user : visit.getRequests()) {
-            graphRTV.removeVertex(user);
-        }
-
-        // Remove visit from graph
-        graphRTV.removeVertex(visit);
-        graphRTV.removeVertex(visit.getVehicle());
-    }
-
-    public boolean containsVertex(Object vertex) {
-        return graphRTV.containsVertex(vertex);
-    }
-
-    public List<User> getAllRequests() {
-        return allRequests;
-    }
-
-    public List<Vehicle> getListVehicles() {
-        return listVehicles;
-    }
-
-    public List<Vehicle> getListVehiclesFromRTV(){
-        return this.listVehicles.stream().filter(vehicle -> !this.graphRTV.edgesOf(vehicle).isEmpty()).collect(Collectors.toList());
+        // Create request-trip-vehicle (RTV) structure
+        this.runTimes.put(Solution.TIME_CREATE_RTV, System.nanoTime());
+        this.buildGraph();
+        this.runTimes.put(Solution.TIME_CREATE_RTV, System.nanoTime() - this.runTimes.get(Solution.TIME_CREATE_RTV));
+        System.out.println(String.format("# RTV created (%.2f sec) - %s", (this.runTimes.get(Solution.TIME_CREATE_RTV) / 1000000000.0), this.getSummaryFeasibleTripsLevel()));
     }
 
     public GraphRTV(GraphRV graphRV, int vehicleCapacity, List<User> allRequests, List<Vehicle> listVehicles) {
@@ -120,21 +79,16 @@ public class GraphRTV {
         this.graphRV = graphRV;
 
         // Add the data of current trips in the RTV graph
-        initDataStructures(allRequests, listVehicles, graphRTV, feasibleTrips);
-
-        // this.printFeasibleTrips("\n##################### Current visits ##############################");
+        this.initDataStructures();
 
         // Create request-trip-vehicle (RTV) structure
         this.buildGraph();
-
-        //this.printFeasibleTrips("\n##################### Current visits + RTV visits #################");
-
     }
 
     /**
      * Vehicles stopped (i.e., current node is of type NodeST and visit is null) have to be added to the RTV graph
      * to assure every vehicle is assigned to a trip. We create a dummy trip (VisitStop), to allow this to happen.
-     *
+     * <p>
      * Notice that some rebalancing vehicles CANNOT be associated to any trip (infeasible visits).
      */
     public void addStopVisits() {
@@ -142,7 +96,7 @@ public class GraphRTV {
         // Add current visits
         for (Vehicle vehicle : listVehicles) {
 
-            if (vehicle.isRebalancing()){
+            if (vehicle.isRebalancing()) {
                 feasibleTrips.get(0).add(vehicle.getVisit());
                 addRequestTripVehicleEdges(graphRTV, vehicle, new HashSet<>(), vehicle.getVisit());
             }
@@ -164,19 +118,19 @@ public class GraphRTV {
         }
     }
 
-    private void initDataStructures(List<User> requests, List<Vehicle> vehicles, SimpleGraph<Object, DefaultEdge> graphRTV, List<List<Visit>> feasibleTrips) {
+    private void initDataStructures() {
 
         for (int i = 0; i < vehicleCapacity; i++) {
-            feasibleTrips.add(new ArrayList<>());
+            this.feasibleTrips.add(new ArrayList<>());
         }
 
         // Populate graph with request vertex
-        for (User request : requests) {
+        for (User request : this.allRequests) {
             graphRTV.addVertex(request);
         }
 
         // Add current visits
-        for (Vehicle vehicle : vehicles) {
+        for (Vehicle vehicle : this.listVehicles) {
 
             graphRTV.addVertex(vehicle);
 
@@ -418,5 +372,90 @@ public class GraphRTV {
                 .map(o -> (Visit) o)
                 .collect(Collectors.toList());
     }
+
+    public void removeOkVerticesRTV(ResultAssignment result) {
+        for (Visit visit : result.getVisitsOK()) {
+            this.graphRTV.removeVertex(visit);
+        }
+        for (Vehicle vehicle : result.getVehiclesOK()) {
+            this.graphRTV.removeVertex(vehicle);
+        }
+        for (User request : result.getRequestsOK()) {
+            this.graphRTV.removeVertex(request);
+        }
+    }
+
+    public boolean allRequestsUnmatched(Visit visit) {
+
+        for (User request : visit.getRequests()) {
+
+            // If user is not in graph, it means another trip picked up user
+            if (!containsVertex(request)) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    public Set<Object> vertexSet() {
+        return graphRTV.vertexSet();
+    }
+
+    public int getVisitCount() {
+        return (int) graphRTV.vertexSet().stream().filter(o -> o instanceof Visit).count();
+    }
+
+    public List<Visit> getAllVisits() {
+        return graphRTV.vertexSet().stream().filter(o -> o instanceof Visit).map(o -> (Visit) o).collect(Collectors.toList());
+    }
+
+    public int getVisitCountSetVertex() {
+        return graphRTV.vertexSet().stream().filter(o -> o instanceof Visit).collect(Collectors.toSet()).size();
+    }
+
+    public int getVehicleCapacity() {
+        return (int) graphRTV.vertexSet().stream().filter(o -> o instanceof Vehicle).count();
+    }
+
+    public int getUserCountVertex() {
+        return (int) graphRTV.vertexSet().stream().filter(o -> o instanceof User).count();
+    }
+
+    public int getTotalVertex() {
+        return graphRTV.vertexSet().size();
+    }
+
+    public int getFeasibleVisitCount() {
+        return feasibleTrips.stream().map(visits -> visits.size()).collect(Collectors.summingInt(value -> value.intValue()));
+    }
+
+    public void removeVisit(Visit visit) {
+
+        // Remove vehicle and users matched from graph
+        for (User user : visit.getRequests()) {
+            graphRTV.removeVertex(user);
+        }
+
+        // Remove visit from graph
+        graphRTV.removeVertex(visit);
+        graphRTV.removeVertex(visit.getVehicle());
+    }
+
+    public boolean containsVertex(Object vertex) {
+        return graphRTV.containsVertex(vertex);
+    }
+
+    public List<User> getAllRequests() {
+        return allRequests;
+    }
+
+    public List<Vehicle> getListVehicles() {
+        return listVehicles;
+    }
+
+    public List<Vehicle> getListVehiclesFromRTV() {
+        return this.listVehicles.stream().filter(vehicle -> !this.graphRTV.edgesOf(vehicle).isEmpty()).collect(Collectors.toList());
+    }
+
 }
 
