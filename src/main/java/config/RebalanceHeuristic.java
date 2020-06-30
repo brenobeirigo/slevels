@@ -33,7 +33,7 @@ public class RebalanceHeuristic implements RebalanceStrategy {
             Collections.sort(Vehicle.setOfHotPoints);
 
             if (config.showInfo)
-                System.out.printf("Attractive points: " + Vehicle.setOfHotPoints);
+                System.out.println("Attractive points: " + Vehicle.setOfHotPoints);
 
 
             while (!Vehicle.setOfHotPoints.isEmpty()) {
