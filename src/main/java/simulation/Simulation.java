@@ -6,7 +6,6 @@ import helper.HelperIO;
 import helper.MethodHelper;
 import model.*;
 import model.node.Node;
-import model.node.NodeStop;
 import model.node.NodeTargetRebalancing;
 import org.boon.collections.ConcurrentHashSet;
 
@@ -48,6 +47,7 @@ public abstract class Simulation {
 
     // Matching
     protected boolean sortWaitingUsersByClass;
+    protected Matching matching;
 
     /*Scenario*/
     protected String serviceRateScenarioLabel;
@@ -75,7 +75,7 @@ public abstract class Simulation {
 
     /* SETS OF VEHICLES AND REQUESTS */
     protected Map<Integer, User> allRequests; // Dictionary of all users
-    protected List<User> setWaitingUsers; // Requests whose pickup time is lower than the current time
+    protected List<User> unassignedRequests; // Requests whose pickup time is lower than the current time
     protected List<User> listPooledUsersTW;  // Requests pooled within TW
     protected Set<User> deniedRequests; // Requests with expired pickup time
     protected Set<User> finishedRequests; // Requests whose DP node was visited
@@ -97,9 +97,11 @@ public abstract class Simulation {
                       boolean isAllowedToHire,
                       boolean isAllowedToLowerServiceLevel,
                       boolean sortWaitingUsersByClass,
-                      Rebalance rebalanceUtil) {
+                      Rebalance rebalanceUtil, Matching matchingSettings) {
+
         /*MATCHING*/
         this.sortWaitingUsersByClass = sortWaitingUsersByClass;
+        this.matching = matchingSettings;
 
         /* REBALANCING */
         this.isAllowedToRebalance = isAllowedToRebalance;
@@ -129,7 +131,7 @@ public abstract class Simulation {
 
         /* SETS OF VEHICLES AND REQUESTS */
         allRequests = new HashMap<>(); // Dictionary of all users
-        setWaitingUsers = new ArrayList<>(); // Requests whose pickup time is lower than the current time
+        unassignedRequests = new ArrayList<>(); // Requests whose pickup time is lower than the current time
         roundPrivateRides = new ArrayList<>();
         deniedRequests = new HashSet<>(); // Requests with expired pickup time
         finishedRequests = new HashSet<>(); // Requests whose DP node was visited
@@ -185,7 +187,7 @@ public abstract class Simulation {
         return v.isHired() && currentTime >= v.getContractDeadline();
     }
 
-    public abstract Set<User> getServicedUsersDynamicSizedFleet(int currentTime);
+    public abstract Set<User> getUsersAssigned(int currentTime);
 
     public void updateFleetStatusParallel() {
         ////// 1 - GET FINISHED USERS (before current time) ////////////////////////////////////////////////////////
@@ -284,7 +286,7 @@ public abstract class Simulation {
                 finishedRequests.addAll(serviced);
             }
 
-            // If vehicle is hired, it have to be deactivated as soon as it delivers its last customer
+            // If vehicle is hired, it has to be deactivated as soon as it delivers its last customer
             if (canEndContract(v, rightTW)) {
                 setDeactivated.add(v);
             }
@@ -348,11 +350,11 @@ public abstract class Simulation {
                             maxNumberOfTrips);
 
             // Add pooled requests into waiting list
-            setWaitingUsers.addAll(listPooledUsersTW);
+            unassignedRequests.addAll(listPooledUsersTW);
 
             // Sort by class and earliest time
             if (sortWaitingUsersByClass) {
-                Collections.sort(setWaitingUsers, Comparator.comparing(User::getPerformanceClass)
+                Collections.sort(unassignedRequests, Comparator.comparing(User::getPerformanceClass)
                         .thenComparing(User::getReqTime));
 
                 /*System.out.println("##### Users");
@@ -401,7 +403,7 @@ public abstract class Simulation {
                     setHired,
                     setDeactivated,
                     listHiredVehicles,
-                    setWaitingUsers,
+                    unassignedRequests,
                     finishedRequests,
                     roundRejectedUsers,
                     deniedRequests,
@@ -437,22 +439,35 @@ public abstract class Simulation {
         updateSetWaitingUsers();
 
         ///// 2 - REMOVE USERS THAT CANNOT BE PICKED UP  ///////////////////////////////////////////////////////////////
-        roundRejectedUsers = setWaitingUsers.stream()
+        roundRejectedUsers = unassignedRequests.stream()
                 .filter(u -> !u.canBePickedUp(rightTW))
                 .collect(Collectors.toList());
 
         // Update request status
         roundRejectedUsers.forEach(User::computeRejection);
         deniedRequests.addAll(roundRejectedUsers);
-        setWaitingUsers.removeAll(roundRejectedUsers);
+        unassignedRequests.removeAll(roundRejectedUsers);
         roundPrivateRides.clear();
 
         ///// 3 - ASSIGN WAITING USERS (previous + current round)  TO VEHICLES /////////////////////////////////////////
-        Set<User> setScheduledUsers = getServicedUsersDynamicSizedFleet(rightTW);
+        // Set<User> setScheduledUsers = getUsersAssigned(rightTW);
+        ResultAssignment resultAssignment = this.matching.executeStrategy(rightTW, unassignedRequests, listVehicles);
+        for (Vehicle vehicle : resultAssignment.vehiclesHired) {
+            // New vehicle is added in list
+            listVehicles.add(vehicle);
+            listHiredVehicles.add(vehicle);
+            setHired.add(vehicle);
+        }
 
-        ///// 4 - REMOVE SERVICED USERS FROM WAITING SET////////////////////////////////////////////////////////////////
+        Set<User> setScheduledUsers = resultAssignment.getRequestsOK();
+
+        ///// 4 - REALIZE THE ASSIGNMENT ///////////////////////////////////////////////////////////////////////////////
+        resultAssignment.getVisitsOK().forEach(this::realizeVisit);
+        // Set<User> setScheduledUsers = getServicedUsersDynamicSizedFleet(rightTW);
+
+        ///// 5 - REMOVE SERVICED USERS FROM WAITING SET////////////////////////////////////////////////////////////////
         // Vehicles will become idle here (i.e., parked)
-        setWaitingUsers.removeAll(setScheduledUsers);
+        unassignedRequests.removeAll(setScheduledUsers);
 
     }
 
@@ -460,10 +475,11 @@ public abstract class Simulation {
      * Join new requests (current period) with all matched requests (not yet picked up).
      * There can have better matches (i.e., requests can be serviced by different vehicles)
      *
+     * @param listVehicles
      * @return all requests
      */
-    public List<User> getExtendedRequestList() {
-        List<User> allRequests = new ArrayList<>(setWaitingUsers);
+    public List<User> getAssignedRequestsFrom(List<Vehicle> listVehicles) {
+        List<User> allRequests = new ArrayList<>();
 
         // Requests can still be picked up by other vehicles, add them to request list
         for (Vehicle vehicle : listVehicles) {
@@ -512,10 +528,11 @@ public abstract class Simulation {
             runTimes.put(Solution.TIME_UPDATE_FLEET_STATUS, System.nanoTime() - runTimes.get(Solution.TIME_UPDATE_FLEET_STATUS));
 
             // Rebalance idle vehicles
-            if (isAllowedToRebalance)
+            if (isAllowedToRebalance) {
                 runTimes.put(Solution.TIME_REBALANCING_FLEET, System.nanoTime());
-            rebalance(idleVehicles);
-            runTimes.put(Solution.TIME_REBALANCING_FLEET, System.nanoTime() - runTimes.get(Solution.TIME_REBALANCING_FLEET));
+                rebalance(idleVehicles);
+                runTimes.put(Solution.TIME_REBALANCING_FLEET, System.nanoTime() - runTimes.get(Solution.TIME_REBALANCING_FLEET));
+            }
 
             // Pool, service, and reject users /////////////////////////////////////////////////////////////////////////
             runTimes.put(Solution.TIME_UPDATE_DEMAND, System.nanoTime());
@@ -537,7 +554,7 @@ public abstract class Simulation {
             rightTW = leftTW + timeWindow;
             roundCount = roundCount + 1;
 
-        } while (!setWaitingUsers.isEmpty() || roundCount < totalRounds || activeFleet);
+        } while (!unassignedRequests.isEmpty() || roundCount < totalRounds || activeFleet);
 
         // Print detailed journeys for each vehicle
         if (infoHandling.get(Simulation.SHOW_ALL_VEHICLE_JOURNEYS)) {
@@ -561,14 +578,14 @@ public abstract class Simulation {
      * Add user to vehicle and setup visit.
      * Called when best visit is determined.
      */
-    public void setup(Visit visit) {
-        
+    public void realizeVisit(Visit visit) {
+
         // Does nothing if same visit chosen (e.g., continue rebalancing)
         if (visit.getVehicle().getVisit() == visit)
             return;
 
-        // Dummy visit does not alter vehicle setup
-        if (visit instanceof VisitStop){
+        // Dummy visit for parked vehicle does not alter setup
+        if (visit instanceof VisitStop) {
             return;
         }
 
@@ -590,6 +607,7 @@ public abstract class Simulation {
             request.setCurrentVisit(visit);
         }
 
+        // Go through nodes and update arrival so far
         visit.updateArrivalSoFar();
 
         // Vehicle is not idle
@@ -701,6 +719,10 @@ public abstract class Simulation {
             }
         }
         return true;
+    }
+
+    public Set<User> getDisplacedRequestsFrom(List<User> requests) {
+        return requests.stream().filter(user -> user.getNodePk().getArrivalSoFar() != Integer.MAX_VALUE && user.getCurrentVisit() == null).collect(Collectors.toSet());
     }
 
 }
