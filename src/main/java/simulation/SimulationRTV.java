@@ -23,6 +23,8 @@ public class SimulationRTV extends Simulation {
     private boolean findBestVisit;
     private int maxNumberPermutations;
 
+
+
     //TODO hot_PK_list
 
     /* Construct RTV simulation */
@@ -39,7 +41,7 @@ public class SimulationRTV extends Simulation {
                          boolean sortWaitingUsersByClass,
                          String serviceRateScenarioLabel,
                          String segmentationScenarioLabel,
-                         Rebalance rebalance) {
+                         Rebalance rebalance, Matching matchingSettings) {
 
 
         // Build generic Simulation object
@@ -53,7 +55,7 @@ public class SimulationRTV extends Simulation {
                 isAllowedToHire,
                 isAllowedToLowerServiceLevel,
                 sortWaitingUsersByClass,
-                rebalance);
+                rebalance, matchingSettings);
 
 
         // Service rate and segmentation scenarios
@@ -88,146 +90,91 @@ public class SimulationRTV extends Simulation {
 
     }
 
-    private GraphRV graphRV;
-    private GraphRTV graphRTV;
-
-    // Set of requests scheduled to vehicles
-    private Set<User> requestsOK;
-
-    // Unassigned requests
-    private Set<User> requestsUnassigned;
-
-    // Set of users that were displaced from their current rides (is in unassgigned)
-    private Set<User> requestsDisplaced;
-
-    // Set of vehicles assigned to visits
-    private Set<Vehicle> vehiclesOK;
-
-    // Set of vehicles that interrupted routes and parked
-    private Set<Vehicle> vehiclesDisrupted;
-
-    // Set of visits chosen in round
-    private Set<Visit> visitsOK;
-
     /**
      * Method: On-demand high-capacity ride-sharing via dynamic trip-vehicle assignment
      * Authors: Javier Alonso-Mora, Samitha Samaranayake, Alex Wallar, Emilio Frazzoli, and Daniela Rus
      *
      * @return users assigned
      */
-    public Set<User> getServicedUsersDynamicSizedFleet(int currentTime) {
+    public Set<User> getUsersAssigned(int currentTime) {
 
-        // Set of requests scheduled to vehicles
-        requestsOK = new HashSet<>();
-        requestsDisplaced = new HashSet<>();
-        requestsUnassigned = new HashSet<>();
-
-        // Set of vehicles assigned to visits
-        vehiclesOK = new HashSet<>();
-
-        // Set of vehicles that interrupted routes and parked
-        vehiclesDisrupted = new HashSet<>();
-
-        // Set of visits chosen in round
-        visitsOK = new HashSet<>();
-
-        // Get all requests (matched and unmatched)
-        List<User> requests = getExtendedRequestList();
+        // Consider all requests (assigned and unassigned)
+        List<User> requests = new ArrayList<>(unassignedRequests);
+        requests.addAll(getAssignedRequestsFrom(listVehicles));
 
         assert thereAreNoRepeatedRequests(requests) : "There are repeated elements in request list!";
         assert allVehicleVisitsAreValid() : "Invalid visits found.";
         assert eachUserIsAssignedToSingleVehicle() : "User is assigned to two different vehicles.";
 
-
         // BUILDING GRAPH STRUCTURE ////////////////////////////////////////////////////////////////////////////////////
 
-        long start = System.nanoTime();
-        graphRV = new GraphRV(requests, listVehicles, vehicleCapacity, maxVehReqEdges, maxReqReqEdges);
-        System.out.println(String.format("# RV created (%.2f sec)", (System.nanoTime() - start) / 1000000000.0));
-
-        start = System.nanoTime();
-        graphRTV = new GraphRTV(graphRV, vehicleCapacity, requests, listVehicles);
-        System.out.println(String.format("# RTV created (%.2f sec) - %s", ((System.nanoTime() - start) / 1000000000.0), graphRTV.getSummaryFeasibleTripsLevel()));
+        GraphRTV graphRTV = getGraphRTV(requests, listVehicles, vehicleCapacity);
 
         // ASSIGNMENT //////////////////////////////////////////////////////////////////////////////////////////////////
-        start = System.nanoTime();
-        //getAssignedUsersGreedy();
-        getAssignedUsersOptimal();
 
-        System.out.println(String.format("Users assigned (%.2f sec)", (System.nanoTime() - start) / 1000000000.0));
-        printRoundResult();
+        this.runTimes.put(Solution.TIME_MATCHING, System.nanoTime());
+        //ResultAssignment result = getAssignedUsersGreedy(graphRTV);
+        ResultAssignment result = getAssignedUsersOptimal(graphRTV);
+        this.runTimes.put(Solution.TIME_MATCHING, System.nanoTime() - this.runTimes.get(Solution.TIME_MATCHING));
+        System.out.println(String.format("Users assigned (%.2f sec)", this.runTimes.get(Solution.TIME_MATCHING) / 1000000000.0));
 
-        Set<User> usersDisrupted = requests.stream().filter(user -> user.getNodePk().getArrivalSoFar() > 0 && user.getCurrentVisit() == null).collect(Collectors.toSet());
-        System.out.println(String.format("Users disrupted: %s", usersDisrupted));
+        // Implement solutions
+        result.getVisitsOK().forEach(this::realizeVisit);
+        result.printRoundResult();
 
         assert allVehicleVisitsAreValid() : "Invalid visits found.";
         assert eachUserIsAssignedToSingleVehicle() : "User is assigned to two different vehicles.";
         //assert allPassengersAreAssigned(): "Vehicle carrying passenger is not matched.";
 
-        return this.requestsOK;
+        return result.getRequestsOK();
     }
 
-    private void setupVisitAndUpdate(Visit visit) {
+    private GraphRTV getGraphRTV(List<User> requests, List<Vehicle> listVehicles, int vehicleCapacity) {
 
+        // REQUEST - TRIP (RV)
+        this.runTimes.put(Solution.TIME_CREATE_RV, System.nanoTime());
+        GraphRV graphRV = new GraphRV(requests, listVehicles, vehicleCapacity, maxVehReqEdges, maxReqReqEdges);
+        this.runTimes.put(Solution.TIME_CREATE_RV, System.nanoTime() - this.runTimes.get(Solution.TIME_CREATE_RV));
+        System.out.println(String.format("# RV created (%.2f sec)", (this.runTimes.get(Solution.TIME_CREATE_RV)) / 1000000000.0));
 
-        // Update requests, vehicles, and visitsOK solution
-        this.requestsOK.addAll(visit.getRequests());
-        this.vehiclesOK.add(visit.getVehicle());
-        this.visitsOK.add(visit);
-
-
-        // Update RTV graph and setup visit
-        this.graphRTV.removeVisit(visit);
-
-        // Remove vehicle and users matched from graph
-        for (User user : visit.getRequests()) {
-
-            // If user changes visit
-            if (user.getCurrentVisit() != null && visit != user.getCurrentVisit()) {
-
-                // Visit of vehicle formerly carrying request will be changed
-                this.vehiclesDisrupted.add(user.getCurrentVisit().getVehicle());
-            }
-        }
-
-        System.out.println(String.format("Setting up %s - User: %s", visit, visit.getUserInfo()));
-        System.out.println(String.format("# Requests (%d): %s", requestsOK.size(), requestsOK));
-        System.out.println(String.format("# Vehicles (%d): %s", vehiclesOK.size(), vehiclesOK));
-        System.out.println(String.format("# Disrupted (%d): %s", vehiclesDisrupted.size(), vehiclesDisrupted));
-        System.out.println(String.format("# Visits: %d", visitsOK.size()));
-
-
-        this.setup(visit);
+        // REQUEST - TRIP - VEHICLE (RTV)
+        this.runTimes.put(Solution.TIME_CREATE_RTV, System.nanoTime());
+        GraphRTV graphRTV = new GraphRTV(graphRV, vehicleCapacity, requests, listVehicles);
+        this.runTimes.put(Solution.TIME_CREATE_RTV, System.nanoTime() - this.runTimes.get(Solution.TIME_CREATE_RTV));
+        System.out.println(String.format("# RTV created (%.2f sec) - %s", (this.runTimes.get(Solution.TIME_CREATE_RTV) / 1000000000.0), graphRTV.getSummaryFeasibleTripsLevel()));
+        return graphRTV;
     }
 
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     // OPTIMAL /////////////////////////////////////////////////////////////////////////////////////////////////////////
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-    public void getAssignedUsersOptimal() {
+    public ResultAssignment getAssignedUsersOptimal(GraphRTV graphRTV) {
+
+        ResultAssignment result = new ResultAssignment();
+
+        final int REJECTION_PENALTY = 100000;
 
         // To assure every vehicle is assigned to a visit, create dummy stop visit.
-        this.graphRTV.addStopVisits();
+        graphRTV.addStopVisits();
 
         try {
 
             // Model
             GRBEnv env = new GRBEnv();
 
-//            if(!config.showInfo){
-//                // Turn off logging
-//                env.set(GRB.IntParam.OutputFlag, 0);
-//            }
+            // Turn off logging
+            // env.set(GRB.IntParam.OutputFlag, 0);
 
             GRBModel model = new GRBModel(env);
             model.set(GRB.StringAttr.ModelName, "assignment_rtv");
 
 
-            List<Visit> visits = this.graphRTV.getAllVisits();
-            List<User> requests = this.graphRTV.getAllRequests();
+            List<Visit> visits = graphRTV.getAllVisits();
+            List<User> requests = graphRTV.getAllRequests();
 
             // Some vehicles cannot access
-            List<Vehicle> vehicles = this.graphRTV.getListVehiclesFromRTV();
+            List<Vehicle> vehicles = graphRTV.getListVehiclesFromRTV();
 
             for (Vehicle vehicle : vehicles) {
                 assert !graphRTV.getListOfVisitsFromVehicle(vehicle).isEmpty() : "Vehicle is disconnected!" + vehicle;
@@ -264,7 +211,7 @@ public class SimulationRTV extends Simulation {
 
                 GRBLinExpr constrVehicleConservation = new GRBLinExpr();
 
-                for (Visit visit : this.graphRTV.getListOfVisitsFromVehicle(vehicle)) {
+                for (Visit visit : graphRTV.getListOfVisitsFromVehicle(vehicle)) {
                     constrVehicleConservation.addTerm(1, x[visitIndex.get(visit)]);
                 }
                 // A target can be visited by at most one vehicle
@@ -276,18 +223,14 @@ public class SimulationRTV extends Simulation {
                         vehicle.toString().trim());
             }
 
-            final int REJECTION_PENALTY = 100000;
-//
-//
-//            model.setObjectiveN(obj0, 0, 2, 1.0, 2.0, 0.1, "TotalSlack");
-//
-//            model.setObjectiveN(obj1, 1, 1, 1.0, 0.0, 0.0, "Fairness");
+            // model.setObjectiveN(obj0, 0, 2, 1.0, 2.0, 0.1, "TotalSlack");
+            // model.setObjectiveN(obj1, 1, 1, 1.0, 0.0, 0.0, "Fairness");
 
             for (User request : requests) {
 
                 GRBLinExpr constrRequestConservation = new GRBLinExpr();
 
-                List<Visit> requestVisits = this.graphRTV.getListOfVisitsFromUser(request);
+                List<Visit> requestVisits = graphRTV.getListOfVisitsFromUser(request);
                 for (Visit visit : requestVisits) {
                     constrRequestConservation.addTerm(1, x[visitIndex.get(visit)]);
                 }
@@ -317,12 +260,12 @@ public class SimulationRTV extends Simulation {
                 for (User request : requests) {
 
                     if (y[requestIndex.get(request)].get(GRB.DoubleAttr.X) > 0.99) {
-                        requestsUnassigned.add(request);
+                        result.requestsUnassigned.add(request);
 
                         // Rejected user was displaced from a routing plan
                         if (request.getCurrentVisit() != null) {
                             request.setCurrentVisit(null);
-                            requestsDisplaced.add(request);
+                            result.requestsDisplaced.add(request);
                         }
                     }
                 }
@@ -330,22 +273,22 @@ public class SimulationRTV extends Simulation {
                 for (Visit visit : visits) {
 
                     if (x[visitIndex.get(visit)].get(GRB.DoubleAttr.X) > 0.99) {
-                        setupVisitAndUpdate(visit);
+                        result.addVisit(visit);
                     }
                 }
 
                 // Update unassigned vehicles that were previously carrying users.
                 // Some vehicles might have lost users but were later associated to new visits (are in vehiclesOK).
-                vehiclesDisrupted.removeAll(vehiclesOK);
+                result.vehiclesDisrupted.removeAll(result.getVehiclesOK());
 
                 // Requests, trips, and vehicles used are removed
-                removeOkVerticesRTV();
+                graphRTV.removeOkVerticesRTV(result);
 
                 // Dispose of model and environment
                 model.dispose();
                 env.dispose();
 
-                return;
+                return result;
             }
 
             // Compute IIS
@@ -361,24 +304,13 @@ public class SimulationRTV extends Simulation {
             // Save problem
             model.write(String.format("round_mip_model/assignment_5%d.lp", this.roundCount));
 
-            this.graphRTV.printDetailedVisitsLevel();
+            graphRTV.printDetailedVisitsLevel();
 
         } catch (GRBException e) {
             System.out.println("Error code: " + e.getErrorCode() + ". " +
                     e.getMessage());
         }
-    }
-
-    private void removeOkVerticesRTV() {
-        for (Visit visit : this.visitsOK) {
-            this.graphRTV.removeVertex(visit);
-        }
-        for (Vehicle vehicle : this.vehiclesOK) {
-            this.graphRTV.removeVertex(vehicle);
-        }
-        for (User request : this.requestsOK) {
-            this.graphRTV.removeVertex(request);
-        }
+        return result;
     }
 
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -388,8 +320,10 @@ public class SimulationRTV extends Simulation {
     /**
      * Vehicles carrying passengers HAVE to continue to do so. Hence, they are matched to visits first, before flexible
      * vehicles (i.e., vehicles not carrying passengers).
+     * @param result
+     * @return
      */
-    private void greedyAssignmentVehiclesCarryingPassengers() {
+    private ResultAssignment greedyAssignmentVehiclesCarryingPassengers(GraphRTV graphRTV, ResultAssignment result) {
 
         // Vehicles with passengers
         Set<Vehicle> vehiclesWithPassengers = Vehicle.getVehiclesWithPassengers(this.listVehicles);
@@ -407,8 +341,8 @@ public class SimulationRTV extends Simulation {
             for (Visit visit : visitsVehicleCarryingPassenger) {
 
                 // Visit is valid only if all requests are still unassigned up to this point
-                if (allRequestsUnmatched(visit)) {
-                    setupVisitAndUpdate(visit);
+                if (graphRTV.allRequestsUnmatched(visit)) {
+                    result.addVisit(visit);
                     // Best visit found, jump to next vehicle
                     break;
                 }
@@ -416,13 +350,13 @@ public class SimulationRTV extends Simulation {
         }
 
         System.out.println("#### Vehicles CARRYING passengers:");
-        System.out.println("# Requests: " + requestsOK);
-        System.out.println("# Vehicles: " + vehiclesOK);
-        System.out.println("# Visits: " + visitsOK.size());
+        System.out.println("# Requests: " + result.getRequestsOK());
+        System.out.println("# Vehicles: " + result.getVehiclesOK());
+        System.out.println("# Visits: " + result.getVisitsOK().size());
 
         // Some visits carrying passengers cannot be setup because the trips they
         Set<Vehicle> unmatchedVehiclesWithPassengers = new HashSet<>(vehiclesWithPassengers);
-        unmatchedVehiclesWithPassengers.removeAll(vehiclesOK);
+        unmatchedVehiclesWithPassengers.removeAll(result.getVehiclesOK());
         System.out.println("# Unmatched: " + unmatchedVehiclesWithPassengers.size());
         assert unmatchedVehiclesWithPassengers.isEmpty() : String.format("There are still unmatched vehicles = %s", unmatchedVehiclesWithPassengers);
 //
@@ -441,10 +375,11 @@ public class SimulationRTV extends Simulation {
 //            setupVisitAndUpdate(visitWithoutRequests);
 //        }
 
-        assert vehiclesOK.size() == vehiclesWithPassengers.size() : String.format("Vehicles %s HAVE passengers and could not be assigned!", unmatchedVehiclesWithPassengers);
+        assert result.getVehiclesOK().size() == vehiclesWithPassengers.size() : String.format("Vehicles %s HAVE passengers and could not be assigned!", unmatchedVehiclesWithPassengers);
+        return result;
     }
 
-    private void greedyAssignmentFlexibleVehicles() {
+    private ResultAssignment greedyAssignmentFlexibleVehicles(GraphRTV graphRTV, ResultAssignment result) {
 
         // Loop visits starting from the longest (combining more requests)
         for (int k = graphRTV.getFeasibleTrips().size() - 1; k >= 0; k--) {
@@ -461,33 +396,23 @@ public class SimulationRTV extends Simulation {
                     continue;
 
                 // Either the vehicle or the users were previously assigned
-                if (vehiclesOK.contains(visit.getVehicle()) || !Collections.disjoint(requestsOK, visit.getRequests())) {
+                if (result.getVehiclesOK().contains(visit.getVehicle()) || !Collections.disjoint(result.getRequestsOK(), visit.getRequests())) {
                     graphRTV.removeVisit(visit);
                     continue;
                 }
 
                 // Update requests, vehicles, and greedy solution
-                setupVisitAndUpdate(visit);
+                result.addVisit(visit);
             }
         }
-        fixDisplaced();
+        return result;
     }
 
-    private boolean allRequestsUnmatched(Visit visit) {
+    private ResultAssignment fixDisplaced(GraphRTV graphRTV, ResultAssignment result) {
 
-        for (User request : visit.getRequests()) {
-
-            // If user is not in graph, it means another trip picked up user
-            if (!graphRTV.containsVertex(request)) {
-                return false;
-            }
-        }
-        return true;
-    }
-
-    private void fixDisplaced() {
         // Find users and vehicles left unassigned
         List<User> unassignedUsers = new ArrayList<>();
+
         List<Vehicle> unassignedVehicles = new ArrayList<>();
         for (Object o : graphRTV.vertexSet()) {
             if (o instanceof User) {
@@ -505,22 +430,22 @@ public class SimulationRTV extends Simulation {
 
         // Update unassigned vehicles that were previously carrying users.
         // Some vehicles might have lost users but were later associated to new visits (are in vehiclesOK).
-        vehiclesDisrupted.removeAll(vehiclesOK);
+        result.vehiclesDisrupted.removeAll(result.getVehiclesOK());
 
-        System.out.println(String.format("\n\n# Assigned vehicles (%d): %s", vehiclesOK.size(), vehiclesOK));
+        System.out.println(String.format("\n\n# Assigned vehicles (%d): %s", result.getVehiclesOK().size(), result.getVehiclesOK()));
         System.out.println(String.format("# Unassigned vehicles (%d): %s", unassignedVehicles.size(), unassignedVehicles));
         System.out.println(String.format("# Unassigned users (%d): %s", unassignedUsers.size(), unassignedUsers));
         System.out.println(String.format("# Displaced users (%d): %s", displacedUsers.size(), displacedUsers));
-        System.out.println(String.format("# Vehicles disrupted (%d) = %s", vehiclesDisrupted.size(), vehiclesDisrupted));
+        System.out.println(String.format("# Vehicles disrupted (%d) = %s", result.vehiclesDisrupted.size(), result.vehiclesDisrupted));
 
-        for (Vehicle vehicle : vehiclesDisrupted) {
+        for (Vehicle vehicle : result.vehiclesDisrupted) {
             System.out.println("####" + vehicle.getVisit());
         }
 
         // Unassigned users cannot be unmatched
         for (User u : unassignedUsers) {
 
-            assert userCannotBePickedUpByIdleVehicles(new HashSet<>(unassignedVehicles), u) : "Other vehicles could pick up user.";
+            assert userCannotBePickedUpByIdleVehicles(graphRTV, new HashSet<>(unassignedVehicles), u) : "Other vehicles could pick up user.";
             assert graphRTV.containsVertex(u) : "There is no valid visit for user " + u + " but it still in graph." + graphRTV.edgesOf(u);
             //assert u.getCurrentVisit() == null : String.format("Rejected user %s, was previously in visit %s", u, u.getCurrentVisit());
 
@@ -533,22 +458,17 @@ public class SimulationRTV extends Simulation {
         assert displacedUsers.isEmpty() : "There are displaced " + displacedUsers;
 
         // All vehicles that lost requests rebalance to closest node (middle or next target)
-        for (Vehicle vehicleDisrupted : vehiclesDisrupted) {
-
-            assert vehicleDisrupted.getVisit().getPassengers().isEmpty() : "Interrupted vehicle had passenger!" + vehicleDisrupted.getVisit().getUserInfo() + " - Visit:" + vehicleDisrupted.getVisit();
-            assert disruptedUsersAreServicedByDifferentVehicles(vehicleDisrupted) : "Disrupted users (unmatched) are not inserted in different vehicles.";
+        for (Vehicle vehicleDisrupted : result.vehiclesDisrupted) {
 
             // Stop vehicle at middle point or next target
             vehicleDisrupted.rebalanceToClosestNode();
 
-            /*for (User u : requestsFormerlyServicedByDisruptedVehicle) {
-                assert u.getCurrentVisit() != null && u.getCurrentVisit() != vehicleDisrupted.getVisit() : String.format("User %s in vehicle %s is still associated with the vehicle", u, vehicleDisrupted);
-            }*/
         }
 
         assert unassignedVehicles.size() == (new HashSet<>(unassignedVehicles)).size() : "There are repeated vehicles in RTV graph.";
         assert unassignedUsers.size() == (new HashSet<>(unassignedUsers)).size() : "There are repeated users in RTV graph.";
         // assert usersAreNotDisplaced(unassignedUsers) : "User was displaced from vehicle:";
+        return result;
     }
 
     /**
@@ -561,62 +481,31 @@ public class SimulationRTV extends Simulation {
      *
      * @return Set of users assigned
      */
-    public void getAssignedUsersGreedy() {
+    public ResultAssignment getAssignedUsersGreedy(GraphRTV graphRTV) {
+
+        ResultAssignment result = new ResultAssignment();
 
 
-        System.out.println(this.graphRTV.getVisitCountSetVertex() + " = " + this.graphRTV.getFeasibleVisitCount());
+        System.out.println(graphRTV.getVisitCountSetVertex() + " = " + graphRTV.getFeasibleVisitCount());
 
         System.out.println("----------- Assigning vehicles carrying passengers");
         // Vehicles carrying passengers MUST continue carrying them.
-        greedyAssignmentVehiclesCarryingPassengers();
+        result = greedyAssignmentVehiclesCarryingPassengers(graphRTV, result);
 
         System.out.println("---------- Assigning flexible vehicles");
         // Vehicles assigned to requests only are flexible to have their visits completely changed
-        greedyAssignmentFlexibleVehicles();
+        result = greedyAssignmentFlexibleVehicles(graphRTV, result);
+
+        result = fixDisplaced(graphRTV, result);
 
         // Update unassigned vehicles that were previously carrying users.
         // Some vehicles might have lost users but were later associated to new visits (are in vehiclesOK).
-        vehiclesDisrupted.removeAll(vehiclesOK);
+        result.vehiclesDisrupted.removeAll(result.getVehiclesOK());
 
+        return result;
     }
 
-    ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-    // PRINTS //////////////////////////////////////////////////////////////////////////////////////////////////////////
-    ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-    private void printRoundResult() {
-        System.out.println(String.format("\n\n# Assigned vehicles (%d): %s", vehiclesOK.size(), vehiclesOK));
-        System.out.println(String.format("# Unassigned users (%d): %s", requestsUnassigned.size(), requestsUnassigned));
-        System.out.println(String.format("# Displaced users (%d): %s", requestsDisplaced.size(), requestsDisplaced));
-        System.out.println(String.format("# Vehicles disrupted (%d) = %s", vehiclesDisrupted.size(), vehiclesDisrupted));
-        for (Vehicle vehicle : vehiclesDisrupted) {
-            System.out.println("#### Disrupted = " + vehicle.getVisit());
-        }
-    }
-
-    ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-    // ASSERTIONS //////////////////////////////////////////////////////////////////////////////////////////////////////
-    ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-    private boolean disruptedUsersAreServicedByDifferentVehicles(Vehicle vehicleDisrupted) {
-
-        Set<User> requestsFormerlyServicedByDisruptedVehicle = vehicleDisrupted.getVisit().getRequests();
-
-        Set<User> requestsServicedByDifferentVehicles = requestsFormerlyServicedByDisruptedVehicle.stream()
-                .filter(user -> user.getCurrentVisit().getVehicle() != vehicleDisrupted)
-                .collect(Collectors.toSet());
-
-        // Are all requests serviced in another visits?
-        if (requestsServicedByDifferentVehicles.size() != requestsFormerlyServicedByDisruptedVehicle.size()) {
-            requestsFormerlyServicedByDisruptedVehicle.removeAll(requestsServicedByDifferentVehicles);
-            System.out.println(String.format(" - Users %s from vehicle %s were left unmatched", requestsFormerlyServicedByDisruptedVehicle, vehicleDisrupted));
-            return false;
-        }
-
-        return true;
-    }
-
-    private boolean userCannotBePickedUpByIdleVehicles(Set<Vehicle> unassignedVehicles, User u) {
+    private boolean userCannotBePickedUpByIdleVehicles(GraphRTV graphRTV, Set<Vehicle> unassignedVehicles, User u) {
 
         for (DefaultEdge edge : graphRTV.edgesOf(u)) {
             Vehicle v = ((Visit) graphRTV.getEdgeTarget(edge)).getVehicle();
