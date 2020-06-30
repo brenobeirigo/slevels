@@ -1,7 +1,6 @@
 package simulation;
 
 import config.Config;
-import config.InstanceConfig;
 import config.Rebalance;
 import dao.Dao;
 import model.User;
@@ -35,7 +34,7 @@ public class SimulationFCFS extends Simulation {
                           boolean sortWaitingUsersByClass,
                           String serviceRateScenarioLabel,
                           String segmentationScenarioLabel,
-                          Rebalance rebalance) {
+                          Rebalance rebalance, Matching matchingSettings) {
 
 
         // Build generic Simulation object
@@ -49,7 +48,7 @@ public class SimulationFCFS extends Simulation {
                 isAllowedToHire,
                 isAllowedToLowerServiceLevel,
                 sortWaitingUsersByClass,
-                rebalance);
+                rebalance, matchingSettings);
 
         // Service rate and segmentation scenarios
         this.serviceRateScenarioLabel = serviceRateScenarioLabel;
@@ -175,7 +174,7 @@ public class SimulationFCFS extends Simulation {
      * @return setServicedUsers Set of all users that could be inserted into vehicles
      */
     //@Override
-    public Set<User> getServicedUsersDynamicSizedFleet(int currentTime) {
+    public Set<User> getUsersAssigned(int currentTime) {
 
         // Set of users serviced
         Set<User> setServicedUsers = new HashSet<>();
@@ -205,7 +204,7 @@ public class SimulationFCFS extends Simulation {
         */
 
         // Loop users
-        for (User u : setWaitingUsers) {
+        for (User u : unassignedRequests) {
 
             // User waits one or more rounds
             u.increaseRoundsWaiting();
@@ -274,7 +273,7 @@ public class SimulationFCFS extends Simulation {
             if (bestVisit != null) {
 
                 // Add user to vehicle and setup visit
-                setup(bestVisit);
+                realizeVisit(bestVisit);
 
                 // Model.User u was serviced
                 setServicedUsers.add(u);
