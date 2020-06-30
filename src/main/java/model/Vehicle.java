@@ -130,6 +130,7 @@ public class Vehicle implements Comparable<Vehicle> {
         }
     }
 
+
     public void increaseActiveRounds() {
         this.activeRounds++;
     }
@@ -1244,6 +1245,26 @@ public class Vehicle implements Comparable<Vehicle> {
                 .stream()
                 .filter(vehicle -> vehicle.getVisit() != null && !vehicle.getVisit().getPassengers().isEmpty())
                 .collect(Collectors.toSet());
+    }
+
+
+    /**
+     * Join new requests (current period) with all matched requests (not yet picked up).
+     * There can have better matches (i.e., requests can be serviced by different vehicles)
+     *
+     * @param listVehicles
+     * @return all requests
+     */
+    public static List<User> getAssignedRequestsFrom(List<Vehicle> listVehicles) {
+        List<User> allRequests = new ArrayList<>();
+
+        // Requests can still be picked up by other vehicles, add them to request list
+        for (Vehicle vehicle : listVehicles) {
+            if (vehicle.isServicing()) {
+                allRequests.addAll(vehicle.getVisit().getRequests());
+            }
+        }
+        return allRequests;
     }
 
 }
