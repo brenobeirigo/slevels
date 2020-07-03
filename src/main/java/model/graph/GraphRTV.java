@@ -5,6 +5,7 @@ import model.Vehicle;
 import model.Visit;
 import model.VisitStop;
 import org.jgrapht.graph.DefaultEdge;
+import org.jgrapht.graph.DefaultWeightedEdge;
 import org.jgrapht.graph.SimpleGraph;
 import simulation.Method;
 import simulation.ResultAssignment;
@@ -48,14 +49,15 @@ public class GraphRTV {
         // Populate list of feasible trips with current trips
         this.feasibleTrips = new ArrayList<>();
         this.vehicleCapacity = vehicleCapacity;
-        this.graphRTV = new SimpleGraph<>(DefaultEdge.class);
+        this.graphRTV = new SimpleGraph<>(DefaultWeightedEdge.class);
         this.allRequests = allRequests;
         this.listVehicles = listVehicles;
 
-        // REQUEST - TRIP (RV)
+        // REQUEST - VEHICLE (RV)
         this.runTimes.put(Solution.TIME_CREATE_RV, System.nanoTime());
         this.graphRV = new GraphRV(allRequests, listVehicles, vehicleCapacity, maxVehReqEdges, maxReqReqEdges);
         this.runTimes.put(Solution.TIME_CREATE_RV, System.nanoTime() - this.runTimes.get(Solution.TIME_CREATE_RV));
+        //System.out.println(String.format("# RV created (%.2f sec) - %s", (this.runTimes.get(Solution.TIME_CREATE_RV)) / 1000000000.0, this.graphRV.statsRV()));
         System.out.println(String.format("# RV created (%.2f sec)", (this.runTimes.get(Solution.TIME_CREATE_RV)) / 1000000000.0));
 
         // Add the data of current trips in the RTV graph
@@ -73,7 +75,7 @@ public class GraphRTV {
         // Populate list of feasible trips with current trips
         this.feasibleTrips = new ArrayList<>();
         this.vehicleCapacity = vehicleCapacity;
-        this.graphRTV = new SimpleGraph<>(DefaultEdge.class);
+        this.graphRTV = new SimpleGraph<>(DefaultWeightedEdge.class);
         this.allRequests = allRequests;
         this.listVehicles = listVehicles;
         this.graphRV = graphRV;
@@ -98,12 +100,12 @@ public class GraphRTV {
 
             if (vehicle.isRebalancing()) {
                 feasibleTrips.get(0).add(vehicle.getVisit());
-                addRequestTripVehicleEdges(graphRTV, vehicle, new HashSet<>(), vehicle.getVisit());
+                addRequestTripVehicleEdges(vehicle, new HashSet<>(), vehicle.getVisit());
             }
 
             if (vehicle.isParked()) {
                 Visit visitStayParked = new VisitStop(vehicle);
-                addRequestTripVehicleEdges(graphRTV, vehicle, new HashSet<>(), visitStayParked);
+                addRequestTripVehicleEdges(vehicle, new HashSet<>(), visitStayParked);
                 feasibleTrips.get(0).add(visitStayParked);
             }
 
@@ -111,7 +113,7 @@ public class GraphRTV {
 
                 if (!vehicle.isCarryingPassengers()) {
                     Visit visitStopAtClosestNode = vehicle.getRebalanceVisit();
-                    addRequestTripVehicleEdges(graphRTV, vehicle, new HashSet<>(), visitStopAtClosestNode);
+                    addRequestTripVehicleEdges(vehicle, new HashSet<>(), visitStopAtClosestNode);
                     feasibleTrips.get(0).add(visitStopAtClosestNode);
                 }
             }
@@ -144,7 +146,7 @@ public class GraphRTV {
                         graphRTV.addVertex(user);
                     }
 
-                    addRequestTripVehicleEdges(graphRTV, vehicle, vehicle.getVisit().getRequests(), vehicle.getVisit());
+                    addRequestTripVehicleEdges(vehicle, vehicle.getVisit().getRequests(), vehicle.getVisit());
                     feasibleTrips.get(Math.max(vehicle.getVisit().getRequests().size() - 1, 0)).add(vehicle.getVisit());
                 }
             }
@@ -152,7 +154,6 @@ public class GraphRTV {
     }
 
     private void addRequestTripVehicleEdges(
-            SimpleGraph<Object, DefaultEdge> graphRTV,
             Vehicle vehicle,
             Set<User> requests,
             Visit visit) {
@@ -161,8 +162,34 @@ public class GraphRTV {
         graphRTV.addVertex(visit);
         graphRTV.addEdge(visit, vehicle);
 
+        Map<User, Integer> userDelayMap = visit.getUserDelayPairs();
+
         for (User request : requests) {
-            graphRTV.addEdge(request, visit);
+            DefaultEdge requestVisitEdge = graphRTV.addEdge(request, visit);
+            graphRTV.setEdgeWeight(requestVisitEdge, userDelayMap.get(request));
+        }
+
+        // assert visit.getRequests() != null && !visit.getRequests().isEmpty() : String.format("VISIT %s", visit);
+    }
+
+
+    private void addRequestTripVehicleEdgesWithWeights(
+            Vehicle vehicle,
+            Set<User> requests,
+            Visit visit) {
+
+        // Add best visit to RTV graph
+        graphRTV.addVertex(visit);
+        graphRTV.addEdge(visit, vehicle);
+
+        Map<User, Integer> userDelayMap = visit.getUserDelayPairs();
+
+        for (User request : requests) {
+
+            DefaultEdge requestVisitEdge = graphRTV.addEdge(request, visit);
+            graphRTV.setEdgeWeight(requestVisitEdge, userDelayMap.get(request));
+            // double a = graphRTV.getEdgeWeight(requestVisitEdge);
+            // System.out.println(request + "-" + a);
         }
 
         // assert visit.getRequests() != null && !visit.getRequests().isEmpty() : String.format("VISIT %s", visit);
@@ -229,7 +256,7 @@ public class GraphRTV {
 
             for (int i = 0; i < vehicle.getCapacity(); i++) {
                 for (Visit visit : feasibleVisitsCurrentVehicleAtLevel.get(i)) {
-                    addRequestTripVehicleEdges(this.graphRTV, visit.getVehicle(), visit.getRequests(), visit);
+                    addRequestTripVehicleEdges(visit.getVehicle(), visit.getRequests(), visit);
                 }
                 this.feasibleTrips.get(i).addAll(feasibleVisitsCurrentVehicleAtLevel.get(i));
             }
@@ -363,6 +390,10 @@ public class GraphRTV {
 
     public Object getEdgeTarget(DefaultEdge edge) {
         return graphRTV.getEdgeTarget(edge);
+    }
+
+    public double getWeightFromRequestVisitEdge(User request, Visit visit){
+        return this.graphRTV.getEdgeWeight(this.graphRTV.getEdge(request, visit));
     }
 
     public List<Visit> getListOfVisitsFromUser(User request) {
