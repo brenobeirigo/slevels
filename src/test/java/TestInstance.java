@@ -1,17 +1,21 @@
 import config.Config;
+import config.Qos;
 import config.Rebalance;
+import simulation.Matching;
 import simulation.Simulation;
 import simulation.SimulationFCFS;
 
 public class TestInstance {
 
+    private static Matching matchingSettings;
+
     public static void main(String[] args) {
         // Setup QoS class
 
-        Config.Qos qos1 = new Config.Qos("A", 180, 180, 0.9, 1.0, false);
-        Config.Qos qos2 = new Config.Qos("B", 300, 600, 0.8, 0, true);
-        Config.Qos qos3 = new Config.Qos("C", 600, 900, 0.7, 0, true);
-        //Config.Qos qos4 = new Config.Qos("R", 300, 600, 0.95,0, true);
+        Qos qos1 = new Qos("A", 180, 180, 0.9, 1.0, false);
+        Qos qos2 = new Qos("B", 300, 600, 0.8, 0, true);
+        Qos qos3 = new Qos("C", 600, 900, 0.7, 0, true);
+        //Qos qos4 = new Qos("R", 300, 600, 0.95,0, true);
         Config.getInstance().qosDic.put("A", qos1);
         Config.getInstance().qosDic.put("B", qos2);
         Config.getInstance().qosDic.put("C", qos3);
@@ -30,7 +34,7 @@ public class TestInstance {
                 false,
                 "month",
                 "Hire",
-                new Rebalance(true, true, true, true, "N21"));
+                new Rebalance(true, true, true, true, "N21"), matchingSettings);
 
     }
 }
