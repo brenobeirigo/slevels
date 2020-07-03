@@ -155,7 +155,7 @@ public class InstanceConfig {
                     // AA, BB, CC, A, B, C
                     String segmentationScenarioLabel = segmentationScenario.getKey();
 
-                    Map<String, Config.Qos> qosDic = new HashMap<>();
+                    Map<String, Qos> qosDic = new HashMap<>();
 
                     // Fixed service levels - A (180, 180), B(300, 600), C(600, 900)
                     for (Map.Entry<String, Map<String, Integer>> serviceLevel : serviceLevelMap.entrySet()) {
@@ -169,14 +169,14 @@ public class InstanceConfig {
                          */
 
                         // Setup QoS class
-                        Config.Qos qos = new Config.Qos(serviceLevel.getKey(),
+                        Qos qos = new Qos(serviceLevel.getKey(),
                                 serviceRateScenario.getKey(),
                                 segmentationScenarioLabel,
                                 serviceLevel.getValue().get("pk_delay"),
                                 serviceLevel.getValue().get("trip_delay"),
                                 serviceRateScenario.getValue().get(serviceLevel.getKey()),
                                 segmentationScenario.getValue().get(serviceLevel.getKey()),
-                                (serviceLevel.getValue().get("sharing_preference") == Config.Qos.ALLOWED_SHARING));
+                                (serviceLevel.getValue().get("sharing_preference") == Qos.ALLOWED_SHARING));
 
                         // Update global class configuration to run current test case
                         qosDic.put(serviceLevel.getKey(), qos);
