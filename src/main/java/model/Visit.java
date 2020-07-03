@@ -457,12 +457,10 @@ public class Visit implements Comparable<Visit> {
             arrival += Dao.getInstance().getDistSec(first, next);
             if (next instanceof NodePK) {
                 User u = User.mapOfUsers.get(next.getTripId());
-                System.out.println(u);
                 userDelayPair.put(u, arrival - next.getEarliest());
             }
             first = next;
         }
-
         return userDelayPair;
     }
 
