@@ -467,8 +467,13 @@ public abstract class Simulation {
 
         ///// 5 - REMOVE SERVICED USERS FROM WAITING SET////////////////////////////////////////////////////////////////
         // Vehicles will become idle here (i.e., parked)
-        unassignedRequests.removeAll(setScheduledUsers);
-
+        unassignedRequests = new ArrayList<>(resultAssignment.requestsUnassigned);
+        List<User> listAssigned = new ArrayList<>(resultAssignment.getRequestsOK());
+        listAssigned.sort(Comparator.comparing(User::getPerformanceClass).thenComparing(User::getReqTime));
+        for (User user : listAssigned) {
+            if(!user.isFirstTier())
+                System.out.println(String.format("+++ %s = %s - 1st tier = %s, delay = %d/%d", user.qos.id, user, user.isFirstTier(), user.getNodePk().getDelaySoFar(), user.getNodePk().getDelay()));
+        }
     }
 
     /**

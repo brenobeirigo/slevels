@@ -135,6 +135,11 @@ public abstract class Node implements Comparable<Node> {
         return delay;
     }
 
+    public int getDelaySoFar(){
+        // Arrival so far is Integer.MAX_VALUE, hence delaySoFar is a large number when node was not visited.
+        return this.arrivalSoFar - this.earliest;
+    }
+
     public int getTripId() {
         return tripId;
     }
