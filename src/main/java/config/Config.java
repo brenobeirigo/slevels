@@ -49,6 +49,10 @@ public class Config {
         return ourInstance;
     }
 
+    public int getQosCount(){
+        return this.qosDic.size();
+    }
+
     public int date2Seconds(String departureDate) {
         int secs = -1;
         try {
@@ -71,57 +75,6 @@ public class Config {
     public void printQosDic() {
         for (Map.Entry<String, Qos> e : qosDic.entrySet()) {
             System.out.println(e.getKey() + " - " + e.getValue());
-        }
-    }
-
-    public static class Qos {
-        public static final int PRIVATE_VEHICLE = 0;
-        public static final int ALLOWED_SHARING = 1;
-        public String id;
-        public double serviceRate;
-        public int pkDelay, dpDelay;
-        public double share;
-        public boolean allowedSharing;
-        public String serviceRateLabel;
-        public String customerSegmentationLabel;
-
-        public Qos(String id, int pkDelay, int dpDelay, double serviceRate) {
-            this.id = id;
-            this.serviceRate = serviceRate;
-            this.pkDelay = pkDelay;
-            this.dpDelay = dpDelay;
-
-        }
-
-
-        public Qos(String id, int pkDelay, int dpDelay, double serviceRate, double share, boolean allowedSharing) {
-            this.id = id;
-            this.serviceRate = serviceRate;
-            this.pkDelay = pkDelay;
-            this.dpDelay = dpDelay;
-            this.share = share;
-            this.allowedSharing = allowedSharing;
-        }
-
-        public Qos(String id, String serviceRateLabel, String segmentationScenarioLabel, int pkDelay, int dpDelay, double serviceRate, double share, boolean allowedSharing) {
-            this.id = id;
-            this.serviceRate = serviceRate;
-            this.pkDelay = pkDelay;
-            this.dpDelay = dpDelay;
-            this.share = share;
-            this.allowedSharing = allowedSharing;
-            this.serviceRateLabel = serviceRateLabel;
-            this.customerSegmentationLabel = segmentationScenarioLabel;
-        }
-
-        @Override
-        public String toString() {
-            return "[" + serviceRateLabel + " " + customerSegmentationLabel + " " + id + "] service rate = " + serviceRate + " - pk delay = " + pkDelay + " - dp delay = " + dpDelay + " - share = " + share + " - allow sharing = " + share;
-        }
-
-        @Override
-        public int hashCode() {
-            return this.id.hashCode();
         }
     }
 }
