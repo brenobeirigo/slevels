@@ -3,6 +3,7 @@ package dao;
 
 import config.Config;
 import config.InstanceConfig;
+import config.Qos;
 import helper.HelperIO;
 import model.User;
 import model.node.Node;
@@ -33,6 +34,7 @@ public class Dao {
     public Random rand;
 
     private String pathDistanceMatrix;
+    private String pathDurationsMatrix;
     private String pathRequestList;
     private String pathadjacencyMatrix;
     private String pathNetworkNodeInfo;
@@ -41,6 +43,7 @@ public class Dao {
     private Map<Integer, NodeNetwork> nodeNetworkInfo; // Map of node ids and respective coordinates
 
     private short[][] distMatrix;
+    private short[][] distMatrixDerivedFromSP;
     private double[][] distMatrixMeters;
     private int[][] adjacencyMatrix;
     protected DijkstraShortestPath<Integer, Integer> dijkstraShortestPath;
@@ -70,6 +73,7 @@ public class Dao {
 
             // Get paths from configuration file ///////////////////////////////////////////////////////////////////////
             pathDistanceMatrix = InstanceConfig.getInstance().getDistancesPath().toString();
+            pathDurationsMatrix = InstanceConfig.getInstance().getDurationsPath().toString();
             pathadjacencyMatrix = InstanceConfig.getInstance().getAdjacencyMatrixPath().toString();
             pathNetworkNodeInfo = InstanceConfig.getInstance().getNetworkNodeInfoPath().toString();
             pathRequestList = InstanceConfig.getInstance().getRequestsPath().toString();
@@ -80,11 +84,15 @@ public class Dao {
             nodeNetworkInfo = ParseJsonUtil.getNodeDictionaryFromJsonString(HelperIO.readFileFromPath(pathNetworkNodeInfo));
             numberOfNodes = nodeNetworkInfo.size();
 
-            distMatrix = getDistanceMatrixFrom(pathDistanceMatrix);
+            //distMatrix = getDistanceMatrixFrom(pathDistanceMatrix);
+            distMatrix = getDistanceMatrixFrom(pathDurationsMatrix, false);
+
+            distMatrixDerivedFromSP = new short[numberOfNodes][numberOfNodes];
 
             adjacencyMatrix = getAdjacencyMatrix(pathadjacencyMatrix);
 
-            networkGraph = getWeightedGraphFromAdjacencyMatrix(adjacencyMatrix, distMatrixMeters);
+            // networkGraph = getWeightedGraphFromAdjacencyMatrix(adjacencyMatrix, distMatrixMeters);
+            networkGraph = getWeightedGraphFromAdjacencyMatrix(adjacencyMatrix, distMatrix);
             dijkstraShortestPath = new DijkstraShortestPath(networkGraph);
 
             // Shortest path info (node ids, node arrivals)
@@ -147,14 +155,16 @@ public class Dao {
 
     }
 
-    /** Weighted directed graph is used in conjunction with shortest path method to determine where each vehicle is
+    /**
+     * Weighted directed graph is used in conjunction with shortest path method to determine where each vehicle is
      * at each time.
      *
      * @param adjacencyMatrix
      * @param distMatrixMeters
      * @return
      */
-    private SimpleDirectedWeightedGraph<Integer, DefaultWeightedEdge> getWeightedGraphFromAdjacencyMatrix(int[][] adjacencyMatrix, double[][] distMatrixMeters) {
+    private SimpleDirectedWeightedGraph<Integer, DefaultWeightedEdge> getWeightedGraphFromAdjacencyMatrix(
+            int[][] adjacencyMatrix, double[][] distMatrixMeters) {
 
         SimpleDirectedWeightedGraph<Integer, DefaultWeightedEdge> graph = new SimpleDirectedWeightedGraph<>(DefaultWeightedEdge.class);
 
@@ -168,6 +178,35 @@ public class Dao {
                 if (adjacencyMatrix[i][j] != 0) {
                     DefaultWeightedEdge edge = graph.addEdge(i, j);
                     graph.setEdgeWeight(edge, distMatrixMeters[i][j]);
+                }
+            }
+        }
+
+        return graph;
+    }
+
+    /**
+     * Weighted directed graph is used in conjunction with shortest path method to determine where each vehicle is
+     * at each time.
+     *
+     * @param distMatrixSec
+     * @return
+     */
+    private SimpleDirectedWeightedGraph<Integer, DefaultWeightedEdge> getWeightedGraphFromAdjacencyMatrix(
+            int[][] adjacencyMatrix, short[][] distMatrixSec) {
+
+        SimpleDirectedWeightedGraph<Integer, DefaultWeightedEdge> graph = new SimpleDirectedWeightedGraph<>(DefaultWeightedEdge.class);
+
+        for (int i = 0; i < distMatrixSec.length; i++) {
+            graph.addVertex(i);
+        }
+
+        for (int i = 0; i < distMatrixSec.length; i++) {
+            for (int j = 0; j < distMatrixSec.length; j++) {
+
+                if (adjacencyMatrix[i][j] != 0) {
+                    DefaultWeightedEdge edge = graph.addEdge(i, j);
+                    graph.setEdgeWeight(edge, distMatrixSec[i][j]);
                 }
             }
         }
@@ -411,9 +450,10 @@ public class Dao {
     /***
      * Read .csv distance matrix. Assumes KxK acessibility.
      * @param filePath
+     * @param useSpeed If True, distance data is converted to seconds, otherwise distance data is already in seconds
      * @return double[][]
      */
-    private short[][] getDistanceMatrixFrom(String filePath) {
+    private short[][] getDistanceMatrixFrom(String filePath, boolean useSpeed) {
         distMatrixMeters = new double[numberOfNodes][numberOfNodes];
         short[][] dist_matrix = new short[numberOfNodes][numberOfNodes];
 
@@ -428,11 +468,15 @@ public class Dao {
                 int col = 0;
 
                 for (String r : record) {
-                    double meters = Double.valueOf(r);
-                    short sec = (short) (3.6 * meters / SPEED + 0.5);
+                    if (useSpeed) {
+                        double meters = Double.valueOf(r);
+                        short sec = (short) (3.6 * meters / SPEED + 0.5);
+                        dist_matrix[row][col] = sec;
+                        distMatrixMeters[row][col] = meters;
+                    }else{
+                        dist_matrix[row][col] = Short.valueOf(r);
+                    }
 
-                    dist_matrix[row][col] = sec;
-                    distMatrixMeters[row][col] = meters;
 
                     col++;
                 }
@@ -612,7 +656,7 @@ public class Dao {
         Map<String, Integer> usersPerClass = new HashMap<>();
 
         // Filling the number of users per class
-        for (Entry<String, Config.Qos> e : Config.getInstance().qosDic.entrySet()) {
+        for (Entry<String, Qos> e : Config.getInstance().qosDic.entrySet()) {
             String qsClass = e.getKey();
             int qtUsers = (int) (e.getValue().share * listUser.size());
             usersPerClass.put(qsClass, qtUsers);
@@ -709,6 +753,17 @@ public class Dao {
      * @return distance in seconds
      */
     public int getDistSec(int from, int to) {
+                /*if (distMatrixDerivedFromSP[from][to] > 0) {
+            return distMatrixDerivedFromSP[from][to];
+        }
+
+        List<Integer> shortestPath = dijkstraShortestPath.getPath(from, to).getVertexList();
+        int distPath = IntStream
+                .range(0, shortestPath.size() - 1)
+                .reduce(0, (sum, e) -> sum + distMatrix[shortestPath.get(e)][shortestPath.get(e + 1)]);
+
+        distMatrixDerivedFromSP[from][to] = (short) distPath;
+        return distMatrixDerivedFromSP[from][to];*/
         return distMatrix[from][to];
     }
 
@@ -730,8 +785,8 @@ public class Dao {
      * @param to   node
      * @return distance in seconds
      */
-    public short getDistSec(Node from, Node to) {
-        return distMatrix[from.getNetworkId()][to.getNetworkId()];
+    public int getDistSec(Node from, Node to) {
+        return getDistSec(from.getNetworkId(), to.getNetworkId());
     }
 
     /**
@@ -904,7 +959,9 @@ public class Dao {
         return distMatrix;
     }
 
-    public Map<Integer, NodeNetwork> getNodeNetworkInfo() { return nodeNetworkInfo; }
+    public Map<Integer, NodeNetwork> getNodeNetworkInfo() {
+        return nodeNetworkInfo;
+    }
 
     public int getClosestRegion(int networkId, String performanceClass) {
 
