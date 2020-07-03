@@ -2,6 +2,7 @@ package simulation;
 
 import config.Config;
 import config.InstanceConfig;
+import config.Qos;
 import config.Rebalance;
 import dao.Dao;
 import dao.FileUtil;
@@ -27,6 +28,9 @@ public class Solution {
     public static final String TIME_UPDATE_FLEET_STATUS = "time_update_fleet_status_ms";
     public static final String TIME_REBALANCING_FLEET = "time_vehicle_rebalancing_ms";
     public static final String TIME_UPDATE_DEMAND = "time_ride_matching_ms";
+    public static final String TIME_CREATE_RV = "time_create_rv_graph";
+    public static final String TIME_CREATE_RTV = "time_create_rtv_graph";
+    public static final String TIME_MATCHING = "time_matching";
     public static final String[] TIME_HEADERS = new String[]{TIME_UPDATE_DEMAND, TIME_UPDATE_FLEET_STATUS, TIME_REBALANCING_FLEET};
 
     private BufferedWriter writer;
@@ -133,7 +137,7 @@ public class Solution {
         testCaseName += (allowVehicleHiring ? "_VH" : "");
         testCaseName += (allowServiceDeterioration ? "_SD" : "");
         testCaseName += (isAllowedToRebalance ? "_RE" + rebalance : "");
-        testCaseName += (rebalance.method.equals(Rebalance.METHOD_OPTIMAL)?"_OP":"_HE");
+        testCaseName += (rebalance.method.equals(Rebalance.METHOD_OPTIMAL) ? "_OP" : "_HE");
 
         // File path
         this.outputFile = Paths.get(
@@ -213,7 +217,7 @@ public class Solution {
         listRoundHeaders.add("distance_traveled_cruising");
         listRoundHeaders.add("distance_traveled_loaded");
         listRoundHeaders.add("distance_traveled_rebalancing");
-        for (String h :Solution.TIME_HEADERS) {
+        for (String h : Solution.TIME_HEADERS) {
             listRoundHeaders.add(h);
         }
 
@@ -242,7 +246,7 @@ public class Solution {
             CSVPrinter csvPrinter = new CSVPrinter(writer, CSVFormat.DEFAULT.withHeader(a).withCommentMarker('#'));
 
             // Printing comment in the beginning of case study with instance configuration
-            for (Map.Entry<String, Config.Qos> e : Config.getInstance().qosDic.entrySet()) {
+            for (Map.Entry<String, Qos> e : Config.getInstance().qosDic.entrySet()) {
                 csvPrinter.printComment(e.getValue().toString());
             }
 
@@ -312,7 +316,7 @@ public class Solution {
 
             CSVPrinter csvPrinter = new CSVPrinter(writer, CSVFormat.DEFAULT.withHeader(a).withCommentMarker('#'));
 
-            for (Map.Entry<String, Config.Qos> e : Config.getInstance().qosDic.entrySet()) {
+            for (Map.Entry<String, Qos> e : Config.getInstance().qosDic.entrySet()) {
                 csvPrinter.printComment(e.getValue().toString());
             }
             for (User u : sortedUsersPk) {
@@ -358,7 +362,7 @@ public class Solution {
                                       boolean saveRoundInfoCSV,
                                       boolean showRoundInfo) {
 
-        if (saveRoundInfoCSV==false && showRoundInfo==false){
+        if (saveRoundInfoCSV == false && showRoundInfo == false) {
             return null;
         }
 
@@ -371,6 +375,8 @@ public class Solution {
             sLevelsClass.put(sqClass, new HashMap<>());
             sLevelsClass.get(sqClass).put("pk", 0);
             sLevelsClass.get(sqClass).put("dp", 0);
+            sLevelsClass.get(sqClass).put("max", 0);
+            sLevelsClass.get(sqClass).put("first", 0);
             sLevelsClass.get(sqClass).put("count", 0);
             sLevelsClass.get(sqClass).put("rejected", 0);
             sLevelsClass.get(sqClass).put("dedicated", 0);
@@ -386,15 +392,19 @@ public class Solution {
 
             pkDelay += delayPk;
             totalDelay += delayDp;
+            int firstTier = u.isFirstTier() ? 1 : 0;
 
 
             sLevelsClass.put(sqClass, sLevelsClass.getOrDefault(sqClass, new HashMap<>()));
             sLevelsClass.get(sqClass).put("pk", sLevelsClass.get(sqClass).getOrDefault("pk", 0) + delayPk);
             sLevelsClass.get(sqClass).put("dp", sLevelsClass.get(sqClass).getOrDefault("dp", 0) + delayDp);
             sLevelsClass.get(sqClass).put("count", sLevelsClass.get(sqClass).getOrDefault("count", 0) + 1);
+            sLevelsClass.get(sqClass).put("first", sLevelsClass.get(sqClass).getOrDefault("first", 0) + firstTier);
+            sLevelsClass.get(sqClass).put("max", (int) Math.max(sLevelsClass.get(sqClass).getOrDefault("max", 0), delayPk));
             sLevelsClass.get(sqClass).put("dedicated", sLevelsClass.get(sqClass).getOrDefault("dedicated", 0) + (u.isServicedByDedicated() ? 1 : 0));
             sLevelsClass.get(sqClass).put("private", sLevelsClass.get(sqClass).getOrDefault("private", 0) + (u.isServicedByHired() ? 1 : 0));
             sLevelsClass.get(sqClass).put("unmet_slevels", sLevelsClass.get(sqClass).getOrDefault("unmet_slevels", 0) + (u.isServiceLevelLowered() ? 1 : 0));
+
         }
 
         // Sum delays of finished users
@@ -521,15 +531,19 @@ public class Solution {
             int count = e.getValue().get("count");
             int pk = e.getValue().get("pk");
             int dp = e.getValue().get("dp");
+            int max = e.getValue().get("max");
+            int first = e.getValue().get("first");
             int nUsersInDedicatedVehicles = e.getValue().get("dedicated");
             int nUsersInPrivateVehicles = e.getValue().get("private");
             int nUsersRejected = e.getValue().get("rejected");
             int nUsersUnmetServiceLevels = e.getValue().get("unmet_slevels");
 
-            sLevelsClass.add(String.format("%s (%4.2f, %4.2f) x %6d [Dedicated: %3d -- Private: %3d -- Rejected: %3d] [SL met: %3d -- SL unmet: %3d]",
+            sLevelsClass.add(String.format("%s (%4.2f, %4.2f) (max=%d, first=%4.2f) x %6d [Dedicated: %3d -- Private: %3d -- Rejected: %3d] [SL met: %3d -- SL unmet: %3d]",
                     e.getKey(),
                     ((double) pk) / count,
                     ((double) dp) / count,
+                    max,
+                    (double)first/ count,
                     count + nUsersRejected,
                     nUsersInDedicatedVehicles,
                     nUsersInPrivateVehicles,
@@ -538,7 +552,7 @@ public class Solution {
                     nUsersUnmetServiceLevels));
         }
 
-        if(saveRoundInfoCSV==true){
+        if (saveRoundInfoCSV == true) {
             this.addEntryCSV(currentTime,
                     setOfRequests.size(),
                     seatCount,
@@ -567,7 +581,6 @@ public class Solution {
                     distTraveledRebal,
                     runTimes);
         }
-
 
 
         return String.format(
@@ -620,7 +633,7 @@ public class Solution {
                 setDeactivated.size(),
                 runTimes.get(Solution.TIME_UPDATE_FLEET_STATUS) / 1000000000.0,
                 runTimes.get(Solution.TIME_REBALANCING_FLEET) / 1000000000.0,
-                runTimes.get(Solution.TIME_UPDATE_DEMAND)/ 1000000000.0
+                runTimes.get(Solution.TIME_UPDATE_DEMAND) / 1000000000.0
         );
     }
 
@@ -688,8 +701,8 @@ public class Solution {
         roundEntry.add(String.format("%.4f", distTraveledEmpty));
         roundEntry.add(String.format("%.4f", distTraveledLoaded));
         roundEntry.add(String.format("%.4f", distTraveledRebal));
-        for (String h :Solution.TIME_HEADERS) {
-            roundEntry.add(String.valueOf(runTimes.get(h)/1000000000.0));
+        for (String h : Solution.TIME_HEADERS) {
+            roundEntry.add(String.valueOf(runTimes.get(h) / 1000000000.0));
         }
 
 
