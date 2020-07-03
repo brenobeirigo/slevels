@@ -1,0 +1,123 @@
+{
+  "instance_description": "User can have their times worsened",
+  "instance_name": "JAVIERRELAXOPT2",
+  "result_folder": "C:/Users/LocalAdmin/IdeaProjects/slevels/instance_output/profile_time_relax_opt2/",
+  "instances_folder": "C:/Users/LocalAdmin/IdeaProjects/slevels/instance_output/profile_time_relax_opt2/",
+  "distances_file": "C:/Users/LocalAdmin/OneDrive/leap_forward/street_network_server/tenv/data/out/manhattan/distance/dist_matrix_m.csv",
+  "durations_file": "C:/Users/LocalAdmin/OneDrive/leap_forward/street_network_server/tenv/data/out/manhattan/distance/dist_matrix_duration_s.csv",
+  "adjacency_matrix_file": "C:/Users/LocalAdmin/OneDrive/leap_forward/street_network_server/tenv/data/out/manhattan/network_info/adjacency_matrix.csv",
+  "requests_file": "C:/Users/LocalAdmin/OneDrive/leap_forward/street_network_server/tenv/data/out/manhattan/tripdata/ids/tripdata_ids_2011-02-01_000000_2011-02-07_235959.csv",
+  "network_node_info_file": "C:/Users/LocalAdmin/OneDrive/leap_forward/street_network_server/tenv/data/out/manhattan/network_info/nodeset_info.json",
+  "scenario_config": {
+    "batch_duration": [
+      30
+    ],
+    "earliest_time": [
+      "2011-02-01 00:00:00"
+    ],
+    "time_horizon": [
+      86400
+    ],
+    "max_requests": [
+      1000
+    ],
+    "initial_fleet": [
+      500
+    ],
+    "max_capacity": [
+      4
+    ],
+    "rebalance": [
+      true
+    ],
+    "contract_duration": [
+      0
+    ],
+    "allow_service_deterioration": [
+      true
+    ],
+    "allow_vehicle_hiring": [
+      true
+    ],
+    "allow_vehicle_creation": [
+      true
+    ],
+    "service_rate": {
+      "S1": {
+        "A": 0.9,
+        "B": 0.8,
+        "C": 0.7
+      }
+    },
+    "customer_segmentation": {
+      "BB": {
+        "A": 0.16,
+        "B": 0.68,
+        "C": 0.16
+      }
+    },
+    "service_level": {
+      "A": {
+        "pk_delay": 180,
+        "trip_delay": 180,
+        "sharing_preference": 0
+      },
+      "B": {
+        "pk_delay": 180,
+        "trip_delay": 360,
+        "sharing_preference": 1
+      },
+      "C": {
+        "pk_delay": 300,
+        "trip_delay": 600,
+        "sharing_preference": 1
+      }
+    }
+  },
+  "matching_config": {
+    "sort_waiting_users_by_class": [
+      false
+    ],
+    "method": [
+      "alonso_mora2017"
+    ]
+  },
+  "rebalancing_config": {
+    "rebalancing_method": [
+      "rebalance_optimal_alonso_mora"
+    ],
+    "allow_many_to_one": [
+      true
+    ],
+    "reinsert_targets": [
+      true
+    ],
+    "clear_target_list_every_round": [
+      true
+    ],
+    "allow_urgent_relocation": [
+      true
+    ]
+  },
+  "labels": {
+    "BA": "batch_duration",
+    "ST": "simulation_time",
+    "MR": "max_requests",
+    "IF": "initial_fleet",
+    "MC": "max_capacity",
+    "RE": "rebalance",
+    "CD": "contract_duration",
+    "SD": "allow_service_deterioration",
+    "VH": "allow_vehicle_hiring",
+    "SR": "service_rate",
+    "CS": "customer_segmentation",
+    "MO": "allow_many_to_one",
+    "RT": "reinsert_targets",
+    "CT": "clear_target_list_every_round",
+    "UR": "allow_urgent_relocation",
+    "IN": "instance_name",
+    "ID": "instance_description",
+    "HE": "rebalance_heuristic",
+    "OP": "rebalance_optimal_alonso_mora"
+  }
+}
