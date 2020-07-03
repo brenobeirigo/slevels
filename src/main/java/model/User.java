@@ -2,6 +2,7 @@ package model;
 
 
 import config.Config;
+import config.Qos;
 import dao.Dao;
 import model.node.Node;
 import model.node.NodeDP;
@@ -70,6 +71,8 @@ public class User implements Comparable<User> {
 
     private short waitingRounds;
 
+    public Qos qos;
+
     /**
      * Construct user by reading request record from record set.
      *
@@ -87,7 +90,7 @@ public class User implements Comparable<User> {
         this.servedBy = User.WAITING;
     }
 
-    public String getPickupDatetime(){
+    public String getPickupDatetime() {
         return this.record.get("pickup_datetime");
     }
 
@@ -168,6 +171,7 @@ public class User implements Comparable<User> {
         int dp_earliest = Method.getEarliestDp(this.reqTime, originId, destinationId, performanceClass);
         int dp_latest = Method.getLatestDp(this.reqTime, originId, destinationId, performanceClass);
         this.sharingAllowed = Config.getInstance().qosDic.get(this.performanceClass).allowedSharing;
+        this.qos = getInstance().qosDic.get(this.performanceClass);
 
         //System.out.println(this.reqTime + "-" + pk_latest + ": " +  dp_earliest + ": " + " = " + dp_latest);
 
@@ -377,8 +381,6 @@ public class User implements Comparable<User> {
             // apply mini/minj move
         } while (minchange < 0);
     }*/
-
-
     public boolean canBePickedUp(int currentTime) {
         return currentTime <= this.nodePk.getLatest();
     }
@@ -477,9 +479,6 @@ public class User implements Comparable<User> {
     /**
      * Try to insert the user in a list of vehicles, and return the best best insertion.
      *
-     * @param listVehicles
-     * @param currentTime
-     * @param stopAtFirstBest
      * @return Best visit, or null
      */
 //    public Visit getBestVisitByInsertion2(List<Vehicle> listVehicles, int currentTime, boolean stopAtFirstBest) {
@@ -526,7 +525,6 @@ public class User implements Comparable<User> {
 //        }
 //        return bestVisit;
 //    }
-
     public void printDetailed() {
         System.out.println(String.format("%s(%s) - %s[%d](%d << %d - %d << %d) -> %s[%d](%d << %d - %d << %d) - Distance(s): %d - Distance(km): %f -  #Passengers: %d",
                 this,
@@ -572,4 +570,28 @@ public class User implements Comparable<User> {
     public int getServedBy() {
         return this.servedBy;
     }
+
+    public int getServiceLevelTierBasedOn(double pickupDelay) {
+        if (pickupDelay <= this.qos.pkDelay) {
+            return Qos.SERVICE_LEVEL_1;
+        }
+        return Qos.SERVICE_LEVEL_2;
+    }
+
+    public boolean isDelayFirstTier(double pickupDelay) {
+        return pickupDelay <= this.qos.pkDelay;
+    }
+
+    public boolean isFirstTier() {
+        return this.nodePk.getDelaySoFar() <= this.qos.pkDelay;
+    }
+
+    public int getQoSCode() {
+        return this.qos.code;
+    }
+
+    public boolean isPreviouslyAssigned() {
+        return this.nodePk.getArrivalSoFar() < Integer.MAX_VALUE;
+    }
+
 }
