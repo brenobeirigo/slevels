@@ -1,17 +1,19 @@
 package simulation;
 
+import config.Qos;
 import model.User;
 import model.Vehicle;
 import model.Visit;
 
-import java.util.ArrayList;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
+import java.awt.datatransfer.SystemFlavorMap;
+import java.util.*;
 import java.util.stream.Collectors;
 
 public class ResultAssignment {
 
+    public Set<User> requestsServicedLevelAchieved;
+    public Map<Qos, Integer> unmetServiceLevelClass;
+    public Map<Qos, Integer> totalServiceLevelClass;
     // Set of requests scheduled to vehicles
     private Set<User> requestsOK;
 
@@ -42,6 +44,9 @@ public class ResultAssignment {
         requestsOK = new HashSet<>();
         requestsDisplaced = new HashSet<>();
         requestsUnassigned = new HashSet<>();
+        requestsServicedLevelAchieved = new HashSet<>();
+        unmetServiceLevelClass = new HashMap<>();
+        totalServiceLevelClass = new HashMap<>();
 
         // Set of vehicles assigned to visits
         vehiclesOK = new HashSet<>();
@@ -62,16 +67,21 @@ public class ResultAssignment {
 
     public void printRoundResult() {
 
-        System.out.println(String.format("\n\n# Assigned vehicles (%d): %s", vehiclesOK.size(), vehiclesOK));
-        System.out.println(String.format("# Unassigned users (%d): %s", requestsUnassigned.size(), requestsUnassigned));
-        System.out.println(String.format("# Displaced users (%d): %s", requestsDisplaced.size(), requestsDisplaced));
-        System.out.println(String.format("# Vehicles disrupted (%d) = %s", vehiclesDisrupted.size(), vehiclesDisrupted));
+        System.out.println(String.format("\n\n# Assigned vehicles  (%d)  = %s", vehiclesOK.size(), vehiclesOK));
+        System.out.println(String.format("# Unassigned users   (%d)  = %s", requestsUnassigned.size(), requestsUnassigned));
+        System.out.println(String.format("# Displaced users    (%d)  = %s", requestsDisplaced.size(), requestsDisplaced));
+        System.out.println(String.format("# Vehicles disrupted (%d)  = %s", vehiclesDisrupted.size(), vehiclesDisrupted));
+        System.out.println("# Class service quality    = " + totalServiceLevelClass.keySet().stream().map(qos -> String.format("%s = %d/%d (%.2f)", qos.id, unmetServiceLevelClass.get(qos), totalServiceLevelClass.get(qos), servicedFirstTier(qos))).collect(Collectors.joining(" - ")));
         for (Vehicle vehicle : vehiclesDisrupted) {
             System.out.println("#### Disrupted = " + vehicle.getVisit());
         }
     }
 
-    public void addHiredVehicle(Vehicle vehicle){
+    double servicedFirstTier(Qos qos) {
+        return (double)(totalServiceLevelClass.get(qos) - unmetServiceLevelClass.get(qos)) / totalServiceLevelClass.get(qos);
+    }
+
+    public void addHiredVehicle(Vehicle vehicle) {
         this.vehiclesHired.add(vehicle);
     }
 
@@ -103,9 +113,10 @@ public class ResultAssignment {
         System.out.println(String.format("# Vehicles (%d): %s", this.vehiclesOK.size(), this.vehiclesOK));
         System.out.println(String.format("# Disrupted (%d): %s", this.vehiclesDisrupted.size(), this.vehiclesDisrupted));
         System.out.println(String.format("# Visits: %d", this.visitsOK.size()));
+        System.out.println(String.format("# QoS unmet"));
     }
 
-    private void unassignedUsersCannotBeServiced(){
+    private void unassignedUsersCannotBeServiced() {
         // All vehicles that lost requests rebalance to closest node (middle or next target)
         for (Vehicle vehicleDisrupted : this.vehiclesDisrupted) {
 
