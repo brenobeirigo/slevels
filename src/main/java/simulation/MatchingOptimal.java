@@ -18,37 +18,29 @@ public class MatchingOptimal implements RideMatchingStrategy {
     final int REJECTION_PENALTY = 100;
     final int BAD_SERVICE_PENALTY = 10;
     final int VEHICLE_CAPACITY = 4;
+    final double MIP_TIME_LIMIT = 15;
+    final double MIP_GAP = 0.01;
     final int SQ_USER_REJECTED = 0;
-
-    // Model
-    private GRBEnv env;
+    GraphRTV graphRTV;
 
     // Turn off logging
     // env.set(GRB.IntParam.OutputFlag, 0);
-
+    ResultAssignment result;
+    // Model
+    private GRBEnv env;
     private GRBModel model;
-
-
     private List<Visit> visits;
     private List<User> requests;
-
     // Some vehicles cannot access
     private List<Vehicle> vehicles;
-
-
     private Map<Visit, Integer> visitIndex;
     private Map<User, Integer> requestIndex;
-
     // Assignment variables: x[r][v] == 1 if request r is assigned to trip v
     private GRBVar[] x;
     private GRBVar[] y;
     private GRBVar[] w;
     private GRBVar[] slack;
-
-    GraphRTV graphRTV;
     private int[] nOfRequestsPerClass;
-
-    ResultAssignment result;
     private int currentTime;
 
     /*public void assertInputState(){
@@ -74,7 +66,7 @@ public class MatchingOptimal implements RideMatchingStrategy {
 
         //this.runTimes.put(Solution.TIME_MATCHING, System.nanoTime());
 
-        result = new ResultAssignment();
+        result = new ResultAssignment(currentTime);
 
         try {
 
@@ -83,12 +75,16 @@ public class MatchingOptimal implements RideMatchingStrategy {
             setupRequestConservationConstraints();
             setupClassTargetServiceLevelConstraints();
             setupObjective();
-            // model.write(String.format("round_mip_model/assignment_5%d.lp", this.currentTime));
+            model.write(String.format("round_mip_model/assignment_5%d.lp", this.currentTime));
 
             model.optimize();
             int status = model.get(GRB.IntAttr.Status);
 
-            if (status == GRB.Status.OPTIMAL) {
+            if (status == GRB.Status.OPTIMAL || status == GRB.Status.TIME_LIMIT) {
+
+                if (status == GRB.Status.TIME_LIMIT) {
+                    System.out.println("TIME LIMIT11111!!!!!!!");
+                }
 
                 /*if (config.showInfo) {
                     System.out.println("The optimal objective is " + model.get(GRB.DoubleAttr.ObjVal));
@@ -96,14 +92,17 @@ public class MatchingOptimal implements RideMatchingStrategy {
                 }*/
 
                 extractResult();
-
-                // Dispose of model and environment
-                model.dispose();
-                env.dispose();
-
-            } else {
+//            } else if (status == GRB.Status.TIME_LIMIT) {
+//                System.out.println("TIME LIMIT!!!!!!!");
+//            }
+            }else {
                 computeIIS();
             }
+
+
+            // Dispose of model and environment
+            model.dispose();
+            env.dispose();
 
         } catch (GRBException e) {
             System.out.println("Error code: " + e.getErrorCode() + ". " + e.getMessage());
@@ -290,6 +289,8 @@ public class MatchingOptimal implements RideMatchingStrategy {
 
         model = new GRBModel(env);
         model.set(GRB.StringAttr.ModelName, "assignment_rtv");
+        model.set(GRB.DoubleParam.TimeLimit, MIP_TIME_LIMIT);
+        model.set(GRB.DoubleParam.MIPGap, MIP_GAP);
 
 
         visits = graphRTV.getAllVisits();
@@ -404,17 +405,17 @@ public class MatchingOptimal implements RideMatchingStrategy {
     }
 
     private GRBVar addIsRejectedVar(User request) throws GRBException {
-        y[requestIndex.get(request)] = model.addVar(0, 1, REJECTION_PENALTY, GRB.BINARY, "y_RE_" + request.toString().trim());
+        y[requestIndex.get(request)] = model.addVar(0, 1, REJECTION_PENALTY, GRB.BINARY, "y_REJECTED_" + request.toString().trim());
         return y[requestIndex.get(request)];
     }
 
     private GRBVar addIsTargetServiceLevelMetVar(User request) throws GRBException {
-        w[requestIndex.get(request)] = model.addVar(0, 1, 1, GRB.BINARY, "w_SL_" + request.toString().trim());
+        w[requestIndex.get(request)] = model.addVar(0, 1, 1, GRB.BINARY, "w_SL1_MET_" + request.toString().trim());
         return w[requestIndex.get(request)];
     }
 
     private GRBVar addClassServiceLevelSlack(Qos qos, int userCount) throws GRBException {
-        slack[qos.code] = model.addVar(0, userCount, 1, GRB.INTEGER, "slack_" + qos.id);
+        slack[qos.code] = model.addVar(0, userCount, 1, GRB.INTEGER, "slack_SL2" + qos.id);
         return slack[qos.code];
     }
 
