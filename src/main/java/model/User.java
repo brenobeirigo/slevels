@@ -65,11 +65,11 @@ public class User implements Comparable<User> {
      */
     public User(CSVRecord record) {
 
-        int originId = Integer.valueOf(record.get("pk_id"));
-        int destinationId = Integer.valueOf(record.get("dp_id"));
+        int originId = Integer.parseInt(record.get("pk_id"));
+        int destinationId = Integer.parseInt(record.get("dp_id"));
         this.distFromTo = Dao.getInstance().getDistSec(originId, destinationId);
         this.reqTime = Config.getInstance().date2Seconds(record.get("pickup_datetime"));
-        this.setNumPassengers(Integer.valueOf(record.get("passenger_count")));
+        this.setNumPassengers(Integer.parseInt(record.get("passenger_count")));
         this.id = ++nTrips;
         this.record = record;
         this.servedBy = User.WAITING;
@@ -556,18 +556,18 @@ public class User implements Comparable<User> {
     }
 
     public int getServiceLevelTierBasedOn(double pickupDelay) {
-        if (pickupDelay <= this.qos.pkDelay) {
+        if (pickupDelay <= this.qos.pkDelayTarget) {
             return Qos.SERVICE_LEVEL_1;
         }
         return Qos.SERVICE_LEVEL_2;
     }
 
     public boolean isDelayFirstTier(double pickupDelay) {
-        return pickupDelay <= this.qos.pkDelay;
+        return pickupDelay <= this.qos.pkDelayTarget;
     }
 
     public boolean isFirstTier() {
-        return this.nodePk.getDelaySoFar() <= this.qos.pkDelay;
+        return this.nodePk.getDelaySoFar() <= this.qos.pkDelayTarget;
     }
 
     public int getQoSCode() {

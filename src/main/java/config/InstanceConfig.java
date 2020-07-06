@@ -4,6 +4,7 @@ import com.google.gson.Gson;
 import com.google.gson.JsonObject;
 import com.google.gson.reflect.TypeToken;
 import dao.FileUtil;
+import simulation.Simulation;
 
 import java.io.IOException;
 import java.lang.reflect.Type;
@@ -19,7 +20,6 @@ public class InstanceConfig {
     public static final String REQUEST_TRACK_FOLDER = "request_track";
     //Files contain how each user end up being serviced
     public static final String GEOJSON_TRACK_FOLDER = "geojson_track";
-
     // Singleton
     private static InstanceConfig instance;
 
@@ -63,14 +63,6 @@ public class InstanceConfig {
     private String roundTrackFolder;
     private String requestTrackFolder;
     private String geojsonTrackFolder;
-
-    public boolean[] getSortWaitingUsersByClassArray() {
-        return sortWaitingUsersByClassArray;
-    }
-
-    public void setSortWaitingUsersByClassArray(boolean[] sortWaitingUsersByClassArray) {
-        this.sortWaitingUsersByClassArray = sortWaitingUsersByClassArray;
-    }
 
     private InstanceConfig(String jsonFilePath) {
 
@@ -124,7 +116,8 @@ public class InstanceConfig {
 
 
             // Customer base settings
-            Type segmentationScenarioType = new TypeToken<HashMap<String, HashMap<String, Double>>>() {}.getType();
+            Type segmentationScenarioType = new TypeToken<HashMap<String, HashMap<String, Double>>>() {
+            }.getType();
             this.segmentationScenarioMap = gson.fromJson(scenarioConfig.get("customer_segmentation"), segmentationScenarioType);
             Type serviceLevelMapType = new TypeToken<HashMap<String, HashMap<String, Integer>>>() {
             }.getType();
@@ -132,16 +125,14 @@ public class InstanceConfig {
             Type serviceRateMapType = new TypeToken<HashMap<String, HashMap<String, Double>>>() {
             }.getType();
             this.serviceRateScenarioMap = gson.fromJson(scenarioConfig.get("service_rate"), serviceRateMapType);
-            this.maxTimeHiringList = new HashMap();
-            for (Map.Entry<String, Map<String, Integer>> e :
-                    serviceLevelMap.entrySet()) {
-                for (int tw :
-                        this.timeWindowArray) {
+            this.maxTimeHiringList = new HashMap<>();
+            for (Map.Entry<String, Map<String, Integer>> e : serviceLevelMap.entrySet()) {
+                for (int tw : this.timeWindowArray) {
                     this.maxTimeHiringList.put(e.getKey(), (e.getValue().get("pk_delay") - tw));
                 }
             }
 
-            System.out.println(String.format("# Max. time to reach classes (sec): %s",this.maxTimeHiringList));
+            System.out.println(String.format("# Max. time to reach classes (sec): %s", this.maxTimeHiringList));
 
 
             // All service rate
@@ -173,6 +164,7 @@ public class InstanceConfig {
                                 serviceRateScenario.getKey(),
                                 segmentationScenarioLabel,
                                 serviceLevel.getValue().get("pk_delay"),
+                                serviceLevel.getValue().get("pk_delay_target"),
                                 serviceLevel.getValue().get("trip_delay"),
                                 serviceRateScenario.getValue().get(serviceLevel.getKey()),
                                 segmentationScenario.getValue().get(serviceLevel.getKey()),
@@ -202,20 +194,21 @@ public class InstanceConfig {
                 for (boolean reinsert : reinsertTargets) {
                     for (boolean clear : clearTargetListEveryRound) {
                         for (boolean useUrg : useUrgentKey) {
-                            for (String method: rebalancingMethods){
+                            for (String method : rebalancingMethods) {
 
-                            Rebalance rebalanceUtil = new Rebalance(
-                                    n1,
-                                    reinsert,
-                                    clear,
-                                    useUrg,
-                                    method,
-                                    false,
-                                    false
-                            );
+                                Rebalance rebalanceUtil = new Rebalance(
+                                        n1,
+                                        reinsert,
+                                        clear,
+                                        useUrg,
+                                        method,
+                                        false,
+                                        false
+                                );
 
-                            listRebalanceSettings.add(rebalanceUtil);
-                        }}
+                                listRebalanceSettings.add(rebalanceUtil);
+                            }
+                        }
                     }
                 }
             }
@@ -233,7 +226,6 @@ public class InstanceConfig {
             e.printStackTrace();
         }
 
-
         //Map jsonObject = (Map) gson.fromJson(data, Object.class);
     }
 
@@ -245,6 +237,25 @@ public class InstanceConfig {
         System.out.println(instanceConfig.listRebalanceSettings);
     }
 
+    public static InstanceConfig getInstance() {
+        return instance;
+    }
+
+    public static InstanceConfig getInstance(String source) {
+        if (instance == null) {
+            instance = new InstanceConfig(source);
+        }
+        return instance;
+    }
+
+    public boolean[] getSortWaitingUsersByClassArray() {
+        return sortWaitingUsersByClassArray;
+    }
+
+    public void setSortWaitingUsersByClassArray(boolean[] sortWaitingUsersByClassArray) {
+        this.sortWaitingUsersByClassArray = sortWaitingUsersByClassArray;
+    }
+
     public Path getDistancesPath() {
         return distancesPath;
     }
@@ -252,19 +263,9 @@ public class InstanceConfig {
     public Path getAdjacencyMatrixPath() {
         return adjacencyMatrixPath;
     }
+
     public Path getNetworkNodeInfoPath() {
         return networkNodeInfoPath;
-    }
-
-    public static InstanceConfig getInstance() {
-        return instance;
-    }
-
-    public static InstanceConfig getInstance(String source) {
-        if (instance == null){
-             instance = new InstanceConfig(source);
-        }
-        return instance;
     }
 
     public Path getRequestsPath() {

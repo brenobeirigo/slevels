@@ -1,6 +1,6 @@
 {
   "instance_description": "User can have their times worsened",
-  "instance_name": "ENFORCESL",
+  "instance_name": "STANDARD",
   "result_folder": "C:/Users/LocalAdmin/IdeaProjects/slevels/instance_output/enforcesl/",
   "instances_folder": "C:/Users/LocalAdmin/IdeaProjects/slevels/instance_output/enforcesl/",
   "distances_file": "C:/Users/LocalAdmin/OneDrive/leap_forward/street_network_server/tenv/data/out/manhattan/distance/dist_matrix_m.csv",
@@ -22,7 +22,7 @@
       1000
     ],
     "initial_fleet": [
-      500
+      700
     ],
     "max_capacity": [
       4
@@ -44,9 +44,9 @@
     ],
     "service_rate": {
       "S1": {
-        "A": 0.9,
-        "B": 0.8,
-        "C": 0.7
+        "A": 1,
+        "B": 1,
+        "C": 1
       }
     },
     "customer_segmentation": {
@@ -58,16 +58,19 @@
     },
     "service_level": {
       "A": {
+        "pk_delay_target": 180,
         "pk_delay": 180,
         "trip_delay": 420,
         "sharing_preference": 0
       },
       "B": {
+        "pk_delay_target":300,
         "pk_delay": 300,
         "trip_delay": 420,
         "sharing_preference": 1
       },
       "C": {
+        "pk_delay_target": 420,
         "pk_delay": 420,
         "trip_delay": 420,
         "sharing_preference": 1
