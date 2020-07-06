@@ -198,7 +198,7 @@ public class MatchingGreedy implements RideMatchingStrategy {
         GraphRTV graphRTV = new GraphRTV(requests, vehicles, 4);
 
 
-        ResultAssignment result = new ResultAssignment();
+        ResultAssignment result = new ResultAssignment(currentTime);
 
 
         System.out.println(graphRTV.getVisitCountSetVertex() + " = " + graphRTV.getFeasibleVisitCount());

@@ -133,7 +133,7 @@ public class SimulationRTV extends Simulation {
 
         // REQUEST - TRIP (RV)
         this.runTimes.put(Solution.TIME_CREATE_RV, System.nanoTime());
-        GraphRV graphRV = new GraphRV(requests, listVehicles, vehicleCapacity, maxVehReqEdges, maxReqReqEdges);
+        GraphRV graphRV = new GraphRV(requests, listVehicles, vehicleCapacity);
         this.runTimes.put(Solution.TIME_CREATE_RV, System.nanoTime() - this.runTimes.get(Solution.TIME_CREATE_RV));
         System.out.println(String.format("# RV created (%.2f sec)", (this.runTimes.get(Solution.TIME_CREATE_RV)) / 1000000000.0));
 
@@ -151,7 +151,7 @@ public class SimulationRTV extends Simulation {
 
     public ResultAssignment getAssignedUsersOptimal(GraphRTV graphRTV) {
 
-        ResultAssignment result = new ResultAssignment();
+        ResultAssignment result = new ResultAssignment(this.timeWindow);
 
         final int REJECTION_PENALTY = 100000;
 
@@ -483,7 +483,7 @@ public class SimulationRTV extends Simulation {
      */
     public ResultAssignment getAssignedUsersGreedy(GraphRTV graphRTV) {
 
-        ResultAssignment result = new ResultAssignment();
+        ResultAssignment result = new ResultAssignment(this.timeWindow);
 
 
         System.out.println(graphRTV.getVisitCountSetVertex() + " = " + graphRTV.getFeasibleVisitCount());

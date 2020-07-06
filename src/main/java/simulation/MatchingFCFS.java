@@ -3,7 +3,6 @@ package simulation;
 import config.Config;
 import config.Rebalance;
 import dao.Dao;
-import gurobi.*;
 import model.User;
 import model.Vehicle;
 import model.Visit;
@@ -150,7 +149,7 @@ public class MatchingFCFS implements RideMatchingStrategy {
             List<Vehicle> listVehicles,
             Matching configMatching) {
 
-        ResultAssignment result = new ResultAssignment();
+        ResultAssignment result = new ResultAssignment(currentTime);
 
         /* METHOD CONFIGURATION*/
         maxPermutationsFCFS = 100; //Restrict the number of permutations
