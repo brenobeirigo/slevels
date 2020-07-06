@@ -20,7 +20,7 @@ public class MethodHelper {
      * @return Vehicle at random position
      */
     public static Vehicle createVehicleAtRandomPosition(int capacity, int currentTime, int numberOfContractedRounds) {
-        short randomOrigin = (short) (Math.random() * Dao.getInstance().getDistMatrix().length);
+        short randomOrigin = (short) (Dao.getInstance().rand.nextDouble() * Dao.getInstance().getDistMatrix().length);
         return new Vehicle(capacity, randomOrigin, currentTime, true, numberOfContractedRounds);
     }
 
@@ -50,7 +50,7 @@ public class MethodHelper {
             }
 
             //
-            short randomOrigin = (short) (Math.random() * Dao.getInstance().getDistMatrix().length);
+            short randomOrigin = (short) (Dao.getInstance().rand.nextDouble() * Dao.getInstance().getDistMatrix().length);
 
             //System.out.println("Vehicles:" + randomOrigin + "-" + Dao.getInstance().getDistMatrix().length);
             //System.out.println(randomOrigin);
