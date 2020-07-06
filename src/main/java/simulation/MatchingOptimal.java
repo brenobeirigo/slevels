@@ -15,7 +15,8 @@ import java.util.stream.Collectors;
 public class MatchingOptimal implements RideMatchingStrategy {
 
     //TODO make arguments
-    final int REJECTION_PENALTY = 100;
+    final int SL_VIOLATION_PENALTY = 1000;
+    final int REJECTION_PENALTY = 10000;
     final int BAD_SERVICE_PENALTY = 10;
     final int VEHICLE_CAPACITY = 4;
     final double MIP_TIME_LIMIT = 15;
@@ -23,8 +24,6 @@ public class MatchingOptimal implements RideMatchingStrategy {
     final int SQ_USER_REJECTED = 0;
     GraphRTV graphRTV;
 
-    // Turn off logging
-    // env.set(GRB.IntParam.OutputFlag, 0);
     ResultAssignment result;
     // Model
     private GRBEnv env;
@@ -36,12 +35,12 @@ public class MatchingOptimal implements RideMatchingStrategy {
     private Map<Visit, Integer> visitIndex;
     private Map<User, Integer> requestIndex;
     // Assignment variables: x[r][v] == 1 if request r is assigned to trip v
-    private GRBVar[] x;
-    private GRBVar[] y;
-    private GRBVar[] w;
-    private GRBVar[] slack;
+    private GRBVar[] varVisitSelected;
+    private GRBVar[] varRequestRejected;
+    private GRBVar[] varFirstTierMet;
+    private GRBVar[] varSecondTierMet;
+    private GRBVar[] varClassServiceLevelViolation;
     private int[] nOfRequestsPerClass;
-    private int currentTime;
 
     /*public void assertInputState(){
         //assert thereAreNoRepeatedRequests(requests) : "There are repeated elements in request list!";
@@ -51,35 +50,32 @@ public class MatchingOptimal implements RideMatchingStrategy {
 
     @Override
     public ResultAssignment match(int currentTime, List<User> unassignedRequests, List<Vehicle> listVehicles, Matching configMatching) {
-        this.currentTime = currentTime;
-        // Consider all requests (assigned and unassigned)
-        List<User> requests = new ArrayList<>(unassignedRequests);
-        requests.addAll(Vehicle.getAssignedRequestsFrom(listVehicles));
 
-        // BUILDING GRAPH STRUCTURE ////////////////////////////////////////////////////////////////////////////////////
-        this.graphRTV = new GraphRTV(requests, listVehicles, VEHICLE_CAPACITY);
-
-        // To assure every vehicle is assigned to a visit, create dummy stop visit.
-        graphRTV.addStopVisits();
-
-        // ASSIGNMENT //////////////////////////////////////////////////////////////////////////////////////////////////
-
-        //this.runTimes.put(Solution.TIME_MATCHING, System.nanoTime());
+        buildGraphRTV(unassignedRequests, listVehicles);
 
         result = new ResultAssignment(currentTime);
 
+        if (this.requests.isEmpty())
+            return result;
+
         try {
 
-            initVars();
+            createModel();
+            initVarsStandard();
+            //initVarsSL();
+            //initVars();
             setupVehicleConservationConstraints();
             setupRequestConservationConstraints();
-            setupClassTargetServiceLevelConstraints();
-            setupObjective();
-            model.write(String.format("round_mip_model/assignment_5%d.lp", this.currentTime));
+            //setupRequestServiceLevelConstraints();
+            //setupClassTargetServiceLevelConstraints();
+            //setupRequestStatusConstraints();
+            //setupObjective();
+            setupDelayObjective();
 
+            // model.write(String.format("round_mip_model/assignment_%d.lp", currentTime));
             model.optimize();
-            int status = model.get(GRB.IntAttr.Status);
 
+            int status = model.get(GRB.IntAttr.Status);
             if (status == GRB.Status.OPTIMAL || status == GRB.Status.TIME_LIMIT) {
 
                 if (status == GRB.Status.TIME_LIMIT) {
@@ -92,10 +88,12 @@ public class MatchingOptimal implements RideMatchingStrategy {
                 }*/
 
                 extractResult();
+                //extractResultSL();
+                // env.set(GRB.IntParam.OutputFlag, 0);
 //            } else if (status == GRB.Status.TIME_LIMIT) {
 //                System.out.println("TIME LIMIT!!!!!!!");
 //            }
-            }else {
+            } else {
                 computeIIS();
             }
 
@@ -122,6 +120,21 @@ public class MatchingOptimal implements RideMatchingStrategy {
         return result;
     }
 
+    private void buildGraphRTV(List<User> unassignedRequests, List<Vehicle> listVehicles) {
+        // Consider all requests (assigned and unassigned)
+        List<User> requests = new ArrayList<>(unassignedRequests);
+        requests.addAll(Vehicle.getAssignedRequestsFrom(listVehicles));
+
+        // BUILDING GRAPH STRUCTURE ////////////////////////////////////////////////////////////////////////////////////
+        this.graphRTV = new GraphRTV(requests, listVehicles, VEHICLE_CAPACITY);
+        // To assure every vehicle is assigned to a visit, create dummy stop visits.
+        this.graphRTV.addStopVisits();
+
+
+        this.visits = graphRTV.getAllVisits();
+        this.requests = graphRTV.getAllRequests();
+        this.vehicles = graphRTV.getListVehiclesFromRTV();
+    }
 
     private void computeIIS() throws GRBException {
         // Compute IIS
@@ -140,79 +153,262 @@ public class MatchingOptimal implements RideMatchingStrategy {
         graphRTV.printDetailedVisitsLevel();
     }
 
+    ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    // OBJECTIVE ///////////////////////////////////////////////////////////////////////////////////////////////////////
+    ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
     private void setupObjective() throws GRBException {
 
-        // Set primary objective
-        //GRBLinExpr obj0 = new GRBLinExpr();
-        GRBLinExpr obj1 = new GRBLinExpr();
-        //GRBLinExpr obj2 = new GRBLinExpr();
         Map<Qos, GRBLinExpr> penObjectives = new HashMap<>();
-        //int objIndex = 0;
-        List<String> sortedQos = Config.getInstance().qosDic.values().stream().map(qos -> qos.id).sorted(Comparator.reverseOrder()).collect(Collectors.toList());
-        //objIndex = sortedQos.size() + 1;
-        //GRBLinExpr[] objs = new GRBLinExpr[objIndex];
 
+        // Sort QoS reverse order = C, B, A
+        List<String> sortedQos = Config.getInstance().qosDic.values().stream()
+                .map(qos -> qos.id)
+                .sorted(Comparator.reverseOrder())
+                .collect(Collectors.toList());
 
+        // Violation penalty
         for (Qos qos : Config.getInstance().qosDic.values()) {
             penObjectives.put(qos, new GRBLinExpr());
-            penObjectives.get(qos).addTerm(BAD_SERVICE_PENALTY, slack[qos.code]);
-            //obj0.addTerm(BAD_SERVICE_PENALTY, slack[qos.code]);
+            penObjectives.get(qos).addTerm(SL_VIOLATION_PENALTY, varClassServiceLevelViolation[qos.code]);
         }
 
-        for (Visit visit : visits) {
+        /*for (Visit visit : visits) {
             obj1.addTerm(visit.getDelay(), varVisitSelected(visit));
-            //objs[0] = new GRBLinExpr();
-            //objs[0].addTerm(visit.getDelay(), varVisitSelected(visit));
-        }
+        }*/
 
         for (User request : requests) {
             penObjectives.get(request.qos).addTerm(REJECTION_PENALTY, varRequestRejected(request));
-
-            //obj2.addTerm(REJECTION_PENALTY, varRequestRejected(request));
-            //objs[1] = new GRBLinExpr();
-            //objs[1].addTerm(REJECTION_PENALTY, varRequestRejected(request));
+            penObjectives.get(request.qos).addTerm(BAD_SERVICE_PENALTY, varRequestServiceLevelNotAchieved(request));
         }
-
-//        for (User request : requests) {
-//            obj2.addTerm(REJECTION_PENALTY, varRequestRejected(request));
-//            objs[1] = new GRBLinExpr();
-//            objs[1].addTerm(REJECTION_PENALTY, varRequestRejected(request));
-//        }
 
         for (int i = 0; i < sortedQos.size(); i++) {
             String classLabel = sortedQos.get(i);
             model.setObjectiveN(penObjectives.get(Config.getInstance().qosDic.get(classLabel)), i, i, 1.0, 0.0, 0.0, "OBJ_" + classLabel);
         }
-//        sortedQos.add(0, "OBJ_REJECTION");
-//        String[] labels = new String[]{"OBJ_DELAY", "OBJ"};
-//        for (int i = 4; i >=0; i--) {
-//            model.setObjectiveN(objs[4-i], 4-i, i, 1.0, 0.0, 0.0, "OBJ_SERVICE_LEVEL");
-//        }
-
-        //GRBLinExpr obj1 = new GRBLinExpr();
-        //model.setObjectiveN(obj0, 0, 2, 1.0, 0.0, 0.0, "OBJ_SERVICE_LEVEL");
-        //model.setObjectiveN(obj1, 0, 0, 1.0, 0.0, 0.0, "OBJ_TOTAL_DELAY");
-        //model.setObjectiveN(obj2, 2, 3, 1.0, 0.0, 0.0, "OBJ_REJECTION");
 
         // The objective is to minimize the total pay costs
         model.set(GRB.IntAttr.ModelSense, GRB.MINIMIZE);
     }
 
-    private void extractResult() throws GRBException {
+    private void setupDelayObjective() throws GRBException {
+
+        // Set primary objective
+        //GRBLinExpr obj = new GRBLinExpr();
+
+        /*for (Visit visit : visits) {
+            obj.addTerm(visit.getDelay(), varVisitSelected(visit));
+        }*/
+
+        /*for (User request : requests)
+            obj.addTerm(REJECTION_PENALTY, varRequestRejected(request));
+
+        model.setObjectiveN(obj, 0, 0, 1.0, 0.0, 0.0, "OBJ_DELAY");
+
+        model.set(GRB.IntAttr.ModelSense, GRB.MINIMIZE);
+
+        model.setObjective(obj, GRB.MINIMIZE);*/
+
+        model.set(GRB.IntAttr.ModelSense, GRB.MINIMIZE);
+    }
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    // VAR ACCESS BY ID ////////////////////////////////////////////////////////////////////////////////////////////////
+    ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+    private GRBVar varRequestRejected(User request) {
+        return varRequestRejected[requestIndex.get(request)];
+    }
+
+    private GRBVar varRequestServiceLevelAchieved(User request) {
+        return varFirstTierMet[requestIndex.get(request)];
+    }
+
+    private GRBVar varRequestServiceLevelNotAchieved(User request) {
+        return varSecondTierMet[requestIndex.get(request)];
+    }
+
+    private GRBVar varVisitSelected(Visit visit) {
+        return varVisitSelected[visitIndex.get(visit)];
+    }
+
+    private void addIsRejectedVar(User request) throws GRBException {
+        varRequestRejected[requestIndex.get(request)] = model.addVar(0, 1, REJECTION_PENALTY, GRB.BINARY, "y_REJECTED_" + request.toString().trim());
+    }
+
+    private void addIsTargetServiceLevelMetVar(User request) throws GRBException {
+        varFirstTierMet[requestIndex.get(request)] = model.addVar(0, 1, 1, GRB.BINARY, "w_SL1_MET_" + request.toString().trim());
+    }
+
+    private void addIsTargetServiceLevelNotMetVar(User request) throws GRBException {
+        varSecondTierMet[requestIndex.get(request)] = model.addVar(0, 1, 1, GRB.BINARY, "z_SL2_MET_" + request.toString().trim());
+    }
+
+    private void addClassServiceLevelSlack(Qos qos, int userCount) throws GRBException {
+        varClassServiceLevelViolation[qos.code] = model.addVar(0, userCount, 1, GRB.INTEGER, "slack_SL2" + qos.id);
+    }
+
+    private void addIsVisitChosenVar(Visit visit) throws GRBException {
+        String label = String.format("x_%s", visit.getVarId());
+        varVisitSelected[visitIndex.get(visit)] = model.addVar(0, 1, visit.getDelay(), GRB.BINARY, label);
+    }
+
+    private void initVars() throws GRBException {
+        // Model
+        env = new GRBEnv();
+
+        // Turn off logging
+        // env.set(GRB.IntParam.OutputFlag, 0);
+
+        model = new GRBModel(env);
+        model.set(GRB.StringAttr.ModelName, "assignment_rtv");
+        model.set(GRB.DoubleParam.TimeLimit, MIP_TIME_LIMIT);
+        model.set(GRB.DoubleParam.MIPGap, MIP_GAP);
+
+        visits = graphRTV.getAllVisits();
+        requests = graphRTV.getAllRequests();
+
+        // Some vehicles cannot access
+        vehicles = graphRTV.getListVehiclesFromRTV();
+
+        for (Vehicle vehicle : vehicles) {
+            assert !graphRTV.getListOfVisitsFromVehicle(vehicle).isEmpty() : "Vehicle is disconnected!" + vehicle;
+        }
+
+        System.out.println(requests);
+
+        visitIndex = new HashMap<>();
+        for (int i = 0; i < visits.size(); i++) {
+            visitIndex.put(visits.get(i), i);
+        }
+
+        requestIndex = new HashMap<>();
+        for (int i = 0; i < requests.size(); i++) {
+            requestIndex.put(requests.get(i), i);
+        }
+
+        // Assignment variables: x[r][v] == 1 if request r is assigned to trip v
+        varVisitSelected = new GRBVar[visits.size()];
+        varRequestRejected = new GRBVar[requests.size()];
+
+        varFirstTierMet = new GRBVar[requests.size()];
+        varSecondTierMet = new GRBVar[requests.size()];
+        varClassServiceLevelViolation = new GRBVar[requests.size()];
+
+        nOfRequestsPerClass = new int[Config.getInstance().getQosCount()];
+
+        for (User request : requests) {
+            addIsRejectedVar(request);
+            addIsTargetServiceLevelMetVar(request);
+            addIsTargetServiceLevelNotMetVar(request);
+            nOfRequestsPerClass[request.getQoSCode()]++;
+        }
 
         for (Qos qos : Config.getInstance().qosDic.values()) {
-            double unmetService = slack[qos.code].get(GRB.DoubleAttr.X);
+            addClassServiceLevelSlack(qos, nOfRequestsPerClass[qos.code]);
+        }
+
+        for (Visit visit : visits) {
+            addIsVisitChosenVar(visit);
+        }
+    }
+
+    private void createModel() throws GRBException {
+
+        // Model
+        env = new GRBEnv();
+
+        // Turn off logging
+        // env.set(GRB.IntParam.OutputFlag, 0);
+
+        model = new GRBModel(env);
+        model.set(GRB.StringAttr.ModelName, "assignment_rtv");
+        model.set(GRB.DoubleParam.TimeLimit, MIP_TIME_LIMIT);
+        model.set(GRB.DoubleParam.MIPGap, MIP_GAP);
+
+        for (Vehicle vehicle : vehicles) {
+            assert !graphRTV.getListOfVisitsFromVehicle(vehicle).isEmpty() : "Vehicle is disconnected!" + vehicle;
+        }
+    }
+
+    private void initVarsStandard() throws GRBException {
+
+        visitIndex = new HashMap<>();
+        for (int i = 0; i < visits.size(); i++) {
+            visitIndex.put(visits.get(i), i);
+        }
+
+        requestIndex = new HashMap<>();
+        for (int i = 0; i < requests.size(); i++) {
+            requestIndex.put(requests.get(i), i);
+        }
+
+        // Assignment variables: x[r][v] == 1 if request r is assigned to trip v
+        varVisitSelected = new GRBVar[visits.size()];
+        varRequestRejected = new GRBVar[requests.size()];
+        nOfRequestsPerClass = new int[Config.getInstance().getQosCount()];
+
+        for (User request : requests) {
+            addIsRejectedVar(request);
+            nOfRequestsPerClass[request.getQoSCode()]++;
+        }
+
+        for (Visit visit : visits) {
+            addIsVisitChosenVar(visit);
+        }
+    }
+
+    private void initVarsSL() throws GRBException {
+
+        varFirstTierMet = new GRBVar[requests.size()];
+        varSecondTierMet = new GRBVar[requests.size()];
+        varClassServiceLevelViolation = new GRBVar[requests.size()];
+
+        for (User request : requests) {
+            addIsTargetServiceLevelMetVar(request);
+            addIsTargetServiceLevelNotMetVar(request);
+        }
+
+        for (Qos qos : Config.getInstance().qosDic.values()) {
+            addClassServiceLevelSlack(qos, nOfRequestsPerClass[qos.code]);
+        }
+
+    }
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    // CONSTRAINTS /////////////////////////////////////////////////////////////////////////////////////////////////////
+    ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+    private void extractResultSL() throws GRBException {
+
+        for (Qos qos : Config.getInstance().qosDic.values()) {
+            double unmetService = varClassServiceLevelViolation[qos.code].get(GRB.DoubleAttr.X);
             result.unmetServiceLevelClass.put(qos, (int) unmetService);
             result.totalServiceLevelClass.put(qos, nOfRequestsPerClass[qos.code]);
         }
+
         for (User request : requests) {
 
             if (varRequestServiceLevelAchieved(request).get(GRB.DoubleAttr.X) > 0.99) {
                 result.requestsServicedLevelAchieved.add(request);
+                // System.out.println(request + " - ACHIEVED");
             }
+
+            if (varRequestServiceLevelNotAchieved(request).get(GRB.DoubleAttr.X) > 0.99) {
+                result.requestsServicedLevelNotAchieved.add(request);
+                // System.out.println(request + " - NOT ACHIEVED");
+            }
+        }
+    }
+
+    private void extractResult() throws GRBException {
+
+
+        for (User request : requests) {
 
             if (varRequestRejected(request).get(GRB.DoubleAttr.X) > 0.99) {
                 result.requestsUnassigned.add(request);
+                // System.out.println(request + " - REJECTED");
 
                 // Rejected user was displaced from a routing plan
                 if (request.getCurrentVisit() != null) {
@@ -238,115 +434,70 @@ public class MatchingOptimal implements RideMatchingStrategy {
         for (User request : requests) {
 
             GRBLinExpr constrRequestConservation = new GRBLinExpr();
-            GRBLinExpr constrRequestServiceLevel = new GRBLinExpr();
             GRBLinExpr constrRequestPreviouslyAssignedHaveToBeServiced = new GRBLinExpr();
 
             List<Visit> requestVisits = graphRTV.getListOfVisitsFromUser(request);
+
             for (Visit visit : requestVisits) {
 
                 constrRequestConservation.addTerm(1, varVisitSelected(visit));
 
-                if (isFirstTier(request, visit, graphRTV)) {
-                    constrRequestServiceLevel.addTerm(1, varVisitSelected(visit));
-                }
-
                 if (request.isPreviouslyAssigned()) {
                     constrRequestPreviouslyAssignedHaveToBeServiced.addTerm(1, varVisitSelected(visit));
                 }
-
             }
+
             constrRequestConservation.addTerm(1, varRequestRejected(request));
-            constrRequestServiceLevel.addTerm(-1, varRequestServiceLevelAchieved(request));
 
             // Requests are associated with only one visit
             //model.addConstr(constrRequestServiceLevelConservation, GRB.EQUAL, 1, request.toString().trim());
             model.addConstr(constrRequestConservation, GRB.EQUAL, 1, "conservation_" + request.toString().trim());
-            model.addConstr(constrRequestServiceLevel, GRB.EQUAL, 0, "first_tier_" + request.toString().trim());
-            if (request.isPreviouslyAssigned())
-                model.addConstr(constrRequestPreviouslyAssignedHaveToBeServiced, GRB.EQUAL, 1, "request_previously_assigned_have_to_serviced" + request.toString().trim());
+
+            if (request.isPreviouslyAssigned()) {
+                String label = String.format("request_previously_assigned_is_serviced_%s", request.toString().trim());
+                model.addConstr(constrRequestPreviouslyAssignedHaveToBeServiced, GRB.EQUAL, 1, label);
+            }
         }
     }
 
-    private GRBVar varRequestRejected(User request) {
-        return y[requestIndex.get(request)];
+    private boolean isFirstTier(User request, Visit visit) {
+
+        double pickupDelay = graphRTV.getWeightFromRequestVisitEdge(request, visit);
+        return request.isDelayFirstTier(pickupDelay);
     }
 
-    private GRBVar varRequestServiceLevelAchieved(User request) {
-        return w[requestIndex.get(request)];
-    }
+    private void setupRequestServiceLevelConstraints() throws GRBException {
 
-    private GRBVar varVisitSelected(Visit visit) {
-        return x[visitIndex.get(visit)];
-    }
-
-
-    private void initVars() throws GRBException {
-        // Model
-        env = new GRBEnv();
-
-        // Turn off logging
-        // env.set(GRB.IntParam.OutputFlag, 0);
-
-        model = new GRBModel(env);
-        model.set(GRB.StringAttr.ModelName, "assignment_rtv");
-        model.set(GRB.DoubleParam.TimeLimit, MIP_TIME_LIMIT);
-        model.set(GRB.DoubleParam.MIPGap, MIP_GAP);
-
-
-        visits = graphRTV.getAllVisits();
-        requests = graphRTV.getAllRequests();
-
-        // Some vehicles cannot access
-        vehicles = graphRTV.getListVehiclesFromRTV();
-
-        for (Vehicle vehicle : vehicles) {
-            assert !graphRTV.getListOfVisitsFromVehicle(vehicle).isEmpty() : "Vehicle is disconnected!" + vehicle;
-        }
-        System.out.println(requests);
-
-        visitIndex = new HashMap<>();
-        for (int i = 0; i < visits.size(); i++) {
-            visitIndex.put(visits.get(i), i);
-        }
-
-        requestIndex = new HashMap<>();
-        for (int i = 0; i < requests.size(); i++) {
-            requestIndex.put(requests.get(i), i);
-        }
-
-        // Assignment variables: x[r][v] == 1 if request r is assigned to trip v
-        x = new GRBVar[visits.size()];
-        y = new GRBVar[requests.size()];
-        w = new GRBVar[requests.size()];
-        slack = new GRBVar[requests.size()];
-
-        nOfRequestsPerClass = new int[Config.getInstance().getQosCount()];
 
         for (User request : requests) {
-            addIsRejectedVar(request);
-            addIsTargetServiceLevelMetVar(request);
-            nOfRequestsPerClass[request.getQoSCode()]++;
-        }
 
-        for (Qos qos : Config.getInstance().qosDic.values()) {
-            addClassServiceLevelSlack(qos, nOfRequestsPerClass[qos.code]);
-        }
+            GRBLinExpr constrRequestServiceLevel = new GRBLinExpr();
 
-        for (Visit visit : visits) {
-            addIsVisitChosenVar(visit);
-        }
+            List<Visit> requestVisits = graphRTV.getListOfVisitsFromUser(request);
 
-        // w[r][v][0] = 1, if request r is assigned to trip v with first-tier service levels
-        // w[r][v][1] = 1, if request r is assigned to trip v with second-tier service levels
-        // w[r][v][2] = 1, if request r is rejected
-        //sl = new GRBVar[Config.getInstance().qosDic.size()][requests.size()][visits.size()][2];
+            for (Visit visit : requestVisits) {
+                if (isFirstTier(request, visit)) {
+                    constrRequestServiceLevel.addTerm(1, varVisitSelected(visit));
+                }
+            }
+
+            constrRequestServiceLevel.addTerm(-1, varRequestServiceLevelAchieved(request));
+            String label = String.format("first_tier_visits_request_%s", request.toString().trim());
+            model.addConstr(constrRequestServiceLevel, GRB.EQUAL, 0, label);
+
+        }
     }
 
-    private void addIsVisitChosenVar(Visit visit) throws GRBException {
-        String label = String.format("x_%s", visit.getVarId());
+    private void setupRequestStatusConstraints() throws GRBException {
+        for (User request : requests) {
 
-        x[visitIndex.get(visit)] = model.addVar(0, 1, visit.getDelay(), GRB.BINARY, label);
-        // obj0.addTerm(1, x[visitIndex.get(visit)]);
+            GRBLinExpr constrRequestServiceLevelNotAchieved = new GRBLinExpr();
+            constrRequestServiceLevelNotAchieved.addTerm(1, varRequestServiceLevelNotAchieved(request));
+            constrRequestServiceLevelNotAchieved.addTerm(1, varRequestServiceLevelAchieved(request));
+            constrRequestServiceLevelNotAchieved.addTerm(1, varRequestRejected(request));
+
+            model.addConstr(constrRequestServiceLevelNotAchieved, GRB.EQUAL, 1, "second_tier_" + request.toString().trim());
+        }
     }
 
     private void setupVehicleConservationConstraints() throws GRBException {
@@ -384,7 +535,7 @@ public class MatchingOptimal implements RideMatchingStrategy {
         Config.getInstance().qosDic.forEach((s, qos) -> {
 
             // Add slack to each service level class (i.e., number of user who received second tier or were rejected)
-            constrFirstClass[qos.code].addTerm(1, slack[qos.code]);
+            constrFirstClass[qos.code].addTerm(1, varClassServiceLevelViolation[qos.code]);
 
             // Number of picked up users has to be higher than service rate promised
             try {
@@ -399,33 +550,9 @@ public class MatchingOptimal implements RideMatchingStrategy {
         });
     }
 
-    private boolean isFirstTier(User request, Visit visit, GraphRTV graphRTV) {
-        double pickupDelay = graphRTV.getWeightFromRequestVisitEdge(request, visit);
-        return request.isDelayFirstTier(pickupDelay);
-    }
-
-    private GRBVar addIsRejectedVar(User request) throws GRBException {
-        y[requestIndex.get(request)] = model.addVar(0, 1, REJECTION_PENALTY, GRB.BINARY, "y_REJECTED_" + request.toString().trim());
-        return y[requestIndex.get(request)];
-    }
-
-    private GRBVar addIsTargetServiceLevelMetVar(User request) throws GRBException {
-        w[requestIndex.get(request)] = model.addVar(0, 1, 1, GRB.BINARY, "w_SL1_MET_" + request.toString().trim());
-        return w[requestIndex.get(request)];
-    }
-
-    private GRBVar addClassServiceLevelSlack(Qos qos, int userCount) throws GRBException {
-        slack[qos.code] = model.addVar(0, userCount, 1, GRB.INTEGER, "slack_SL2" + qos.id);
-        return slack[qos.code];
-    }
-
-    /*private GRBVar addServiceLevelVar(User request, Visit visit, GraphRTV graphRTV) throws GRBException {
-        double pickupDelay = graphRTV.getWeightFromRequestVisitEdge(request, visit);
-        int tier = request.getServiceLevelTierBasedOn(pickupDelay);
-        String label = String.format("sl_%s_%s_%s", request.getPerformanceClass(), request.toString().trim(), visitIndex.get(visit), tier);
-        //sl[request.getQoSCode()][requestIndex.get(request)][visitIndex.get(visit)][tier] = model.addVar(0, 1, pickupDelay, GRB.BINARY, label);
-        //return sl[request.getQoSCode()][requestIndex.get(request)][visitIndex.get(visit)][tier];
-    }*/
+    ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    // ASSERTIONS //////////////////////////////////////////////////////////////////////////////////////////////////////
+    ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
     private boolean userCannotBePickedUpByIdleVehicles(GraphRTV graphRTV, Set<Vehicle> unassignedVehicles, User u) {
 
@@ -458,6 +585,5 @@ public class MatchingOptimal implements RideMatchingStrategy {
         }
         return true;
     }
-
 
 }
