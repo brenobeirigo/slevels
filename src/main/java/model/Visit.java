@@ -9,6 +9,8 @@ import java.util.stream.Collectors;
 import static config.Config.*;
 
 public class Visit implements Comparable<Visit> {
+    // TODO use visit count to index visits
+    private static int visitCount;
     protected LinkedList<Node> sequenceVisits; // Sequence of pickup and delivery nodes
     protected Vehicle vehicle;
     protected double avgOccupationLeg;
@@ -85,6 +87,10 @@ public class Visit implements Comparable<Visit> {
         this.avgOccupationLeg = Double.MIN_VALUE;
         this.passengers = new HashSet<>();
         this.requests = new HashSet<>();
+    }
+
+    public static void reset(){
+        Visit.visitCount = 0;
     }
 
     /**
