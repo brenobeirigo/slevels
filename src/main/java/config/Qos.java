@@ -12,7 +12,7 @@ public class Qos {
     public String id;
     public int code;
     public double serviceRate;
-    public int pkDelay, dpDelay;
+    public int pkDelay, pkDelayTarget, dpDelay;
     public double share;
     public boolean allowedSharing;
     public String serviceRateLabel;
@@ -38,11 +38,12 @@ public class Qos {
         this.allowedSharing = allowedSharing;
     }
 
-    public Qos(String id, String serviceRateLabel, String segmentationScenarioLabel, int pkDelay, int dpDelay, double serviceRate, double share, boolean allowedSharing) {
+    public Qos(String id, String serviceRateLabel, String segmentationScenarioLabel, int pkDelay, int pkDelayTarget, int dpDelay, double serviceRate, double share, boolean allowedSharing) {
         this.code = countQos++;
         this.id = id;
         this.serviceRate = serviceRate;
         this.pkDelay = pkDelay;
+        this.pkDelayTarget = pkDelayTarget;
         this.dpDelay = dpDelay;
         this.share = share;
         this.allowedSharing = allowedSharing;
