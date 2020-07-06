@@ -32,6 +32,6 @@ public class VisitRelocation extends Visit {
     }
 
     public String getVarId(){
-        return this.getTargetNode().toString();
+        return "rebalance_" + this.getTargetNode().toString().replace(" ", "");
     }
 }
