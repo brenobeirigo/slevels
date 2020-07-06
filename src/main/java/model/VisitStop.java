@@ -18,6 +18,6 @@ public class VisitStop extends Visit {
     }
 
     public String getVarId(){
-        return this.getVehicle().getLastVisitedNode().toString();
+        return "stay_" + this.getVehicle().getLastVisitedNode().toString().replace(" ", "");
     }
 }
