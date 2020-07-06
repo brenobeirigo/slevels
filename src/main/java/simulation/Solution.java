@@ -132,7 +132,7 @@ public class Solution {
                 nOfVehicles,
                 vehicleCapacity,
                 customerSegmentation);
-        testCaseName += (allowVehicleHiring ? "_CD-" + (contractDuration == Simulation.DURATION_SINGLE_RIDE ? 0 : contractDuration) : "");
+        testCaseName += (allowVehicleHiring ? "_CD-" + (contractDuration == Config.DURATION_SINGLE_RIDE ? 0 : contractDuration) : "");
         testCaseName += (allowServiceDeterioration ? "_SR-" + serviceRate : "");
         testCaseName += (allowVehicleHiring ? "_VH" : "");
         testCaseName += (allowServiceDeterioration ? "_SD" : "");

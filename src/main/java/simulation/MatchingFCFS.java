@@ -42,7 +42,7 @@ public class MatchingFCFS implements RideMatchingStrategy {
         //System.out.println("   Distance pickup delivery: " + distPkDp);
 
         // Deadline is the delivery time of user who caused hiring
-        if (contractDuration == Simulation.DURATION_SINGLE_RIDE) {
+        if (contractDuration == Config.DURATION_SINGLE_RIDE) {
             contractDeadline += distOriginPkUser + distPkDp;
             //System.out.println("  (single) Contract deadline: " + contractDeadline);
 
