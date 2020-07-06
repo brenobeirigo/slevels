@@ -241,9 +241,8 @@ public class GraphRV {
         for (User request : requests) {
 
             List<Vehicle> vehiclesCanPickup = graphRV.edgesOf(request).stream()
-                    .map(defaultEdge -> graphRV.getEdgeSource(defaultEdge))
-                    .filter(o -> o instanceof Vehicle)
-                    .map(o -> (Vehicle) o)
+                    .filter(edge -> graphRV.getEdgeSource(edge) instanceof Vehicle)
+                    .map(edgeVR -> (Vehicle) graphRV.getEdgeSource(edgeVR))
                     .collect(Collectors.toList());
 
             requestRequestsMap.put(request, vehiclesCanPickup);
