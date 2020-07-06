@@ -13,6 +13,7 @@ import org.apache.commons.csv.CSVRecord;
 import org.jgrapht.alg.shortestpath.DijkstraShortestPath;
 import org.jgrapht.graph.DefaultWeightedEdge;
 import org.jgrapht.graph.SimpleDirectedWeightedGraph;
+
 import java.awt.geom.Point2D;
 import java.io.FileNotFoundException;
 import java.io.FileReader;
@@ -32,26 +33,21 @@ public class Dao {
     public static int numberOfNodes;
     private static Dao ourInstance = new Dao();
     public Random rand;
-
+    protected DijkstraShortestPath<Integer, Integer> dijkstraShortestPath;
+    protected ArrayList<ArrayList<List<Integer>>> shortestPathsNodeIds;
+    protected ArrayList<ArrayList<List<Integer>>> shortestPathDistances;
     private String pathDistanceMatrix;
     private String pathDurationsMatrix;
     private String pathRequestList;
     private String pathadjacencyMatrix;
     private String pathNetworkNodeInfo;
-
     // Geographical data
     private Map<Integer, NodeNetwork> nodeNetworkInfo; // Map of node ids and respective coordinates
-
     private short[][] distMatrix;
     private short[][] distMatrixDerivedFromSP;
     private double[][] distMatrixMeters;
     private int[][] adjacencyMatrix;
-    protected DijkstraShortestPath<Integer, Integer> dijkstraShortestPath;
     private SimpleDirectedWeightedGraph<Integer, DefaultWeightedEdge> networkGraph;
-
-    protected ArrayList<ArrayList<List<Integer>>> shortestPathsNodeIds;
-    protected ArrayList<ArrayList<List<Integer>>> shortestPathDistances;
-
     private Map<Integer, Map<String, List<Integer>>> canReachClass;
     private int iUserNextRound;
     private List<User> userBuff;
@@ -156,6 +152,31 @@ public class Dao {
     }
 
     /**
+     * Get the array of trip durations between every pair of nodes in the shortest path between "from" and "to"
+     *
+     * @param from
+     * @param to
+     * @return
+     */
+    public static List<Integer> getArrayTravelDurationsBetweenInSeconds(Node from, Node to) {
+
+        List<Integer> listNodes = ServerUtil.getShortestPathBetween(from.getNetworkId(), to.getNetworkId());
+
+        List<Integer> durations = new ArrayList<>();
+
+        for (int i = 0; i < listNodes.size() - 1; i++) {
+            int o = listNodes.get(i);
+            int d = listNodes.get(i + 1);
+            durations.add(Dao.getInstance().getDistSec(o, d));
+        }
+        return durations;
+    }
+
+    public static Dao getInstance() {
+        return ourInstance;
+    }
+
+    /**
      * Weighted directed graph is used in conjunction with shortest path method to determine where each vehicle is
      * at each time.
      *
@@ -223,27 +244,6 @@ public class Dao {
         ).collect(Collectors.toList());
     }
 
-    /**
-     * Get the array of trip durations between every pair of nodes in the shortest path between "from" and "to"
-     *
-     * @param from
-     * @param to
-     * @return
-     */
-    public static List<Integer> getArrayTravelDurationsBetweenInSeconds(Node from, Node to) {
-
-        List<Integer> listNodes = ServerUtil.getShortestPathBetween(from.getNetworkId(), to.getNetworkId());
-
-        List<Integer> durations = new ArrayList<>();
-
-        for (int i = 0; i < listNodes.size() - 1; i++) {
-            int o = listNodes.get(i);
-            int d = listNodes.get(i + 1);
-            durations.add(Dao.getInstance().getDistSec(o, d));
-        }
-        return durations;
-    }
-
     private Map<Integer, Map<String, List<Integer>>> getReachabilityMap(Set<Integer> nodeIds) {
 
         Map<Integer, Map<String, List<Integer>>> canReachClass = new HashMap<>();
@@ -262,10 +262,6 @@ public class Dao {
         }
 
         return canReachClass;
-    }
-
-    public static Dao getInstance() {
-        return ourInstance;
     }
 
     /**
@@ -473,7 +469,7 @@ public class Dao {
                         short sec = (short) (3.6 * meters / SPEED + 0.5);
                         dist_matrix[row][col] = sec;
                         distMatrixMeters[row][col] = meters;
-                    }else{
+                    } else {
                         dist_matrix[row][col] = Short.valueOf(r);
                     }
 
@@ -536,7 +532,7 @@ public class Dao {
         for (CSVRecord record : records) {
 
             // Skip passenger record with high passenger count
-            if (Integer.valueOf(record.get("passenger_count")) > maxPassengerCount) {
+            if (Integer.parseInt(record.get("passenger_count")) > maxPassengerCount) {
                 continue;
             }
 
@@ -565,10 +561,9 @@ public class Dao {
 
         int fromUser = 0;
         int toUser = 0;
-        List<String> keys = new ArrayList<>(Config.getInstance().qosDic.keySet());
+        List<String> qosClasses = new ArrayList<>(Config.getInstance().qosDic.keySet());
 
-        for (int i = 0; i < keys.size(); i++) {
-            String qosClass = keys.get(i);
+        for (String qosClass : qosClasses) {
             int nUsersInClass = (int) (Config.getInstance().qosDic.get(qosClass).share * listUser.size());
             toUser = fromUser + nUsersInClass;
             for (int j = fromUser; j < toUser; j++) {
@@ -582,11 +577,10 @@ public class Dao {
         // Assign remaining users not covered by percentages
         finishAssignment:
         while (true) {
-            for (int i = 0; i < keys.size(); i++) {
+            for (String qosClass : qosClasses) {
                 if (toUser >= listUser.size()) {
                     break finishAssignment;
                 }
-                String qosClass = keys.get(i);
                 classed.get(toUser).updatePerformanceClass(qosClass);
                 toUser++;
             }
