@@ -16,8 +16,7 @@ import java.util.stream.Collectors;
 
 public class GraphRTV {
 
-    private final int maxVehReqEdges = 100000;
-    private final int maxReqReqEdges = 100000;
+    private final int maxVehReqEdges = 30;
 
     public List<List<Visit>> getFeasibleTrips() {
         return feasibleTrips;
@@ -55,10 +54,16 @@ public class GraphRTV {
 
         // REQUEST - VEHICLE (RV)
         this.runTimes.put(Solution.TIME_CREATE_RV, System.nanoTime());
-        this.graphRV = new GraphRV(allRequests, listVehicles, vehicleCapacity, maxVehReqEdges, maxReqReqEdges);
+        this.graphRV = new GraphRV(allRequests, listVehicles, vehicleCapacity);
         this.runTimes.put(Solution.TIME_CREATE_RV, System.nanoTime() - this.runTimes.get(Solution.TIME_CREATE_RV));
         //System.out.println(String.format("# RV created (%.2f sec) - %s", (this.runTimes.get(Solution.TIME_CREATE_RV)) / 1000000000.0, this.graphRV.statsRV()));
-        System.out.println(String.format("# RV created (%.2f sec)", (this.runTimes.get(Solution.TIME_CREATE_RV)) / 1000000000.0));
+        System.out.println(String.format("# RV created (%.2f sec) - RV stats: %s", (this.runTimes.get(Solution.TIME_CREATE_RV)) / 1000000000.0, this.graphRV));
+        //graphRV.printRVEdges();
+        //graphRV.printRREdges();
+        this.graphRV.keepFastestRVLinks(maxVehReqEdges);
+        System.out.println(String.format("# RV created (%.2f sec) - RV stats: %s", (this.runTimes.get(Solution.TIME_CREATE_RV)) / 1000000000.0, this.graphRV));
+        //graphRV.printRVEdges();
+        //graphRV.printRREdges();
 
         // Add the data of current trips in the RTV graph
         this.initDataStructures();
@@ -250,8 +255,35 @@ public class GraphRTV {
 
         this.feasibleTrips.forEach(visits -> visits.forEach(visit -> addRequestTripVehicleEdges(this.graphRTV, visit.getVehicle(), visit.getRequests(), visit)));
 */
-        for (Vehicle vehicle : this.listVehicles) {
+        long processFeasibleTripsParallel = System.nanoTime();
+        Map<Vehicle, List<List<Visit>>> allFeasibleTrips = this.listVehicles.parallelStream()
+                .collect(Collectors.toMap(o -> o, this::getFeasibleTripsVehicle));
 
+        allFeasibleTrips.forEach((vehicle, levelVisits) -> {
+                    addVisitWithPassengers(vehicle, levelVisits);
+                    for (int i = 0; i < levelVisits.size(); i++) {
+                        levelVisits.get(i).forEach(visit -> addRequestTripVehicleEdges(
+                                visit.getVehicle(),
+                                visit.getRequests(),
+                                visit));
+
+                        this.feasibleTrips.get(i).addAll(levelVisits.get(i));
+                    }
+                }
+        );
+
+        System.out.println(String.format("# Processing fleet parallel (%.2f sec)...", ((System.nanoTime() - processFeasibleTripsParallel) / 1000000000.0)));
+
+
+        /*long processFeasibleTripsSingle = System.nanoTime();
+        for (Vehicle vehicle : this.listVehicles) {
+            long processFeasibleTrips = System.nanoTime();
+            List<List<Visit>> feasibleVisitsCurrentVehicleAtLevel = getFeasibleTripsVehicle(vehicle);
+        }
+        System.out.println(String.format("# Processing fleet single (%.2f sec)...", ((System.nanoTime() - processFeasibleTripsSingle) / 1000000000.0)));
+        */
+        /*for (Vehicle vehicle : this.listVehicles) {
+            // long processFeasibleTrips = System.nanoTime();
             List<List<Visit>> feasibleVisitsCurrentVehicleAtLevel = getFeasibleTripsVehicle(vehicle);
 
             for (int i = 0; i < vehicle.getCapacity(); i++) {
@@ -260,7 +292,9 @@ public class GraphRTV {
                 }
                 this.feasibleTrips.get(i).addAll(feasibleVisitsCurrentVehicleAtLevel.get(i));
             }
-        }
+
+            //System.out.println(String.format("# Processing vehicle %s (%.2f sec)...", vehicle, ((System.nanoTime() - processFeasibleTrips) / 1000000000.0)));
+        }*/
     }
 
     /**
@@ -291,13 +325,13 @@ public class GraphRTV {
         // Feasible visits of size k={1,2,3, ..., capacity(vehicle)}
         List<List<Visit>> feasibleVisitsCurrentVehicleAtLevel = new ArrayList<>();
         for (int i = 0; i < vehicle.getCapacity(); i++) {
-            feasibleVisitsCurrentVehicleAtLevel.add(new ArrayList<>());
+            feasibleVisitsCurrentVehicleAtLevel.add(new LinkedList<>());
         }
 
         //**********************************************************************************************************
         // Adding feasible visits of size = 1 **********************************************************************
         //**********************************************************************************************************
-        for (DefaultEdge edge : this.graphRV.edgesOf(vehicle)) {
+        for (DefaultWeightedEdge edge : this.graphRV.edgesOf(vehicle)) {
 
             User request = (User) this.graphRV.getEdgeTarget(edge);
 
@@ -332,7 +366,7 @@ public class GraphRTV {
         }
 
         // Add TV edge (create visit with passengers only)
-        addVisitWithPassengers(vehicle, feasibleVisitsCurrentVehicleAtLevel);
+        // addVisitWithPassengers(vehicle, feasibleVisitsCurrentVehicleAtLevel);
 
         return feasibleVisitsCurrentVehicleAtLevel;
     }
@@ -392,7 +426,7 @@ public class GraphRTV {
         return graphRTV.getEdgeTarget(edge);
     }
 
-    public double getWeightFromRequestVisitEdge(User request, Visit visit){
+    public double getWeightFromRequestVisitEdge(User request, Visit visit) {
         return this.graphRTV.getEdgeWeight(this.graphRTV.getEdge(request, visit));
     }
 
