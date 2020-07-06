@@ -54,14 +54,20 @@ public class GraphRTV {
 
         // REQUEST - VEHICLE (RV)
         this.runTimes.put(Solution.TIME_CREATE_RV, System.nanoTime());
-        this.graphRV = new GraphRV(allRequests, listVehicles, vehicleCapacity);
+        this.graphRV = new GraphRV(allRequests, listVehicles, vehicleCapacity, maxVehReqEdges);
         this.runTimes.put(Solution.TIME_CREATE_RV, System.nanoTime() - this.runTimes.get(Solution.TIME_CREATE_RV));
         //System.out.println(String.format("# RV created (%.2f sec) - %s", (this.runTimes.get(Solution.TIME_CREATE_RV)) / 1000000000.0, this.graphRV.statsRV()));
-        System.out.println(String.format("# RV created (%.2f sec) - RV stats: %s", (this.runTimes.get(Solution.TIME_CREATE_RV)) / 1000000000.0, this.graphRV));
+        System.out.println(String.format("# 1) RV created (%.2f sec) - RV stats: %s", (this.runTimes.get(Solution.TIME_CREATE_RV)) / 1000000000.0, this.graphRV));
         //graphRV.printRVEdges();
         //graphRV.printRREdges();
-        this.graphRV.keepFastestRVLinks(maxVehReqEdges);
-        System.out.println(String.format("# RV created (%.2f sec) - RV stats: %s", (this.runTimes.get(Solution.TIME_CREATE_RV)) / 1000000000.0, this.graphRV));
+        //this.runTimes.put(Solution.TIME_CREATE_RV + "2", System.nanoTime());
+        //GraphRV graphRV = new GraphRV(allRequests, listVehicles, vehicleCapacity);
+        //graphRV.keepFastestRVLinks(maxVehReqEdges);
+        //this.runTimes.put(Solution.TIME_CREATE_RV + "2", System.nanoTime() - this.runTimes.get(Solution.TIME_CREATE_RV + "2"));
+        //System.out.println(String.format("# 2) RV created (%.2f sec) - RV stats: %s", (this.runTimes.get(Solution.TIME_CREATE_RV + "2")) / 1000000000.0, graphRV));
+
+        //this.graphRV.keepFastestRVLinks(maxVehReqEdges);
+        //System.out.println(String.format("# RV created (%.2f sec) - RV stats: %s", (this.runTimes.get(Solution.TIME_CREATE_RV)) / 1000000000.0, this.graphRV));
         //graphRV.printRVEdges();
         //graphRV.printRREdges();
 
