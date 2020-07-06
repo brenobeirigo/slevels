@@ -9,15 +9,14 @@ import java.util.stream.Collectors;
 import static config.Config.*;
 
 public class Visit implements Comparable<Visit> {
-    private int arrival;
     protected LinkedList<Node> sequenceVisits; // Sequence of pickup and delivery nodes
-    private Set<User> passengers; // Users picked up
-    private Set<User> requests; // Users that can still be moved (not picked up)
     protected Vehicle vehicle;
     protected double avgOccupationLeg;
-
     // Delays and idle times
     protected int delay, idle;
+    private int arrival;
+    private Set<User> passengers; // Users picked up
+    private Set<User> requests; // Users that can still be moved (not picked up)
 
     public Visit(Visit v) {
         this.arrival = v.arrival;
@@ -80,9 +79,6 @@ public class Visit implements Comparable<Visit> {
         this.avgOccupationLeg = avgOccupationLeg;
     }
 
-    public static void reset() {
-    }
-
     public Visit() {
         this.delay = Integer.MAX_VALUE;
         this.idle = Integer.MAX_VALUE;
@@ -114,6 +110,156 @@ public class Visit implements Comparable<Visit> {
         return sequence;
     }
 
+    public static int isValidSequence(LinkedList<Node> sequence, int departureTimeFromVehicle, int load, int maxCapacity) {
+
+        // All valid trips finish at delivery nodes
+        if (!(sequence.getLast() instanceof NodeDP)) {
+            return -1;
+        }
+
+        // If a pickup node is visited after its destination, trip is invalid
+        Map<Integer, Boolean> destinationAlreadyVisited = new HashMap<>();
+
+        // Data passed over legs
+        int[] cumulativeLegPK = new int[]{
+                departureTimeFromVehicle,
+                load,
+                0};
+
+
+        for (int i = 0; i < sequence.size() - 1; i++) {
+
+            // Mark trip id all destinations visited
+            if (sequence.get(i) instanceof NodeDP)
+                destinationAlreadyVisited.put(sequence.get(i).getTripId(), true);
+
+            // If pickup from same trip id is visited and destination have been marked, trip is invalid
+            if (sequence.get(i) instanceof NodePK && destinationAlreadyVisited.containsKey(sequence.get(i).getTripId()))
+                return -1;
+
+            if (Visit.isLegInvalid(sequence.get(i), sequence.get(i + 1), cumulativeLegPK, maxCapacity)) {
+                return -1;
+            }
+        }
+        return cumulativeLegPK[Vehicle.DELAY];
+    }
+
+    /**
+     * Check if there is a valid trip between "fromNode" and "toNode" occurring in vehicle "v".
+     * If true, update trip intermediate status to reflect the addition of leg checked
+     *
+     * @param fromNode      Origin node
+     * @param nextNode      Destination node
+     * @param cumulativeLeg Precedent status to update
+     * @return true, if there is a valid trip, and false, otherwise.
+     */
+    public static boolean isLegInvalid(Node fromNode,
+                                       Node nextNode,
+                                       int[] cumulativeLeg,
+                                       int maxCapacity) {
+
+        // cumulativeLeg[ARRIVAL] - arrivalFrom
+        // cumulativeLeg[LOAD] - loadFrom
+        // cumulativeLeg[DELAY] - totalDelay
+
+
+        // Update loads (DP nodes have negative loads)
+        int load = cumulativeLeg[Vehicle.LOAD] + nextNode.getLoad();
+
+
+        // Capacity constraint (if lower than zero, sequence is invalid! Visited DP before PK)
+        if (load < 0 || load > maxCapacity) {
+            return true;
+        }
+
+        /////////////////////////* VIABLE NEXT */////////////////////////////////////
+        int distFromTo = Dao.getInstance().getDistSec(fromNode, nextNode);
+
+        // No path available
+        if (distFromTo < 0) {
+            return true;
+        }
+        // Time vehicle arrives at next node (can be earlier or later)
+        // If distance is zero, arrival next MUST be at least earliest time at next node
+        int arrivalNext = Math.max(cumulativeLeg[Vehicle.ARRIVAL] + distFromTo, nextNode.getEarliest());
+
+//        if (nextNode instanceof NodePK && arrivalNext > nextNode.getArrivalSoFar())
+//            return false;
+
+        // Arrival cannot be later than latest time in node
+        if (arrivalNext > nextNode.getLatest()) {
+            return true;
+        }
+
+        int delay = arrivalNext - nextNode.getEarliest();
+
+        // Arrival cannot be later than latest time in node
+        if (delay < 0) {
+            return true;
+        }
+
+        //Can vehicle visit next user?
+        User uFrom = User.mapOfUsers.get(fromNode.getTripId());
+
+        // From user requires private ride?
+        if (uFrom != null && fromNode instanceof NodePK && !uFrom.isSharingAllowed()) {
+            if (fromNode.getTripId() != nextNode.getTripId()) {
+                //System.out.println(String.format("FR: Cannot go from %s(%s) to %s", fromNode, uFrom.getPerformanceClass(), nextNode));
+                return true;
+            }
+        }
+
+        // Next user requires private ride?
+        User uTo = User.mapOfUsers.get(nextNode.getTripId());
+        if (uTo != null && nextNode instanceof NodeDP && !uTo.isSharingAllowed()) {
+            if (fromNode.getTripId() != nextNode.getTripId()) {
+                //System.out.println(String.format("TO: Cannot go from %s(%s) to %s", fromNode, uFrom.getPerformanceClass(), nextNode));
+                return true;
+            }
+        }
+
+//        // Hired vehicles cannot stay longer than contract deadline
+//        if (this.isHired() && arrivalNext > this.contractDeadline) {
+//            return false;
+//        }
+
+
+        //ALLOW ONLY:
+        //           PKA ---> DPA
+        //           DPA ---> ANY
+        //           MI ----> PKA
+        //           ST ----> PKA
+        //           O  ----> PKA
+        //           PKA ---> DPA
+        /*
+         DENY:  PK(B) ----> DP(A)
+                PK(B) ----> DP(A)
+                PK
+
+        */
+        //
+
+        //      DPB ---> DPA
+        //
+        //if(uTo != null && !uTo.isSharingAllowed() && uFrom!=uTo && (fromNode instanceof NodePK)){
+        //    System.out.println(String.format("Cannot go from %s(%s) to %s(%s)", fromNode, uFrom.getPerformanceClass(), nextNode, uTo.getPerformanceClass()));
+        //    return false;
+        //}
+
+
+        // Update arrival time at next node to >= earliest time of next node
+        cumulativeLeg[Vehicle.ARRIVAL] = arrivalNext;
+
+        // Update currentLoad
+        cumulativeLeg[Vehicle.LOAD] = load;
+
+        // Delay and idleness
+        if (nextNode instanceof NodeDP)
+            cumulativeLeg[Vehicle.DELAY] += delay;
+
+        return false;
+    }
+
     public int getArrival() {
         return arrival;
     }
@@ -128,6 +274,10 @@ public class Visit implements Comparable<Visit> {
 
     public LinkedList<Node> getSequenceVisits() {
         return sequenceVisits;
+    }
+
+    public void setSequenceVisits(LinkedList<Node> sequenceVisits) {
+        this.sequenceVisits = sequenceVisits;
     }
 
     public int getDelay() {
@@ -156,10 +306,6 @@ public class Visit implements Comparable<Visit> {
         this.delay = delay;
         this.idle = idle;
         this.avgOccupationLeg = avgOccupationLeg;
-    }
-
-    public void setSequenceVisits(LinkedList<Node> sequenceVisits) {
-        this.sequenceVisits = sequenceVisits;
     }
 
     /**
@@ -212,7 +358,7 @@ public class Visit implements Comparable<Visit> {
         );
 
         // When visit was not yet setup to vehicle, shows that it refers to a draft visit
-        String draftVisit = this.vehicle.getVisit() == this ? "[SETUP]" : "[DRAFT]";
+        String draftVisit = this.isSetup() ? "[SETUP]" : "[DRAFT]";
 
         // If rebalancing, create sequence with rebalancing node
         List<Node> sequenceNodesToVisit;
@@ -268,6 +414,10 @@ public class Visit implements Comparable<Visit> {
                 lastVisitedNodeInfo,
                 String.join(" ", pkDpNodeInfo),
                 this.getUserInfo());
+    }
+
+    public boolean isSetup() {
+        return this.vehicle.getVisit() == this;
     }
 
     private String legInfo(Node lastVisitedNode, int loadUntilLastVisited, int departureLastVisited, int dist) {
@@ -395,41 +545,6 @@ public class Visit implements Comparable<Visit> {
         return String.format("P: %s - R: %s", this.getPassengers(), this.getRequests());
     }
 
-
-    public static int isValidSequence(LinkedList<Node> sequence, int departureTimeFromVehicle, int load, int maxCapacity) {
-
-        // All valid trips finish at delivery nodes
-        if (!(sequence.getLast() instanceof NodeDP)) {
-            return -1;
-        }
-
-        // If a pickup node is visited after its destination, trip is invalid
-        Map<Integer, Boolean> destinationAlreadyVisited = new HashMap<>();
-
-        // Data passed over legs
-        int[] cumulativeLegPK = new int[]{
-                departureTimeFromVehicle,
-                load,
-                0};
-
-
-        for (int i = 0; i < sequence.size() - 1; i++) {
-
-            // Mark trip id all destinations visited
-            if (sequence.get(i) instanceof NodeDP)
-                destinationAlreadyVisited.put(sequence.get(i).getTripId(), true);
-
-            // If pickup from same trip id is visited and destination have been marked, trip is invalid
-            if (sequence.get(i) instanceof NodePK && destinationAlreadyVisited.containsKey(sequence.get(i).getTripId()))
-                return -1;
-
-            if (Visit.isLegInvalid(sequence.get(i), sequence.get(i + 1), cumulativeLegPK, maxCapacity)) {
-                return -1;
-            }
-        }
-        return cumulativeLegPK[Vehicle.DELAY];
-    }
-
     /**
      * When visits are setup, define for each node the expected arrival time. This can be used to invalidate routes:
      * visit is valid only when pickup times decrease.
@@ -444,7 +559,6 @@ public class Visit implements Comparable<Visit> {
             first = next;
         }
     }
-
 
     public Map<User, Integer> getUserDelayPairs() {
         if (this.getSequenceVisits() == null)
@@ -462,122 +576,6 @@ public class Visit implements Comparable<Visit> {
             first = next;
         }
         return userDelayPair;
-    }
-
-    /**
-     * Check if there is a valid trip between "fromNode" and "toNode" occurring in vehicle "v".
-     * If true, update trip intermediate status to reflect the addition of leg checked
-     *
-     * @param fromNode      Origin node
-     * @param nextNode      Destination node
-     * @param cumulativeLeg Precedent status to update
-     * @return true, if there is a valid trip, and false, otherwise.
-     */
-    public static boolean isLegInvalid(Node fromNode,
-                                       Node nextNode,
-                                       int[] cumulativeLeg,
-                                       int maxCapacity) {
-
-        // cumulativeLeg[ARRIVAL] - arrivalFrom
-        // cumulativeLeg[LOAD] - loadFrom
-        // cumulativeLeg[DELAY] - totalDelay
-
-
-        // Update loads (DP nodes have negative loads)
-        int load = cumulativeLeg[Vehicle.LOAD] + nextNode.getLoad();
-
-
-        // Capacity constraint (if lower than zero, sequence is invalid! Visited DP before PK)
-        if (load < 0 || load > maxCapacity) {
-            return true;
-        }
-
-        /////////////////////////* VIABLE NEXT */////////////////////////////////////
-        int distFromTo = Dao.getInstance().getDistSec(fromNode, nextNode);
-
-        // No path available
-        if (distFromTo < 0) {
-            return true;
-        }
-        // Time vehicle arrives at next node (can be earlier or later)
-        // If distance is zero, arrival next MUST be at least earliest time at next node
-        int arrivalNext = Math.max(cumulativeLeg[Vehicle.ARRIVAL] + distFromTo, nextNode.getEarliest());
-
-//        if (nextNode instanceof NodePK && arrivalNext > nextNode.getArrivalSoFar())
-//            return false;
-
-        // Arrival cannot be later than latest time in node
-        if (arrivalNext > nextNode.getLatest()) {
-            return true;
-        }
-
-        int delay = arrivalNext - nextNode.getEarliest();
-
-        // Arrival cannot be later than latest time in node
-        if (delay < 0) {
-            return true;
-        }
-
-        //Can vehicle visit next user?
-        User uFrom = User.mapOfUsers.get(fromNode.getTripId());
-
-        // From user requires private ride?
-        if (uFrom != null && fromNode instanceof NodePK && !uFrom.isSharingAllowed()) {
-            if (fromNode.getTripId() != nextNode.getTripId()) {
-                //System.out.println(String.format("FR: Cannot go from %s(%s) to %s", fromNode, uFrom.getPerformanceClass(), nextNode));
-                return true;
-            }
-        }
-
-        // Next user requires private ride?
-        User uTo = User.mapOfUsers.get(nextNode.getTripId());
-        if (uTo != null && nextNode instanceof NodeDP && !uTo.isSharingAllowed()) {
-            if (fromNode.getTripId() != nextNode.getTripId()) {
-                //System.out.println(String.format("TO: Cannot go from %s(%s) to %s", fromNode, uFrom.getPerformanceClass(), nextNode));
-                return true;
-            }
-        }
-
-//        // Hired vehicles cannot stay longer than contract deadline
-//        if (this.isHired() && arrivalNext > this.contractDeadline) {
-//            return false;
-//        }
-
-
-        //ALLOW ONLY:
-        //           PKA ---> DPA
-        //           DPA ---> ANY
-        //           MI ----> PKA
-        //           ST ----> PKA
-        //           O  ----> PKA
-        //           PKA ---> DPA
-        /*
-         DENY:  PK(B) ----> DP(A)
-                PK(B) ----> DP(A)
-                PK
-
-        */
-        //
-
-        //      DPB ---> DPA
-        //
-        //if(uTo != null && !uTo.isSharingAllowed() && uFrom!=uTo && (fromNode instanceof NodePK)){
-        //    System.out.println(String.format("Cannot go from %s(%s) to %s(%s)", fromNode, uFrom.getPerformanceClass(), nextNode, uTo.getPerformanceClass()));
-        //    return false;
-        //}
-
-
-        // Update arrival time at next node to >= earliest time of next node
-        cumulativeLeg[Vehicle.ARRIVAL] = arrivalNext;
-
-        // Update currentLoad
-        cumulativeLeg[Vehicle.LOAD] = load;
-
-        // Delay and idleness
-        if (nextNode instanceof NodeDP)
-            cumulativeLeg[Vehicle.DELAY] += delay;
-
-        return false;
     }
 
 
@@ -632,9 +630,11 @@ public class Visit implements Comparable<Visit> {
 
     public String getVarId() {
         return String.format(
-                "%s_P=[%s]-R[%s]",
+                "%s_P=[%s]-R[%s]_[%s](%d)",
                 this.getVehicle().toString().trim(),
                 this.getPassengers().stream().map(user -> user.toString().trim()).collect(Collectors.joining("_")),
-                this.getRequests().stream().map(user -> user.toString().trim()).collect(Collectors.joining("_")));
+                this.getRequests().stream().map(user -> user.toString().trim()).collect(Collectors.joining("_")),
+                this.isSetup() ? "S" : "D",
+                this.getDelay());
     }
 }
