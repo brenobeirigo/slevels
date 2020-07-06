@@ -82,7 +82,7 @@ public class Method {
         // Model.Vehicle node data
         Node fromNode = v.getLastVisitedNode();
         int load = fromNode.getLoad();
-        int arrivalFrom = fromNode.getArrival();
+        int arrivalFrom = fromNode.getDeparture();
 
         Node toNode;
 
