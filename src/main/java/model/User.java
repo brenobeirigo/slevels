@@ -26,52 +26,37 @@ public class User implements Comparable<User> {
     public static final int DP_ARRIVAL_TIME = 1;
     public static final int PK_DELAY = 2;
     public static final int DP_DELAY = 3;
-
-
-    // If user cannot be picked up, service levels are lowered (this regulates MET and UNMET)
-    public boolean serviceLevelLowered;
-
     // Total number of requests
     public static int nTrips = 0;
     // Status of each request
     public static int[][] status = new int[Node.MAX_NUMBER_NODES][5];
     // Map of all users (key = user id)
     public static Map<Integer, User> mapOfUsers = new HashMap<>();
-
+    // If user cannot be picked up, service levels are lowered (this regulates MET and UNMET)
+    public boolean serviceLevelLowered;
+    public Qos qos;
     // Model.User id
     private int id;
-
     //Seconds from first date (defined in config.Config)
     private int departure, arrival, reqTime;
-
     //Delays
     private int distFromTo;
-
     // Which type of vehicle serviced the request? Was it even serviced?
     private int servedBy;
-
     private Visit currentVisit;
-
     //Number of passengers in request
     private int numPassengers;
-
     // From - To nodes
     private NodePK nodePk;
     private NodeDP nodeDp;
     // Total ride time
     private int rideTime;
-
     private boolean sharingAllowed;
-
     // User performance class (A, B, and C)
     private String performanceClass;
-
     // Record from data set that originated request
     private CSVRecord record;
-
     private short waitingRounds;
-
-    public Qos qos;
 
     /**
      * Construct user by reading request record from record set.
@@ -88,18 +73,6 @@ public class User implements Comparable<User> {
         this.id = ++nTrips;
         this.record = record;
         this.servedBy = User.WAITING;
-    }
-
-    public String getPickupDatetime() {
-        return this.record.get("pickup_datetime");
-    }
-
-    public int getDistFromTo() {
-        return distFromTo;
-    }
-
-    public void setDistFromTo(int distFromTo) {
-        this.distFromTo = distFromTo;
     }
 
     public User(String reqTime,
@@ -151,6 +124,17 @@ public class User implements Comparable<User> {
         status = new int[Node.MAX_NUMBER_NODES][5];
     }
 
+    public String getPickupDatetime() {
+        return this.record.get("pickup_datetime");
+    }
+
+    public int getDistFromTo() {
+        return distFromTo;
+    }
+
+    public void setDistFromTo(int distFromTo) {
+        this.distFromTo = distFromTo;
+    }
 
     public boolean isSharingAllowed() {
         return sharingAllowed;
@@ -594,4 +578,13 @@ public class User implements Comparable<User> {
         return this.nodePk.getArrivalSoFar() < Integer.MAX_VALUE;
     }
 
+    public String getCurrentAssigmentInfo() {
+        return String.format(
+                "+++ %s = %s - %s tier, delay (so far) = %d, delay = %d",
+                this.qos.id,
+                this,
+                this.isFirstTier() ? "1st" : "2nd",
+                this.getNodePk().getDelaySoFar(),
+                this.getNodePk().getDelay());
+    }
 }
