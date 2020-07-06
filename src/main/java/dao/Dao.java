@@ -348,7 +348,7 @@ public class Dao {
             records = CSVFormat.RFC4180.withFirstRecordAsHeader().parse(new FileReader(pathRequestList));
 
             // Start random again
-            rand = new Random();
+            rand = new Random(0);
 
             // Buffer that saves previous is reset
             userBuff = new ArrayList<>();
