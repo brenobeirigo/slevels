@@ -27,49 +27,7 @@ public class Main {
 
     public static void main(String[] args) {
 
-        String jsonConfigFilePath;
-        Map<String, Boolean> infoHandling = new HashMap<>();
-
-        try {
-
-            System.out.println("# Reading configuration...");
-            // Reading input settings
-            Map jsonConfig = FileUtil.getMapFrom(args[0]);
-
-            // Instances
-            jsonConfigFilePath = jsonConfig.get("instance_file_path").toString();
-            System.out.println("# Executing configuration at \"" + jsonConfigFilePath + "\"...");
-
-            // Round information level (no information, round summary, all information)
-            String infoLevelLabel = jsonConfig.get("info_level").toString();
-            System.out.println("# Round information level: " + infoLevelLabel);
-
-            //TODO read infoHandling from file
-            infoHandling.put(Simulation.SAVE_VEHICLE_ROUND_GEOJSON, false);
-            infoHandling.put(Simulation.SAVE_REQUEST_INFO_CSV, true);
-            infoHandling.put(Simulation.SAVE_ROUND_INFO_CSV, true);
-
-            // Print info in console
-            infoHandling.put(Simulation.SHOW_ALL_VEHICLE_JOURNEYS, false);
-            infoHandling.put(Simulation.SHOW_ROUND_FLEET_STATUS, true);
-            infoHandling.put(Simulation.SHOW_ROUND_INFO, true);
-        } catch (Exception e) {
-            System.out.println("Cannot load configuration: " + e);
-            System.out.println("Loading default instance (show round summary)...");
-            // Json with instance
-            jsonConfigFilePath = "C:\\Users\\LocalAdmin\\IdeaProjects\\slevels\\src\\main\\resources\\default_instance.json";
-
-            infoHandling.put(Simulation.SAVE_VEHICLE_ROUND_GEOJSON, true);
-            infoHandling.put(Simulation.SAVE_REQUEST_INFO_CSV, true);
-            infoHandling.put(Simulation.SAVE_ROUND_INFO_CSV, true);
-
-            // Print info in console
-            infoHandling.put(Simulation.SHOW_ALL_VEHICLE_JOURNEYS, true);
-            infoHandling.put(Simulation.SHOW_ROUND_FLEET_STATUS, true);
-            infoHandling.put(Simulation.SHOW_ROUND_INFO, true);
-        }
-
-        InstanceConfig instanceSettings = InstanceConfig.getInstance(jsonConfigFilePath);
+        InstanceConfig instanceSettings = Config.createInstanceFrom(args[0]);
 
         // Vary test case parameters
         for (boolean sortWaitingUsersByClass : instanceSettings.getSortWaitingUsersByClassArray()) {
@@ -144,7 +102,7 @@ public class Main {
                                                                     matchingSettings);
 
                                                             // Run simulation
-                                                            simulation.run(infoHandling);
+                                                            simulation.run();
 
                                                             // Reset classes for next iteration
                                                             Dao.getInstance().resetRecords();
