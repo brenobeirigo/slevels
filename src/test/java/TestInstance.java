@@ -20,7 +20,7 @@ public class TestInstance {
         Config.getInstance().qosDic.put("B", qos2);
         Config.getInstance().qosDic.put("C", qos3);
 
-        Simulation fcfs = new SimulationFCFS(
+        /*Simulation fcfs = new SimulationFCFS(
                 "test_reb_nocleant",
                 1000,
                 6,
@@ -36,5 +36,6 @@ public class TestInstance {
                 "Hire",
                 new Rebalance(true, true, true, true, "N21"), matchingSettings);
 
+    */
     }
 }
