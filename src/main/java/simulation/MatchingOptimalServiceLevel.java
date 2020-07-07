@@ -72,4 +72,9 @@ public class MatchingOptimalServiceLevel extends MatchingOptimal {
         return result;
     }
 
+    @Override
+    public String toString() {
+        return "_OPT-JAVIERSL";
+    }
+
 }

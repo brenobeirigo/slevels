@@ -70,7 +70,8 @@ public class SimulationFCFS extends Simulation {
                 isAllowedToLowerServiceLevel,
                 serviceRateScenarioLabel,
                 segmentationScenarioLabel,
-                rebalance);
+                rebalance.strategy,
+                matchingSettings.strategy);
     }
 
     /**

@@ -19,7 +19,7 @@ public class Matching {
     protected Rebalance rebalanceUtil;
     protected boolean isAllowedToHire;
     protected CustomerBaseConfig customerBaseSettings;
-    private RideMatchingStrategy strategy;
+    protected RideMatchingStrategy strategy;
 
     public Matching(boolean isAllowedToLowerServiceLevel, int contractDuration, Rebalance rebalanceSettings, boolean isAllowedToHire) {
 

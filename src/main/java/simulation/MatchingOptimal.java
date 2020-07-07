@@ -602,4 +602,8 @@ public class MatchingOptimal implements RideMatchingStrategy {
         return true;
     }
 
+    @Override
+    public String toString() {
+        return "_OPT-JAVIER";
+    }
 }

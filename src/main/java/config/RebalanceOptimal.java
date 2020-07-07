@@ -175,6 +175,6 @@ public class RebalanceOptimal implements RebalanceStrategy {
 
     @Override
     public String toString() {
-        return "_OP";
+        return "_RE-OP";
     }
 }

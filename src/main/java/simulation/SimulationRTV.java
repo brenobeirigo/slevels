@@ -40,7 +40,8 @@ public class SimulationRTV extends Simulation {
                          boolean isAllowedToLowerServiceLevel,
                          String serviceRateScenarioLabel,
                          String segmentationScenarioLabel,
-                         Rebalance rebalance, Matching matchingSettings) {
+                         Rebalance rebalance,
+                         Matching matchingSettings) {
 
 
         // Build generic Simulation object
@@ -52,7 +53,8 @@ public class SimulationRTV extends Simulation {
                 contractDuration,
                 isAllowedToHire,
                 isAllowedToLowerServiceLevel,
-                rebalance, matchingSettings);
+                rebalance,
+                matchingSettings);
 
 
         // Service rate and segmentation scenarios
@@ -72,7 +74,8 @@ public class SimulationRTV extends Simulation {
                 isAllowedToLowerServiceLevel,
                 serviceRateScenarioLabel,
                 segmentationScenarioLabel,
-                rebalance);
+                rebalance.strategy,
+                matchingSettings.strategy);
 
         /* RV, RTV */
         maxVehReqEdges = 1000;
