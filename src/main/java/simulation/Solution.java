@@ -309,7 +309,7 @@ public class Solution {
 
         try {
             writer = Files.newBufferedWriter(outputFileUsers);
-            String[] a = new String[]{"earliest", "id", "class", "pk_delay", "ride_delay", "pk_time", "dp_time", "id_from", "id_to", "min_dist_sec", "service", "service_level"};
+            String[] a = new String[]{"earliest", "id", "class", "delay_pk", "delay_in_vehicle", "delay_ride", "pk_time", "dp_time", "id_from", "id_to", "min_dist_sec", "service", "service_level"};
 
             CSVPrinter csvPrinter = new CSVPrinter(writer, CSVFormat.DEFAULT.withHeader(a).withCommentMarker('#'));
 
@@ -317,18 +317,20 @@ public class Solution {
                 csvPrinter.printComment(e.getValue().toString());
             }
             for (User u : sortedUsersPk) {
-
+                int minDistSec = Dao.getInstance().getDistSec(u.getNodePk(), u.getNodeDp());
+                int inVehicleDelay = u.getNodeDp().getDelay() - u.getNodePk().getDelay();
                 List<String> entry = new ArrayList<>();
                 entry.add(Config.sec2Datetime(u.getNodePk().getEarliest()));
                 entry.add(String.valueOf(u.getId()));
                 entry.add(String.valueOf(u.getPerformanceClass()));
                 entry.add(String.valueOf(u.getNodePk().getDelay()));
+                entry.add(String.valueOf(inVehicleDelay));
                 entry.add(String.valueOf(u.getNodeDp().getDelay()));
                 entry.add(Config.sec2Datetime(u.getNodePk().getArrival()));
                 entry.add(Config.sec2Datetime(u.getNodeDp().getArrival()));
                 entry.add(String.valueOf(u.getNodePk().getNetworkId()));
                 entry.add(String.valueOf(u.getNodeDp().getNetworkId()));
-                entry.add(String.valueOf(Dao.getInstance().getDistSec(u.getNodePk(), u.getNodeDp())));
+                entry.add(String.valueOf(minDistSec));
                 entry.add(u.isRejected() ? "DENIED" : u.isServicedByDedicated() ? "FLEET" : "FREELANCE");
                 entry.add(u.isFirstTier() ? "FIRST" : "SECOND");
 
