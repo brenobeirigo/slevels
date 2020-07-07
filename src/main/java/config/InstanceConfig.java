@@ -283,7 +283,7 @@ public class InstanceConfig {
     }
 
     private MatchingOptimal readMatchingOptimalParams(Gson gson, JsonObject element) {
-        double rtvExecutionTime = gson.fromJson(element.get("rtv_execution_time"), double.class);
+        double rtvExecutionTime = gson.fromJson(element.get("rtv_execution_time_each_vehicle"), double.class);
         int maxEdgesRV = gson.fromJson(element.get("max_edges_rv"), int.class);
         double timeLimit = gson.fromJson(element.get("mip_time_limit"), double.class);
         double mipGap = gson.fromJson(element.get("mip_gap"), double.class);
