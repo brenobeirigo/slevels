@@ -2,12 +2,13 @@ package simulation;
 
 import config.Config;
 import config.Rebalance;
+import config.RebalanceHeuristic;
+import config.RebalanceOptimal;
 import dao.Dao;
 import helper.HelperIO;
 import helper.MethodHelper;
 import model.*;
 import model.node.Node;
-import model.node.NodeTargetRebalancing;
 import org.boon.collections.ConcurrentHashSet;
 
 import java.nio.file.Files;
@@ -24,7 +25,6 @@ public abstract class Simulation {
     protected int contractDuration;
     protected boolean isAllowedToHire; // Simulation can hire new vehicles as needed
     protected boolean isAllowedToLowerServiceLevel;
-    protected boolean isAllowedToRebalance;
     protected Rebalance rebalanceUtil;
 
     // Matching
@@ -74,19 +74,16 @@ public abstract class Simulation {
                       int maxNumberOfTrips,
                       int timeWindow,
                       int timeHorizon,
-                      boolean isAllowedToRebalance,
                       int contractDuration,
                       boolean isAllowedToHire,
                       boolean isAllowedToLowerServiceLevel,
-                      boolean sortWaitingUsersByClass,
                       Rebalance rebalanceUtil, Matching matchingSettings) {
 
         /*MATCHING*/
-        this.sortWaitingUsersByClass = sortWaitingUsersByClass;
+        this.sortWaitingUsersByClass = true;
         this.matching = matchingSettings;
 
         /* REBALANCING */
-        this.isAllowedToRebalance = isAllowedToRebalance;
         this.rebalanceUtil = rebalanceUtil;
 
         /* TIME HORIZON */
@@ -171,7 +168,7 @@ public abstract class Simulation {
 
     public abstract Set<User> getUsersAssigned(int currentTime);
 
-    public void updateFleetStatusParallel() {
+    /*public void updateFleetStatusParallel() {
         ////// 1 - GET FINISHED USERS (before current time) ////////////////////////////////////////////////////////
         setDeactivated = new HashSet<>();
 
@@ -207,13 +204,13 @@ public abstract class Simulation {
                 activeFleet = true;
             } else {
 
-                /* Update vehicle's current nodes (if they are of types NodeOrigin and NodeStop)
+                *//* Update vehicle's current nodes (if they are of types NodeOrigin and NodeStop)
                  * with the rightmost time window value. This is the time a vehicle is allowed to
                  * depart to get the customers.
                  * E.g.:
                  * [00:00:00 - 00:00:30] -> Pool requests
                  * [00:00:30 :] -> Route vehicles
-                 */
+                 *//*
                 // Time from current node in vehicle is only updated when:
                 //  - Current node is origin or NodeStop
                 //  - Model.Vehicle is idle
@@ -224,7 +221,7 @@ public abstract class Simulation {
                 v.increaseRoundsIdle();
 
                 // Check if it is candidate to rebalance
-                if (isAllowedToRebalance) {
+                if (Rebalanc) {
                     // System.out.println("REBALANCE - - - "+ v.getId() + " - - - - - " + v + " - " + v.getRoundsIdle() + "----" + maxRoundsIdleBeforeRebalance);
                     candidateVehiclesToRebalance.add(v);
                 }
@@ -239,7 +236,7 @@ public abstract class Simulation {
         // Updating vehicle lists
         //listVehicles.removeAll(setDeactivated);
         //setHired.removeAll(setDeactivated);
-    }
+    }*/
 
     /**
      * Vehicle can:
@@ -295,7 +292,7 @@ public abstract class Simulation {
                 v.increaseRoundsIdle();
 
                 // Check if it is candidate to rebalance
-                if (isAllowedToRebalance) {
+                if (rebalanceUtil.isRebalanceEnabled()) {
                     // System.out.println("REBALANCE - - - "+ v.getId() + " - - - - - " + v + " - " + v.getRoundsIdle() + "----" + maxRoundsIdleBeforeRebalance);
                     candidateVehiclesToRebalance.add(v);
                 }
@@ -336,7 +333,7 @@ public abstract class Simulation {
 
             // Sort by class and earliest time
             if (sortWaitingUsersByClass) {
-                Collections.sort(unassignedRequests, Comparator.comparing(User::getPerformanceClass)
+                unassignedRequests.sort(Comparator.comparing(User::getPerformanceClass)
                         .thenComparing(User::getReqTime));
 
                 /*System.out.println("##### Users");
@@ -473,14 +470,15 @@ public abstract class Simulation {
     }
 
     public void rebalance(Set<Vehicle> idleVehicles) {
+
         List<Node> targets = null;
-        if (rebalanceUtil.method.equals(Rebalance.METHOD_OPTIMAL)) {
+        if (rebalanceUtil.strategy instanceof RebalanceOptimal) {
             if (roundRejectedUsers != null && !roundRejectedUsers.isEmpty()) {
                 targets = roundRejectedUsers.stream().map(User::getNodePk).collect(Collectors.toList());
             } else if (roundPrivateRides != null && !roundPrivateRides.isEmpty()) {
                 targets = roundPrivateRides.stream().map(User::getNodePk).collect(Collectors.toList());
             }
-        } else if (rebalanceUtil.method.equals(Rebalance.METHOD_HEURISTIC)) {
+        } else if (rebalanceUtil.strategy instanceof RebalanceHeuristic) {
             targets = Vehicle.setOfHotPoints;
         }
         rebalanceUtil.executeStrategy(idleVehicles, targets);
@@ -510,11 +508,9 @@ public abstract class Simulation {
             runTimes.put(Solution.TIME_UPDATE_FLEET_STATUS, System.nanoTime() - runTimes.get(Solution.TIME_UPDATE_FLEET_STATUS));
 
             // Rebalance idle vehicles
-            if (isAllowedToRebalance) {
-                runTimes.put(Solution.TIME_REBALANCING_FLEET, System.nanoTime());
-                rebalance(idleVehicles);
-                runTimes.put(Solution.TIME_REBALANCING_FLEET, System.nanoTime() - runTimes.get(Solution.TIME_REBALANCING_FLEET));
-            }
+            runTimes.put(Solution.TIME_REBALANCING_FLEET, System.nanoTime());
+            rebalance(idleVehicles);
+            runTimes.put(Solution.TIME_REBALANCING_FLEET, System.nanoTime() - runTimes.get(Solution.TIME_REBALANCING_FLEET));
 
             // Pool, service, and reject users /////////////////////////////////////////////////////////////////////////
             runTimes.put(Solution.TIME_UPDATE_DEMAND, System.nanoTime());
@@ -574,7 +570,7 @@ public abstract class Simulation {
 
         // If vehicle was rebalancing, interrupt first
         if (visit.getVehicle().isRebalancing()) {
-            interruptRebalancing(visit);
+            rebalanceUtil.interruptRebalancing(visit, timeWindow);
         }
 
         // Add visit to vehicle (circular)
@@ -589,65 +585,6 @@ public abstract class Simulation {
 
         // Vehicle is not idle
         visit.getVehicle().setRoundsIdle(0);
-    }
-
-    private void interruptRebalancing(Visit visit) {
-
-        //System.out.println("STOPPED REBALANCING!" + this);
-        Vehicle vehicle = visit.getVehicle();
-
-        Node currentNode = vehicle.getLastVisitedNode();
-        Node middleNode = vehicle.getMiddleNode();
-        NodeTargetRebalancing target = (NodeTargetRebalancing) vehicle.getVisit().getTargetNode();
-
-        // Target was not reached, it goes back to attractive points
-        if (this.rebalanceUtil.reinsertTargets && !target.isReached()) {
-
-            //TODO Does re-adding the node helps? It looks like YES!
-            //System.out.println("STOPPED REB.:" + target.getGenNode().getUrgent() + " - " + target.getGenNode().getArrival() + " :" + this.getSequenceVisits().getFirst() + "-"+target+"-" + target.getGenNode());
-
-            // If a node was not reached, it means vehicles keep being assigned around its region.
-            // The immediate demand factor is therefore incremented to keep attracting vehicles to this region
-            if (this.rebalanceUtil.useUrgentKey)
-                target.increaseUrgency();
-
-            makeTargetRebalancingCandidate(target);
-        }
-
-        // Vehicle is no longer rebalancing (User was inserted)
-        vehicle.stoppedRebalancingToPickup();
-
-        if (middleNode == null)
-            System.out.println("Middle node");
-
-        double distTraveledKmCurrentMiddle = Dao.getInstance().getDistKm(currentNode, middleNode);
-
-        vehicle.increaseDistanceTraveledRebalancing(distTraveledKmCurrentMiddle);
-
-        // Create structure that helps to understand what is happening in the rebalancing process
-        if (rebalanceUtil.createEpisode) {
-
-            int roundsToFindUser = (Dao.getInstance().getDistSec(currentNode, middleNode) / this.timeWindow);
-
-            double distTraveledKm = Dao.getInstance().getDistKm(currentNode, target);
-
-            RebalanceEpisode r = new RebalanceEpisode(
-                    currentNode.getNetworkId(),
-                    target.getNetworkId(),
-                    middleNode.getNetworkId(),
-                    vehicle.getRoundsIdle(),
-                    distTraveledKmCurrentMiddle,
-                    distTraveledKm,
-                    roundsToFindUser);
-
-            if (rebalanceUtil.showInfo) {
-                System.out.println(r);
-            }
-        }
-    }
-
-    private void makeTargetRebalancingCandidate(NodeTargetRebalancing target) {
-        Vehicle.setOfHotPoints.add(target);
     }
 
 

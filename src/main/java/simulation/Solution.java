@@ -72,7 +72,6 @@ public class Solution {
                     int vehicleCapacity,
                     int timeHorizon,
                     int totalHorizon,
-                    boolean isAllowedToRebalance,
                     int deactivationFactor,
                     boolean allowVehicleCreation,
                     boolean allowDelayExtension) {
@@ -84,7 +83,6 @@ public class Solution {
         this.timeHorizon = timeHorizon;
         this.totalHorizon = totalHorizon;
         this.deactivationFactor = deactivationFactor;
-        this.allowRebalancing = isAllowedToRebalance;
         this.allowVehicleCreation = allowVehicleCreation;
         this.allowDelayExtension = allowDelayExtension;
         this.listRoundEntries = new ArrayList<>();
@@ -99,7 +97,6 @@ public class Solution {
                     int vehicleCapacity,
                     int timeHorizon,
                     int totalHorizon,
-                    boolean isAllowedToRebalance,
                     int contractDuration,
                     boolean allowVehicleHiring,
                     boolean allowServiceDeterioration,
@@ -114,7 +111,6 @@ public class Solution {
                 vehicleCapacity,
                 timeHorizon,
                 totalHorizon,
-                isAllowedToRebalance,
                 contractDuration,
                 allowVehicleHiring,
                 allowServiceDeterioration);
@@ -136,8 +132,7 @@ public class Solution {
         testCaseName += (allowServiceDeterioration ? "_SR-" + serviceRate : "");
         testCaseName += (allowVehicleHiring ? "_VH" : "");
         testCaseName += (allowServiceDeterioration ? "_SD" : "");
-        testCaseName += (isAllowedToRebalance ? "_RE" + rebalance : "");
-        testCaseName += (rebalance.method.equals(Rebalance.METHOD_OPTIMAL) ? "_OP" : "_HE");
+        testCaseName += rebalance.strategy;
 
         // File path
         this.outputFile = Paths.get(
@@ -543,7 +538,7 @@ public class Solution {
                     ((double) pk) / count,
                     ((double) dp) / count,
                     max,
-                    (double)first/ count,
+                    (double) first / count,
                     count + nUsersRejected,
                     nUsersInDedicatedVehicles,
                     nUsersInPrivateVehicles,

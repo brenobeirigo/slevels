@@ -27,14 +27,13 @@ public class SimulationFCFS extends Simulation {
                           int maxRequestsIteration,
                           int timeWindow,
                           int timeHorizon,
-                          boolean allowRebalancing,
                           int contractDuration,
                           boolean isAllowedToHire,
                           boolean isAllowedToLowerServiceLevel,
-                          boolean sortWaitingUsersByClass,
                           String serviceRateScenarioLabel,
                           String segmentationScenarioLabel,
-                          Rebalance rebalance, Matching matchingSettings) {
+                          Rebalance rebalance,
+                          Matching matchingSettings) {
 
 
         // Build generic Simulation object
@@ -43,11 +42,9 @@ public class SimulationFCFS extends Simulation {
                 maxRequestsIteration,
                 timeWindow,
                 timeHorizon,
-                allowRebalancing,
                 contractDuration,
                 isAllowedToHire,
                 isAllowedToLowerServiceLevel,
-                sortWaitingUsersByClass,
                 rebalance, matchingSettings);
 
         // Service rate and segmentation scenarios
@@ -68,7 +65,6 @@ public class SimulationFCFS extends Simulation {
                 vehicleMaxCapacity,
                 timeWindow,
                 timeHorizon,
-                allowRebalancing,
                 contractDuration,
                 isAllowedToHire,
                 isAllowedToLowerServiceLevel,
@@ -141,30 +137,6 @@ public class SimulationFCFS extends Simulation {
     }
 
     /**
-     * Test whether it is beneficial send different vehicles to service users in the same locations.
-     *
-     * @param u
-     */
-    public void computeAttractivenessLocationUser(User u) {
-
-        Node pk = u.getNodePk();
-
-        // This node should have more vehicles around it
-        pk.increaseHotness();
-
-
-        if (!rebalanceUtil.allowManyToOneTarget) {
-            // Vehicles are sent to the same attractive places in the network repeatedly
-            Vehicle.setOfHotPoints.add(pk);
-
-            // Do not send vehicles to the same places
-        } else if (!Node.tabu.contains(pk.getNetworkId())) {
-            // Only add points not yet being addressed by other vehicles
-            Vehicle.setOfHotPoints.add(pk);
-        }
-    }
-
-    /**
      * Try to insert a user in every vehicle, and return the set of users inserted.
      * <p>
      * If user cannot be inserted:
@@ -211,7 +183,8 @@ public class SimulationFCFS extends Simulation {
 
             //################### REBALANCE ##### REBALANCE ##### REBALANCE ############################################
             // All points are relocation targets BUT failed pickups have priority
-            computeAttractivenessLocationUser(u);
+            // TODO fix attractiveness
+            // computeAttractivenessLocationUser(u);
 
             // Aux. best visit for comparison
             Visit bestVisit = u.getBestVisitByInsertion(
@@ -228,8 +201,9 @@ public class SimulationFCFS extends Simulation {
 
                 //################### REBALANCE ##### REBALANCE ##### REBALANCE ########################################
                 // Some vehicle should be sent there urgently to fix supply-demand imbalance
-                if (this.rebalanceUtil.useUrgentKey)
-                    u.getNodePk().increaseUrgency();
+                // TODO fix urgent KEY
+                /*if (this.rebalanceUtil.useUrgentKey)
+                    u.getNodePk().increaseUrgency();*/
 
                 // Try to hire new vehicle to user according to user SQ class
                 if (hireNewVehicleToUser(u)) {
@@ -244,8 +218,9 @@ public class SimulationFCFS extends Simulation {
                     u.lowerServiceLevel(Config.getInstance().qosDic.get(u.getPerformanceClass()).pkDelay);
 
                     // Compute need for urgent relocation
-                    if (this.rebalanceUtil.useUrgentKey)
-                        u.getNodePk().increaseUrgency();
+                    // TODO fix urgent KEY
+                    /*if (this.rebalanceUtil.useUrgentKey)
+                        u.getNodePk().increaseUrgency();*/
 
                     // Find a visit using the TRUE fleet availability
                     bestVisit = u.getBestVisitByInsertion(

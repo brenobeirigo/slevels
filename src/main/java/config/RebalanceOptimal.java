@@ -3,14 +3,21 @@ package config;
 import dao.Dao;
 import gurobi.*;
 import model.Vehicle;
+import model.Visit;
 import model.node.Node;
+import model.node.NodeTargetRebalancing;
 
 import java.util.List;
 import java.util.Set;
 
 public class RebalanceOptimal implements RebalanceStrategy {
+
+    public RebalanceOptimal() {
+    }
+
     @Override
     public void rebalance(Set<Vehicle> idleVehicles, List<Node> targets, Rebalance config) {
+
 
         try {
 
@@ -141,5 +148,33 @@ public class RebalanceOptimal implements RebalanceStrategy {
             System.out.println("Error code: " + e.getErrorCode() + ". " +
                     e.getMessage());
         }
+    }
+
+    public void interruptRebalancing(Visit visit, int timeWindow, boolean episode, boolean createEpisode) {
+
+        //System.out.println("STOPPED REBALANCING!" + this);
+        Vehicle vehicle = visit.getVehicle();
+
+        Node currentNode = vehicle.getLastVisitedNode();
+        Node middleNode = vehicle.getMiddleNode();
+        NodeTargetRebalancing target = (NodeTargetRebalancing) vehicle.getVisit().getTargetNode();
+
+
+        // Vehicle is no longer rebalancing (User was inserted)
+        vehicle.stoppedRebalancingToPickup();
+
+        if (middleNode == null)
+            System.out.println("Middle node");
+
+        double distTraveledKmCurrentMiddle = Dao.getInstance().getDistKm(currentNode, middleNode);
+
+        vehicle.increaseDistanceTraveledRebalancing(distTraveledKmCurrentMiddle);
+
+    }
+
+
+    @Override
+    public String toString() {
+        return "_OP";
     }
 }

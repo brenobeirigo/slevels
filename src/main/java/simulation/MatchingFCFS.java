@@ -7,8 +7,11 @@ import model.User;
 import model.Vehicle;
 import model.Visit;
 import model.node.Node;
+
 import java.nio.file.Path;
-import java.util.*;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
 
 public class MatchingFCFS implements RideMatchingStrategy {
 
@@ -18,7 +21,6 @@ public class MatchingFCFS implements RideMatchingStrategy {
     private boolean stopAtFirstBest;
     private boolean checkInParallel;
     private Path outputFile;
-
 
     /**
      * Create a vehicle of capacity "capacity" positioned at a random node.
@@ -64,7 +66,7 @@ public class MatchingFCFS implements RideMatchingStrategy {
      * @param u User that will potentially have a new vehicle hired
      * @return True, if vehicle should be hired
      */
-    boolean hireNewVehicleToUser(User u,  Matching configMatching) {
+    boolean hireNewVehicleToUser(User u, Matching configMatching) {
 
         if (!configMatching.isAllowedToHire) {
             return false;
@@ -95,12 +97,13 @@ public class MatchingFCFS implements RideMatchingStrategy {
         // This node should have more vehicles around it
         pk.increaseHotness();
 
-        if (!rebalanceUtil.allowManyToOneTarget) {
-            // Vehicles are sent to the same attractive places in the network repeatedly
-            Vehicle.setOfHotPoints.add(pk);
+        //if (!rebalanceUtil.allowManyToOneTarget) {
+        // Vehicles are sent to the same attractive places in the network repeatedly
+        Vehicle.setOfHotPoints.add(pk);
 
-            // Do not send vehicles to the same places
-        } else if (!Node.tabu.contains(pk.getNetworkId())) {
+        // Do not send vehicles to the same places
+        //} else
+        if (!Node.tabu.contains(pk.getNetworkId())) {
             // Only add points not yet being addressed by other vehicles
             Vehicle.setOfHotPoints.add(pk);
         }
@@ -209,8 +212,8 @@ public class MatchingFCFS implements RideMatchingStrategy {
 
                 //################### REBALANCE ##### REBALANCE ##### REBALANCE ########################################
                 // Some vehicle should be sent there urgently to fix supply-demand imbalance
-                if (configMatching.rebalanceUtil.useUrgentKey)
-                    u.getNodePk().increaseUrgency();
+                //if (configMatching.rebalanceUtil.useUrgentKey)
+                //    u.getNodePk().increaseUrgency();
 
                 // Try to hire new vehicle to user according to user SQ class
                 if (hireNewVehicleToUser(u, configMatching)) {
@@ -228,8 +231,8 @@ public class MatchingFCFS implements RideMatchingStrategy {
                     u.lowerServiceLevel(Config.getInstance().qosDic.get(u.getPerformanceClass()).pkDelay);
 
                     // Compute need for urgent relocation
-                    if (configMatching.rebalanceUtil.useUrgentKey)
-                        u.getNodePk().increaseUrgency();
+                    //if (configMatching.rebalanceUtil.useUrgentKey)
+                    //    u.getNodePk().increaseUrgency();
 
                     // Find a visit using the TRUE fleet availability
                     bestVisit = u.getBestVisitByInsertion(
@@ -241,6 +244,7 @@ public class MatchingFCFS implements RideMatchingStrategy {
                     if (bestVisit == null) {
                         bestVisit = getVisitHiredVehicleUser(u, currentTime, configMatching);
                     }
+
                 } else {
                     if (configMatching.rebalanceUtil.showInfo)
                         System.out.println("CAN'T SERVICE - User:" +

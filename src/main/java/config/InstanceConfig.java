@@ -1,10 +1,15 @@
 package config;
 
 import com.google.gson.Gson;
+import com.google.gson.JsonArray;
+import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.reflect.TypeToken;
 import dao.FileUtil;
-import simulation.Simulation;
+import simulation.Matching;
+import simulation.MatchingOptimal;
+import simulation.MatchingOptimalServiceLevel;
+import simulation.RideMatchingStrategy;
 
 import java.io.IOException;
 import java.lang.reflect.Type;
@@ -22,8 +27,9 @@ public class InstanceConfig {
     public static final String GEOJSON_TRACK_FOLDER = "geojson_track";
     // Singleton
     private static InstanceConfig instance;
-
     private String instanceFilePath; // File path of the instance
+    private List<CustomerBaseConfig> customerBaseSettingsArray;
+    private List<RideMatchingStrategy> matchingMethods;
     private boolean[] sortWaitingUsersByClassArray; // If true, sort users according class when matching
     private int[] timeWindowArray; // Time window of request collection bin
     private int[] timeHorizonArray; // Time horizon of experiment (0 t0 24h)
@@ -34,22 +40,17 @@ public class InstanceConfig {
     private int[] contractDurationArray; // In rounds of tw_batch seconds
     private boolean[] allowVehicleHiringArray;
     private boolean[] allowServiceDeteriorationArray;
-
     // QoS
     private HashMap<String, Map<String, Double>> serviceRateScenarioMap;
     private HashMap<String, Map<String, Double>> segmentationScenarioMap;
     private HashMap<String, Map<String, Integer>> serviceLevelMap;
-    private List<CustomerBaseConfig> customerBaseSettingsArray = new ArrayList<>();
     private Map<String, Integer> maxTimeHiringList = new HashMap<>();
-
     // Rebalancing configuration
-    private String[] rebalancingMethods;
+    private List<RebalanceStrategy> rebalancingMethods;
     private boolean[] allowManyToOneTarget;
     private boolean[] reinsertTargets;
     private boolean[] clearTargetListEveryRound;
     private boolean[] useUrgentKey;
-    private List<Rebalance> listRebalanceSettings = new ArrayList<>();
-
     // Info
     private Path instancesPath;
     private Path resultPath;
@@ -134,7 +135,7 @@ public class InstanceConfig {
 
             System.out.println(String.format("# Max. time to reach classes (sec): %s", this.maxTimeHiringList));
 
-
+            this.customerBaseSettingsArray = new ArrayList<>();
             // All service rate
             for (Map.Entry<String, Map<String, Double>> serviceRateScenario : serviceRateScenarioMap.entrySet()) {
 
@@ -178,42 +179,72 @@ public class InstanceConfig {
             }
 
             //Matching configuration
-            JsonObject matchingConfig = gson.toJsonTree(jsonConfig.get("matching_config")).getAsJsonObject();
-            this.sortWaitingUsersByClassArray = gson.fromJson(matchingConfig.get("sort_waiting_users_by_class").getAsJsonArray(), boolean[].class);
+            this.matchingMethods = new ArrayList<>();
+            JsonArray matchingConfig = gson.toJsonTree(jsonConfig.get("matching_config")).getAsJsonArray();
+            //this.sortWaitingUsersByClassArray = gson.fromJson(matchingConfig.get("sort_waiting_users_by_class").getAsJsonArray(), boolean[].class);
+            //JsonArray matchingMethods = gson.toJsonTree(jsonConfig.get("method")).getAsJsonArray();
+            for (JsonElement matchingMethod : matchingConfig) {
 
-            // Rebalancing configuration
-            JsonObject rebalancingConfig = gson.toJsonTree(jsonConfig.get("rebalancing_config")).getAsJsonObject();
+                JsonObject element = gson.fromJson(matchingMethod, JsonObject.class);
+                String name = gson.fromJson(element.get("name"), String.class);
+                System.out.println("Processing " + name);
 
-            this.rebalancingMethods = gson.fromJson(rebalancingConfig.get("rebalancing_method").getAsJsonArray(), String[].class);// Each round has TW seconds
-            this.allowManyToOneTarget = gson.fromJson(rebalancingConfig.get("allow_many_to_one").getAsJsonArray(), boolean[].class);// Each round has TW seconds
-            this.reinsertTargets = gson.fromJson(rebalancingConfig.get("reinsert_targets").getAsJsonArray(), boolean[].class);// Each round has TW seconds
-            this.clearTargetListEveryRound = gson.fromJson(rebalancingConfig.get("clear_target_list_every_round").getAsJsonArray(), boolean[].class);// Each round has TW seconds
-            this.useUrgentKey = gson.fromJson(rebalancingConfig.get("allow_urgent_relocation").getAsJsonArray(), boolean[].class);// Each round has TW seconds
+                if (Matching.METHOD_OPTIMAL_ENFORCE_SL.equals(name)) {
 
-            for (boolean n1 : allowManyToOneTarget) {
-                for (boolean reinsert : reinsertTargets) {
-                    for (boolean clear : clearTargetListEveryRound) {
-                        for (boolean useUrg : useUrgentKey) {
-                            for (String method : rebalancingMethods) {
+                    MatchingOptimalServiceLevel method = readMatchingOptimalServiceLevelParams(gson, element);
+                    this.matchingMethods.add(method);
 
-                                Rebalance rebalanceUtil = new Rebalance(
-                                        n1,
-                                        reinsert,
-                                        clear,
-                                        useUrg,
-                                        method,
-                                        false,
-                                        false
-                                );
+                } else if (Matching.METHOD_OPTIMAL.equals(name)) {
 
-                                listRebalanceSettings.add(rebalanceUtil);
-                            }
-                        }
-                    }
+                    MatchingOptimal method = readMatchingOptimalParams(gson, element);
+                    this.matchingMethods.add(method);
+
+                } else if (Matching.METHOD_FCFS.equals(name)) {
+
+                    MatchingOptimal method = readMatchingOptimalParams(gson, element);
+                    this.matchingMethods.add(method);
+
+                } else {
+                    System.out.println("NO METHOD");
                 }
             }
 
+            this.rebalancingMethods = new ArrayList<>();
+            JsonArray rebalancingConfigurations = gson.toJsonTree(jsonConfig.get("rebalancing_config")).getAsJsonArray();
+            for (JsonElement rebalanceStrategy : rebalancingConfigurations) {
 
+                JsonObject element = gson.fromJson(rebalanceStrategy, JsonObject.class);
+                String name = gson.fromJson(element.get("name"), String.class);
+                System.out.println("Rebalancing " + name);
+                if (Rebalance.METHOD_OPTIMAL.equals(name)) {
+
+                    RebalanceOptimal method = new RebalanceOptimal();
+                    this.rebalancingMethods.add(method);
+
+                } else if (Rebalance.METHOD_HEURISTIC.equals(name)) {
+
+                    // Rebalancing configuration
+                    JsonObject rebalancingConfig = gson.fromJson(rebalanceStrategy, JsonObject.class);
+                    boolean[] allowManyToOneTarget = gson.fromJson(rebalancingConfig.get("allow_many_to_one").getAsJsonArray(), boolean[].class);// Each round has TW seconds
+                    boolean[] reinsertTargets = gson.fromJson(rebalancingConfig.get("reinsert_targets").getAsJsonArray(), boolean[].class);// Each round has TW seconds
+                    boolean[] clearTargetListEveryRound = gson.fromJson(rebalancingConfig.get("clear_target_list_every_round").getAsJsonArray(), boolean[].class);// Each round has TW seconds
+                    boolean[] useUrgentKey = gson.fromJson(rebalancingConfig.get("allow_urgent_relocation").getAsJsonArray(), boolean[].class);// Each round has TW seconds
+
+                    for (boolean n1 : allowManyToOneTarget) {
+                        for (boolean reinsert : reinsertTargets) {
+                            for (boolean clear : clearTargetListEveryRound) {
+                                for (boolean useUrg : useUrgentKey) {
+                                    RebalanceStrategy method = new RebalanceHeuristic(n1, reinsert, clear, useUrg);
+                                    rebalancingMethods.add(method);
+                                }
+                            }
+                        }
+                    }
+                } else {
+                    // No rebalancing
+                    rebalancingMethods.add(null);
+                }
+            }
             //Creating directories for results
             this.roundTrackFolder = String.format("%s/%s", this.instancesPath, ROUND_TRACK_FOLDER);
             this.requestTrackFolder = String.format("%s/%s", this.instancesPath, REQUEST_TRACK_FOLDER);
@@ -234,7 +265,7 @@ public class InstanceConfig {
         InstanceConfig instanceConfig = new InstanceConfig(s);
         System.out.println(instanceConfig);
         System.out.println(instanceConfig.customerBaseSettingsArray);
-        System.out.println(instanceConfig.listRebalanceSettings);
+        System.out.println(instanceConfig.rebalancingMethods);
     }
 
     public static InstanceConfig getInstance() {
@@ -242,10 +273,35 @@ public class InstanceConfig {
     }
 
     public static InstanceConfig getInstance(String source) {
+
         if (instance == null) {
             instance = new InstanceConfig(source);
         }
+
         return instance;
+
+    }
+
+    private MatchingOptimal readMatchingOptimalParams(Gson gson, JsonObject element) {
+        double rtvExecutionTime = gson.fromJson(element.get("rtv_execution_time"), double.class);
+        int maxEdgesRV = gson.fromJson(element.get("max_edges_rv"), int.class);
+        double timeLimit = gson.fromJson(element.get("mip_time_limit"), double.class);
+        double mipGap = gson.fromJson(element.get("mip_gap"), double.class);
+        int rejectionPenalty = gson.fromJson(element.get("rejection_penalty"), int.class);
+        return new MatchingOptimal(timeLimit, mipGap, maxEdgesRV, rtvExecutionTime, rejectionPenalty);
+    }
+
+    private MatchingOptimalServiceLevel readMatchingOptimalServiceLevelParams(Gson gson, JsonObject element) {
+        double rtvExecutionTime = gson.fromJson(element.get("rtv_execution_time_each_vehicle"), double.class);
+        int maxEdgesRV = gson.fromJson(element.get("max_edges_rv"), int.class);
+        double timeLimit = gson.fromJson(element.get("mip_time_limit"), double.class);
+        double mipGap = gson.fromJson(element.get("mip_gap"), double.class);
+
+        // SERVICE LEVEL PENALTIES
+        int violationPenalty = gson.fromJson(element.get("violation_penalty"), int.class);
+        int rejectionPenalty = gson.fromJson(element.get("rejection_penalty"), int.class);
+        int badServicePenalty = gson.fromJson(element.get("bad_service_penalty"), int.class);
+        return new MatchingOptimalServiceLevel(violationPenalty, badServicePenalty, timeLimit, mipGap, maxEdgesRV, rtvExecutionTime, rejectionPenalty);
     }
 
     public boolean[] getSortWaitingUsersByClassArray() {
@@ -376,10 +432,6 @@ public class InstanceConfig {
         return useUrgentKey;
     }
 
-    public List<Rebalance> getListRebalanceSettings() {
-        return listRebalanceSettings;
-    }
-
     public Path getInstancesPath() {
         return instancesPath;
     }
@@ -408,17 +460,18 @@ public class InstanceConfig {
         return instanceName;
     }
 
-    public String[] getRebalancingMethods() {
+    public List<RebalanceStrategy> getRebalancingMethods() {
         return rebalancingMethods;
-    }
-
-    public void setRebalancingMethods(String[] rebalancingMethods) {
-        this.rebalancingMethods = rebalancingMethods;
     }
 
     public Path getDurationsPath() {
         return this.durationsPath;
     }
+
+    public List<RideMatchingStrategy> getMatchingMethods() {
+        return matchingMethods;
+    }
+
 }
 
 

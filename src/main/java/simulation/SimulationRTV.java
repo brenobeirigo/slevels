@@ -38,7 +38,6 @@ public class SimulationRTV extends Simulation {
                          int contractDuration,
                          boolean isAllowedToHire,
                          boolean isAllowedToLowerServiceLevel,
-                         boolean sortWaitingUsersByClass,
                          String serviceRateScenarioLabel,
                          String segmentationScenarioLabel,
                          Rebalance rebalance, Matching matchingSettings) {
@@ -50,11 +49,9 @@ public class SimulationRTV extends Simulation {
                 maxRequestsIteration,
                 timeWindow,
                 timeHorizon,
-                allowRebalancing,
                 contractDuration,
                 isAllowedToHire,
                 isAllowedToLowerServiceLevel,
-                sortWaitingUsersByClass,
                 rebalance, matchingSettings);
 
 
@@ -70,7 +67,6 @@ public class SimulationRTV extends Simulation {
                 vehicleMaxCapacity,
                 timeWindow,
                 timeHorizon,
-                allowRebalancing,
                 contractDuration,
                 isAllowedToHire,
                 isAllowedToLowerServiceLevel,
