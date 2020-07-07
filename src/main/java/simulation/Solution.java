@@ -3,7 +3,7 @@ package simulation;
 import config.Config;
 import config.InstanceConfig;
 import config.Qos;
-import config.Rebalance;
+import config.RebalanceStrategy;
 import dao.Dao;
 import dao.FileUtil;
 import helper.HelperIO;
@@ -102,7 +102,8 @@ public class Solution {
                     boolean allowServiceDeterioration,
                     String serviceRate,
                     String customerSegmentation,
-                    Rebalance rebalance) {
+                    RebalanceStrategy rebalanceStrategy,
+                    RideMatchingStrategy matchingStrategy) {
 
         // Initialize solution
         this(methodName,
@@ -132,7 +133,8 @@ public class Solution {
         testCaseName += (allowServiceDeterioration ? "_SR-" + serviceRate : "");
         testCaseName += (allowVehicleHiring ? "_VH" : "");
         testCaseName += (allowServiceDeterioration ? "_SD" : "");
-        testCaseName += rebalance.strategy;
+        testCaseName += rebalanceStrategy != null ? rebalanceStrategy : "_RE-NO";
+        testCaseName += matchingStrategy;
 
         // File path
         this.outputFile = Paths.get(
@@ -307,7 +309,7 @@ public class Solution {
 
         try {
             writer = Files.newBufferedWriter(outputFileUsers);
-            String[] a = new String[]{"earliest", "id", "class", "pk_delay", "ride_delay", "pk_time", "dp_time", "id_from", "id_to", "dist", "service", "service_level"};
+            String[] a = new String[]{"earliest", "id", "class", "pk_delay", "ride_delay", "pk_time", "dp_time", "id_from", "id_to", "min_dist_sec", "service", "service_level"};
 
             CSVPrinter csvPrinter = new CSVPrinter(writer, CSVFormat.DEFAULT.withHeader(a).withCommentMarker('#'));
 
@@ -328,7 +330,7 @@ public class Solution {
                 entry.add(String.valueOf(u.getNodeDp().getNetworkId()));
                 entry.add(String.valueOf(Dao.getInstance().getDistSec(u.getNodePk(), u.getNodeDp())));
                 entry.add(u.isRejected() ? "DENIED" : u.isServicedByDedicated() ? "FLEET" : "FREELANCE");
-                entry.add(u.isServiceLevelLowered() || u.isRejected() ? "UNMET" : "MET");
+                entry.add(u.isFirstTier() ? "FIRST" : "SECOND");
 
                 csvPrinter.printRecord(entry);
                 csvPrinter.flush();
