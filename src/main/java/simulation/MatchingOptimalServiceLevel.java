@@ -133,7 +133,7 @@ public class MatchingOptimalServiceLevel extends MatchingOptimal {
 
         varFirstTierMet = new GRBVar[requests.size()];
         varSecondTierMet = new GRBVar[requests.size()];
-        varClassServiceLevelViolation = new GRBVar[requests.size()];
+        varClassServiceLevelViolation = new GRBVar[Config.getInstance().getQosCount()];
         nOfRequestsPerClass = new int[Config.getInstance().getQosCount()];
 
         for (User request : requests) {

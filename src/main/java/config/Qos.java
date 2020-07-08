@@ -53,7 +53,7 @@ public class Qos {
 
     @Override
     public String toString() {
-        return "[" + serviceRateLabel + " " + customerSegmentationLabel + " " + id + "] service rate = " + serviceRate + " - pk delay = " + pkDelay + " - dp delay = " + dpDelay + " - share = " + share + " - allow sharing = " + share;
+        return "[" + serviceRateLabel + " " + customerSegmentationLabel + " " + id + "] service rate = " + serviceRate + " - target pk delay = " + pkDelayTarget  + " - pk delay = " + pkDelay + " - dp delay = " + dpDelay + " - share = " + share + " - allow sharing = " + share;
     }
 
     @Override
