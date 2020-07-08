@@ -6,7 +6,6 @@ import model.User;
 import model.Vehicle;
 import model.Visit;
 import model.VisitByInsertion;
-import model.node.MultiSet;
 import model.node.Node;
 import org.paukov.combinatorics.CombinatoricsVector;
 import org.paukov.combinatorics.Generator;
@@ -521,7 +520,7 @@ public class Method {
      * @param maxNumberPermutations Limit the number of permutation
      * @return Visit (passengers + vehicle ' s previous passengers) or null
      */
-    public static Visit getVisitByPermutation(Set<User> passengers,
+    /*public static Visit getVisitByPermutation(Set<User> passengers,
                                               Vehicle v,
                                               boolean findBestVisit,
                                               int maxNumberPermutations) {
@@ -530,8 +529,8 @@ public class Method {
         List<Integer> visits_vehicle = getPkDpUserIdSequence(passengers, v); //TODO: return arrival also
 
         // Get all permutations
-        MultiSet m = new MultiSet(visits_vehicle);
-        List<List<Integer>> permutations = m.getPermutations(maxNumberPermutations);
+        //MultiSet m = new MultiSet(visits_vehicle);
+        //List<List<Integer>> permutations = m.getPermutations(maxNumberPermutations);
 
         // Aux. best visit for comparison
         Visit best = new Visit();
@@ -579,7 +578,7 @@ public class Method {
             return best;
         }
         return null;
-    }
+    }*/
 
 
 //    public static Visit getBestInsertionNoAddFirst(Set<User> candidateRequests,
