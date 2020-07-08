@@ -1,8 +1,8 @@
 {
-  "instance_description": "Parallel vs. Sequential execution - update fleet status",
-  "instance_name": "JAVIER_BC_WAIT_MORE3",
-  "result_folder": "C:/Users/LocalAdmin/IdeaProjects/slevels/instance_output/profile_time/",
-  "instances_folder": "C:/Users/LocalAdmin/IdeaProjects/slevels/instance_output/profile_time/",
+  "instance_description": "User can have their times worsened",
+  "instance_name": "INSERTIONSTRATEGY",
+  "result_folder": "C:/Users/LocalAdmin/IdeaProjects/slevels/instance_output/profile_time_insertion/",
+  "instances_folder": "C:/Users/LocalAdmin/IdeaProjects/slevels/instance_output/profile_time_insertion/",
   "distances_file": "C:/Users/LocalAdmin/OneDrive/leap_forward/street_network_server/tenv/data/out/manhattan/distance/dist_matrix_m.csv",
   "durations_file": "C:/Users/LocalAdmin/OneDrive/leap_forward/street_network_server/tenv/data/out/manhattan/distance/dist_matrix_duration_s.csv",
   "adjacency_matrix_file": "C:/Users/LocalAdmin/OneDrive/leap_forward/street_network_server/tenv/data/out/manhattan/network_info/adjacency_matrix.csv",
@@ -22,7 +22,7 @@
       1000
     ],
     "initial_fleet": [
-      2
+      501
     ],
     "max_capacity": [
       4
@@ -34,13 +34,13 @@
       0
     ],
     "allow_service_deterioration": [
-      true
+      false
     ],
     "allow_vehicle_hiring": [
-      true
+      false
     ],
     "allow_vehicle_creation": [
-      true
+      false
     ],
     "service_rate": {
       "S1": {
@@ -63,13 +63,13 @@
         "sharing_preference": 0
       },
       "B": {
-        "pk_delay": 300,
-        "trip_delay": 600,
+        "pk_delay": 180,
+        "trip_delay": 360,
         "sharing_preference": 1
       },
       "C": {
-        "pk_delay": 600,
-        "trip_delay": 900,
+        "pk_delay": 300,
+        "trip_delay": 600,
         "sharing_preference": 1
       }
     }
@@ -77,6 +77,9 @@
   "matching_config": {
     "sort_waiting_users_by_class": [
       false
+    ],
+    "method": [
+      "alonso_mora2017"
     ]
   },
   "rebalancing_config": {

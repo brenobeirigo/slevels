@@ -1,6 +1,6 @@
 {
   "instance_description": "Parallel vs. Sequential execution - update fleet status",
-  "instance_name": "JAVIER_BC_WAIT_MORE3",
+  "instance_name": "JAVIER",
   "result_folder": "C:/Users/LocalAdmin/IdeaProjects/slevels/instance_output/profile_time/",
   "instances_folder": "C:/Users/LocalAdmin/IdeaProjects/slevels/instance_output/profile_time/",
   "distances_file": "C:/Users/LocalAdmin/OneDrive/leap_forward/street_network_server/tenv/data/out/manhattan/distance/dist_matrix_m.csv",
@@ -22,7 +22,7 @@
       1000
     ],
     "initial_fleet": [
-      2
+      1000
     ],
     "max_capacity": [
       4
@@ -63,13 +63,13 @@
         "sharing_preference": 0
       },
       "B": {
-        "pk_delay": 300,
-        "trip_delay": 600,
+        "pk_delay": 180,
+        "trip_delay": 360,
         "sharing_preference": 1
       },
       "C": {
-        "pk_delay": 600,
-        "trip_delay": 900,
+        "pk_delay": 300,
+        "trip_delay": 600,
         "sharing_preference": 1
       }
     }
