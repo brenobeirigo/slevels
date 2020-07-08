@@ -4,9 +4,8 @@ import model.User;
 import model.Vehicle;
 import model.Visit;
 import model.node.Node;
-import org.jgrapht.graph.DefaultEdge;
 import org.jgrapht.graph.DefaultWeightedEdge;
-import org.jgrapht.graph.SimpleGraph;
+import org.jgrapht.graph.SimpleWeightedGraph;
 import org.paukov.combinatorics.Generator;
 import org.paukov.combinatorics.ICombinatoricsVector;
 import simulation.Method;
@@ -19,7 +18,7 @@ public class GraphRV {
 
 
     public int vehicleCapacity;
-    SimpleGraph<Object, DefaultWeightedEdge> graphRV;
+    SimpleWeightedGraph<Object, DefaultWeightedEdge> graphRV;
     private final List<User> allRequests;
     public GraphRV(List<User> allRequests, List<Vehicle> listVehicles, int vehicleCapacity) {
 
@@ -62,7 +61,7 @@ public class GraphRV {
     }
 
     public void updateRR(List<User> listRequests,
-                         SimpleGraph<Object, DefaultWeightedEdge> graphRV,
+                         SimpleWeightedGraph<Object, DefaultWeightedEdge> graphRV,
                          int maxVehicleCapacity) {
 
         for (int i = 0; i < listRequests.size() - 1; i++) {
@@ -169,7 +168,7 @@ public class GraphRV {
      */
     public void updateRV(List<Vehicle> listVehicles,
                          List<User> listRequests,
-                         SimpleGraph<Object, DefaultWeightedEdge> graphRV) {
+                         SimpleWeightedGraph<Object, DefaultWeightedEdge> graphRV) {
 
 
         Set<Integer> lowestDelays = new HashSet<>();
@@ -187,7 +186,7 @@ public class GraphRV {
         }
     }
 
-    private void createEdge(SimpleGraph<Object, DefaultWeightedEdge> graphRV, User request, Vehicle vehicle) {
+    private void createEdge(SimpleWeightedGraph<Object, DefaultWeightedEdge> graphRV, User request, Vehicle vehicle) {
 
         Generator<Node> gen = Method.getGeneratorOfNodeSequence(new HashSet<>(Collections.singletonList(request)), vehicle);
 
@@ -264,13 +263,13 @@ public class GraphRV {
      * @param listVehicles
      * @return
      */
-    public SimpleGraph<Object, DefaultWeightedEdge> getRVGraph(List<User> listWaitingUsers,
+    public SimpleWeightedGraph<Object, DefaultWeightedEdge> getRVGraph(List<User> listWaitingUsers,
                                                                List<Vehicle> listVehicles,
                                                                int vehicleCapacity) {
 
 
         // Create RV graph (r1, r2) and (v, r)
-        SimpleGraph<Object, DefaultWeightedEdge> graphRV = new SimpleGraph<>(DefaultWeightedEdge.class);
+        SimpleWeightedGraph<Object, DefaultWeightedEdge> graphRV = new SimpleWeightedGraph<>(DefaultWeightedEdge.class);
 
         // Populating RV grapht
         for (User user : listWaitingUsers) {
@@ -298,14 +297,14 @@ public class GraphRV {
      * @param listVehicles
      * @return
      */
-    public SimpleGraph<Object, DefaultWeightedEdge> getRVGraph2(List<User> listWaitingUsers,
+    public SimpleWeightedGraph<Object, DefaultWeightedEdge> getRVGraph2(List<User> listWaitingUsers,
                                                                 List<Vehicle> listVehicles,
                                                                 int vehicleCapacity,
                                                                 int maxEdgesRV) {
 
 
         // Create RV graph (r1, r2) and (v, r)
-        SimpleGraph<Object, DefaultWeightedEdge> graphRV = new SimpleGraph<>(DefaultWeightedEdge.class);
+        SimpleWeightedGraph<Object, DefaultWeightedEdge> graphRV = new SimpleWeightedGraph<>(DefaultWeightedEdge.class);
 
         // Populating RV grapht
         for (User user : listWaitingUsers) {
@@ -348,7 +347,7 @@ public class GraphRV {
 
     }
 
-    public DefaultEdge getEdge(User request1, User request2) {
+    public DefaultWeightedEdge getEdge(User request1, User request2) {
         return graphRV.getEdge(request1, request2);
     }
 

@@ -5,7 +5,7 @@ import model.User;
 import model.Vehicle;
 import model.Visit;
 import model.graph.GraphRTV;
-import org.jgrapht.graph.DefaultEdge;
+import org.jgrapht.graph.DefaultWeightedEdge;
 
 import java.util.*;
 import java.util.stream.Collectors;
@@ -329,7 +329,7 @@ public class MatchingOptimal implements RideMatchingStrategy {
 
     protected boolean userCannotBePickedUpByIdleVehicles(GraphRTV graphRTV, Set<Vehicle> unassignedVehicles, User u) {
 
-        for (DefaultEdge edge : graphRTV.edgesOf(u)) {
+        for (DefaultWeightedEdge edge : graphRTV.edgesOf(u)) {
             Vehicle v = ((Visit) graphRTV.getEdgeTarget(edge)).getVehicle();
             if (unassignedVehicles.contains(v)) {
                 System.out.println(unassignedVehicles);

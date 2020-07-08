@@ -4,9 +4,8 @@ import model.User;
 import model.Vehicle;
 import model.Visit;
 import model.VisitStop;
-import org.jgrapht.graph.DefaultEdge;
 import org.jgrapht.graph.DefaultWeightedEdge;
-import org.jgrapht.graph.SimpleGraph;
+import org.jgrapht.graph.SimpleWeightedGraph;
 import simulation.Method;
 import simulation.ResultAssignment;
 import simulation.Solution;
@@ -29,7 +28,7 @@ public class GraphRTV {
     // Populate list of feasible trips with current trips
     private List<List<Visit>> feasibleTrips;
 
-    private SimpleGraph<Object, DefaultEdge> graphRTV;
+    private SimpleWeightedGraph<Object, DefaultWeightedEdge> graphRTV;
 
     private int vehicleCapacity;
 
@@ -48,7 +47,7 @@ public class GraphRTV {
         // Populate list of feasible trips with current trips
         this.feasibleTrips = new ArrayList<>();
         this.vehicleCapacity = vehicleCapacity;
-        this.graphRTV = new SimpleGraph<>(DefaultWeightedEdge.class);
+        this.graphRTV = new SimpleWeightedGraph<>(DefaultWeightedEdge.class);
         this.allRequests = allRequests;
         this.listVehicles = listVehicles;
 
@@ -86,7 +85,7 @@ public class GraphRTV {
         // Populate list of feasible trips with current trips
         this.feasibleTrips = new ArrayList<>();
         this.vehicleCapacity = vehicleCapacity;
-        this.graphRTV = new SimpleGraph<>(DefaultWeightedEdge.class);
+        this.graphRTV = new SimpleWeightedGraph<>(DefaultWeightedEdge.class);
         this.allRequests = allRequests;
         this.listVehicles = listVehicles;
         this.graphRV = graphRV;
@@ -176,7 +175,7 @@ public class GraphRTV {
         Map<User, Integer> userDelayMap = visit.getUserDelayPairs();
 
         for (User request : requests) {
-            DefaultEdge requestVisitEdge = graphRTV.addEdge(request, visit);
+            DefaultWeightedEdge requestVisitEdge = graphRTV.addEdge(request, visit);
             graphRTV.setEdgeWeight(requestVisitEdge, userDelayMap.get(request));
         }
 
@@ -197,7 +196,7 @@ public class GraphRTV {
 
         for (User request : requests) {
 
-            DefaultEdge requestVisitEdge = graphRTV.addEdge(request, visit);
+            DefaultWeightedEdge requestVisitEdge = graphRTV.addEdge(request, visit);
             graphRTV.setEdgeWeight(requestVisitEdge, userDelayMap.get(request));
             // double a = graphRTV.getEdgeWeight(requestVisitEdge);
             // System.out.println(request + "-" + a);
@@ -420,7 +419,7 @@ public class GraphRTV {
                 .collect(Collectors.toList());
     }
 
-    public Set<DefaultEdge> edgesOf(Object o) {
+    public Set<DefaultWeightedEdge> edgesOf(Object o) {
         return graphRTV.edgesOf(o);
     }
 
@@ -428,7 +427,7 @@ public class GraphRTV {
         return graphRTV.removeVertex(o);
     }
 
-    public Object getEdgeTarget(DefaultEdge edge) {
+    public Object getEdgeTarget(DefaultWeightedEdge edge) {
         return graphRTV.getEdgeTarget(edge);
     }
 
