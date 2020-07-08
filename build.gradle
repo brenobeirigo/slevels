@@ -1,0 +1,14 @@
+apply plugin: 'idea'
+apply plugin: 'java'
+
+repositories{
+    flatDir {
+        dirs 'lib'
+    }
+}
+dependencies {
+    api 'com.google.code.gson:gson:2.8.6'
+    api 'org.jgrapht:jgrapht-core:1.5.0'
+    api 'com.googlecode.combinatoricslib:combinatoricslib:2.2'
+    api 'com.googlecode.json-simple:json-simple:1.1.1'
+}()
