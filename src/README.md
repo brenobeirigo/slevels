@@ -34,6 +34,17 @@ The information levels can be set using the following labels:
 |`print_no_round_info`| Ommit all round info.|
 |`print_summary_round_info`| Only shows rond stats.|
 
+
+
+## Creating .jar
+
+Download openjdk (e.g., `openjdk-11+28_windows-x64_bin.exe` from `https://jdk.java.net/archive/`) and execute `.jar` file using:
+    
+    java -jar C:\Users\LocalAdmin\IdeaProjects\slevels\build\libs\slevels-1.0-SNAPSHOT.jar C:\Users\LocalAdmin\IdeaProjects\slevels\config.json
+
+The file `java.exe` is in `\bin` folder.
+
+
 ## Rebalancing strategies
 
 |Label|Description|
