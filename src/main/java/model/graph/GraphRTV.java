@@ -26,6 +26,7 @@ public class GraphRTV {
     private GraphRV graphRV;
     private Map<String, Long> runTimes;
     private long timeout;
+
     public GraphRTV(List<User> allRequests, List<Vehicle> listVehicles, int maxVehicleCapacity, double timeout) {
 
         runTimes = new HashMap<>();
@@ -66,6 +67,7 @@ public class GraphRTV {
         this.runTimes.put(Solution.TIME_CREATE_RTV, System.nanoTime() - this.runTimes.get(Solution.TIME_CREATE_RTV));
         System.out.println(String.format("# 2) RTV created (%.2f sec) - %s", (this.runTimes.get(Solution.TIME_CREATE_RTV) / 1000000000.0), this.getSummaryFeasibleTripsLevel()));
     }
+
     public GraphRTV(GraphRV graphRV, int maxVehicleCapacity, List<User> allRequests, List<Vehicle> listVehicles) {
 
         // Populate list of feasible trips with current trips
@@ -321,11 +323,17 @@ public class GraphRTV {
      * @return
      */
     private List<List<Visit>> getFeasibleTripsVehicle(Vehicle vehicle) {
+
+        // Process times out after an interval
         long startTime = System.nanoTime();
+
         // Feasible visits of size k={1,2,3, ..., capacity(vehicle)}
-        List<List<Visit>> feasibleVisitsCurrentVehicleAtLevel = new ArrayList<>();
+        List<List<Visit>> feasibleVisitsAtLevel = new ArrayList<>();
+        List<Set<Set<User>>> feasibleTripsAtLevel = new ArrayList<>();
+
         for (int i = 0; i < vehicle.getCapacity(); i++) {
-            feasibleVisitsCurrentVehicleAtLevel.add(new LinkedList<>());
+            feasibleVisitsAtLevel.add(new LinkedList<>());
+            feasibleTripsAtLevel.add(new HashSet<>());
         }
 
         //**********************************************************************************************************
@@ -335,28 +343,26 @@ public class GraphRTV {
 
             // Interrupt processing
             if (System.nanoTime() - startTime >= timeout)
-                return feasibleVisitsCurrentVehicleAtLevel;
+                return feasibleVisitsAtLevel;
 
             User request = (User) this.graphRV.getEdgeTarget(edge);
 
             // Try ALL insertions of request in vehicle visit sequence
-            addRTVEdgeAtLevel(vehicle, new HashSet<>(Arrays.asList(request)), feasibleVisitsCurrentVehicleAtLevel, 0);
+            addRTVEdgeAtLevel(vehicle, new HashSet<>(Arrays.asList(request)), feasibleVisitsAtLevel, 0);
         }
 
         //**********************************************************************************************************
         // Adding feasible visits of size = 2 **********************************************************************
         //**********************************************************************************************************
-        for (int i = 0; i < feasibleVisitsCurrentVehicleAtLevel.get(0).size() - 1; i++) {
-            for (int j = i + 1; j < feasibleVisitsCurrentVehicleAtLevel.get(0).size(); j++) {
+        for (int i = 0; i < feasibleVisitsAtLevel.get(0).size() - 1; i++) {
+            for (int j = i + 1; j < feasibleVisitsAtLevel.get(0).size(); j++) {
 
                 // Interrupt processing
                 if (System.nanoTime() - startTime >= timeout)
-                    return feasibleVisitsCurrentVehicleAtLevel;
+                    return feasibleVisitsAtLevel;
 
-
-                Visit visit1 = feasibleVisitsCurrentVehicleAtLevel.get(0).get(i);
-                Visit visit2 = feasibleVisitsCurrentVehicleAtLevel.get(0).get(j);
-
+                Visit visit1 = feasibleVisitsAtLevel.get(0).get(i);
+                Visit visit2 = feasibleVisitsAtLevel.get(0).get(j);
 
                 User request1 = visit1.getRequests().iterator().next();
                 User request2 = visit2.getRequests().iterator().next();
@@ -369,51 +375,38 @@ public class GraphRTV {
 
                     Set<User> requests = new HashSet<>(visit1.getRequests());
                     requests.addAll(visit2.getRequests());
-                    addRTVEdgeAtLevel(vehicle, requests, feasibleVisitsCurrentVehicleAtLevel, 1);
+                    if (addRTVEdgeAtLevel(vehicle, requests, feasibleVisitsAtLevel, 1)) {
+                        feasibleTripsAtLevel.get(1).add(requests);
+                    }
                 }
             }
         }
 
-        Set<Set<User>> alreadyCombined = new HashSet<>();
         for (int k = 2; k < vehicle.getCapacity(); k++) {
 
-            Set<Set<User>> alreadyAdded = new HashSet<>();
+            Set<Set<User>> tripsAlreadyAddedToCurrentLevel = new HashSet<>();
 
             // Interrupt processing
             if (System.nanoTime() - startTime >= timeout)
-                return feasibleVisitsCurrentVehicleAtLevel;
+                return feasibleVisitsAtLevel;
 
-            List<Visit> feasibleTrips = feasibleVisitsCurrentVehicleAtLevel.get(k - 1);
+            List<Visit> feasibleVisitsPreviousLevel = feasibleVisitsAtLevel.get(k - 1);
+            Set<Set<User>> feasibleTripsPreviousLevel = feasibleTripsAtLevel.get(k - 1);
 
-            // System.out.println("Feasible:" + feasibleVisitsCurrentVehicleAtLevel.stream().map(List::size).collect(Collectors.toList()) + " - currentFeasible=" + feasibleTrips.size());
+            for (int i = 0; i < feasibleVisitsPreviousLevel.size() - 1; i++) {
+                for (int j = i + 1; j < feasibleVisitsPreviousLevel.size(); j++) {
 
-            /*if (k == 3) {
-                System.out.println(vehicle + "-L" + k + " = " + feasibleTrips.size());
-            }*/
+                    Set<User> combinedTrip = Sets.union(
+                            feasibleVisitsPreviousLevel.get(i).getRequests(),
+                            feasibleVisitsPreviousLevel.get(j).getRequests()
+                    );
 
+                    if (!tripsAlreadyAddedToCurrentLevel.contains(combinedTrip) && combinedTrip.size() == k + 1) {
+                        tripsAlreadyAddedToCurrentLevel.add(combinedTrip);
 
-            for (int i = 0; i < feasibleTrips.size() - 1; i++) {
-                for (int j = i + 1; j < feasibleTrips.size(); j++) {
-
-                    Set<User> trip1 = feasibleTrips.get(i).getRequests();
-                    Set<User> trip2 = feasibleTrips.get(j).getRequests();
-                    Set<User> combinedRequestList = Sets.union(trip1, trip2);
-
-                    if (!alreadyCombined.contains(combinedRequestList) && combinedRequestList.size() == k + 1) {
-
-                        alreadyCombined.add(combinedRequestList);
-                        // System.out.println("combined=" + combinedRequestList + "(already combined = " + alreadyCombined.size() + ")");
-
-                        if (!alreadyAdded.contains(combinedRequestList)) {
-
-                            alreadyAdded.add(combinedRequestList);
-
-                            //System.out.println("Already added: " + alreadyAdded.size());
-                            if (allSubTripsAreFeasible(feasibleTrips, combinedRequestList)) {
-                                // System.out.println("VICTORY!");
-                                if (addRTVEdgeAtLevel(vehicle, combinedRequestList, feasibleVisitsCurrentVehicleAtLevel, k)) {
-                                    // System.out.println("ADDED!");
-                                }
+                        if (allSubTripsAreFeasible(feasibleTripsPreviousLevel, combinedTrip)) {
+                            if (addRTVEdgeAtLevel(vehicle, combinedTrip, feasibleVisitsAtLevel, k)) {
+                                feasibleTripsAtLevel.get(k).add(combinedTrip);
                             }
                         }
                     }
@@ -421,10 +414,11 @@ public class GraphRTV {
             }
         }
 
-        return feasibleVisitsCurrentVehicleAtLevel;
+        return feasibleVisitsAtLevel;
     }
+    
 
-    private boolean allSubTripsAreFeasible(List<Visit> feasibleTrips, Set<User> combinedRequestList) {
+    private boolean allSubTripsAreFeasible(Set<Set<User>> feasibleTrips, Set<User> combinedRequestList) {
 
         for (User request : combinedRequestList) {
 
@@ -434,9 +428,8 @@ public class GraphRTV {
             subTrip.remove(request);
             //System.out.println("-testing=" + subTrip);
 
-            if (!isSubtripFeasible(feasibleTrips, subTrip)) {
+            if (!feasibleTrips.contains(subTrip))
                 return false;
-            }
         }
         return true;
     }
