@@ -28,8 +28,8 @@ public class MatchingOptimalServiceLevel extends MatchingOptimal {
     private int[] nOfRequestsPerClass;
 
 
-    public MatchingOptimalServiceLevel(int violationPenalty, int badServicePenalty, double timeLimit, double mipGap, int maxEdgesRV, double rtvExecutionTime, int rejectionPenalty) {
-        super(timeLimit, mipGap, maxEdgesRV, rtvExecutionTime, rejectionPenalty);
+    public MatchingOptimalServiceLevel(int maxVehicleCapacityRTV, int violationPenalty, int badServicePenalty, double mipTimeLimit, double timeoutVehicleRTV, double mipGap, int maxEdgesRV, int rejectionPenalty) {
+        super(maxVehicleCapacityRTV, mipTimeLimit, timeoutVehicleRTV, mipGap, maxEdgesRV, rejectionPenalty);
         this.serviceLevelViolationPenalty = violationPenalty;
         this.badServicePenalty = badServicePenalty;
     }
@@ -73,11 +73,9 @@ public class MatchingOptimalServiceLevel extends MatchingOptimal {
     }
 
 
-
     @Override
     public ResultAssignment match(int currentTime, List<User> unassignedRequests, List<Vehicle> listVehicles, Matching configMatching) {
-
-        buildGraphRTV(unassignedRequests, listVehicles);
+        buildGraphRTV(unassignedRequests, listVehicles, this.maxVehicleCapacityRTV, timeoutVehicleRTV);
 
         result = new ResultAssignment(currentTime);
 
@@ -128,7 +126,6 @@ public class MatchingOptimalServiceLevel extends MatchingOptimal {
     }
 
 
-
     private void initVarsSL() throws GRBException {
 
         varFirstTierMet = new GRBVar[requests.size()];
@@ -163,7 +160,7 @@ public class MatchingOptimalServiceLevel extends MatchingOptimal {
             model.addConstr(constrRequestServiceLevelNotAchieved, GRB.EQUAL, 1, "second_tier_" + request.toString().trim());
         }
     }
-    
+
     private void setupClassTargetServiceLevelConstraints() {
 
         GRBLinExpr[] constrFirstClass = new GRBLinExpr[Config.getInstance().getQosCount()];

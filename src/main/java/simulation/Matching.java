@@ -20,6 +20,7 @@ public class Matching {
     protected boolean isAllowedToHire;
     protected CustomerBaseConfig customerBaseSettings;
     protected RideMatchingStrategy strategy;
+    private int maxVehicleCapacity;
 
     public Matching(boolean isAllowedToLowerServiceLevel, int contractDuration, Rebalance rebalanceSettings, boolean isAllowedToHire) {
 
@@ -44,5 +45,13 @@ public class Matching {
 
     public void setStrategy(RideMatchingStrategy matchingMethod) {
         this.strategy = matchingMethod;
+    }
+
+    public void setMaxVehicleCapacity(int maxVehicleCapacity) {
+        this.maxVehicleCapacity = maxVehicleCapacity;
+    }
+
+    public int getMaxVehicleCapacity() {
+        return maxVehicleCapacity;
     }
 }

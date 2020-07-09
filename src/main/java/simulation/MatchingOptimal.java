@@ -13,13 +13,11 @@ import java.util.stream.Collectors;
 public class MatchingOptimal implements RideMatchingStrategy {
 
 
-    final int vehicleCapacity = 4;
-    final double mipTimeLimit = 15;
-    final double MIP_GAP = 0.01;
-    protected double timeLimit;
+    protected int maxVehicleCapacityRTV;
+    protected double timeoutVehicleRTV;
+    protected double mipTimeLimit;
     protected double mipGap;
     protected int maxEdgesRV;
-    protected double rtvExecutionTime;
     protected int rejectionPenalty;
     // Model
     protected GRBEnv env;
@@ -36,11 +34,12 @@ public class MatchingOptimal implements RideMatchingStrategy {
     GraphRTV graphRTV;
     ResultAssignment result;
 
-    public MatchingOptimal(double timeLimit, double mipGap, int maxEdgesRV, double rtvExecutionTime, int rejectionPenalty) {
-        this.timeLimit = timeLimit;
+    public MatchingOptimal(int maxVehicleCapacityRTV, double mipTimeLimit, double timeoutVehicleRTV, double mipGap, int maxEdgesRV, int rejectionPenalty) {
+        this.maxVehicleCapacityRTV = maxVehicleCapacityRTV;
+        this.mipTimeLimit = mipTimeLimit;
+        this.timeoutVehicleRTV = timeoutVehicleRTV;
         this.mipGap = mipGap;
         this.maxEdgesRV = maxEdgesRV;
-        this.rtvExecutionTime = rtvExecutionTime;
         this.rejectionPenalty = rejectionPenalty;
     }
 
@@ -53,7 +52,7 @@ public class MatchingOptimal implements RideMatchingStrategy {
     @Override
     public ResultAssignment match(int currentTime, List<User> unassignedRequests, List<Vehicle> listVehicles, Matching configMatching) {
 
-        buildGraphRTV(unassignedRequests, listVehicles);
+        buildGraphRTV(unassignedRequests, listVehicles, this.maxVehicleCapacityRTV, timeoutVehicleRTV);
 
         result = new ResultAssignment(currentTime);
 
@@ -122,13 +121,13 @@ public class MatchingOptimal implements RideMatchingStrategy {
         return result;
     }
 
-    protected void buildGraphRTV(List<User> unassignedRequests, List<Vehicle> listVehicles) {
+    protected void buildGraphRTV(List<User> unassignedRequests, List<Vehicle> listVehicles, int maxVehicleCapacity, double timeoutVehicle) {
         // Consider all requests (assigned and unassigned)
         List<User> requests = new ArrayList<>(unassignedRequests);
         requests.addAll(Vehicle.getAssignedRequestsFrom(listVehicles));
 
         // BUILDING GRAPH STRUCTURE ////////////////////////////////////////////////////////////////////////////////////
-        this.graphRTV = new GraphRTV(requests, listVehicles, vehicleCapacity);
+        this.graphRTV = new GraphRTV(requests, listVehicles, maxVehicleCapacity, timeoutVehicle);
         // To assure every vehicle is assigned to a visit, create dummy stop visits.
         this.graphRTV.addStopVisits();
 
@@ -211,7 +210,7 @@ public class MatchingOptimal implements RideMatchingStrategy {
         model = new GRBModel(env);
         model.set(GRB.StringAttr.ModelName, "assignment_rtv");
         model.set(GRB.DoubleParam.TimeLimit, mipTimeLimit);
-        model.set(GRB.DoubleParam.MIPGap, MIP_GAP);
+        model.set(GRB.DoubleParam.MIPGap, mipGap);
 
         for (Vehicle vehicle : vehicles) {
             assert !graphRTV.getListOfVisitsFromVehicle(vehicle).isEmpty() : "Vehicle is disconnected!" + vehicle;

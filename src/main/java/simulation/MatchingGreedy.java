@@ -195,8 +195,7 @@ public class MatchingGreedy implements RideMatchingStrategy {
 
         // BUILDING GRAPH STRUCTURE ////////////////////////////////////////////////////////////////////////////////////
 
-        GraphRTV graphRTV = new GraphRTV(requests, vehicles, 4);
-
+        GraphRTV graphRTV = new GraphRTV(requests, vehicles, 4, 0.2);
 
         ResultAssignment result = new ResultAssignment(currentTime);
 
