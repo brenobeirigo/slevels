@@ -10,7 +10,7 @@ Access file `InstanceConfig.java` and attribute instance name to the `source` va
 
 ## Installation
 
-Import the Gurobi `.jar` library from `C:\gurobi810\win64\lib` to execute optimization models.
+Download gurobi from `https://www.gurobi.com/downloads/gurobi-software/` and import the `.jar` library from `C:\gurobi810\win64\lib` to execute optimization models.
 
 ## Configuration
 
