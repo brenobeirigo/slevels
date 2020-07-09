@@ -32,7 +32,9 @@ public class Rebalance {
     }
 
     public void interruptRebalancing(Visit visit, int timeWindow) {
-        this.strategy.interruptRebalancing(visit, timeWindow, this.createEpisode, this.showInfo);
+        // null = No strategy
+        if (this.strategy != null)
+            this.strategy.interruptRebalancing(visit, timeWindow, this.createEpisode, this.showInfo);
     }
 
     public void executeStrategy(Set<Vehicle> idleVehicles, List<Node> targets) {
