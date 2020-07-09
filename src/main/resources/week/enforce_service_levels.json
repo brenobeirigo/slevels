@@ -19,10 +19,10 @@
       86400
     ],
     "max_requests": [
-      1
+      1000
     ],
     "initial_fleet": [
-      5
+      1000
     ],
     "max_capacity": [
       4
@@ -83,7 +83,8 @@
       "mip_time_limit": 15,
       "mip_gap": 0.01,
       "max_edges_rv": 30,
-      "rtv_execution_time_each_vehicle": 0.2,
+      "rtv_vehicle_timeout": 0.2,
+      "rtv_max_vehicle_capacity": 4,
       "rejection_penalty": 10000
     },
     {
@@ -91,7 +92,8 @@
       "mip_time_limit": 15,
       "mip_gap": 0.01,
       "max_edges_rv": 30,
-      "rtv_execution_time_each_vehicle": 0.2,
+      "rtv_vehicle_timeout": 0.20,
+      "rtv_max_vehicle_capacity": 4,
       "rejection_penalty": 10000,
       "violation_penalty": 1000,
       "bad_service_penalty": 10
