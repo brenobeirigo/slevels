@@ -140,7 +140,7 @@ public class SimulationRTV extends Simulation {
         this.runTimes.put(Solution.TIME_CREATE_RTV, System.nanoTime());
         GraphRTV graphRTV = new GraphRTV(graphRV, vehicleCapacity, requests, listVehicles);
         this.runTimes.put(Solution.TIME_CREATE_RTV, System.nanoTime() - this.runTimes.get(Solution.TIME_CREATE_RTV));
-        System.out.println(String.format("# RTV created (%.2f sec) - %s", (this.runTimes.get(Solution.TIME_CREATE_RTV) / 1000000000.0), graphRTV.getSummaryFeasibleTripsLevel()));
+        System.out.println(String.format("# 2) RTV created (%.2f sec) - %s", (this.runTimes.get(Solution.TIME_CREATE_RTV) / 1000000000.0), graphRTV.getSummaryFeasibleTripsLevel()));
         return graphRTV;
     }
 
