@@ -51,6 +51,7 @@ The file `java.exe` is in `\bin` folder.
 |-----|-----------|
 |`rebalance_heuristic`||
 |`rebalance_optimal_alonso_mora`| | 
+|                               | An empty dictionary signals that no rebalancing method should be set up. | 
 
 ## Logging
 
