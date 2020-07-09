@@ -315,10 +315,13 @@ public class GraphRV {
             graphRV.addVertex(vehicle);
         }
 
-        IntStream.range(0, listWaitingUsers.size()).parallel().mapToObj(value -> getRVEdge(value, listWaitingUsers, listVehicles, vehicleCapacity, maxEdgesRV)).collect(HashSet<EdgeRV>::new, HashSet::addAll, HashSet::addAll).forEach(o -> {
-            DefaultWeightedEdge e = graphRV.addEdge(o.from, o.target);
-            graphRV.setEdgeWeight(e, o.delay);
-        });
+        IntStream.range(0, listWaitingUsers.size()).parallel()
+                .mapToObj(value -> getRVEdge(value, listWaitingUsers, listVehicles, vehicleCapacity,maxEdgesRV))
+                .collect(HashSet<EdgeRV>::new, HashSet::addAll, HashSet::addAll)
+                .forEach(o -> {
+                    DefaultWeightedEdge e = graphRV.addEdge(o.from, o.target);
+                    graphRV.setEdgeWeight(e, o.delay);
+                });
 
         return graphRV;
     }
