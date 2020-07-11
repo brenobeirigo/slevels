@@ -46,7 +46,7 @@ public class Config {
 
         try {
 
-            System.out.println("# Reading configuration...");
+            System.out.println(String.format("# Reading configuration from \"%s\"...", source));
             // Reading input settings
             Map jsonConfig = FileUtil.getMapFrom(source);
 
