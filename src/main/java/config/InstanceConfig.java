@@ -117,15 +117,15 @@ public class InstanceConfig {
 
 
             // Customer base settings
-            Type segmentationScenarioType = new TypeToken<HashMap<String, HashMap<String, Double>>>() {
-            }.getType();
+            Type segmentationScenarioType = new TypeToken<HashMap<String, HashMap<String, Double>>>() {}.getType();
             this.segmentationScenarioMap = gson.fromJson(scenarioConfig.get("customer_segmentation"), segmentationScenarioType);
-            Type serviceLevelMapType = new TypeToken<HashMap<String, HashMap<String, Integer>>>() {
-            }.getType();
+
+            Type serviceLevelMapType = new TypeToken<HashMap<String, HashMap<String, Integer>>>() {}.getType();
             this.serviceLevelMap = gson.fromJson(scenarioConfig.get("service_level"), serviceLevelMapType);
-            Type serviceRateMapType = new TypeToken<HashMap<String, HashMap<String, Double>>>() {
-            }.getType();
+
+            Type serviceRateMapType = new TypeToken<HashMap<String, HashMap<String, Double>>>() {}.getType();
             this.serviceRateScenarioMap = gson.fromJson(scenarioConfig.get("service_rate"), serviceRateMapType);
+
             this.maxTimeHiringList = new HashMap<>();
             for (Map.Entry<String, Map<String, Integer>> e : serviceLevelMap.entrySet()) {
                 for (int tw : this.timeWindowArray) {
