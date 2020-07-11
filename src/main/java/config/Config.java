@@ -5,13 +5,10 @@ import dao.FileUtil;
 import java.text.DateFormat;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
-import java.util.Date;
-import java.util.HashMap;
-import java.util.Map;
+import java.util.*;
 
 public class Config {
 
-    public static final String FIRST_DATE = "2011-02-01 00:00:00";
     public static final byte PRINT_ALL_ROUND_INFO = 1;
     public static final byte PRINT_SUMMARY_ROUND_INFO = 2;
     public static final byte PRINT_NO_ROUND_INFO = 0;
@@ -26,19 +23,24 @@ public class Config {
     public static final int DURATION_SINGLE_RIDE = 0;
     public static final int DURATION_1H = 3600;
     public static final int DURATION_3H = 3 * 3600;
-    public static InstanceConfig instanceSettings;
-    public static DateFormat formatter_t = new SimpleDateFormat("HH:mm:ss");
-    public static DateFormat formatter_date_time = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
-    private static Config ourInstance = new Config();
     public static final int BEFORE = -1;
     public static final int EQUAL = 0;
     public static final int AFTER = 1;
-    public Map<String, Qos> qosDic;
-    private Date firstDate;
+    public static InstanceConfig instanceSettings;
+    public static DateFormat formatter_t = new SimpleDateFormat("HH:mm:ss");
+    public static DateFormat formatter_date_time = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
     public static Map<String, Boolean> infoHandling;
+    private static Config ourInstance = new Config();
+    public Map<String, Qos> qosDic;
+    private Date earliestTime;
+    private List<Qos> qosListPriority;
 
 
-    public static InstanceConfig createInstanceFrom(String source){
+    private Config() {
+        qosDic = new HashMap<>();
+    }
+
+    public static InstanceConfig createInstanceFrom(String source) {
 
 
         String jsonConfigFilePath;
@@ -89,27 +91,16 @@ public class Config {
         return InstanceConfig.getInstance(jsonConfigFilePath);
     }
 
-    public static boolean showRoundInfo(){
+    public static boolean showRoundInfo() {
         return Config.infoHandling.get(SHOW_ROUND_INFO);
     }
 
-    public static boolean saveRoundInfo(){
+    public static boolean saveRoundInfo() {
         return Config.infoHandling.get(SAVE_ROUND_INFO_CSV);
     }
 
-    public static boolean showRoundFleetStatus(){
+    public static boolean showRoundFleetStatus() {
         return Config.infoHandling.get(SHOW_ROUND_FLEET_STATUS);
-    }
-
-    private Config() {
-
-        qosDic = new HashMap<>();
-
-        try {
-            this.firstDate = Config.formatter_date_time.parse(FIRST_DATE);
-        } catch (ParseException e) {
-            e.printStackTrace();
-        }
     }
 
     public static void reset() {
@@ -128,26 +119,26 @@ public class Config {
         return ourInstance;
     }
 
-    public int getQosCount(){
+    public int getQosCount() {
         return this.qosDic.size();
     }
 
     public int date2Seconds(String departureDate) {
         int secs = -1;
         try {
-            secs = (int) (Config.formatter_date_time.parse(departureDate).getTime() - this.firstDate.getTime()) / 1000;
+            secs = (int) (Config.formatter_date_time.parse(departureDate).getTime() - this.earliestTime.getTime()) / 1000;
         } catch (ParseException e) {
             e.printStackTrace();
         }
         return secs;
     }
 
-    public Date getFirstDate() {
-        return firstDate;
+    public Date getEarliestTime() {
+        return earliestTime;
     }
 
     public Date seconds2Date(int departureDate) {
-        return new Date(departureDate * 1000 + this.firstDate.getTime());
+        return new Date(departureDate * 1000 + this.earliestTime.getTime());
     }
 
 
@@ -155,5 +146,24 @@ public class Config {
         for (Map.Entry<String, Qos> e : qosDic.entrySet()) {
             System.out.println(e.getKey() + " - " + e.getValue());
         }
+    }
+
+    public List<Qos> createSortedQosList() {
+        List<Qos> qos = new ArrayList<>(this.qosDic.values());
+        Collections.sort(qos);
+        return qos;
+    }
+
+    public void updateQosDic(Map<String, Qos> qosDic) {
+        this.qosDic = qosDic;
+        this.qosListPriority = createSortedQosList();
+    }
+
+    public List<Qos> getSortedQosList() {
+        return qosListPriority;
+    }
+
+    public void setEarliestTime(Date earliestTime) {
+        this.earliestTime = earliestTime;
     }
 }
