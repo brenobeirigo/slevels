@@ -1,6 +1,6 @@
 package config;
 
-public class Qos {
+public class Qos implements Comparable<Qos> {
     public static final int PRIVATE_VEHICLE = 0;
     public static final int ALLOWED_SHARING = 1;
 
@@ -17,6 +17,7 @@ public class Qos {
     public boolean allowedSharing;
     public String serviceRateLabel;
     public String customerSegmentationLabel;
+    private Integer priority;
 
     public Qos(String id, int pkDelay, int dpDelay, double serviceRate) {
         this.code = countQos++;
@@ -38,8 +39,9 @@ public class Qos {
         this.allowedSharing = allowedSharing;
     }
 
-    public Qos(String id, String serviceRateLabel, String segmentationScenarioLabel, int pkDelay, int pkDelayTarget, int dpDelay, double serviceRate, double share, boolean allowedSharing) {
+    public Qos(String id, String serviceRateLabel, String segmentationScenarioLabel, int priority, int pkDelay, int pkDelayTarget, int dpDelay, double serviceRate, double share, boolean allowedSharing) {
         this.code = countQos++;
+        this.priority = priority;
         this.id = id;
         this.serviceRate = serviceRate;
         this.pkDelay = pkDelay;
@@ -53,11 +55,16 @@ public class Qos {
 
     @Override
     public String toString() {
-        return "[" + serviceRateLabel + " " + customerSegmentationLabel + " " + id + "] service rate = " + serviceRate + " - target pk delay = " + pkDelayTarget  + " - pk delay = " + pkDelay + " - dp delay = " + dpDelay + " - share = " + share + " - allow sharing = " + share;
+        return "[" + serviceRateLabel + " " + customerSegmentationLabel + " " + id + "] service rate = " + serviceRate + " - target pk delay = " + pkDelayTarget + " - pk delay = " + pkDelay + " - dp delay = " + dpDelay + " - share = " + share + " - allow sharing = " + share;
     }
 
     @Override
     public int hashCode() {
         return this.id.hashCode();
+    }
+
+    @Override
+    public int compareTo(Qos o) {
+        return this.priority.compareTo(o.priority);
     }
 }
