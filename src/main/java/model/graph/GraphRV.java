@@ -17,9 +17,10 @@ import java.util.stream.IntStream;
 public class GraphRV {
 
 
+    private final List<User> allRequests;
     public int vehicleCapacity;
     SimpleWeightedGraph<Object, DefaultWeightedEdge> graphRV;
-    private final List<User> allRequests;
+
     public GraphRV(List<User> allRequests, List<Vehicle> listVehicles, int vehicleCapacity) {
 
         this.vehicleCapacity = vehicleCapacity;
@@ -43,7 +44,7 @@ public class GraphRV {
 
         // Which requests can be cobined?
         // What happens with visits with passengers:
-        graphRV = getRVGraph2(
+        graphRV = getGraphRVParallel(
                 allRequests,
                 listVehicles,
                 vehicleCapacity,
@@ -264,8 +265,8 @@ public class GraphRV {
      * @return
      */
     public SimpleWeightedGraph<Object, DefaultWeightedEdge> getRVGraph(List<User> listWaitingUsers,
-                                                               List<Vehicle> listVehicles,
-                                                               int vehicleCapacity) {
+                                                                       List<Vehicle> listVehicles,
+                                                                       int vehicleCapacity) {
 
 
         // Create RV graph (r1, r2) and (v, r)
@@ -297,10 +298,10 @@ public class GraphRV {
      * @param listVehicles
      * @return
      */
-    public SimpleWeightedGraph<Object, DefaultWeightedEdge> getRVGraph2(List<User> listWaitingUsers,
-                                                                List<Vehicle> listVehicles,
-                                                                int vehicleCapacity,
-                                                                int maxEdgesRV) {
+    public SimpleWeightedGraph<Object, DefaultWeightedEdge> getGraphRVParallel(List<User> listWaitingUsers,
+                                                                               List<Vehicle> listVehicles,
+                                                                               int vehicleCapacity,
+                                                                               int maxEdgesRV) {
 
 
         // Create RV graph (r1, r2) and (v, r)
@@ -316,7 +317,7 @@ public class GraphRV {
         }
 
         IntStream.range(0, listWaitingUsers.size()).parallel()
-                .mapToObj(value -> getRVEdge(value, listWaitingUsers, listVehicles, vehicleCapacity,maxEdgesRV))
+                .mapToObj(value -> getRVEdge(value, listWaitingUsers, listVehicles, vehicleCapacity, maxEdgesRV))
                 .collect(HashSet<EdgeRV>::new, HashSet::addAll, HashSet::addAll)
                 .forEach(o -> {
                     DefaultWeightedEdge e = graphRV.addEdge(o.from, o.target);
