@@ -23,15 +23,17 @@ import java.util.*;
 import java.util.Map.Entry;
 import java.util.stream.Collectors;
 
+import static java.util.stream.Collectors.toSet;
+
 
 public class Dao {
 
 
     // Speed of vehicles m/s
     public static final double SPEED = 30;
-
     public static int numberOfNodes;
     private static Dao ourInstance = new Dao();
+    public final long SEED = 0;
     public Random rand;
     protected DijkstraShortestPath<Integer, Integer> dijkstraShortestPath;
     protected ArrayList<ArrayList<List<Integer>>> shortestPathsNodeIds;
@@ -63,7 +65,7 @@ public class Dao {
             userBuff = new ArrayList<>();
 
             // Set seed to guarantee reproducibility
-            rand = new Random(0);
+            rand = new Random(SEED);
 
             iUserNextRound = 0;
 
@@ -344,7 +346,7 @@ public class Dao {
             records = CSVFormat.RFC4180.withFirstRecordAsHeader().parse(new FileReader(pathRequestList));
 
             // Start random again
-            rand = new Random(0);
+            rand = new Random(SEED);
 
             // Buffer that saves previous is reset
             userBuff = new ArrayList<>();
@@ -552,41 +554,32 @@ public class Dao {
             listUser.add(user);
         }
 
-        // Number of requests for each class according to their share
+        LinkedList<Entry<String, Qos>> qosClasses = new LinkedList<>(Config.getInstance().qosDic.entrySet());
 
-
-        //System.out.println(String.format("%d(A) + %d(B) + %d(C) = %d", contA, contB, contC, allUsers.size()));
-
-        List<User> classed = new ArrayList<>(listUser);
-
-        int fromUser = 0;
-        int toUser = 0;
-        List<String> qosClasses = new ArrayList<>(Config.getInstance().qosDic.keySet());
-
-        for (String qosClass : qosClasses) {
-            int nUsersInClass = (int) (Config.getInstance().qosDic.get(qosClass).share * listUser.size());
-            toUser = fromUser + nUsersInClass;
-            for (int j = fromUser; j < toUser; j++) {
-                classed.get(j).updatePerformanceClass(qosClass);
-            }
-
-            fromUser = toUser;
-        }
-
-
-        // Assign remaining users not covered by percentages
-        finishAssignment:
-        while (true) {
-            for (String qosClass : qosClasses) {
-                if (toUser >= listUser.size()) {
-                    break finishAssignment;
-                }
-                classed.get(toUser).updatePerformanceClass(qosClass);
-                toUser++;
-            }
+        for (User user : listUser) {
+            user.updatePerformanceClass(getRandomClassRoulleteWheel(qosClasses));
         }
 
         return listUser;
+    }
+
+    Map<String, Set<String>> getCountUserClass(List<User> users) {
+        return users.stream().collect(Collectors.groupingBy(User::getPerformanceClass, Collectors.mapping(User::toString, toSet())));
+    }
+
+    private String getRandomClassRoulleteWheel(LinkedList<Entry<String, Qos>> qosClasses) {
+
+        int share = 0;
+        int randValue = rand.nextInt(100) + 1;
+
+        for (Entry<String, Qos> qos : qosClasses) {
+            share += qos.getValue().share * 100;
+            if (randValue <= share) {
+                return qos.getKey();
+            }
+        }
+
+        return qosClasses.getLast().getKey();
     }
 
     /**
