@@ -16,6 +16,7 @@ import java.lang.reflect.Type;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.text.ParseException;
 import java.util.*;
 
 public class InstanceConfig {
@@ -27,6 +28,8 @@ public class InstanceConfig {
     public static final String GEOJSON_TRACK_FOLDER = "geojson_track";
     // Singleton
     private static InstanceConfig instance;
+    private ArrayList<Date> earliestTimeArray;
+    private Date firstDate;
     private String instanceFilePath; // File path of the instance
     private List<CustomerBaseConfig> customerBaseSettingsArray;
     private List<RideMatchingStrategy> matchingMethods;
@@ -106,6 +109,15 @@ public class InstanceConfig {
                     .get("time_horizon")
                     .getAsJsonArray(), int[].class);
 
+            String[] earliestTimes = gson.fromJson(scenarioConfig.get("earliest_time").getAsJsonArray(), String[].class);
+            this.earliestTimeArray = new ArrayList<>();
+            for (String earliestTime : earliestTimes) {
+                try {
+                    this.earliestTimeArray.add(Config.formatter_date_time.parse(earliestTime));
+                } catch (ParseException e) {
+                    e.printStackTrace();
+                }
+            }
 
             this.maxRequestsIterationArray = gson.fromJson(scenarioConfig.get("max_requests").getAsJsonArray(), int[].class);// Max number of requests pooled in during an iteration
             this.initialFleetArray = gson.fromJson(scenarioConfig.get("initial_fleet").getAsJsonArray(), int[].class);// Initial size of fleet
@@ -117,13 +129,16 @@ public class InstanceConfig {
 
 
             // Customer base settings
-            Type segmentationScenarioType = new TypeToken<HashMap<String, HashMap<String, Double>>>() {}.getType();
+            Type segmentationScenarioType = new TypeToken<HashMap<String, HashMap<String, Double>>>() {
+            }.getType();
             this.segmentationScenarioMap = gson.fromJson(scenarioConfig.get("customer_segmentation"), segmentationScenarioType);
 
-            Type serviceLevelMapType = new TypeToken<HashMap<String, HashMap<String, Integer>>>() {}.getType();
+            Type serviceLevelMapType = new TypeToken<HashMap<String, HashMap<String, Integer>>>() {
+            }.getType();
             this.serviceLevelMap = gson.fromJson(scenarioConfig.get("service_level"), serviceLevelMapType);
 
-            Type serviceRateMapType = new TypeToken<HashMap<String, HashMap<String, Double>>>() {}.getType();
+            Type serviceRateMapType = new TypeToken<HashMap<String, HashMap<String, Double>>>() {
+            }.getType();
             this.serviceRateScenarioMap = gson.fromJson(scenarioConfig.get("service_rate"), serviceRateMapType);
 
             this.maxTimeHiringList = new HashMap<>();
@@ -164,6 +179,7 @@ public class InstanceConfig {
                         Qos qos = new Qos(serviceLevel.getKey(),
                                 serviceRateScenario.getKey(),
                                 segmentationScenarioLabel,
+                                serviceLevel.getValue().get("priority"),
                                 serviceLevel.getValue().get("pk_delay"),
                                 serviceLevel.getValue().get("pk_delay_target"),
                                 serviceLevel.getValue().get("trip_delay"),
@@ -285,7 +301,7 @@ public class InstanceConfig {
     private MatchingOptimal readMatchingOptimalParams(Gson gson, JsonObject element) {
         int maxEdgesRV = gson.fromJson(element.get("max_edges_rv"), int.class);
         int maxVehicleCapacityRTV = gson.fromJson(element.get("rtv_max_vehicle_capacity"), int.class);
-        double timeoutVehicle = gson. fromJson(element.get("rtv_vehicle_timeout"), double.class);
+        double timeoutVehicle = gson.fromJson(element.get("rtv_vehicle_timeout"), double.class);
         double timeLimit = gson.fromJson(element.get("mip_time_limit"), double.class);
         double mipGap = gson.fromJson(element.get("mip_gap"), double.class);
         int rejectionPenalty = gson.fromJson(element.get("rejection_penalty"), int.class);
@@ -294,7 +310,7 @@ public class InstanceConfig {
 
     private MatchingOptimalServiceLevel readMatchingOptimalServiceLevelParams(Gson gson, JsonObject element) {
         int maxVehicleCapacityRTV = gson.fromJson(element.get("rtv_max_vehicle_capacity"), int.class);
-        double timeoutVehicleRTV = gson. fromJson(element.get("rtv_vehicle_timeout"), double.class);
+        double timeoutVehicleRTV = gson.fromJson(element.get("rtv_vehicle_timeout"), double.class);
         int maxEdgesRV = gson.fromJson(element.get("max_edges_rv"), int.class);
         double timeLimit = gson.fromJson(element.get("mip_time_limit"), double.class);
         double mipGap = gson.fromJson(element.get("mip_gap"), double.class);
@@ -474,6 +490,9 @@ public class InstanceConfig {
         return matchingMethods;
     }
 
+    public List<Date> getEarliestTimeArray() {
+        return this.earliestTimeArray;
+    }
 }
 
 
