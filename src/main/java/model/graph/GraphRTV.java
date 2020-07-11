@@ -354,29 +354,33 @@ public class GraphRTV {
         //**********************************************************************************************************
         // Adding feasible visits of size = 2 **********************************************************************
         //**********************************************************************************************************
-        for (int i = 0; i < feasibleVisitsAtLevel.get(0).size() - 1; i++) {
-            for (int j = i + 1; j < feasibleVisitsAtLevel.get(0).size(); j++) {
 
-                // Interrupt processing
-                if (System.nanoTime() - startTime >= timeout)
-                    return feasibleVisitsAtLevel;
+        if(vehicle.getCapacity() >= 2) {
 
-                Visit visit1 = feasibleVisitsAtLevel.get(0).get(i);
-                Visit visit2 = feasibleVisitsAtLevel.get(0).get(j);
+            for (int i = 0; i < feasibleVisitsAtLevel.get(0).size() - 1; i++) {
+                for (int j = i + 1; j < feasibleVisitsAtLevel.get(0).size(); j++) {
 
-                User request1 = visit1.getRequests().iterator().next();
-                User request2 = visit2.getRequests().iterator().next();
+                    // Interrupt processing
+                    if (System.nanoTime() - startTime >= timeout)
+                        return feasibleVisitsAtLevel;
 
-                assert visit1.getRequests().size() == 1 : String.format("More than 1 request: %s", visit1.getRequests());
-                assert visit2.getRequests().size() == 1 : String.format("More than 1 request: %s", visit2.getRequests());
+                    Visit visit1 = feasibleVisitsAtLevel.get(0).get(i);
+                    Visit visit2 = feasibleVisitsAtLevel.get(0).get(j);
 
-                // If RV edge exists, there is a possible trip including request1 and request2
-                if (this.graphRV.getEdge(request1, request2) != null) {
+                    User request1 = visit1.getRequests().iterator().next();
+                    User request2 = visit2.getRequests().iterator().next();
 
-                    Set<User> requests = new HashSet<>(visit1.getRequests());
-                    requests.addAll(visit2.getRequests());
-                    if (addRTVEdgeAtLevel(vehicle, requests, feasibleVisitsAtLevel, 1)) {
-                        feasibleTripsAtLevel.get(1).add(requests);
+                    assert visit1.getRequests().size() == 1 : String.format("More than 1 request: %s", visit1.getRequests());
+                    assert visit2.getRequests().size() == 1 : String.format("More than 1 request: %s", visit2.getRequests());
+
+                    // If RV edge exists, there is a possible trip including request1 and request2
+                    if (this.graphRV.getEdge(request1, request2) != null) {
+
+                        Set<User> requests = new HashSet<>(visit1.getRequests());
+                        requests.addAll(visit2.getRequests());
+                        if (addRTVEdgeAtLevel(vehicle, requests, feasibleVisitsAtLevel, 1)) {
+                            feasibleTripsAtLevel.get(1).add(requests);
+                        }
                     }
                 }
             }
