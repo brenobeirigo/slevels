@@ -10,11 +10,9 @@ import model.User;
 import model.Vehicle;
 import model.Visit;
 
-import java.util.Comparator;
-import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.stream.Collectors;
 
 
 public class MatchingOptimalServiceLevel extends MatchingOptimal {
@@ -40,32 +38,31 @@ public class MatchingOptimalServiceLevel extends MatchingOptimal {
 
     private void setupObjective() throws GRBException {
 
-        Map<Qos, GRBLinExpr> penObjectives = new HashMap<>();
+        Map<String, GRBLinExpr> penObjectives = new LinkedHashMap<>();
 
-        // Sort QoS reverse order = C, B, A
-        List<String> sortedQos = Config.getInstance().qosDic.values().stream()
-                .map(qos -> qos.id)
-                .sorted(Comparator.reverseOrder())
-                .collect(Collectors.toList());
+        // Sort QoS order = A, B, C
+        List<Qos> sortedQos = Config.getInstance().getSortedQosList();
 
         // Violation penalty
-        for (Qos qos : Config.getInstance().qosDic.values()) {
-            penObjectives.put(qos, new GRBLinExpr());
-            penObjectives.get(qos).addTerm(serviceLevelViolationPenalty, varClassServiceLevelViolation[qos.code]);
+        for (Qos qos : sortedQos) {
+            penObjectives.put(qos.id, new GRBLinExpr());
+            penObjectives.get(qos.id).addTerm(serviceLevelViolationPenalty, varClassServiceLevelViolation[qos.code]);
         }
-
-        /*for (Visit visit : visits) {
-            obj1.addTerm(visit.getDelay(), varVisitSelected(visit));
-        }*/
 
         for (User request : requests) {
-            penObjectives.get(request.qos).addTerm(rejectionPenalty, varRequestRejected(request));
-            penObjectives.get(request.qos).addTerm(badServicePenalty, varRequestServiceLevelNotAchieved(request));
+            penObjectives.get(request.qos.id).addTerm(rejectionPenalty, varRequestRejected(request));
+            penObjectives.get(request.qos.id).addTerm(badServicePenalty, varRequestServiceLevelNotAchieved(request));
         }
 
-        for (int i = 0; i < sortedQos.size(); i++) {
-            String classLabel = sortedQos.get(i);
-            model.setObjectiveN(penObjectives.get(Config.getInstance().qosDic.get(classLabel)), i, i, 1.0, 0.0, 0.0, "OBJ_" + classLabel);
+        penObjectives.put("WAITING", new GRBLinExpr());
+        for (Visit visit : visits) {
+            penObjectives.get("WAITING").addTerm(visit.getDelay(), varVisitSelected(visit));
+        }
+
+        int i = penObjectives.size();
+        for (Map.Entry<String, GRBLinExpr> e : penObjectives.entrySet()) {
+            i--;
+            model.setObjectiveN(e.getValue(), i, i, 1.0, 0.0, 0.0, "OBJ_" + e.getKey());
         }
 
         // The objective is to minimize the total pay costs
