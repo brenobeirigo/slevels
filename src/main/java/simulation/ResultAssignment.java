@@ -231,6 +231,11 @@ public class ResultAssignment {
         }
     }
 
+    public boolean assignedAndUnassigedAreDisjoint() {
+        return Collections.disjoint(this.requestsOK, this.requestsUnassigned);
+
+    }
+
     public void showFirstTierFromAssigned() {
         List<User> listAssigned = getSortedListOfAssignedUsers();
         for (User user : listAssigned) {
