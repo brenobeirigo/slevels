@@ -266,6 +266,21 @@ public class Visit implements Comparable<Visit> {
         return false;
     }
 
+    public static List<User> filterFirstTier(Set<Visit> visitsOK) {
+        List<User> firstTierUsers = new ArrayList<>();
+        for (Visit visit : visitsOK) {
+            firstTierUsers.addAll(User.filterFirstTier(visit.getRequests()));
+        }
+        return firstTierUsers;
+    }
+    public static List<User> filterSecondTier(Set<Visit> visitsOK) {
+        List<User> secondTierUsers  = new ArrayList<>();
+        for (Visit visit : visitsOK) {
+            secondTierUsers.addAll(User.filterSecondTier(visit.getRequests()));
+        }
+        return secondTierUsers;
+    }
+
     public int getArrival() {
         return arrival;
     }
