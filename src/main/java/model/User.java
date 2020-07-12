@@ -11,6 +11,7 @@ import org.apache.commons.csv.CSVRecord;
 import simulation.Method;
 
 import java.util.*;
+import java.util.stream.Collectors;
 
 import static config.Config.*;
 
@@ -38,7 +39,7 @@ public class User implements Comparable<User> {
     // Model.User id
     private int id;
     //Seconds from first date (defined in config.Config)
-    private int departure, arrival, reqTime;
+    private int departure, arrival, reqTime, dropoutTime;
     //Delays
     private int distFromTo;
     // Which type of vehicle serviced the request? Was it even serviced?
@@ -122,6 +123,26 @@ public class User implements Comparable<User> {
         mapOfUsers = new HashMap<>();
         nTrips = 0;
         status = new int[Node.MAX_NUMBER_NODES][5];
+    }
+
+    public static List<User> filterFirstTier(Collection<User> users) {
+        return users.stream().filter(User::isFirstTier).collect(Collectors.toList());
+    }
+
+    public static List<User> filterSecondTier(Collection<User> users) {
+        return users.stream().filter(user -> (user.getCurrentVisit() == null || !user.isFirstTier())).collect(Collectors.toList());
+    }
+
+    public static List<User> filterUsersOfQos(Collection<User> users, Qos qos){
+        return users.stream().filter(user -> user.qos == qos).collect(Collectors.toList());
+    }
+
+    public static List<User> getAssigned(Collection<User> requests) {
+        return requests.stream().filter(user -> user.getCurrentVisit() != null).collect(Collectors.toList());
+    }
+
+    public static List<User> getUnassigned(Collection<User> requests) {
+        return requests.stream().filter(user -> user.getCurrentVisit() == null).collect(Collectors.toList());
     }
 
     public String getPickupDatetime() {
@@ -384,6 +405,9 @@ public class User implements Comparable<User> {
         return EQUAL;
     }
 
+    public int inVehicleDelay(){
+        return this.getNodeDp().getDelay() - this.getNodePk().getDelay();
+    }
 
     public Visit getCurrentVisit() {
         return currentVisit;
@@ -547,8 +571,9 @@ public class User implements Comparable<User> {
     /**
      * Indicates whether a user was serviced by a hired vehicle.
      */
-    public void computeRejection() {
+    public void computeRejection(int currentTime) {
         this.servedBy = User.NOT_SERVICED;
+        this.dropoutTime = currentTime;
     }
 
     public int getServedBy() {
@@ -586,5 +611,9 @@ public class User implements Comparable<User> {
                 this.isFirstTier() ? "1st" : "2nd",
                 this.getNodePk().getDelaySoFar(),
                 this.getNodePk().getDelay());
+    }
+
+    public int getDropoutTime() {
+        return this.dropoutTime;
     }
 }
