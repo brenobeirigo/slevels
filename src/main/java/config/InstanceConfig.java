@@ -6,10 +6,7 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.reflect.TypeToken;
 import dao.FileUtil;
-import simulation.Matching;
-import simulation.MatchingOptimal;
-import simulation.MatchingOptimalServiceLevel;
-import simulation.RideMatchingStrategy;
+import simulation.*;
 
 import java.io.IOException;
 import java.lang.reflect.Type;
@@ -220,6 +217,9 @@ public class InstanceConfig {
                     MatchingOptimal method = readMatchingOptimalParams(gson, element);
                     this.matchingMethods.add(method);
 
+                } else if (Matching.METHOD_GREEDY.equals(name)) {
+                    MatchingGreedy method = readMatchingGreedyParams(gson, element);
+                    this.matchingMethods.add(method);
                 } else {
                     System.out.println("NO METHOD");
                 }
@@ -306,6 +306,15 @@ public class InstanceConfig {
         double mipGap = gson.fromJson(element.get("mip_gap"), double.class);
         int rejectionPenalty = gson.fromJson(element.get("rejection_penalty"), int.class);
         return new MatchingOptimal(maxVehicleCapacityRTV, timeLimit, timeoutVehicle, mipGap, maxEdgesRV, rejectionPenalty);
+    }
+
+    private MatchingGreedy readMatchingGreedyParams(Gson gson, JsonObject element) {
+        int maxEdgesRV = gson.fromJson(element.get("max_edges_rv"), int.class);
+        int maxVehicleCapacityRTV = gson.fromJson(element.get("rtv_max_vehicle_capacity"), int.class);
+        double timeoutVehicle = gson.fromJson(element.get("rtv_vehicle_timeout"), double.class);
+        double timeLimit = gson.fromJson(element.get("mip_time_limit"), double.class);
+        double mipGap = gson.fromJson(element.get("mip_gap"), double.class);
+        return new MatchingGreedy(maxVehicleCapacityRTV, timeLimit, timeoutVehicle, mipGap, maxEdgesRV);
     }
 
     private MatchingOptimalServiceLevel readMatchingOptimalServiceLevelParams(Gson gson, JsonObject element) {
