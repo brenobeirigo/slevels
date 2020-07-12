@@ -63,14 +63,8 @@ public class MatchingOptimal implements RideMatchingStrategy {
 
             createModel();
             initVarsStandard();
-            //initVarsSL();
-            //initVars();
             setupVehicleConservationConstraints();
             setupRequestConservationConstraints();
-            //setupRequestServiceLevelConstraints();
-            //setupClassTargetServiceLevelConstraints();
-            //setupRequestStatusConstraints();
-            //setupObjective();
             setupDelayObjective();
 
             // model.write(String.format("round_mip_model/assignment_%d.lp", currentTime));
@@ -80,7 +74,7 @@ public class MatchingOptimal implements RideMatchingStrategy {
             if (status == GRB.Status.OPTIMAL || status == GRB.Status.TIME_LIMIT) {
 
                 if (status == GRB.Status.TIME_LIMIT) {
-                    System.out.println("TIME LIMIT11111!!!!!!!");
+                    System.out.println(String.format("## TIME LIMIT REACHED = %.2f seconds - Solution count: %s", mipTimeLimit, model.get(GRB.IntAttr.SolCount)));
                 }
 
                 /*if (config.showInfo) {
@@ -89,23 +83,23 @@ public class MatchingOptimal implements RideMatchingStrategy {
                 }*/
 
                 extractResult();
-                //extractResultSL();
-                // env.set(GRB.IntParam.OutputFlag, 0);
-//            } else if (status == GRB.Status.TIME_LIMIT) {
-//                System.out.println("TIME LIMIT!!!!!!!");
-//            }
+
             } else {
                 computeIIS();
             }
-
-
+        } catch (GRBException e) {
+            System.out.println("TIME IS OVER - No solution found, keep previous assignment. Gurobi error code: " + e.getErrorCode() + ". " + e.getMessage());
+            keepPreviousAssignement();
+        } finally {
             // Dispose of model and environment
             model.dispose();
-            env.dispose();
-
-        } catch (GRBException e) {
-            System.out.println("Error code: " + e.getErrorCode() + ". " + e.getMessage());
+            try {
+                env.dispose();
+            } catch (GRBException e) {
+                e.printStackTrace();
+            }
         }
+
 
         //this.runTimes.put(Solution.TIME_MATCHING, System.nanoTime() - this.runTimes.get(Solution.TIME_MATCHING));
         //System.out.println(String.format("Users assigned (%.2f sec)", this.runTimes.get(Solution.TIME_MATCHING) / 1000000000.0));
@@ -121,13 +115,20 @@ public class MatchingOptimal implements RideMatchingStrategy {
         return result;
     }
 
+    protected void keepPreviousAssignement() {
+
+        result.requestsUnassigned.addAll(User.getUnassigned(requests));
+
+        // Keep the previously picked up requests
+        List<User> serviced = User.getAssigned(requests);
+        serviced.forEach(user -> result.addVisit(user.getCurrentVisit()));
+
+    }
+
     protected void buildGraphRTV(List<User> unassignedRequests, List<Vehicle> listVehicles, int maxVehicleCapacity, double timeoutVehicle) {
-        // Consider all requests (assigned and unassigned)
-        List<User> requests = new ArrayList<>(unassignedRequests);
-        requests.addAll(Vehicle.getAssignedRequestsFrom(listVehicles));
 
         // BUILDING GRAPH STRUCTURE ////////////////////////////////////////////////////////////////////////////////////
-        this.graphRTV = new GraphRTV(requests, listVehicles, maxVehicleCapacity, timeoutVehicle);
+        this.graphRTV = new GraphRTV(unassignedRequests, listVehicles, maxVehicleCapacity, timeoutVehicle);
         // To assure every vehicle is assigned to a visit, create dummy stop visits.
         this.graphRTV.addStopVisits();
 
@@ -356,6 +357,10 @@ public class MatchingOptimal implements RideMatchingStrategy {
             return false;
         }
         return true;
+    }
+
+    public List<User> getRequests() {
+        return requests;
     }
 
     @Override

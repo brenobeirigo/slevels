@@ -98,7 +98,7 @@ public class MatchingOptimalServiceLevel extends MatchingOptimal {
             if (status == GRB.Status.OPTIMAL || status == GRB.Status.TIME_LIMIT) {
 
                 if (status == GRB.Status.TIME_LIMIT) {
-                    System.out.println("TIME LIMIT11111!!!!!!!");
+                    System.out.println(String.format("## TIME LIMIT REACHED = %.2f seconds // Solution count: %s", mipTimeLimit, model.get(GRB.IntAttr.SolCount)));
                 }
 
                 extractResult();
@@ -108,18 +108,40 @@ public class MatchingOptimalServiceLevel extends MatchingOptimal {
                 computeIIS();
             }
 
-
+        } catch (GRBException e) {
+            System.out.println("TIME IS OVER - No solution found, keep previous assignment. Gurobi error code: " + e.getErrorCode() + ". " + e.getMessage());
+            keepPreviousAssignement();
+        } finally {
             // Dispose of model and environment
             model.dispose();
-            env.dispose();
-
-        } catch (GRBException e) {
-            System.out.println("Error code: " + e.getErrorCode() + ". " + e.getMessage());
+            try {
+                env.dispose();
+            } catch (GRBException e) {
+                e.printStackTrace();
+            }
         }
 
         result.printRoundResult();
 
         return result;
+    }
+
+    protected void keepPreviousAssignement() {
+
+        result.requestsUnassigned.addAll(User.getUnassigned(requests));
+
+        // Keep the previously picked up requests
+        List<User> serviced = User.getAssigned(requests);
+        serviced.forEach(user -> result.addVisit(user.getCurrentVisit()));
+
+        // Classify serviced in first- and second-tier
+        result.requestsServicedLevelAchieved.addAll(User.filterFirstTier(serviced));
+        result.requestsServicedLevelNotAchieved.addAll(User.filterSecondTier(serviced));
+
+        for (Qos qos : Config.getInstance().qosDic.values()) {
+            result.unmetServiceLevelClass.put(qos, User.filterUsersOfQos(User.filterSecondTier(requests), qos).size());
+            result.totalServiceLevelClass.put(qos, User.filterUsersOfQos(requests, qos).size());
+        }
     }
 
 
