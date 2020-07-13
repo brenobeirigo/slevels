@@ -1,14 +1,16 @@
 package simulation;
 
 import config.Config;
-import config.Rebalance;
-import config.RebalanceHeuristic;
-import config.RebalanceOptimal;
 import dao.Dao;
 import helper.HelperIO;
 import helper.MethodHelper;
 import model.*;
 import model.node.Node;
+import simulation.matching.Matching;
+import simulation.matching.ResultAssignment;
+import simulation.rebalancing.Rebalance;
+import simulation.rebalancing.RebalanceHeuristic;
+import simulation.rebalancing.RebalanceOptimal;
 
 import java.nio.file.Files;
 import java.util.*;
@@ -20,11 +22,12 @@ public abstract class Simulation {
     // Solution coming from simulation
     protected Solution sol; //Simulation solution
 
-    /* Hiring, unbounding, and rebalancing */
+    /* Hiring, unbounding, and simulation.rebalancing */
     protected int contractDuration;
     protected boolean isAllowedToHire; // Simulation can hire new vehicles as needed
     protected boolean isAllowedToLowerServiceLevel;
     protected Rebalance rebalanceUtil;
+    protected boolean allowRequestDisplacement;
 
     // Matching
     protected boolean sortWaitingUsersByClass;
@@ -76,11 +79,14 @@ public abstract class Simulation {
                       int contractDuration,
                       boolean isAllowedToHire,
                       boolean isAllowedToLowerServiceLevel,
-                      Rebalance rebalanceUtil, Matching matchingSettings) {
+                      boolean allowRequestDisplacement,
+                      Rebalance rebalanceUtil,
+                      Matching matchingSettings) {
 
         /*MATCHING*/
         this.sortWaitingUsersByClass = true;
         this.matching = matchingSettings;
+        this.allowRequestDisplacement = allowRequestDisplacement;
 
         /* REBALANCING */
         this.rebalanceUtil = rebalanceUtil;
@@ -422,50 +428,46 @@ public abstract class Simulation {
                 .collect(Collectors.toList());
 
         // Update request status
-        roundRejectedUsers.forEach(User::computeRejection);
+        roundRejectedUsers.forEach(user -> user.computeRejection(rightTW));
         deniedRequests.addAll(roundRejectedUsers);
         unassignedRequests.removeAll(roundRejectedUsers);
         roundPrivateRides.clear();
 
         ///// 3 - ASSIGN WAITING USERS (previous + current round)  TO VEHICLES /////////////////////////////////////////
-        // Set<User> setScheduledUsers = getUsersAssigned(rightTW);
-        ResultAssignment resultAssignment = this.matching.executeStrategy(rightTW, unassignedRequests, listVehicles);
-        for (Vehicle vehicle : resultAssignment.vehiclesHired) {
+
+        List<User> requestsInOutVehicles;
+        if (this.allowRequestDisplacement) {
+            // Users can jump between vehicles if this change improves global solution
+            requestsInOutVehicles = getAllRequestsInOutVehicles();
+        } else {
+            requestsInOutVehicles = unassignedRequests;
+        }
+
+        ResultAssignment resultAssignment = this.matching.executeStrategy(rightTW, requestsInOutVehicles, listVehicles);
+
+        for (Vehicle vehicle : resultAssignment.getVehiclesHired()) {
             // New vehicle is added in list
             listVehicles.add(vehicle);
             listHiredVehicles.add(vehicle);
             setHired.add(vehicle);
         }
 
-        Set<User> setScheduledUsers = resultAssignment.getRequestsOK();
-
         ///// 4 - REALIZE THE ASSIGNMENT ///////////////////////////////////////////////////////////////////////////////
         resultAssignment.getVisitsOK().forEach(this::realizeVisit);
-        // Set<User> setScheduledUsers = getServicedUsersDynamicSizedFleet(rightTW);
 
-        ///// 5 - REMOVE SERVICED USERS FROM WAITING SET////////////////////////////////////////////////////////////////
-        // Vehicles will become idle here (i.e., parked)
-        unassignedRequests = new ArrayList<>(resultAssignment.requestsUnassigned);
-        resultAssignment.showSecondTierAssignedUsers();
+        ///// 5 - UPDATE WAITING LIST //////////////////////////////////////////////////////////////////////////////////
+        unassignedRequests = new ArrayList<>(resultAssignment.getRequestsUnassigned());
+        // resultAssignment.showSecondTierAssignedUsers();
+
+        assert eachUserIsAssignedToSingleVehicle() : "Users are assigned to two vehicles!";
+        // assert before.equals(after) : String.format("Before %d X %d After", before.size(), after.size());
+        // assert resultAssignment.assignedAndUnassigedAreDisjoint() : "User is assigned to two different vehicles.";
     }
 
-    /**
-     * Join new requests (current period) with all matched requests (not yet picked up).
-     * There can have better matches (i.e., requests can be serviced by different vehicles)
-     *
-     * @param listVehicles
-     * @return all requests
-     */
-    public List<User> getAssignedRequestsFrom(List<Vehicle> listVehicles) {
-        List<User> allRequests = new ArrayList<>();
-
-        // Requests can still be picked up by other vehicles, add them to request list
-        for (Vehicle vehicle : listVehicles) {
-            if (vehicle.isServicing()) {
-                allRequests.addAll(vehicle.getVisit().getRequests());
-            }
-        }
-        return allRequests;
+    private List<User> getAllRequestsInOutVehicles() {
+        List<User> allRequestsInOutVehicles = Vehicle.getRequestsFrom(listVehicles);
+        allRequestsInOutVehicles.addAll(unassignedRequests);
+        return allRequestsInOutVehicles;
     }
 
     public void rebalance(Set<Vehicle> idleVehicles) {
@@ -633,9 +635,4 @@ public abstract class Simulation {
         }
         return true;
     }
-
-    public Set<User> getDisplacedRequestsFrom(List<User> requests) {
-        return requests.stream().filter(user -> user.getNodePk().getArrivalSoFar() != Integer.MAX_VALUE && user.getCurrentVisit() == null).collect(Collectors.toSet());
-    }
-
 }
