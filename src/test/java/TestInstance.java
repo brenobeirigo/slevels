@@ -1,9 +1,6 @@
 import config.Config;
 import config.Qos;
-import config.Rebalance;
-import simulation.Matching;
-import simulation.Simulation;
-import simulation.SimulationFCFS;
+import simulation.matching.Matching;
 
 public class TestInstance {
 
