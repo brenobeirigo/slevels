@@ -2,6 +2,7 @@ package model;
 
 import dao.Dao;
 import model.node.*;
+import simulation.rebalancing.Rebalance;
 
 import java.util.*;
 import java.util.stream.Collectors;
@@ -89,7 +90,7 @@ public class Visit implements Comparable<Visit> {
         this.requests = new HashSet<>();
     }
 
-    public static void reset(){
+    public static void reset() {
         Visit.visitCount = 0;
     }
 
@@ -273,12 +274,50 @@ public class Visit implements Comparable<Visit> {
         }
         return firstTierUsers;
     }
+
     public static List<User> filterSecondTier(Set<Visit> visitsOK) {
-        List<User> secondTierUsers  = new ArrayList<>();
+        List<User> secondTierUsers = new ArrayList<>();
         for (Visit visit : visitsOK) {
             secondTierUsers.addAll(User.filterSecondTier(visit.getRequests()));
         }
         return secondTierUsers;
+    }
+
+    public static void realize(Visit visit, Rebalance rebalanceUtil, int timeWindow) {
+
+        // Does nothing if same visit chosen (e.g., continue rebalancing)
+        if (visit.getVehicle().getVisit() == visit)
+            return;
+
+        // Dummy visit for parked vehicle does not alter setup
+        if (visit instanceof VisitStop) {
+            return;
+        }
+
+        // Relocation visit -> Vehicle drop scheduled requests and stop at the closest node
+        if (visit instanceof VisitRelocation) {
+            visit.getVehicle().rebalanceToClosestNode();
+            return;
+        }
+
+        // If vehicle was rebalancing, interrupt first
+        if (visit.getVehicle().isRebalancing()) {
+            rebalanceUtil.interruptRebalancing(visit, timeWindow);
+        }
+
+        // Add visit to vehicle (circular)
+        visit.getVehicle().setVisit(visit);
+
+        for (User request : visit.getRequests()) {
+            request.setCurrentVisit(visit);
+        }
+
+        // Go through nodes and update arrival so far
+        visit.updateArrivalSoFar();
+
+        // Vehicle is not idle
+        visit.getVehicle().setRoundsIdle(0);
+
     }
 
     public int getArrival() {
