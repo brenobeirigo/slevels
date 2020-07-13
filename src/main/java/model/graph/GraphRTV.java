@@ -8,8 +8,8 @@ import model.VisitStop;
 import org.jgrapht.graph.DefaultWeightedEdge;
 import org.jgrapht.graph.SimpleWeightedGraph;
 import simulation.Method;
-import simulation.ResultAssignment;
 import simulation.Solution;
+import simulation.matching.ResultAssignment;
 
 import java.util.*;
 import java.util.stream.Collectors;
