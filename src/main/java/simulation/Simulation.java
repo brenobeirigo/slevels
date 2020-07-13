@@ -79,14 +79,12 @@ public abstract class Simulation {
                       int contractDuration,
                       boolean isAllowedToHire,
                       boolean isAllowedToLowerServiceLevel,
-                      boolean allowRequestDisplacement,
                       Rebalance rebalanceUtil,
                       Matching matchingSettings) {
 
         /*MATCHING*/
         this.sortWaitingUsersByClass = true;
         this.matching = matchingSettings;
-        this.allowRequestDisplacement = allowRequestDisplacement;
 
         /* REBALANCING */
         this.rebalanceUtil = rebalanceUtil;
@@ -210,12 +208,12 @@ public abstract class Simulation {
             } else {
 
                 *//* Update vehicle's current nodes (if they are of types NodeOrigin and NodeStop)
-                 * with the rightmost time window value. This is the time a vehicle is allowed to
-                 * depart to get the customers.
-                 * E.g.:
-                 * [00:00:00 - 00:00:30] -> Pool requests
-                 * [00:00:30 :] -> Route vehicles
-                 *//*
+     * with the rightmost time window value. This is the time a vehicle is allowed to
+     * depart to get the customers.
+     * E.g.:
+     * [00:00:00 - 00:00:30] -> Pool requests
+     * [00:00:30 :] -> Route vehicles
+     *//*
                 // Time from current node in vehicle is only updated when:
                 //  - Current node is origin or NodeStop
                 //  - Model.Vehicle is idle
@@ -434,17 +432,9 @@ public abstract class Simulation {
         roundPrivateRides.clear();
 
         ///// 3 - ASSIGN WAITING USERS (previous + current round)  TO VEHICLES /////////////////////////////////////////
+        ResultAssignment resultAssignment = this.matching.executeStrategy(rightTW, unassignedRequests, listVehicles);
 
-        List<User> requestsInOutVehicles;
-        if (this.allowRequestDisplacement) {
-            // Users can jump between vehicles if this change improves global solution
-            requestsInOutVehicles = getAllRequestsInOutVehicles();
-        } else {
-            requestsInOutVehicles = unassignedRequests;
-        }
-
-        ResultAssignment resultAssignment = this.matching.executeStrategy(rightTW, requestsInOutVehicles, listVehicles);
-
+        ///// 4 - COLLECT HIRED VEHICLES ///////////////////////////////////////////////////////////////////////////////
         for (Vehicle vehicle : resultAssignment.getVehiclesHired()) {
             // New vehicle is added in list
             listVehicles.add(vehicle);
@@ -452,22 +442,36 @@ public abstract class Simulation {
             setHired.add(vehicle);
         }
 
-        ///// 4 - REALIZE THE ASSIGNMENT ///////////////////////////////////////////////////////////////////////////////
-        resultAssignment.getVisitsOK().forEach(this::realizeVisit);
-
         ///// 5 - UPDATE WAITING LIST //////////////////////////////////////////////////////////////////////////////////
         unassignedRequests = new ArrayList<>(resultAssignment.getRequestsUnassigned());
         // resultAssignment.showSecondTierAssignedUsers();
 
+
+        assert rejectedUnassignedFinishedSetsAreConsistent() : "Not all requests are processed.";
         assert eachUserIsAssignedToSingleVehicle() : "Users are assigned to two vehicles!";
         // assert before.equals(after) : String.format("Before %d X %d After", before.size(), after.size());
         // assert resultAssignment.assignedAndUnassigedAreDisjoint() : "User is assigned to two different vehicles.";
     }
 
-    private List<User> getAllRequestsInOutVehicles() {
-        List<User> allRequestsInOutVehicles = Vehicle.getRequestsFrom(listVehicles);
-        allRequestsInOutVehicles.addAll(unassignedRequests);
-        return allRequestsInOutVehicles;
+    private boolean rejectedUnassignedFinishedSetsAreConsistent() {
+        List<User> inVehicleRequests = Vehicle.getUsersFrom(listVehicles);
+        if (deniedRequests.size() + unassignedRequests.size() + finishedRequests.size() + inVehicleRequests.size() == allRequests.size()) {
+            return true;
+        } else {
+            System.out.println(getCollectionInfo("Denied", deniedRequests));
+            System.out.println(getCollectionInfo("Unassigned", unassignedRequests));
+            System.out.println(getCollectionInfo("Finished", finishedRequests));
+            System.out.println(getCollectionInfo("In-Vehicle", inVehicleRequests));
+            System.out.println(getCollectionInfo("All requests", allRequests.values()));
+
+            return false;
+        }
+    }
+
+    public String getCollectionInfo(String label, Collection collection){
+        List col = new ArrayList(collection);
+        Collections.sort(col);
+        return String.format("# %15s (%d): %s", label, collection.size(), collection);
     }
 
     public void rebalance(Set<Vehicle> idleVehicles) {
@@ -552,41 +556,6 @@ public abstract class Simulation {
      * Add user to vehicle and setup visit.
      * Called when best visit is determined.
      */
-    public void realizeVisit(Visit visit) {
-
-        // Does nothing if same visit chosen (e.g., continue rebalancing)
-        if (visit.getVehicle().getVisit() == visit)
-            return;
-
-        // Dummy visit for parked vehicle does not alter setup
-        if (visit instanceof VisitStop) {
-            return;
-        }
-
-        // Relocation visit -> Vehicle drop scheduled requests and stop at the closest node
-        if (visit instanceof VisitRelocation) {
-            visit.getVehicle().rebalanceToClosestNode();
-            return;
-        }
-
-        // If vehicle was rebalancing, interrupt first
-        if (visit.getVehicle().isRebalancing()) {
-            rebalanceUtil.interruptRebalancing(visit, timeWindow);
-        }
-
-        // Add visit to vehicle (circular)
-        visit.getVehicle().setVisit(visit);
-
-        for (User request : visit.getRequests()) {
-            request.setCurrentVisit(visit);
-        }
-
-        // Go through nodes and update arrival so far
-        visit.updateArrivalSoFar();
-
-        // Vehicle is not idle
-        visit.getVehicle().setRoundsIdle(0);
-    }
 
 
     //****************************************************************************************************************//

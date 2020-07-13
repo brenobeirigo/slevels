@@ -1,12 +1,11 @@
 package simulation.matching;
 
 import config.CustomerBaseConfig;
-import simulation.rebalancing.Rebalance;
 import model.User;
 import model.Vehicle;
+import simulation.rebalancing.Rebalance;
 
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 public class Matching {
     public static final String METHOD_OPTIMAL = "method_optimal";
@@ -22,6 +21,8 @@ public class Matching {
     protected RideMatchingStrategy strategy;
     private int maxVehicleCapacity;
 
+    private boolean allowUserDisplacement;
+
     public Matching(boolean isAllowedToLowerServiceLevel, int contractDuration, Rebalance rebalanceSettings, boolean isAllowedToHire) {
 
     }
@@ -30,28 +31,43 @@ public class Matching {
                     CustomerBaseConfig customerBaseConfig,
                     int contractDuration,
                     Rebalance rebalanceUtil,
-                    boolean isAllowedToHire) {
+                    boolean isAllowedToHire,
+                    boolean allowUserDisplacement) {
         this.isAllowedToLowerServiceLevel = isAllowedToLowerServiceLevel;
         this.customerBaseSettings = customerBaseConfig;
         this.contractDuration = contractDuration;
         this.rebalanceUtil = rebalanceUtil;
         this.isAllowedToHire = isAllowedToHire;
+        this.allowUserDisplacement = allowUserDisplacement;
     }
 
 
     public ResultAssignment executeStrategy(int currentTime, List<User> setUnassignedRequests, List<Vehicle> listVehicles) {
-        return strategy.match(currentTime, setUnassignedRequests, listVehicles, this);
+
+        List<User> allRequestsInOutVehicles = new ArrayList<>(setUnassignedRequests);
+
+        if (allowUserDisplacement) {
+            allRequestsInOutVehicles.addAll(Vehicle.getRequestsFrom(listVehicles));
+        }
+
+        ResultAssignment result = strategy.match(currentTime, allRequestsInOutVehicles, listVehicles, this);
+        strategy.realize(result.visitsOK, this.rebalanceUtil, currentTime);
+        return result;
     }
 
     public void setStrategy(RideMatchingStrategy matchingMethod) {
         this.strategy = matchingMethod;
     }
 
+    public int getMaxVehicleCapacity() {
+        return maxVehicleCapacity;
+    }
+
     public void setMaxVehicleCapacity(int maxVehicleCapacity) {
         this.maxVehicleCapacity = maxVehicleCapacity;
     }
 
-    public int getMaxVehicleCapacity() {
-        return maxVehicleCapacity;
+    public boolean isAllowUserDisplacement() {
+        return allowUserDisplacement;
     }
 }
