@@ -1,7 +1,7 @@
-package simulation;
+package simulation.matching;
 
 import config.Config;
-import config.Rebalance;
+import simulation.rebalancing.Rebalance;
 import dao.Dao;
 import model.User;
 import model.Vehicle;
@@ -9,9 +9,11 @@ import model.Visit;
 import model.node.Node;
 
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 public class MatchingFCFS implements RideMatchingStrategy {
 
@@ -21,6 +23,13 @@ public class MatchingFCFS implements RideMatchingStrategy {
     private boolean stopAtFirstBest;
     private boolean checkInParallel;
     private Path outputFile;
+
+    public MatchingFCFS(int maxPermutationsFCFS, boolean allPermutations, boolean stopAtFirstBest, boolean checkInParallel) {
+        this.maxPermutationsFCFS = maxPermutationsFCFS;
+        this.allPermutations = allPermutations;
+        this.stopAtFirstBest = stopAtFirstBest;
+        this.checkInParallel = checkInParallel;
+    }
 
     /**
      * Create a vehicle of capacity "capacity" positioned at a random node.
@@ -154,12 +163,6 @@ public class MatchingFCFS implements RideMatchingStrategy {
 
         ResultAssignment result = new ResultAssignment(currentTime);
 
-        /* METHOD CONFIGURATION*/
-        maxPermutationsFCFS = 100; //Restrict the number of permutations
-        allPermutations = true;  //True, if all permutations (considering user+vehicle stops) should be tested
-        stopAtFirstBest = false;  //True, if solution is returned when first user/vehicle combination is found
-        checkInParallel = false; //True, if visits should be checked in parallel
-
         // Set of users serviced
         Set<User> setServicedUsers = new HashSet<>();
 
@@ -246,6 +249,9 @@ public class MatchingFCFS implements RideMatchingStrategy {
                     }
 
                 } else {
+
+                    result.getRequestsUnassigned().add(u);
+
                     if (configMatching.rebalanceUtil.showInfo)
                         System.out.println("CAN'T SERVICE - User:" +
                                 u + " - Node PK: " +
@@ -262,6 +268,8 @@ public class MatchingFCFS implements RideMatchingStrategy {
                 result.addVisit(bestVisit);
             }
         }
+
+        result.createFirstSecondTierListsFromServiced();
 
         // Return all serviced users
         return result;
