@@ -19,6 +19,7 @@ import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.io.IOException;
 import java.io.Reader;
+import java.text.ParseException;
 import java.util.*;
 import java.util.Map.Entry;
 import java.util.stream.Collectors;
@@ -533,8 +534,12 @@ public class Dao {
         // Continue reading records
         for (CSVRecord record : records) {
 
+            // Fiter requests before earliest configured time
+            if (getPickupDateTime(record).before(Config.getInstance().getEarliestTime())){
+                continue;
+            }
             // Skip passenger record with high passenger count
-            if (Integer.parseInt(record.get("passenger_count")) > maxPassengerCount) {
+                if (Integer.parseInt(record.get("passenger_count")) > maxPassengerCount) {
                 continue;
             }
 
@@ -561,6 +566,15 @@ public class Dao {
         }
 
         return listUser;
+    }
+
+    private Date getPickupDateTime(CSVRecord record) {
+        try {
+            return Config.formatter_date_time.parse(record.get("pickup_datetime"));
+        } catch (ParseException e) {
+            e.printStackTrace();
+        }
+        return new Date();
     }
 
     Map<String, Set<String>> getCountUserClass(List<User> users) {
