@@ -4,6 +4,7 @@ import model.User;
 import model.Vehicle;
 import model.Visit;
 import model.graph.GraphRTV;
+import simulation.rebalancing.Rebalance;
 
 import java.util.*;
 import java.util.stream.Collectors;
@@ -64,7 +65,7 @@ public class MatchingGreedy implements RideMatchingStrategy {
         }
 
         System.out.println("#### Vehicles CARRYING passengers:");
-        System.out.println(String.format("         # Requests: %s",result.getRequestsOK()));
+        System.out.println(String.format("         # Requests: %s", result.getRequestsOK()));
         System.out.println(String.format("Passengers (before): %s", Vehicle.getAllPassengersFromVehicles(listVehicles)));
         System.out.println(String.format("      (vehicles OK): %s", Vehicle.getAllPassengersFromVehicles(result.getVehiclesOK())));
         System.out.println(String.format("         # Vehicles: %s", result.getVehiclesOK()));
@@ -255,5 +256,15 @@ public class MatchingGreedy implements RideMatchingStrategy {
         }*/
         result.printRoundResult();
         return result;
+    }
+
+    @Override
+    public void realize(Set<Visit> visits, Rebalance rebalanceUtil, int currentTime) {
+        visits.forEach(visit -> Visit.realize(visit, rebalanceUtil, currentTime));
+    }
+
+    @Override
+    public String toString() {
+        return "_GREEDY";
     }
 }

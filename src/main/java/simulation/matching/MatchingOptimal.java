@@ -7,6 +7,7 @@ import model.Visit;
 import model.graph.GraphRTV;
 import org.jgrapht.graph.DefaultWeightedEdge;
 import simulation.Method;
+import simulation.rebalancing.Rebalance;
 
 import java.util.*;
 import java.util.stream.Collectors;
@@ -114,6 +115,11 @@ public class MatchingOptimal implements RideMatchingStrategy {
         //assert allPassengersAreAssigned(): "Vehicle carrying passenger is not matched.";
 
         return result;
+    }
+
+    @Override
+    public void realize(Set<Visit> visits, Rebalance rebalanceUtil, int currentTime) {
+        visits.forEach(visit->Visit.realize(visit, rebalanceUtil, currentTime));
     }
 
     protected void keepPreviousAssignement() {

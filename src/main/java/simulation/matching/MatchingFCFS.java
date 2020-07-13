@@ -1,19 +1,16 @@
 package simulation.matching;
 
 import config.Config;
-import simulation.rebalancing.Rebalance;
 import dao.Dao;
 import model.User;
 import model.Vehicle;
 import model.Visit;
 import model.node.Node;
+import simulation.Method;
+import simulation.rebalancing.Rebalance;
 
 import java.nio.file.Path;
-import java.util.ArrayList;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
-import java.util.stream.Collectors;
+import java.util.*;
 
 public class MatchingFCFS implements RideMatchingStrategy {
 
@@ -163,32 +160,9 @@ public class MatchingFCFS implements RideMatchingStrategy {
 
         ResultAssignment result = new ResultAssignment(currentTime);
 
-        // Set of users serviced
-        Set<User> setServicedUsers = new HashSet<>();
 
-        /*
-        // Loop users
-        List<Visit> population = new ArrayList<>();
-
-        System.out.println("########## FLEET ###################################################");
-        for(Vehicle v:listVehicles){
-            System.out.println(v.getJourney());
-        }
-
-        for (User u : setWaitingUsers) {
-
-            // Aux. best visit for comparison
-            Visit bestVisit = u.getBestVisitByInsertion(
-                    listVehicles,
-                    currentTime,
-                    stopAtFirstBest);
-            population.add(bestVisit);
-        }
-        System.out.println("\n###### POPULATION:");
-        for (Visit visit: population) {
-            System.out.println(visit);
-        }
-        */
+        Map<User, Visit> userVisitMap = new HashMap<>();
+        Map<Vehicle, Visit> vehicleOriginalVisit = new HashMap<>();
 
         // Loop users
         for (User u : unassignedRequests) {
@@ -250,8 +224,6 @@ public class MatchingFCFS implements RideMatchingStrategy {
 
                 } else {
 
-                    result.getRequestsUnassigned().add(u);
-
                     if (configMatching.rebalanceUtil.showInfo)
                         System.out.println("CAN'T SERVICE - User:" +
                                 u + " - Node PK: " +
@@ -265,15 +237,47 @@ public class MatchingFCFS implements RideMatchingStrategy {
 
             // If best visit is found, update vehicle with visit data
             if (bestVisit != null) {
+
+                Visit.realize(bestVisit, configMatching.rebalanceUtil, currentTime);
                 result.addVisit(bestVisit);
+                // Save old vehicle configuration
+                /*Visit clone = new Visit(bestVisit);
+                vehicleOriginalVisit.putIfAbsent(new Vehicle(bestVisit.getVehicle(), clone), clone);
+
+                System.out.println(String.format("# User: %s \n# OLD (%s): %s \n# NEW (%s): %s", u, bestVisit.getVehicle().getVisit().hashCode(), bestVisit.getVehicle().getVisit(), clone.hashCode(), clone));
+
+
+                bestVisit.getVehicle().setVisit(bestVisit);
+                System.out.println(" VEH: " + bestVisit.getVehicle().getVisit() + " - " + bestVisit.getClass());
+                for (User visitUser: bestVisit.getRequests())
+                    userVisitMap.put(visitUser, bestVisit);
+
+                System.out.println(userVisitMap);*/
+            } else {
+                result.getRequestsUnassigned().add(u);
             }
         }
 
-        result.createFirstSecondTierListsFromServiced();
+        /*for (Visit visit : new HashSet<>(userVisitMap.values())) {
+            result.addVisit(visit);
+        }
+
+        vehicleOriginalVisit.forEach(Vehicle::setVisit);
+*/
 
         // Return all serviced users
         return result;
 
 
+    }
+
+    @Override
+    public void realize(Set<Visit> visits, Rebalance rebalanceUtil, int currentTime) {
+
+    }
+
+    @Override
+    public String toString() {
+        return "_FCFS";
     }
 }
