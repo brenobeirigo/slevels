@@ -68,6 +68,12 @@ public class Vehicle implements Comparable<Vehicle> {
         this.rebalancing = false;
     }
 
+    public Vehicle(Vehicle vehicle, Visit visit) {
+        this.id = vehicle.id;
+        this.visit = visit;
+        this.visit.vehicle = this;
+    }
+
     public Vehicle(int capacity, int id_network) {
 
         // Initialize vehicle
@@ -179,6 +185,19 @@ public class Vehicle implements Comparable<Vehicle> {
             }
         }
         return allRequests;
+    }
+
+    public static List<User> getUsersFrom(List<Vehicle> listVehicles) {
+        List<User> allUsers = new ArrayList<>();
+
+        // Requests can still be picked up by other vehicles, add them to request list
+        for (Vehicle vehicle : listVehicles) {
+            if (vehicle.isServicing()) {
+                allUsers.addAll(vehicle.getVisit().getRequests());
+                allUsers.addAll(vehicle.getVisit().getPassengers());
+            }
+        }
+        return allUsers;
     }
 
     /**
@@ -1243,6 +1262,10 @@ public class Vehicle implements Comparable<Vehicle> {
         visit.idle = 0;
 
         return visit;
+    }
+
+    public static List<Vehicle> getVehiclesServicing(List<Vehicle> vehicles){
+        return vehicles.stream().filter(Vehicle::isServicing).collect(Collectors.toList());
     }
 
     public int getContractDeadline() {
