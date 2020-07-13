@@ -6,7 +6,11 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.reflect.TypeToken;
 import dao.FileUtil;
-import simulation.*;
+import simulation.matching.*;
+import simulation.rebalancing.Rebalance;
+import simulation.rebalancing.RebalanceHeuristic;
+import simulation.rebalancing.RebalanceOptimal;
+import simulation.rebalancing.RebalanceStrategy;
 
 import java.io.IOException;
 import java.lang.reflect.Type;
@@ -40,6 +44,8 @@ public class InstanceConfig {
     private int[] contractDurationArray; // In rounds of tw_batch seconds
     private boolean[] allowVehicleHiringArray;
     private boolean[] allowServiceDeteriorationArray;
+    private boolean[] allowRequestDisplacementArray;
+
     // QoS
     private HashMap<String, Map<String, Double>> serviceRateScenarioMap;
     private HashMap<String, Map<String, Double>> segmentationScenarioMap;
@@ -123,7 +129,7 @@ public class InstanceConfig {
             this.contractDurationArray = gson.fromJson(scenarioConfig.get("contract_duration").getAsJsonArray(), int[].class); // In rounds of tw_batch seconds
             this.allowServiceDeteriorationArray = gson.fromJson(scenarioConfig.get("allow_service_deterioration").getAsJsonArray(), boolean[].class);
             this.allowVehicleHiringArray = gson.fromJson(scenarioConfig.get("allow_vehicle_hiring").getAsJsonArray(), boolean[].class);
-
+            this.allowRequestDisplacementArray = gson.fromJson(scenarioConfig.get("allow_request_displacement").getAsJsonArray(), boolean[].class);
 
             // Customer base settings
             Type segmentationScenarioType = new TypeToken<HashMap<String, HashMap<String, Double>>>() {
@@ -214,7 +220,7 @@ public class InstanceConfig {
 
                 } else if (Matching.METHOD_FCFS.equals(name)) {
 
-                    MatchingOptimal method = readMatchingOptimalParams(gson, element);
+                    MatchingFCFS method = readMatchingFCFSParams(gson, element);
                     this.matchingMethods.add(method);
 
                 } else if (Matching.METHOD_GREEDY.equals(name)) {
@@ -315,6 +321,14 @@ public class InstanceConfig {
         double timeLimit = gson.fromJson(element.get("mip_time_limit"), double.class);
         double mipGap = gson.fromJson(element.get("mip_gap"), double.class);
         return new MatchingGreedy(maxVehicleCapacityRTV, timeLimit, timeoutVehicle, mipGap, maxEdgesRV);
+    }
+
+    private MatchingFCFS readMatchingFCFSParams(Gson gson, JsonObject element) {
+        int maxPermutationsFCFS = gson.fromJson(element.get("max_permutations"), int.class);
+        boolean allPermutations = gson.fromJson(element.get("all_permutations"), boolean.class);
+        boolean stopAtFirstBest = gson.fromJson(element.get("stop_at_first_best"), boolean.class);
+        boolean checkInParallel = gson.fromJson(element.get("check_in_parallel"), boolean.class);
+        return new MatchingFCFS(maxPermutationsFCFS, allPermutations, stopAtFirstBest, checkInParallel);
     }
 
     private MatchingOptimalServiceLevel readMatchingOptimalServiceLevelParams(Gson gson, JsonObject element) {
@@ -502,6 +516,8 @@ public class InstanceConfig {
     public List<Date> getEarliestTimeArray() {
         return this.earliestTimeArray;
     }
+
+    public boolean[] getAllowRequestDisplacementArray() { return this.allowRequestDisplacementArray; }
 }
 
 
