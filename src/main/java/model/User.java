@@ -145,6 +145,10 @@ public class User implements Comparable<User> {
         return requests.stream().filter(user -> user.getCurrentVisit() == null).collect(Collectors.toList());
     }
 
+    public static Set<User> filterDisplaced(List<User> requests) {
+        return requests.stream().filter(user -> user.getNodePk().getArrivalSoFar() != Integer.MAX_VALUE && user.getCurrentVisit() == null).collect(Collectors.toSet());
+    }
+
     public String getPickupDatetime() {
         return this.record.get("pickup_datetime");
     }
@@ -431,11 +435,6 @@ public class User implements Comparable<User> {
 
     /**
      * Try to insert the user in a list of vehicles, and return the best insertion.
-     *
-     * @param listVehicles
-     * @param currentTime
-     * @param stopAtFirstBest
-     * @return Best visit, or null
      */
     public Visit getBestVisitByInsertion(List<Vehicle> listVehicles, int currentTime, boolean stopAtFirstBest) {
 
@@ -444,29 +443,7 @@ public class User implements Comparable<User> {
         // Try to insert user in each vehicle
         for (Vehicle v : listVehicles) {
 
-            // Rebalancing vehicles cannot service users
-            //if(v.isRebalancing()){
-            //   continue;
-            //}
-
-                /*todo - CHECK IN PARALLEL
-                if (checkInParallel) {
-
-                    // Sequence with user to be added in vehicle
-                    Set<User> auxUserSequence = new HashSet<>();
-                    auxUserSequence.add(u);
-
-                    candidateVisit = Method.getBestInsertionParallel(auxUserSequence, v, 2, true, maxPermutationsFCFS);
-
-                */
-
-            //######################################################################################################
             Visit candidateVisit = v.getVisitWithInsertedUser(this, currentTime);
-            // System.out.println("Visit ("+v+"): "+candidateVisit);
-            //Visit candidateVisit = v.getBestInsertionOld(u, currentTime);
-            //######################################################################################################
-            //if (candidateVisit != null)
-            //    visitList.add(candidateVisit);
 
             // Update best visit if delay of candidate visit is shorter
             if (candidateVisit != null && candidateVisit.compareTo(bestVisit) < 0) {
