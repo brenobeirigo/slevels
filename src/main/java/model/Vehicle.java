@@ -38,23 +38,19 @@ public class Vehicle implements Comparable<Vehicle> {
     private int distMiddleNode;
     private int activeRounds;
     private int contractDeadline;
-
+    private double distanceTraveledRebalancing;
+    private double distanceTraveledEmpty;
+    private double distanceTraveledLoaded;
+    /* Historical data */
+    private List<Node> journey; // List of nodes visited by vehicle
+    private List<User> servicedUsers; // List of users picked up (can't change vehicle after pick up)
+    private boolean stoppedRebalanceToPickup;
     public Vehicle(int capacity, int id_network, int currentTime, boolean hired, int contractDeadline) {
         this(capacity, id_network, currentTime);
         this.hired = hired;
         this.contractedDuration = contractDeadline - currentTime;
         this.contractDeadline = contractDeadline;
     }
-
-
-    private double distanceTraveledRebalancing;
-    private double distanceTraveledEmpty;
-    private double distanceTraveledLoaded;
-
-    /* Historical data */
-    private List<Node> journey; // List of nodes visited by vehicle
-    private List<User> servicedUsers; // List of users picked up (can't change vehicle after pick up)
-    private boolean stoppedRebalanceToPickup;
 
 
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -101,16 +97,15 @@ public class Vehicle implements Comparable<Vehicle> {
         this.hired = hired;
     }
 
-    public static void reset() {
-        count = Node.MAX_NUMBER_NODES * 2; // Starting index of vehicles
-        Vehicle.setOfHotPoints = new LinkedList<>();
-    }
-
-
     public Vehicle(int capacity, int id_network, int currentTime) {
         this(capacity, id_network);
         this.getOrigin().setArrival(currentTime);
         this.getOrigin().setDeparture(currentTime);
+    }
+
+    public static void reset() {
+        count = Node.MAX_NUMBER_NODES * 2; // Starting index of vehicles
+        Vehicle.setOfHotPoints = new LinkedList<>();
     }
 
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -130,6 +125,20 @@ public class Vehicle implements Comparable<Vehicle> {
         }
     }
 
+    public static Set<Vehicle> getVehiclesWithPassengers(List<Vehicle> listVehicles) {
+        return listVehicles
+                .stream()
+                .filter(vehicle -> vehicle.getVisit() != null && !vehicle.getVisit().getPassengers().isEmpty())
+                .collect(Collectors.toSet());
+    }
+
+    public static Set<User> getAllPassengersFromVehicles(Collection<Vehicle> listVehicles) {
+        return listVehicles
+                .stream()
+                .filter(vehicle -> vehicle.getVisit() != null)
+                .map(vehicle -> vehicle.getVisit().getPassengers())
+                .collect(HashSet::new, HashSet::addAll, HashSet::addAll);
+    }
 
     public void increaseActiveRounds() {
         this.activeRounds++;
@@ -148,15 +157,29 @@ public class Vehicle implements Comparable<Vehicle> {
         return activeRounds;
     }
 
-
     public void printHiringInfo() {
         System.out.println(this + " - Deadline:" + this.contractDeadline);
     }
 
-
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     ///// Rebalancing //////////////////////////////////////////////////////////////////////////////////////////////////
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+    /**
+     * Join new requests (current period) with all matched requests (not yet picked up).
+     * There can have better matches (i.e., requests can be serviced by different vehicles)
+     */
+    public static List<User> getRequestsFrom(List<Vehicle> listVehicles) {
+        List<User> allRequests = new ArrayList<>();
+
+        // Requests can still be picked up by other vehicles, add them to request list
+        for (Vehicle vehicle : listVehicles) {
+            if (vehicle.isServicing()) {
+                allRequests.addAll(vehicle.getVisit().getRequests());
+            }
+        }
+        return allRequests;
+    }
 
     /**
      * Move forward in the sequence of visits.
@@ -385,11 +408,11 @@ public class Vehicle implements Comparable<Vehicle> {
         this.setVisit(null);
     }
 
-    private Node getStop(){
-        assert this.getLastVisitedNode() instanceof NodePK: "Stop cant be pickup " + this.lastVisitedNode;
+    private Node getStop() {
+        assert this.getLastVisitedNode() instanceof NodePK : "Stop cant be pickup " + this.lastVisitedNode;
         if (this.lastVisitedNode instanceof NodeDP)
             return new NodeStop(this.lastVisitedNode, this.id, this.lastVisitedNode.getDeparture());
-        else{
+        else {
             return this.lastVisitedNode;
         }
     }
@@ -420,6 +443,10 @@ public class Vehicle implements Comparable<Vehicle> {
         return newVisit;
     }
 
+    ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    ///// Insertion algorithm //////////////////////////////////////////////////////////////////////////////////////////
+    ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
     /**
      * Drive vehicle to node "hotPoint"
      *
@@ -441,9 +468,8 @@ public class Vehicle implements Comparable<Vehicle> {
     }
 
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-    ///// Insertion algorithm //////////////////////////////////////////////////////////////////////////////////////////
+    ///// Gets & Sets //////////////////////////////////////////////////////////////////////////////////////////////////
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
 
     /**
      * Try to create a visit out of a single user (called when vehicle is empty)
@@ -499,16 +525,8 @@ public class Vehicle implements Comparable<Vehicle> {
         return first;
     }
 
-    ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-    ///// Gets & Sets //////////////////////////////////////////////////////////////////////////////////////////////////
-    ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
     /**
      * Get best insertion of candidate user in vehicle at current time.
-     *
-     * @param candidateRequest
-     * @param currentTime
-     * @return Best visit or null
      */
     public Visit getVisitWithInsertedUser(User candidateRequest, int currentTime) {
 
@@ -755,13 +773,13 @@ public class Vehicle implements Comparable<Vehicle> {
         this.lastVisitedNode = lastVisitedNode;
     }
 
-    public int getCapacity() {
-        return capacity;
-    }
-
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     ///// Logging, info ////////////////////////////////////////////////////////////////////////////////////////////////
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+    public int getCapacity() {
+        return capacity;
+    }
 
     public String getStats() {
 
@@ -875,6 +893,11 @@ public class Vehicle implements Comparable<Vehicle> {
                 ((this.rebalancing) ? "(Rebalancing)" : ""));
     }
 
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    ///// OLD METHOD ///////////////////////////////////////////////////////////////////////////////////////////////////
+    ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
     /**
      * Sort vehicles according to currentLoad (lower first).
      *
@@ -887,11 +910,6 @@ public class Vehicle implements Comparable<Vehicle> {
         if (this.currentLoad > that.currentLoad) return AFTER;
         return EQUAL;
     }
-
-
-    ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-    ///// OLD METHOD ///////////////////////////////////////////////////////////////////////////////////////////////////
-    ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
     /**
      * Get best insertion of candidate user in vehicle at current time.
@@ -1177,7 +1195,7 @@ public class Vehicle implements Comparable<Vehicle> {
         this.rebalancing = false;
     }
 
-    public boolean isCarryingPassengers(){
+    public boolean isCarryingPassengers() {
         return this.visit != null && !this.visit.getPassengers().isEmpty();
     }
 
@@ -1200,7 +1218,7 @@ public class Vehicle implements Comparable<Vehicle> {
      */
     public void rebalanceToClosestNode() {
 
-        assert !(this.lastVisitedNode instanceof NodePK): "Last visited is not DP" + this.visit;
+        assert !(this.lastVisitedNode instanceof NodePK) : "Last visited is not DP" + this.visit;
 
         // For the sake of correctness, vehicle has to depart from a stop node created from last visited node.
         if (this.lastVisitedNode instanceof NodeDP)
@@ -1211,7 +1229,7 @@ public class Vehicle implements Comparable<Vehicle> {
         this.rebalanceTo(middle);
     }
 
-    public Visit getRebalanceVisit(){
+    public Visit getRebalanceVisit() {
 
         Node middle = this.getMiddleNode();
 
@@ -1239,34 +1257,6 @@ public class Vehicle implements Comparable<Vehicle> {
     public int hashCode() {
         return this.getId();
     }
-
-    public static Set<Vehicle> getVehiclesWithPassengers(List<Vehicle> listVehicles) {
-        return listVehicles
-                .stream()
-                .filter(vehicle -> vehicle.getVisit() != null && !vehicle.getVisit().getPassengers().isEmpty())
-                .collect(Collectors.toSet());
-    }
-
-
-    /**
-     * Join new requests (current period) with all matched requests (not yet picked up).
-     * There can have better matches (i.e., requests can be serviced by different vehicles)
-     *
-     * @param listVehicles
-     * @return all requests
-     */
-    public static List<User> getAssignedRequestsFrom(List<Vehicle> listVehicles) {
-        List<User> allRequests = new ArrayList<>();
-
-        // Requests can still be picked up by other vehicles, add them to request list
-        for (Vehicle vehicle : listVehicles) {
-            if (vehicle.isServicing()) {
-                allRequests.addAll(vehicle.getVisit().getRequests());
-            }
-        }
-        return allRequests;
-    }
-
 }
 
 
