@@ -1,4 +1,4 @@
-package simulation;
+package simulation.matching;
 
 import model.User;
 import model.Vehicle;

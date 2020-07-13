@@ -1,4 +1,4 @@
-package simulation;
+package simulation.matching;
 
 import config.Config;
 import config.Qos;
@@ -58,6 +58,17 @@ public class MatchingOptimalServiceLevel extends MatchingOptimal {
         for (Visit visit : visits) {
             penObjectives.get("WAITING").addTerm(visit.getDelay(), varVisitSelected(visit));
         }
+
+        /*for (User request : requests) {
+            GRBLinExpr constrRequestServiceLevel = new GRBLinExpr();
+            List<Visit> requestVisits = graphRTV.getListOfVisitsFromUser(request);
+            for (Visit visit : requestVisits) {
+                double delay = graphRTV.getWeightFromRequestVisitEdge(request, visit);
+                if (isFirstTier(request, visit)) {
+                    constrRequestServiceLevel.addTerm(delay, varVisitSelected(visit));
+                }
+            }
+        }*/
 
         int i = penObjectives.size();
         for (Map.Entry<String, GRBLinExpr> e : penObjectives.entrySet()) {
@@ -128,7 +139,7 @@ public class MatchingOptimalServiceLevel extends MatchingOptimal {
 
     protected void keepPreviousAssignement() {
 
-        result.requestsUnassigned.addAll(User.getUnassigned(requests));
+        result.getRequestsUnassigned().addAll(User.getUnassigned(requests));
 
         // Keep the previously picked up requests
         List<User> serviced = User.getAssigned(requests);

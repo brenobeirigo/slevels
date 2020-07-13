@@ -1,4 +1,4 @@
-package simulation;
+package simulation.matching;
 
 import config.Config;
 import config.Qos;
@@ -16,23 +16,23 @@ public class ResultAssignment {
     public Map<Qos, Integer> totalServiceLevelClass;
     public Set<User> requestsServicedLevelNotAchieved;
     // Unassigned requests
-    protected Set<User> requestsUnassigned;
+    private Set<User> requestsUnassigned;
     // Set of users that were displaced from their current rides (is in unassgigned)
     protected Set<User> requestsDisplaced;
     // Set of vehicles that interrupted routes and parked
     protected Set<Vehicle> vehiclesDisrupted;
     // New vehicle is added in list
-    protected Set<Vehicle> vehiclesHired;
+    private Set<Vehicle> vehiclesHired;
     // Users who were picked up by hired vehicle
     protected List<User> roundPrivateRides;
     // Result refers to current simulation time
     private int currentTime;
     // Set of requests scheduled to vehicles
-    private Set<User> requestsOK;
+    protected Set<User> requestsOK;
     // Set of vehicles assigned to visits
-    private Set<Vehicle> vehiclesOK;
+    protected Set<Vehicle> vehiclesOK;
     // Set of visits chosen in round
-    private Set<Visit> visitsOK;
+    protected Set<Visit> visitsOK;
 
     public ResultAssignment(int currentTime) {
         this.currentTime = currentTime;
@@ -96,6 +96,7 @@ public class ResultAssignment {
         System.out.println("######## Round current time: " + this.currentTime);
         System.out.println(String.format("\n\n# Assigned vehicles  (%d)  = %s", vehiclesOK.size(), vehiclesOK));
         System.out.println(String.format("# Unassigned users   (%d)  = %s", requestsUnassigned.size(), requestsUnassigned));
+        System.out.println(String.format("# Assigned users     (%d)  = %s", requestsOK.size(), requestsOK));
         System.out.println(String.format("# Displaced users    (%d)  = %s", requestsDisplaced.size(), requestsDisplaced));
         System.out.println(String.format("# Class service quality    = %s", overallServiceLevelDistribution()));
         System.out.println(String.format("# Vehicles disrupted (%d)  = %s", vehiclesDisrupted.size(), vehiclesDisrupted));
@@ -248,5 +249,26 @@ public class ResultAssignment {
         List<User> listAssigned = new ArrayList<>(getRequestsOK());
         listAssigned.sort(Comparator.comparing(User::getPerformanceClass).thenComparing(User::getReqTime));
         return listAssigned;
+    }
+
+    protected void createFirstSecondTierListsFromServiced() {
+        requestsServicedLevelAchieved.addAll(Visit.filterFirstTier(getVisitsOK()));
+        requestsServicedLevelNotAchieved.addAll(Visit.filterSecondTier(getVisitsOK()));
+    }
+
+    public Set<User> getRequestsUnassigned() {
+        return requestsUnassigned;
+    }
+
+    public void setRequestsUnassigned(Set<User> requestsUnassigned) {
+        this.requestsUnassigned = requestsUnassigned;
+    }
+
+    public Set<Vehicle> getVehiclesHired() {
+        return vehiclesHired;
+    }
+
+    public void setVehiclesHired(Set<Vehicle> vehiclesHired) {
+        this.vehiclesHired = vehiclesHired;
     }
 }

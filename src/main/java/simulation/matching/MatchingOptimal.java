@@ -1,4 +1,4 @@
-package simulation;
+package simulation.matching;
 
 import gurobi.*;
 import model.User;
@@ -6,6 +6,7 @@ import model.Vehicle;
 import model.Visit;
 import model.graph.GraphRTV;
 import org.jgrapht.graph.DefaultWeightedEdge;
+import simulation.Method;
 
 import java.util.*;
 import java.util.stream.Collectors;
@@ -79,7 +80,7 @@ public class MatchingOptimal implements RideMatchingStrategy {
 
                 /*if (config.showInfo) {
                     System.out.println("The optimal objective is " + model.get(GRB.DoubleAttr.ObjVal));
-                    System.out.println("Optimal rebalancing:");
+                    System.out.println("Optimal simulation.rebalancing:");
                 }*/
 
                 extractResult();
@@ -117,7 +118,7 @@ public class MatchingOptimal implements RideMatchingStrategy {
 
     protected void keepPreviousAssignement() {
 
-        result.requestsUnassigned.addAll(User.getUnassigned(requests));
+        result.getRequestsUnassigned().addAll(User.getUnassigned(requests));
 
         // Keep the previously picked up requests
         List<User> serviced = User.getAssigned(requests);
@@ -300,7 +301,7 @@ public class MatchingOptimal implements RideMatchingStrategy {
         for (User request : requests) {
 
             if (varRequestRejected(request).get(GRB.DoubleAttr.X) > 0.99) {
-                result.requestsUnassigned.add(request);
+                result.getRequestsUnassigned().add(request);
                 // System.out.println(request + " - REJECTED");
 
                 // Rejected user was displaced from a routing plan

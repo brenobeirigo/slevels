@@ -1,7 +1,7 @@
-package simulation;
+package simulation.matching;
 
 import config.CustomerBaseConfig;
-import config.Rebalance;
+import simulation.rebalancing.Rebalance;
 import model.User;
 import model.Vehicle;
 
