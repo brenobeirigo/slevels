@@ -1,11 +1,19 @@
-import config.*;
+import config.Config;
+import config.CustomerBaseConfig;
+import config.InstanceConfig;
 import dao.Dao;
 import model.User;
 import model.Vehicle;
 import model.Visit;
 import model.node.Node;
 import model.node.NodeMiddle;
-import simulation.*;
+import simulation.Simulation;
+import simulation.Solution;
+import simulation.matching.Matching;
+import simulation.matching.RideMatchingStrategy;
+import simulation.matching.SimulationFCFS;
+import simulation.rebalancing.Rebalance;
+import simulation.rebalancing.RebalanceStrategy;
 
 import java.time.Duration;
 import java.time.Instant;
@@ -31,80 +39,83 @@ public class Main {
                             for (int initialFleet : instanceSettings.getInitialFleetArray()) {
                                 for (boolean isAllowedToHire : instanceSettings.getAllowVehicleHiringArray()) {
                                     for (boolean isAllowedToLowerServiceLevel : instanceSettings.getAllowServiceDeteriorationArray()) {
+                                        for (boolean isAllowedToDisplaceRequests : instanceSettings.getAllowRequestDisplacementArray()) {
 
-                                        // If can hire than service level have to be lowered
-                                        if (isAllowedToHire != isAllowedToLowerServiceLevel) continue;
+                                            // If can hire than service level have to be lowered
+                                            if (isAllowedToHire != isAllowedToLowerServiceLevel) continue;
 
-                                        for (int contractDuration : instanceSettings.getContractDurationArray()) {
-                                            for (CustomerBaseConfig customerBaseSettings : instanceSettings.getCustomerBaseSettingsArray()) {
+                                            for (int contractDuration : instanceSettings.getContractDurationArray()) {
+                                                for (CustomerBaseConfig customerBaseSettings : instanceSettings.getCustomerBaseSettingsArray()) {
 
-                                                // Update global class configuration to run current test case
-                                                Config.getInstance().updateQosDic(customerBaseSettings.qosDic);
+                                                    // Update global class configuration to run current test case
+                                                    Config.getInstance().updateQosDic(customerBaseSettings.qosDic);
 
-                                                Rebalance rebalancingSettings = new Rebalance();
+                                                    Rebalance rebalancingSettings = new Rebalance();
 
-                                                for (RebalanceStrategy rebalanceStrategy : instanceSettings.getRebalancingMethods()) {
+                                                    for (RebalanceStrategy rebalanceStrategy : instanceSettings.getRebalancingMethods()) {
 
-                                                    rebalancingSettings.setStrategy(rebalanceStrategy);
-                                                    Matching matchingSettings = new Matching(
-                                                            isAllowedToLowerServiceLevel,
-                                                            customerBaseSettings,
-                                                            contractDuration,
-                                                            rebalancingSettings,
-                                                            isAllowedToHire);
-
-                                                    for (RideMatchingStrategy matchingMethod : instanceSettings.getMatchingMethods()) {
-
-                                                        matchingSettings.setStrategy(matchingMethod);
-
-                                                        Instant before = Instant.now();
-
-                                                        // Create FCFS simulation
-                                                        Simulation simulation = new SimulationFCFS(
-                                                                instanceSettings.getInstanceName(),
-                                                                initialFleet,
-                                                                vehicleMaxCapacity,
-                                                                maxRequestsIteration,
-                                                                timeWindow,
-                                                                timeHorizon,
-                                                                contractDuration,
-                                                                isAllowedToHire,
+                                                        rebalancingSettings.setStrategy(rebalanceStrategy);
+                                                        Matching matchingSettings = new Matching(
                                                                 isAllowedToLowerServiceLevel,
-                                                                customerBaseSettings.serviceRateLabel,
-                                                                customerBaseSettings.customerSegmentationLabel,
+                                                                customerBaseSettings,
+                                                                contractDuration,
                                                                 rebalancingSettings,
-                                                                matchingSettings);
+                                                                isAllowedToHire);
 
-                                                        // Run simulation
-                                                        simulation.run();
+                                                        for (RideMatchingStrategy matchingMethod : instanceSettings.getMatchingMethods()) {
 
-                                                        // Reset classes for next iteration
-                                                        Dao.getInstance().resetRecords();
-                                                        User.reset();
-                                                        Vehicle.reset();
-                                                        Node.reset();
-                                                        NodeMiddle.reset();
-                                                        Visit.reset();
-                                                        Simulation.reset();
-                                                        Solution.reset();
+                                                            matchingSettings.setStrategy(matchingMethod);
 
-                                                        Instant after = Instant.now();
-                                                        Duration duration = Duration.between(before, after);
-                                                        System.out.println("Duration:" + duration.toMillis());
+                                                            Instant before = Instant.now();
+
+                                                            // Create FCFS simulation
+                                                            Simulation simulation = new SimulationFCFS(
+                                                                    instanceSettings.getInstanceName(),
+                                                                    initialFleet,
+                                                                    vehicleMaxCapacity,
+                                                                    maxRequestsIteration,
+                                                                    timeWindow,
+                                                                    timeHorizon,
+                                                                    contractDuration,
+                                                                    isAllowedToHire,
+                                                                    isAllowedToLowerServiceLevel,
+                                                                    isAllowedToDisplaceRequests,
+                                                                    customerBaseSettings.serviceRateLabel,
+                                                                    customerBaseSettings.customerSegmentationLabel,
+                                                                    rebalancingSettings,
+                                                                    matchingSettings);
+
+                                                            // Run simulation
+                                                            simulation.run();
+
+                                                            // Reset classes for next iteration
+                                                            Dao.getInstance().resetRecords();
+                                                            User.reset();
+                                                            Vehicle.reset();
+                                                            Node.reset();
+                                                            NodeMiddle.reset();
+                                                            Visit.reset();
+                                                            Simulation.reset();
+                                                            Solution.reset();
+
+                                                            Instant after = Instant.now();
+                                                            Duration duration = Duration.between(before, after);
+                                                            System.out.println("Duration:" + duration.toMillis());
+                                                        }
                                                     }
                                                 }
+                                                Config.reset();
                                             }
-                                            Config.reset();
                                         }
                                     }
                                 }
                             }
-                        }
 
+                        }
                     }
                 }
-            }
 
+            }
         }
     }
 }
