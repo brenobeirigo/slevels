@@ -1,0 +1,23 @@
+{
+  "dict_sl_class": {
+    "A": "Business",
+    "B": "Standard",
+    "C": "Low-cost"
+  },
+  "dict_fleet": {
+    "FLEET": "Company",
+    "FREELANCE": "Freelance",
+    "DENIED": "Denied"
+  },
+  "dict_sl_tier": {
+    "FIRST": "1st tier",
+    "SECOND": "2nd tier"
+  },
+  "headers": {
+    "service_level": "Pickup deadline",
+    "class": "SQ Class",
+    "delay_pk": "Pickup delay (min)",
+    "service": "Service",
+    "method": "Method"
+  }
+}
