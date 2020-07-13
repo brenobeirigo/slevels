@@ -60,7 +60,8 @@ public class Main {
                                                                 customerBaseSettings,
                                                                 contractDuration,
                                                                 rebalancingSettings,
-                                                                isAllowedToHire);
+                                                                isAllowedToHire,
+                                                                isAllowedToDisplaceRequests);
 
                                                         for (RideMatchingStrategy matchingMethod : instanceSettings.getMatchingMethods()) {
 
@@ -79,7 +80,6 @@ public class Main {
                                                                     contractDuration,
                                                                     isAllowedToHire,
                                                                     isAllowedToLowerServiceLevel,
-                                                                    isAllowedToDisplaceRequests,
                                                                     customerBaseSettings.serviceRateLabel,
                                                                     customerBaseSettings.customerSegmentationLabel,
                                                                     rebalancingSettings,
