@@ -32,7 +32,6 @@ public class SimulationFCFS extends Simulation {
                           int contractDuration,
                           boolean isAllowedToHire,
                           boolean isAllowedToLowerServiceLevel,
-                          boolean allowRequestDisplacement,
                           String serviceRateScenarioLabel,
                           String segmentationScenarioLabel,
                           Rebalance rebalance,
@@ -48,7 +47,6 @@ public class SimulationFCFS extends Simulation {
                 contractDuration,
                 isAllowedToHire,
                 isAllowedToLowerServiceLevel,
-                allowRequestDisplacement,
                 rebalance,
                 matchingSettings);
 
@@ -71,7 +69,7 @@ public class SimulationFCFS extends Simulation {
                 timeWindow,
                 timeHorizon,
                 contractDuration,
-                allowRequestDisplacement,
+                matchingSettings.isAllowUserDisplacement(),
                 isAllowedToHire,
                 isAllowedToLowerServiceLevel,
                 serviceRateScenarioLabel,
@@ -255,7 +253,7 @@ public class SimulationFCFS extends Simulation {
             if (bestVisit != null) {
 
                 // Add user to vehicle and setup visit
-                realizeVisit(bestVisit);
+                Visit.realize(bestVisit, rebalanceUtil, timeWindow);
 
                 // Model.User u was serviced
                 setServicedUsers.add(u);
