@@ -10,13 +10,13 @@
     "DENIED": "Denied"
   },
   "dict_sl_tier": {
-    "FIRST": "1st tier",
-    "SECOND": "2nd tier"
+    "FIRST": "SL achieved",
+    "SECOND": "SL NOT achieved"
   },
   "headers": {
     "service_level": "Pickup deadline",
     "class": "SQ Class",
-    "delay_pk": "Pickup delay (min)",
+    "delay_pk": "Waiting (min)",
     "service": "Service",
     "method": "Method"
   }
