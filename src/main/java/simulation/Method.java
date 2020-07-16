@@ -514,11 +514,6 @@ public class Method {
      * Try to create a visit by inserting a list of passengers into vehicle.
      * List is constructed by method getPkDpUserIdSequence
      *
-     * @param passengers            List of passengers searching for a ride
-     * @param v                     Vehicle where passengers will be inserted
-     * @param findBestVisit         False, if first permutation is used to create a visit
-     * @param maxNumberPermutations Limit the number of permutation
-     * @return Visit (passengers + vehicle ' s previous passengers) or null
      */
     /*public static Visit getVisitByPermutation(Set<User> passengers,
                                               Vehicle v,
@@ -1200,7 +1195,8 @@ public class Method {
                     sequenceFromVehiclePositionToLastDelivery,
                     vehicle.getDepartureCurrent(),
                     vehicle.getCurrentLoad(),
-                    vehicle.getCapacity()
+                    vehicle.getCapacity(),
+                    vehicle.getContractDeadline()
             );
 
             if (delay >= 0 && delay < lowestDelay) {
@@ -1235,7 +1231,8 @@ public class Method {
                         (LinkedList<Node>) seq,
                         vehicle.getDepartureCurrent(),
                         vehicle.getCurrentLoad(),
-                        vehicle.getCapacity()
+                        vehicle.getCapacity(),
+                        vehicle.getContractDeadline()
                 );
             }
         }

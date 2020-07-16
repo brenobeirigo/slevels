@@ -45,6 +45,8 @@ public class Vehicle implements Comparable<Vehicle> {
     private List<Node> journey; // List of nodes visited by vehicle
     private List<User> servicedUsers; // List of users picked up (can't change vehicle after pick up)
     private boolean stoppedRebalanceToPickup;
+
+
     public Vehicle(int capacity, int id_network, int currentTime, boolean hired, int contractDeadline) {
         this(capacity, id_network, currentTime);
         this.hired = hired;
@@ -66,6 +68,8 @@ public class Vehicle implements Comparable<Vehicle> {
         this.currentLoad = 0;
         this.hired = false;
         this.rebalancing = false;
+        // Vehicle stays until the end
+        this.contractDeadline = Integer.MAX_VALUE;
     }
 
     public Vehicle(Vehicle vehicle, Visit visit) {
@@ -131,6 +135,8 @@ public class Vehicle implements Comparable<Vehicle> {
         }
     }
 
+    ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
     public static Set<Vehicle> getVehiclesWithPassengers(List<Vehicle> listVehicles) {
         return listVehicles
                 .stream()
@@ -146,36 +152,11 @@ public class Vehicle implements Comparable<Vehicle> {
                 .collect(HashSet::new, HashSet::addAll, HashSet::addAll);
     }
 
-    public void increaseActiveRounds() {
-        this.activeRounds++;
-    }
-
-    /**
-     * Indicate if vehicle was hired.
-     *
-     * @return True, if vehicle does not belong to dedicated fleet.
-     */
-    public boolean isHired() {
-        return hired;
-    }
-
-    public int getActiveRounds() {
-        return activeRounds;
-    }
-
-    public void printHiringInfo() {
-        System.out.println(this + " - Deadline:" + this.contractDeadline);
-    }
-
-    ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-    ///// Rebalancing //////////////////////////////////////////////////////////////////////////////////////////////////
-    ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
     /**
      * Join new requests (current period) with all matched requests (not yet picked up).
      * There can have better matches (i.e., requests can be serviced by different vehicles)
      */
-    public static List<User> getRequestsFrom(List<Vehicle> listVehicles) {
+    public static List<User> getRequestsFrom(Collection<Vehicle> listVehicles) {
         List<User> allRequests = new ArrayList<>();
 
         // Requests can still be picked up by other vehicles, add them to request list
@@ -198,6 +179,74 @@ public class Vehicle implements Comparable<Vehicle> {
             }
         }
         return allUsers;
+    }
+
+    public static List<Vehicle> getVehiclesServicing(List<Vehicle> vehicles) {
+        return vehicles.stream().filter(Vehicle::isServicing).collect(Collectors.toList());
+    }
+
+    public int isValidSequence(LinkedList<Node> sequence) {
+
+        // All valid trips finish at delivery nodes
+        if (!(sequence.getLast() instanceof NodeDP)) {
+            return -1;
+        }
+
+        // If a pickup node is visited after its destination, trip is invalid
+        Map<Integer, Boolean> destinationAlreadyVisited = new HashMap<>();
+
+        // Data passed over legs
+        int[] cumulativeLegPK = new int[]{
+                this.getDepartureCurrent(),
+                this.currentLoad,
+                0};
+
+
+        for (int i = 0; i < sequence.size() - 1; i++) {
+
+            // Mark trip id all destinations visited
+            if (sequence.get(i) instanceof NodeDP)
+                destinationAlreadyVisited.put(sequence.get(i).getTripId(), true);
+
+            // If pickup from same trip id is visited and destination have been marked, trip is invalid
+            if (sequence.get(i) instanceof NodePK && destinationAlreadyVisited.containsKey(sequence.get(i).getTripId()))
+                return -1;
+
+            if (Visit.isLegInvalid(sequence.get(i), sequence.get(i + 1), cumulativeLegPK, this.capacity)) {
+                return -1;
+            }
+
+            if(cumulativeLegPK[Vehicle.ARRIVAL] > this.getContractDeadline()){
+                return -1;
+            }
+        }
+
+        return cumulativeLegPK[Vehicle.DELAY];
+    }
+
+    public void increaseActiveRounds() {
+        this.activeRounds++;
+    }
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    ///// Rebalancing //////////////////////////////////////////////////////////////////////////////////////////////////
+    ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+    /**
+     * Indicate if vehicle was hired.
+     *
+     * @return True, if vehicle does not belong to dedicated fleet.
+     */
+    public boolean isHired() {
+        return hired;
+    }
+
+    public int getActiveRounds() {
+        return activeRounds;
+    }
+
+    public void printHiringInfo() {
+        System.out.println(this + " - Deadline:" + this.contractDeadline);
     }
 
     /**
@@ -436,6 +485,10 @@ public class Vehicle implements Comparable<Vehicle> {
         }
     }
 
+    ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    ///// Insertion algorithm //////////////////////////////////////////////////////////////////////////////////////////
+    ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
     public Visit getVisitWithEnroute() {
 
         if (this.visit == null || this.visit.getPassengers() == null) return null;
@@ -463,7 +516,7 @@ public class Vehicle implements Comparable<Vehicle> {
     }
 
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-    ///// Insertion algorithm //////////////////////////////////////////////////////////////////////////////////////////
+    ///// Gets & Sets //////////////////////////////////////////////////////////////////////////////////////////////////
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
     /**
@@ -485,10 +538,6 @@ public class Vehicle implements Comparable<Vehicle> {
         // Signalize there are vehicles going to the point
         Node.tabu.add(targetNode.getNetworkId());
     }
-
-    ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-    ///// Gets & Sets //////////////////////////////////////////////////////////////////////////////////////////////////
-    ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
     /**
      * Try to create a visit out of a single user (called when vehicle is empty)
@@ -788,13 +837,13 @@ public class Vehicle implements Comparable<Vehicle> {
         return lastVisitedNode;
     }
 
-    public void setLastVisitedNode(Node lastVisitedNode) {
-        this.lastVisitedNode = lastVisitedNode;
-    }
-
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     ///// Logging, info ////////////////////////////////////////////////////////////////////////////////////////////////
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+    public void setLastVisitedNode(Node lastVisitedNode) {
+        this.lastVisitedNode = lastVisitedNode;
+    }
 
     public int getCapacity() {
         return capacity;
@@ -832,15 +881,15 @@ public class Vehicle implements Comparable<Vehicle> {
         int totalWaiting = operatingTW - operatingTime;
 
         return String.format("###### %4s [%4s,%4s] => %4s (work) + %4s (wait) = %4s (%.2f%%) #### PK:%6s  DP:%6s",
-                String.valueOf(this),
-                String.valueOf(startTime),
-                String.valueOf(endTime),
-                String.valueOf(operatingTime),
-                String.valueOf(totalWaiting),
-                String.valueOf(operatingTW),
+                this,
+                startTime,
+                endTime,
+                operatingTime,
+                totalWaiting,
+                operatingTW,
                 (double) operatingTime * 100 / operatingTW,
-                String.valueOf(delayPK),
-                String.valueOf(delayDP));
+                delayPK,
+                delayDP);
     }
 
     @Override
@@ -868,8 +917,8 @@ public class Vehicle implements Comparable<Vehicle> {
             int dist = Dao.getInstance().getDistSec(fromId, toId);
             int waiting = journey.get(i + 1).getArrival() - dist - journey.get(i).getDeparture();
             str.append("\n" + journey.get(i).getInfo());
-            str.append(String.format("\nTravel time: %7s", String.valueOf(dist)));
-            str.append(String.format("\n    Waiting: %7s", String.valueOf(waiting)));
+            str.append(String.format("\nTravel time: %7s", dist));
+            str.append(String.format("\n    Waiting: %7s", waiting));
 
         }
 
@@ -900,6 +949,11 @@ public class Vehicle implements Comparable<Vehicle> {
         return String.format("(%2s/%d)", (this.visit != null && !this.visit.getPassengers().isEmpty() ? String.valueOf(currentLoad) : "-"), capacity);
     }
 
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    ///// OLD METHOD ///////////////////////////////////////////////////////////////////////////////////////////////////
+    ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
     public String getInfo() {
 
         return String.format("%s(%s) - Journey: %-200s - Passengers: %-100s - Requests: %-100s - Attended: %s - %s",
@@ -911,11 +965,6 @@ public class Vehicle implements Comparable<Vehicle> {
                 servicedUsers,
                 ((this.rebalancing) ? "(Rebalancing)" : ""));
     }
-
-
-    ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-    ///// OLD METHOD ///////////////////////////////////////////////////////////////////////////////////////////////////
-    ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
     /**
      * Sort vehicles according to currentLoad (lower first).
@@ -1262,10 +1311,6 @@ public class Vehicle implements Comparable<Vehicle> {
         visit.idle = 0;
 
         return visit;
-    }
-
-    public static List<Vehicle> getVehiclesServicing(List<Vehicle> vehicles){
-        return vehicles.stream().filter(Vehicle::isServicing).collect(Collectors.toList());
     }
 
     public int getContractDeadline() {

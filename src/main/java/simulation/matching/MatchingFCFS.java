@@ -6,7 +6,7 @@ import model.User;
 import model.Vehicle;
 import model.Visit;
 import model.node.Node;
-import simulation.Method;
+import simulation.hiring.HiringFromCenters;
 import simulation.rebalancing.Rebalance;
 
 import java.nio.file.Path;
@@ -26,40 +26,6 @@ public class MatchingFCFS implements RideMatchingStrategy {
         this.allPermutations = allPermutations;
         this.stopAtFirstBest = stopAtFirstBest;
         this.checkInParallel = checkInParallel;
-    }
-
-    /**
-     * Create a vehicle of capacity "capacity" positioned at a random node.
-     *
-     * @param u Capacity of vehicle
-     * @return Vehicle at random position
-     */
-    public static Vehicle createVehicleAtRandomPosition(User u, int currentTime, int contractDuration) {
-
-        int closestRegionCenterId = Dao.getInstance().getClosestRegion(u.getNodePk().getNetworkId(), u.getPerformanceClass());
-
-        // When vehicle have to be released
-        int contractDeadline = currentTime;
-        int distOriginPkUser = Dao.getInstance().getDistSec(closestRegionCenterId, u.getNodePk().getNetworkId());
-
-        int distPkDp = u.getDistFromTo();
-        //System.out.println("Distance origin pickup user: " + distOriginPkUser);
-        //System.out.println("   Distance pickup delivery: " + distPkDp);
-        //System.out.println("               Current time: " + contractDeadline);
-        //System.out.println("              User deadline: (pk:" + u.getNodePk().getLatest() + " / dp:"+ u.getNodeDp().getLatest()+ ")");
-        //System.out.println("   Distance pickup delivery: " + distPkDp);
-
-        // Deadline is the delivery time of user who caused hiring
-        if (contractDuration == Config.DURATION_SINGLE_RIDE) {
-            contractDeadline += distOriginPkUser + distPkDp;
-            //System.out.println("  (single) Contract deadline: " + contractDeadline);
-
-        } else {
-            contractDeadline += contractDuration;
-            //System.out.println("          Contract deadline: " + contractDeadline);
-        }
-
-        return new Vehicle(u.getNumPassengers(), closestRegionCenterId, currentTime, true, contractDeadline);
     }
 
     /**
@@ -127,7 +93,7 @@ public class MatchingFCFS implements RideMatchingStrategy {
         while (candidateVisitHiredVehicle == null) {
 
             // For the sake of fairness, position is left to chance
-            v = createVehicleAtRandomPosition(
+            v = HiringFromCenters.createVehicleAtClosestRegionalCenter(
                     u,
                     currentTime,
                     configMatching.contractDuration); // List of vehicles
@@ -156,6 +122,7 @@ public class MatchingFCFS implements RideMatchingStrategy {
             int currentTime,
             List<User> unassignedRequests,
             List<Vehicle> listVehicles,
+            Set<Vehicle> hired,
             Matching configMatching) {
 
         ResultAssignment result = new ResultAssignment(currentTime);

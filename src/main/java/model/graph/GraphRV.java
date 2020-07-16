@@ -85,7 +85,7 @@ public class GraphRV {
                 LinkedList<Node> seq4 = new LinkedList<>(Arrays.asList(pk2, pk1, dp2, dp1));
 
                 for (LinkedList<Node> seq : Arrays.asList(seq1, seq2, seq3, seq4)) {
-                    int delay = Visit.isValidSequence(seq, seq.get(0).getDeparture(), seq.get(0).getLoad(), maxVehicleCapacity);
+                    int delay = Visit.isValidSequence(seq, seq.get(0).getDeparture(), seq.get(0).getLoad(), maxVehicleCapacity, Integer.MAX_VALUE);
                     if (delay > 0) {
                         graphRV.addEdge(r1, r2);
                         break;
@@ -126,7 +126,7 @@ public class GraphRV {
             LinkedList<Node> seq4 = new LinkedList<>(Arrays.asList(pk2, pk1, dp2, dp1));
 
             for (LinkedList<Node> seq : Arrays.asList(seq1, seq2, seq3, seq4)) {
-                int delay = Visit.isValidSequence(seq, seq.get(0).getDeparture(), seq.get(0).getLoad(), maxVehicleCapacity);
+                int delay = Visit.isValidSequence(seq, seq.get(0).getDeparture(), seq.get(0).getLoad(), maxVehicleCapacity, Integer.MAX_VALUE);
                 if (delay >= 0) {
                     edges.add(new EdgeRV(delay, r1, r2));
                     break;
@@ -204,7 +204,8 @@ public class GraphRV {
                     sequenceFromVehiclePositionToLastDelivery,
                     vehicle.getDepartureCurrent(),
                     vehicle.getCurrentLoad(),
-                    vehicle.getCapacity());
+                    vehicle.getCapacity(),
+                    vehicle.getContractDeadline());
 
 
             if (delay >= 0) {
@@ -240,7 +241,8 @@ public class GraphRV {
                     sequenceFromVehiclePositionToLastDelivery,
                     vehicle.getDepartureCurrent(),
                     vehicle.getCurrentLoad(),
-                    vehicle.getCapacity());
+                    vehicle.getCapacity(),
+                    vehicle.getContractDeadline());
 
 
             if (delay >= 0) {

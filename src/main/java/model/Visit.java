@@ -117,7 +117,7 @@ public class Visit implements Comparable<Visit> {
         return sequence;
     }
 
-    public static int isValidSequence(LinkedList<Node> sequence, int departureTimeFromVehicle, int load, int maxCapacity) {
+    public static int isValidSequence(LinkedList<Node> sequence, int departureTimeFromVehicle, int load, int maxCapacity, int latestArrival) {
 
         // All valid trips finish at delivery nodes
         if (!(sequence.getLast() instanceof NodeDP)) {
@@ -145,6 +145,10 @@ public class Visit implements Comparable<Visit> {
                 return -1;
 
             if (Visit.isLegInvalid(sequence.get(i), sequence.get(i + 1), cumulativeLegPK, maxCapacity)) {
+                return -1;
+            }
+
+            if(cumulativeLegPK[Vehicle.ARRIVAL] > latestArrival){
                 return -1;
             }
         }
@@ -498,7 +502,7 @@ public class Visit implements Comparable<Visit> {
         LinkedList<Node> allNodes = new LinkedList<>(Arrays.asList(this.vehicle.getLastVisitedNode()));
         allNodes.addAll(this.sequenceVisits);
 
-        return isValidSequence(allNodes, this.vehicle.getDepartureCurrent(), this.vehicle.getCurrentLoad(), this.vehicle.getCapacity());
+        return isValidSequence(allNodes, this.vehicle.getDepartureCurrent(), this.vehicle.getCurrentLoad(), this.vehicle.getCapacity(), this.vehicle.getContractDeadline());
 
     }
 

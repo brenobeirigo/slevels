@@ -3,9 +3,13 @@ package simulation.matching;
 import config.CustomerBaseConfig;
 import model.User;
 import model.Vehicle;
+import model.VehicleHired;
+import simulation.hiring.Hiring;
+import simulation.hiring.HiringFromCenters;
 import simulation.rebalancing.Rebalance;
 
 import java.util.*;
+import java.util.stream.Collectors;
 
 public class Matching {
     public static final String METHOD_OPTIMAL = "method_optimal";
@@ -50,8 +54,16 @@ public class Matching {
             allRequestsInOutVehicles.addAll(Vehicle.getRequestsFrom(listVehicles));
         }
 
-        ResultAssignment result = strategy.match(currentTime, allRequestsInOutVehicles, listVehicles, this);
+        Set<Vehicle> hired = new HashSet<>();
+        if (isAllowedToHire) {
+            Hiring hiring = new HiringFromCenters(this.contractDuration);
+            hired = hiring.hire(setUnassignedRequests, currentTime);
+        }
+
+        System.out.println(String.format("time=%4d, requests=%4d, vehicles=%4d, hired=%4d", currentTime, setUnassignedRequests.size(), listVehicles.size(), hired.size()));
+        ResultAssignment result = strategy.match(currentTime, allRequestsInOutVehicles, listVehicles, hired, this);
         strategy.realize(result.visitsOK, this.rebalanceUtil, currentTime);
+
         return result;
     }
 

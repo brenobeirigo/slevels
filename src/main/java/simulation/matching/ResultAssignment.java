@@ -100,6 +100,7 @@ public class ResultAssignment {
         System.out.println(String.format("# Displaced users    (%d)  = %s", requestsDisplaced.size(), requestsDisplaced));
         System.out.println(String.format("# Class service quality    = %s", overallServiceLevelDistribution()));
         System.out.println(String.format("# Vehicles disrupted (%d)  = %s", vehiclesDisrupted.size(), vehiclesDisrupted));
+        System.out.println(String.format("# Vehicles hired           = %s", getVehiclesHired().size()));
         for (Vehicle vehicle : vehiclesDisrupted) {
             System.out.println("#### Disrupted = " + vehicle.getVisit());
         }
