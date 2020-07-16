@@ -216,7 +216,7 @@ public class Vehicle implements Comparable<Vehicle> {
                 return -1;
             }
 
-            if(cumulativeLegPK[Vehicle.ARRIVAL] > this.getContractDeadline()){
+            if (cumulativeLegPK[Vehicle.ARRIVAL] > this.getContractDeadline()) {
                 return -1;
             }
         }
@@ -895,7 +895,7 @@ public class Vehicle implements Comparable<Vehicle> {
     @Override
     public String toString() {
         // Print H if vehicle is hired and V otherwise (plus vehicle Id)
-        return String.format("%6s", (this.isHired() ? "H" : "V") + (id - Node.MAX_NUMBER_NODES * 2));
+        return String.format("%6s", (this.isHired() ? String.format("H(%d)", this.contractDeadline) : "V") + (id - Node.MAX_NUMBER_NODES * 2));
     }
 
     public String getJourneyInfo() {
