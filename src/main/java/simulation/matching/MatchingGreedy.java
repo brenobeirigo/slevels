@@ -35,7 +35,7 @@ public class MatchingGreedy implements RideMatchingStrategy {
      * vehicles (i.e., vehicles not carrying passengers).
      */
 
-    private ResultAssignment greedyAssignmentVehiclesCarryingPassengers(GraphRTV graphRTV, List<Vehicle> listVehicles, ResultAssignment result) {
+    private ResultAssignment greedyAssignmentVehiclesCarryingPassengers2(GraphRTV graphRTV, List<Vehicle> listVehicles, ResultAssignment result) {
 
         // Vehicles with passengers
         Set<Vehicle> vehiclesWithPassengers = Vehicle.getVehiclesWithPassengers(listVehicles);
@@ -53,6 +53,83 @@ public class MatchingGreedy implements RideMatchingStrategy {
             // Passengers from visit are all unmatched
             // Loop candidate visits for vehicle carrying passenger
             for (Visit visit : visitsVehicleCarryingPassenger) {
+
+                // Visit is only accepted if requests are not displaced
+                if (!visit.getRequests().containsAll(visit.getVehicle().getVisit().getRequests())) {
+                    continue;
+                }
+
+                // Visit is valid only if all requests are still unassigned up to this point
+                if (graphRTV.allRequestsUnmatched(visit)) {
+                    result.addVisit(visit);
+                    graphRTV.removeVisit(visit);
+                    // Best visit found, jump to next vehicle
+                    break;
+                }
+            }
+        }
+
+        System.out.println("#### Vehicles CARRYING passengers:");
+        System.out.println(String.format("         # Requests: %s", result.getRequestsOK()));
+        System.out.println(String.format("Passengers (before): %s", Vehicle.getAllPassengersFromVehicles(listVehicles)));
+        System.out.println(String.format("      (vehicles OK): %s", Vehicle.getAllPassengersFromVehicles(result.getVehiclesOK())));
+        System.out.println(String.format("         # Vehicles: %s", result.getVehiclesOK()));
+        System.out.println(String.format("           # Visits: %s", result.getVisitsOK().size()));
+
+        // Some visits carrying passengers cannot be setup because the trips they
+        Set<Vehicle> unmatchedVehiclesWithPassengers = new HashSet<>(vehiclesWithPassengers);
+        unmatchedVehiclesWithPassengers.removeAll(result.getVehiclesOK());
+        System.out.println("# Unmatched: " + unmatchedVehiclesWithPassengers.size());
+        assert unmatchedVehiclesWithPassengers.isEmpty() : String.format("There are still unmatched vehicles = %s", unmatchedVehiclesWithPassengers);
+
+        /*for (Vehicle vehicleUnassignedAndCarrying : unmatchedVehiclesWithPassengers) {
+            System.out.println(String.format("Setting up vehicle with passenger. %s - Visit: %s", vehicleUnassignedAndCarrying.getVisit().getUserInfo(), vehicleUnassignedAndCarrying.getVisit()));
+
+            // Refurbishing user set (remove from visit user that have been serviced)
+            Set<User> unassignedRequestFromVehicleCarrying = new HashSet<>(vehicleUnassignedAndCarrying.getVisit().getRequests());
+            unassignedRequestFromVehicleCarrying.removeAll(requestsOK);
+            System.out.println("Unassigned requests from vehicle carrying: " + unassignedRequestFromVehicleCarrying);
+
+            assert unassignedRequestFromVehicleCarrying.size() == 0 : "There are unassigned request from vehicle carrying " + unassignedRequestFromVehicleCarrying;
+            // There should always exist a visit for a vehicle carrying passengers
+
+            System.out.println(String.format("Best visit %s", visitWithoutRequests));
+            setupVisitAndUpdate(visitWithoutRequests);
+        }*/
+
+        assert result.getVehiclesOK().size() == vehiclesWithPassengers.size() : String.format("Vehicles %s HAVE passengers and could not be assigned!", unmatchedVehiclesWithPassengers);
+        return result;
+    }
+
+
+
+    /**
+     * Vehicles carrying passengers HAVE to continue to do so. Hence, they are matched to visits first, before flexible
+     * vehicles (i.e., vehicles not carrying passengers).
+     */
+
+    private ResultAssignment greedyAssignmentVehiclesCarryingPassengers(GraphRTV graphRTV, List<Vehicle> listVehicles, ResultAssignment result) {
+
+        // Vehicles with passengers
+        List<Vehicle> vehiclesWithPassengers = Vehicle.getVehiclesServicing(listVehicles);
+
+        if (!vehiclesWithPassengers.isEmpty()) {
+            System.out.println("Vehicles with passenger: " + vehiclesWithPassengers.size());
+        }
+
+        // Setup visits of vehicle carrying passengers. Notice that many
+        for (Vehicle vehicleCarryingPassenger : vehiclesWithPassengers) {
+
+            List<Visit> visitsVehicleCarryingPassenger = graphRTV.getListOfSortedVisitsFromVehicle(vehicleCarryingPassenger);
+
+            // Passengers from visit are all unmatched
+            // Loop candidate visits for vehicle carrying passenger
+            for (Visit visit : visitsVehicleCarryingPassenger) {
+
+                // Visit is only accepted if requests are not displaced
+                if (!visit.getRequests().containsAll(visit.getVehicle().getVisit().getRequests())) {
+                    continue;
+                }
 
                 // Visit is valid only if all requests are still unassigned up to this point
                 if (graphRTV.allRequestsUnmatched(visit)) {
@@ -108,6 +185,15 @@ public class MatchingGreedy implements RideMatchingStrategy {
             // Loop all visits
             for (Visit visit : visitsLevelK) {
 
+                // Visit is only accepted if requests are not displaced
+                /*System.out.println("Requests (visit):" + visit.getRequests());
+                System.out.println("Vehicle:" + visit.getVehicle());
+                System.out.println("Vehicle.visit:" + visit.getVehicle().getVisit());
+                System.out.println("vehicle.visit.requests:" + visit.getVehicle().getVisit().getRequests());*/
+                if (visit.getVehicle().getVisit() != null && !visit.getRequests().containsAll(visit.getVehicle().getVisit().getRequests())) {
+                    continue;
+                }
+
                 // Visit was previously assigned (refers to vehicle with passengers)
                 if (!graphRTV.containsVertex(visit))
                     continue;
@@ -148,7 +234,7 @@ public class MatchingGreedy implements RideMatchingStrategy {
         // Update unassigned vehicles that were previously carrying users.
         // Some vehicles might have lost users but were later associated to new visits (are in vehiclesOK).
         result.vehiclesDisrupted.removeAll(result.getVehiclesOK());
-
+        assert displacedUsers.isEmpty() : "There are displaced users!";
         System.out.println(String.format("\n\n# Assigned vehicles (%d): %s", result.getVehiclesOK().size(), result.getVehiclesOK()));
         System.out.println(String.format("# Unassigned vehicles (%d): %s", unassignedVehicles.size(), unassignedVehicles));
         System.out.println(String.format("# Unassigned users (%d): %s", unassignedUsers.size(), unassignedUsers));
@@ -202,7 +288,7 @@ public class MatchingGreedy implements RideMatchingStrategy {
      */
 
     @Override
-    public ResultAssignment match(int currentTime, List<User> unassignedRequests, List<Vehicle> vehicles, Matching configMatching) {
+    public ResultAssignment match(int currentTime, List<User> unassignedRequests, List<Vehicle> vehicles, Set<Vehicle> hired, Matching configMatching) {
 
 
         //assert thereAreNoRepeatedRequests(requests) : "There are repeated elements in request list!";
