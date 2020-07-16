@@ -147,7 +147,7 @@ public class InstanceConfig {
             this.maxTimeHiringList = new HashMap<>();
             for (Map.Entry<String, Map<String, Integer>> e : serviceLevelMap.entrySet()) {
                 for (int tw : this.timeWindowArray) {
-                    this.maxTimeHiringList.put(e.getKey(), (e.getValue().get("pk_delay") - tw));
+                    this.maxTimeHiringList.put(e.getKey(), (e.getValue().get("pk_delay_target") - tw));
                 }
             }
 
