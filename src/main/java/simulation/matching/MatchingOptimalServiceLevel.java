@@ -173,25 +173,25 @@ public class MatchingOptimalServiceLevel extends MatchingOptimal {
             return result;
 
         try {
-
             createModel();
             initVarsStandard();
             initVarsSL();
             setupVehicleConservationConstraints();
             setupRequestConservationConstraints();
             setupRequestServiceLevelConstraints();
-            setupClassTargetServiceLevelConstraints();
+            setupConstraintsServiceLevelsNotAchieved();
+            setupConstraintsServiceLevelsGuaranteed();
             setupRequestStatusConstraints();
-
             if (configMatching.isAllowedToHire) {
                 initVarsHiring();
                 setupIsHiredConstraints();
+                setupConstraintMustReachMinimumServiceLevel();
                 setupObjectiveHiredHierarchicalPenaltyThenTotalWaiting();
             } else {
                 setupObjectiveHierarchicalPenaltyAndWaiting();
             }
 
-            model.write(String.format("round_mip_model/assignment%s_%d.lp", this, currentTime));
+            // model.write(String.format("round_mip_model/assignment%s_%d.lp", this, currentTime));
             this.model.optimize();
 
             int status = this.model.get(GRB.IntAttr.Status);
@@ -316,13 +316,12 @@ public class MatchingOptimalServiceLevel extends MatchingOptimal {
         }
     }
 
-    private void setupClassTargetServiceLevelConstraints() {
+    private void setupConstraintsServiceLevelsGuaranteed() {
 
-        GRBLinExpr[] constrFirstClass = new GRBLinExpr[Config.getInstance().getQosCount()];
-        GRBLinExpr[] constrBadService = new GRBLinExpr[Config.getInstance().getQosCount()];
+        GRBLinExpr[] constrGaranteeServiceLevel = new GRBLinExpr[Config.getInstance().getQosCount()];
+
         for (int i = 0; i < Config.getInstance().getQosCount(); i++) {
-            constrFirstClass[i] = new GRBLinExpr();
-            constrBadService[i] = new GRBLinExpr();
+            constrGaranteeServiceLevel[i] = new GRBLinExpr();
         }
 
         // Sum of all user that got first tier service levels of each class
@@ -331,9 +330,59 @@ public class MatchingOptimalServiceLevel extends MatchingOptimal {
             // GOOD SERVICE = desired service level
             GRBVar slAchieved = varRequestServiceLevelAchieved(request);
             if (slAchieved != null) {
-                constrFirstClass[request.getQoSCode()].addTerm(1, slAchieved);
+                constrGaranteeServiceLevel[request.getQoSCode()].addTerm(1, slAchieved);
             }
+        }
 
+        Config.getInstance().qosDic.forEach((s, qos) -> {
+
+            // Add slack to each service level class (i.e., number of user who received second tier or were rejected)
+            constrGaranteeServiceLevel[qos.code].addTerm(1, varClassServiceLevelViolation[qos.code]);
+
+            // Number of picked up users has to be higher than service rate promised
+            try {
+                model.addConstr(
+                        constrGaranteeServiceLevel[qos.code],
+                        GRB.GREATER_EQUAL,
+                        (int) Math.ceil(qos.serviceRate * nOfRequestsPerClass[qos.code]),
+                        String.format("class_%s", qos.id));
+            } catch (GRBException e) {
+                e.printStackTrace();
+            }
+        });
+    }
+
+    private void setupConstraintMustReachMinimumServiceLevel() {
+
+        GRBLinExpr slackBadService = new GRBLinExpr();
+        Config.getInstance().qosDic.forEach((s, qos) -> {
+            slackBadService.addTerm(1, varClassServiceLevelViolation[qos.code]);
+        });
+
+        // Number of picked up users has to be higher than service rate promised
+        try {
+            model.addConstr(
+                    slackBadService,
+                    GRB.EQUAL,
+                    0,
+                    String.format("must_reach_minimum_sl"));
+        } catch (GRBException e) {
+            e.printStackTrace();
+        }
+
+    }
+
+
+    private void setupConstraintsServiceLevelsNotAchieved() {
+
+
+        GRBLinExpr[] constrBadService = new GRBLinExpr[Config.getInstance().getQosCount()];
+        for (int i = 0; i < Config.getInstance().getQosCount(); i++) {
+            constrBadService[i] = new GRBLinExpr();
+        }
+
+        // Sum of all user that got first tier service levels of each class
+        for (User request : requests) {
 
             // BAD SERVICE = service level NOT achieved OR rejections
             GRBVar slNotAchieved = varRequestServiceLevelNotAchieved(request);
@@ -347,17 +396,10 @@ public class MatchingOptimalServiceLevel extends MatchingOptimal {
         Config.getInstance().qosDic.forEach((s, qos) -> {
 
             // Add slack to each service level class (i.e., number of user who received second tier or were rejected)
-            constrFirstClass[qos.code].addTerm(1, varClassServiceLevelViolation[qos.code]);
             constrBadService[qos.code].addTerm(-1, varClassServiceLevelViolation[qos.code]);
 
             // Number of picked up users has to be higher than service rate promised
             try {
-                model.addConstr(
-                        constrFirstClass[qos.code],
-                        GRB.GREATER_EQUAL,
-                        (int) Math.ceil(qos.serviceRate * nOfRequestsPerClass[qos.code]),
-                        String.format("class_%s", qos.id));
-
                 model.addConstr(
                         constrBadService[qos.code],
                         GRB.GREATER_EQUAL,
