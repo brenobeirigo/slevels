@@ -33,6 +33,7 @@ public class MatchingOptimal implements RideMatchingStrategy {
     // Assignment variables: x[r][v] == 1 if request r is assigned to trip v
     protected GRBVar[] varVisitSelected;
     protected GRBVar[] varRequestRejected;
+    protected int currentTime;
     GraphRTV graphRTV;
     ResultAssignment result;
 
@@ -44,12 +45,6 @@ public class MatchingOptimal implements RideMatchingStrategy {
         this.maxEdgesRV = maxEdgesRV;
         this.rejectionPenalty = rejectionPenalty;
     }
-
-    /*public void assertInputState(){
-        //assert thereAreNoRepeatedRequests(requests) : "There are repeated elements in request list!";
-        //assert allVehicleVisitsAreValid() : "Invalid visits found.";
-        //assert eachUserIsAssignedToSingleVehicle() : "User is assigned to two different vehicles.";
-    }*/
 
     @Override
     public ResultAssignment match(int currentTime, List<User> unassignedRequests, List<Vehicle> listVehicles, Set<Vehicle> hired, Matching configMatching) {
@@ -67,6 +62,7 @@ public class MatchingOptimal implements RideMatchingStrategy {
             initVarsStandard();
             setupVehicleConservationConstraints();
             setupRequestConservationConstraints();
+            setupPreviouslyAssignedServiced();
             setupDelayObjective();
 
             // model.write(String.format("round_mip_model/assignment_%d.lp", currentTime));
@@ -108,7 +104,7 @@ public class MatchingOptimal implements RideMatchingStrategy {
 
         // Implement solutions
         //result.getVisitsOK().forEach(this::realizeVisit);
-        result.printRoundResult();
+        // result.printRoundResult();
 
         //assert allVehicleVisitsAreValid() : "Invalid visits found.";
         //assert eachUserIsAssignedToSingleVehicle() : "User is assigned to two different vehicles.";
@@ -119,7 +115,7 @@ public class MatchingOptimal implements RideMatchingStrategy {
 
     @Override
     public void realize(Set<Visit> visits, Rebalance rebalanceUtil, int currentTime) {
-        visits.forEach(visit->Visit.realize(visit, rebalanceUtil, currentTime));
+        visits.forEach(visit -> Visit.realize(visit, rebalanceUtil, currentTime));
     }
 
     protected void keepPreviousAssignement() {
@@ -157,9 +153,61 @@ public class MatchingOptimal implements RideMatchingStrategy {
         }
 
         // Save problem
-        //model.write(String.format("round_mip_model/assignment_5%d.lp", this.roundCount));
+        model.write(String.format("round_mip_model/IIS_assignment_5%s.lp", this.toString()));
 
-        graphRTV.printDetailedVisitsLevel();
+        //graphRTV.printDetailedVisitsLevel();
+    }
+
+    protected void computeIISReduceUntilCanBeSolved() throws GRBException {
+        int status = 0;
+        System.out.println("The model is infeasible; computing IIS");
+        LinkedList<String> removed = new LinkedList<String>();
+
+        int count = 0;
+        // Loop until we reduce to a model that can be solved
+        while (true) {
+            model.computeIIS();
+            System.out.println("\nThe following constraint cannot be satisfied:");
+            for (GRBConstr c : model.getConstrs()) {
+                if (c.get(GRB.IntAttr.IISConstr) == 1) {
+                    System.out.println(c.get(GRB.StringAttr.ConstrName));
+                    // Remove a single constraint from the model
+                    removed.add(c.get(GRB.StringAttr.ConstrName));
+                    model.remove(c);
+                    break;
+                }
+            }
+
+            System.out.println();
+
+            model.write(String.format("round_mip_model/IIS_assignment_%s_count_%d.lp", this.toString(), count));
+
+            model.optimize();
+            status = model.get(GRB.IntAttr.Status);
+
+            if (status == GRB.Status.UNBOUNDED) {
+                System.out.println("The model cannot be solved "
+                        + "because it is unbounded");
+                return;
+            }
+            if (status == GRB.Status.OPTIMAL) {
+                break;
+            }
+            if (status != GRB.Status.INF_OR_UNBD &&
+                    status != GRB.Status.INFEASIBLE) {
+                System.out.println("Optimization was stopped with status " +
+                        status);
+                return;
+            }
+        }
+
+        System.out.println("\nThe following constraints were removed "
+                + "to get a feasible LP:");
+        for (String s : removed) {
+            System.out.print(s + " ");
+        }
+        System.out.println();
+
     }
 
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -199,11 +247,12 @@ public class MatchingOptimal implements RideMatchingStrategy {
     }
 
     protected void addIsRejectedVar(User request) throws GRBException {
-        varRequestRejected[requestIndex.get(request)] = model.addVar(0, 1, rejectionPenalty, GRB.BINARY, "y_REJECTED_" + request.toString().trim());
+        String label = String.format("x_rejected_%s", request.toString().trim());
+        varRequestRejected[requestIndex.get(request)] = model.addVar(0, 1, rejectionPenalty, GRB.BINARY, label);
     }
 
     protected void addIsVisitChosenVar(Visit visit) throws GRBException {
-        String label = String.format("x_%s", visit.getVarId());
+        String label = String.format("x_visit_%s", visit.getVarId());
         varVisitSelected[visitIndex.get(visit)] = model.addVar(0, 1, visit.getDelay(), GRB.BINARY, label);
     }
 
@@ -264,41 +313,43 @@ public class MatchingOptimal implements RideMatchingStrategy {
             }
             // A target can be visited by at most one vehicle
 
-            model.addConstr(
-                    constrVehicleConservation,
-                    GRB.EQUAL, //vehicle.isCarryingPassengers() ? GRB.EQUAL : GRB.LESS_EQUAL,
-                    1,
-                    vehicle.toString().trim());
+            String label = String.format("conservation_%s", vehicle.toString().trim());
+            model.addConstr(constrVehicleConservation, GRB.EQUAL, 1, label);
         }
     }
 
     protected void setupRequestConservationConstraints() throws GRBException {
+        // Requests are associated with only one visit
         for (User request : requests) {
-
-            GRBLinExpr constrRequestConservation = new GRBLinExpr();
-            GRBLinExpr constrRequestPreviouslyAssignedHaveToBeServiced = new GRBLinExpr();
 
             List<Visit> requestVisits = graphRTV.getListOfVisitsFromUser(request);
 
+            GRBLinExpr constrRequestConservation = new GRBLinExpr();
             for (Visit visit : requestVisits) {
-
                 constrRequestConservation.addTerm(1, varVisitSelected(visit));
+            }
+            constrRequestConservation.addTerm(1, varRequestRejected(request));
 
+            String label = String.format("request_visit_conservation_%s", request.toString().trim());
+            model.addConstr(constrRequestConservation, GRB.EQUAL, 1, label);
+        }
+    }
+
+    protected void setupPreviouslyAssignedServiced() throws GRBException {
+
+        for (User request : User.filterPreviouslyAssigned(requests)) {
+
+            List<Visit> requestVisits = graphRTV.getListOfVisitsFromUser(request);
+            GRBLinExpr constrRequestPreviouslyAssignedHaveToBeServiced = new GRBLinExpr();
+
+            for (Visit visit : requestVisits) {
                 if (request.isPreviouslyAssigned()) {
                     constrRequestPreviouslyAssignedHaveToBeServiced.addTerm(1, varVisitSelected(visit));
                 }
             }
 
-            constrRequestConservation.addTerm(1, varRequestRejected(request));
-
-            // Requests are associated with only one visit
-            //model.addConstr(constrRequestServiceLevelConservation, GRB.EQUAL, 1, request.toString().trim());
-            model.addConstr(constrRequestConservation, GRB.EQUAL, 1, "conservation_" + request.toString().trim());
-
-            if (request.isPreviouslyAssigned()) {
-                String label = String.format("request_previously_assigned_is_serviced_%s", request.toString().trim());
-                model.addConstr(constrRequestPreviouslyAssignedHaveToBeServiced, GRB.EQUAL, 1, label);
-            }
+            String label = String.format("request_previously_assigned_is_serviced_%s", request.toString().trim());
+            model.addConstr(constrRequestPreviouslyAssignedHaveToBeServiced, GRB.EQUAL, 1, label);
         }
     }
 
@@ -333,6 +384,12 @@ public class MatchingOptimal implements RideMatchingStrategy {
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     // ASSERTIONS //////////////////////////////////////////////////////////////////////////////////////////////////////
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+    /*public void assertInputState(){
+        assert thereAreNoRepeatedRequests(requests) : "There are repeated elements in request list!";
+        assert allVehicleVisitsAreValid() : "Invalid visits found.";
+        assert eachUserIsAssignedToSingleVehicle() : "User is assigned to two different vehicles.";
+    }*/
 
     protected boolean userCannotBePickedUpByIdleVehicles(GraphRTV graphRTV, Set<Vehicle> unassignedVehicles, User u) {
 
