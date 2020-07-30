@@ -31,6 +31,87 @@ public class MatchingOptimalServiceLevel extends MatchingOptimal {
         this.badServicePenalty = badServicePenalty;
     }
 
+    @Override
+    public ResultAssignment match(int currentTime, List<User> unassignedRequests, List<Vehicle> currentVehicleList, Set<Vehicle> hired, Matching configMatching) {
+        this.currentTime = currentTime;
+        this.hiredCurrentPeriod = hired;
+        this.result = new ResultAssignment(currentTime);
+
+        List<Vehicle> allAvailableVehicles = new ArrayList<>(currentVehicleList);
+        allAvailableVehicles.addAll(hired);
+
+        buildGraphRTV(unassignedRequests, allAvailableVehicles, this.maxVehicleCapacityRTV, timeoutVehicleRTV);
+
+
+
+        if (this.requests.isEmpty())
+            return result;
+
+        try {
+            createModel();
+            initVarsStandard();
+            initVarsSL();
+            setupVehicleConservationConstraints();
+            setupRequestConservationConstraints();
+            setupPreviouslyAssignedServiced();
+            setupRequestServiceLevelConstraints();
+            setupConstraintsServiceLevelsNotAchieved();
+            setupConstraintsServiceLevelsGuaranteed();
+            setupRequestStatusConstraints();
+            if (configMatching.isAllowedToHire) {
+                initVarsHiring();
+                setupIsHiredConstraints();
+                setupConstraintMustReachMinimumServiceLevel();
+                setupObjectiveHiredHierarchicalPenaltyThenTotalWaiting();
+            } else {
+                setupObjectiveHierarchicalPenaltyThenTotalWaiting();
+            }
+
+            // model.write(String.format("round_mip_model/assignment%s_%d.lp", this, currentTime));
+            this.model.optimize();
+
+            if (isModelOptimal() || isTimeLimitReached()) {
+                if (isTimeLimitReached()) {
+                    System.out.printf("## TIME LIMIT REACHED = %.2f seconds // Solution count: %s%n", mipTimeLimit, model.get(GRB.IntAttr.SolCount));
+                }
+
+                extractResult();
+                extractResultSL();
+
+            } else {
+                computeIISReduceUntilCanBeSolved();
+            }
+
+        } catch (GRBException e) {
+            System.out.println("TIME IS OVER - No solution found, keep previous assignment. Gurobi error code: " + e.getErrorCode() + ". " + e.getMessage());
+            keepPreviousAssignement();
+        } finally {
+            closeGurobiModelAndEnvironment();
+        }
+
+        result.printRoundResult();
+
+        return result;
+    }
+
+    private boolean isTimeLimitReached() throws GRBException {
+        return this.model.get(GRB.IntAttr.Status) == GRB.Status.TIME_LIMIT;
+    }
+
+    private boolean isModelOptimal() throws GRBException {
+        return this.model.get(GRB.IntAttr.Status) == GRB.Status.OPTIMAL;
+    }
+
+    private void closeGurobiModelAndEnvironment() {
+        // Dispose of model and environment
+        model.dispose();
+        try {
+            env.dispose();
+        } catch (GRBException e) {
+            e.printStackTrace();
+        }
+    }
+
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     // OBJECTIVE ///////////////////////////////////////////////////////////////////////////////////////////////////////
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -153,75 +234,6 @@ public class MatchingOptimalServiceLevel extends MatchingOptimal {
 
         // The objective is to minimize the total pay costs
         model.set(GRB.IntAttr.ModelSense, GRB.MINIMIZE);
-    }
-
-    @Override
-    public ResultAssignment match(int currentTime, List<User> unassignedRequests, List<Vehicle> listVehicles, Set<Vehicle> hired, Matching configMatching) {
-        this.currentTime = currentTime;
-        List<Vehicle> total = new ArrayList<>(listVehicles);
-        total.addAll(hired);
-        this.hiredCurrentPeriod = hired;
-
-        buildGraphRTV(unassignedRequests, total, this.maxVehicleCapacityRTV, timeoutVehicleRTV);
-
-        result = new ResultAssignment(currentTime);
-
-        if (this.requests.isEmpty())
-            return result;
-
-        try {
-            createModel();
-            initVarsStandard();
-            initVarsSL();
-            setupVehicleConservationConstraints();
-            setupRequestConservationConstraints();
-            setupPreviouslyAssignedServiced();
-            setupRequestServiceLevelConstraints();
-            setupConstraintsServiceLevelsNotAchieved();
-            setupConstraintsServiceLevelsGuaranteed();
-            setupRequestStatusConstraints();
-            if (configMatching.isAllowedToHire) {
-                initVarsHiring();
-                setupIsHiredConstraints();
-                setupConstraintMustReachMinimumServiceLevel();
-                setupObjectiveHiredHierarchicalPenaltyThenTotalWaiting();
-            } else {
-                setupObjectiveHierarchicalPenaltyThenTotalWaiting();
-            }
-
-            // model.write(String.format("round_mip_model/assignment%s_%d.lp", this, currentTime));
-            this.model.optimize();
-
-            int status = this.model.get(GRB.IntAttr.Status);
-            if (status == GRB.Status.OPTIMAL || status == GRB.Status.TIME_LIMIT) {
-
-                if (status == GRB.Status.TIME_LIMIT) {
-                    System.out.printf("## TIME LIMIT REACHED = %.2f seconds // Solution count: %s%n", mipTimeLimit, model.get(GRB.IntAttr.SolCount));
-                }
-
-                extractResult();
-                extractResultSL();
-
-            } else {
-                computeIISReduceUntilCanBeSolved();
-            }
-
-        } catch (GRBException e) {
-            System.out.println("TIME IS OVER - No solution found, keep previous assignment. Gurobi error code: " + e.getErrorCode() + ". " + e.getMessage());
-            keepPreviousAssignement();
-        } finally {
-            // Dispose of model and environment
-            model.dispose();
-            try {
-                env.dispose();
-            } catch (GRBException e) {
-                e.printStackTrace();
-            }
-        }
-
-        result.printRoundResult();
-
-        return result;
     }
 
     protected void keepPreviousAssignement() {
