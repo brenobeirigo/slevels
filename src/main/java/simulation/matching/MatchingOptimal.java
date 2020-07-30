@@ -48,16 +48,14 @@ public class MatchingOptimal implements RideMatchingStrategy {
 
     @Override
     public ResultAssignment match(int currentTime, List<User> unassignedRequests, List<Vehicle> listVehicles, Set<Vehicle> hired, Matching configMatching) {
-
+        result = new ResultAssignment(currentTime);
         buildGraphRTV(unassignedRequests, listVehicles, this.maxVehicleCapacityRTV, timeoutVehicleRTV);
 
-        result = new ResultAssignment(currentTime);
 
         if (this.requests.isEmpty())
             return result;
 
         try {
-
             createModel();
             initVarsStandard();
             setupVehicleConservationConstraints();
@@ -68,11 +66,10 @@ public class MatchingOptimal implements RideMatchingStrategy {
             // model.write(String.format("round_mip_model/assignment_%d.lp", currentTime));
             model.optimize();
 
-            int status = model.get(GRB.IntAttr.Status);
-            if (status == GRB.Status.OPTIMAL || status == GRB.Status.TIME_LIMIT) {
+            if (isModelOptimal() || isTimeLimitReached()) {
 
-                if (status == GRB.Status.TIME_LIMIT) {
-                    System.out.println(String.format("## TIME LIMIT REACHED = %.2f seconds - Solution count: %s", mipTimeLimit, model.get(GRB.IntAttr.SolCount)));
+                if (isTimeLimitReached()) {
+                    System.out.printf("## TIME LIMIT REACHED = %.2f seconds - Solution count: %s%n", mipTimeLimit, model.get(GRB.IntAttr.SolCount));
                 }
 
                 /*if (config.showInfo) {
@@ -89,13 +86,7 @@ public class MatchingOptimal implements RideMatchingStrategy {
             System.out.println("TIME IS OVER - No solution found, keep previous assignment. Gurobi error code: " + e.getErrorCode() + ". " + e.getMessage());
             keepPreviousAssignement();
         } finally {
-            // Dispose of model and environment
-            model.dispose();
-            try {
-                env.dispose();
-            } catch (GRBException e) {
-                e.printStackTrace();
-            }
+            closeGurobiModelAndEnvironment();
         }
 
 
@@ -111,6 +102,24 @@ public class MatchingOptimal implements RideMatchingStrategy {
         //assert allPassengersAreAssigned(): "Vehicle carrying passenger is not matched.";
 
         return result;
+    }
+
+    protected boolean isTimeLimitReached() throws GRBException {
+        return this.model.get(GRB.IntAttr.Status) == GRB.Status.TIME_LIMIT;
+    }
+
+    protected boolean isModelOptimal() throws GRBException {
+        return this.model.get(GRB.IntAttr.Status) == GRB.Status.OPTIMAL;
+    }
+
+    protected void closeGurobiModelAndEnvironment() {
+        // Dispose of model and environment
+        model.dispose();
+        try {
+            env.dispose();
+        } catch (GRBException e) {
+            e.printStackTrace();
+        }
     }
 
     @Override

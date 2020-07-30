@@ -94,24 +94,6 @@ public class MatchingOptimalServiceLevel extends MatchingOptimal {
         return result;
     }
 
-    private boolean isTimeLimitReached() throws GRBException {
-        return this.model.get(GRB.IntAttr.Status) == GRB.Status.TIME_LIMIT;
-    }
-
-    private boolean isModelOptimal() throws GRBException {
-        return this.model.get(GRB.IntAttr.Status) == GRB.Status.OPTIMAL;
-    }
-
-    private void closeGurobiModelAndEnvironment() {
-        // Dispose of model and environment
-        model.dispose();
-        try {
-            env.dispose();
-        } catch (GRBException e) {
-            e.printStackTrace();
-        }
-    }
-
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     // OBJECTIVE ///////////////////////////////////////////////////////////////////////////////////////////////////////
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
