@@ -94,13 +94,13 @@ public class ResultAssignment {
 
     public void printRoundResult() {
         System.out.println("######## Round current time: " + this.currentTime);
-        System.out.println(String.format("\n\n# Assigned vehicles  (%d)  = %s", vehiclesOK.size(), vehiclesOK));
-        System.out.println(String.format("# Unassigned users   (%d)  = %s", requestsUnassigned.size(), requestsUnassigned));
-        System.out.println(String.format("# Assigned users     (%d)  = %s", requestsOK.size(), requestsOK));
-        System.out.println(String.format("# Displaced users    (%d)  = %s", requestsDisplaced.size(), requestsDisplaced));
-        System.out.println(String.format("# Class service quality    = %s", overallServiceLevelDistribution()));
-        System.out.println(String.format("# Vehicles disrupted (%d)  = %s", vehiclesDisrupted.size(), vehiclesDisrupted));
-        System.out.println(String.format("# Vehicles hired           = %s", getVehiclesHired().size()));
+        System.out.printf("\n\n# Assigned vehicles  (%d)  = %s%n", vehiclesOK.size(), vehiclesOK);
+        System.out.printf("# Unassigned users   (%d)  = %s%n", requestsUnassigned.size(), requestsUnassigned);
+        System.out.printf("# Assigned users     (%d)  = %s%n", requestsOK.size(), requestsOK);
+        System.out.printf("# Displaced users    (%d)  = %s%n", requestsDisplaced.size(), requestsDisplaced);
+        System.out.printf("# Class service quality    = %s%n", overallServiceLevelDistribution());
+        System.out.printf("# Vehicles disrupted (%d)  = %s%n", vehiclesDisrupted.size(), vehiclesDisrupted);
+        System.out.printf("# Vehicles hired           = %s%n", getVehiclesHired().size());
         for (Vehicle vehicle : vehiclesDisrupted) {
             System.out.println("#### Disrupted = " + vehicle.getVisit());
         }
@@ -156,11 +156,11 @@ public class ResultAssignment {
     }
 
     private void printCurrentStatus() {
-        System.out.println(String.format("# Requests (%d): %s", this.requestsOK.size(), this.requestsOK));
-        System.out.println(String.format("# Vehicles (%d): %s", this.vehiclesOK.size(), this.vehiclesOK));
-        System.out.println(String.format("# Disrupted (%d): %s", this.vehiclesDisrupted.size(), this.vehiclesDisrupted));
-        System.out.println(String.format("# Visits: %d", this.visitsOK.size()));
-        System.out.println(String.format("# QoS unmet"));
+        System.out.printf("# Requests (%d): %s%n", this.requestsOK.size(), this.requestsOK);
+        System.out.printf("# Vehicles (%d): %s%n", this.vehiclesOK.size(), this.vehiclesOK);
+        System.out.printf("# Disrupted (%d): %s%n", this.vehiclesDisrupted.size(), this.vehiclesDisrupted);
+        System.out.printf("# Visits: %d%n", this.visitsOK.size());
+        System.out.println("# QoS unmet");
     }
 
     private void unassignedUsersCannotBeServiced() {
