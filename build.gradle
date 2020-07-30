@@ -33,7 +33,7 @@ dependencies {
     implementation 'org.jgrapht:jgrapht-core:1.2.0'
     implementation 'com.googlecode.combinatoricslib:combinatoricslib:2.2'
     implementation files ('lib/gurobi90/gurobi.jar')
-
+    implementation files ('lib/gurobi90/gurobi-javadoc.jar')
 }
 
 
