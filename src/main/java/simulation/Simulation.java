@@ -59,7 +59,7 @@ public abstract class Simulation {
 
     /* SETS OF VEHICLES AND REQUESTS */
     protected Map<Integer, User> allRequests; // Dictionary of all users
-    protected List<User> unassignedRequests; // Requests whose pickup time is lower than the current time
+    protected Set<User> unassignedRequests; // Requests whose pickup time is lower than the current time
     protected List<User> listPooledUsersTW;  // Requests pooled within TW
     protected Set<User> deniedRequests; // Requests with expired pickup time
     protected Set<User> finishedRequests; // Requests whose DP node was visited
@@ -113,7 +113,7 @@ public abstract class Simulation {
 
         /* SETS OF VEHICLES AND REQUESTS */
         allRequests = new HashMap<>(); // Dictionary of all users
-        unassignedRequests = new ArrayList<>(); // Requests whose pickup time is lower than the current time
+        unassignedRequests = new HashSet<>(); // Requests whose pickup time is lower than the current time
         roundPrivateRides = new ArrayList<>();
         deniedRequests = new HashSet<>(); // Requests with expired pickup time
         finishedRequests = new HashSet<>(); // Requests whose DP node was visited
@@ -334,16 +334,16 @@ public abstract class Simulation {
             // Add pooled requests into waiting list
             unassignedRequests.addAll(listPooledUsersTW);
 
-            // Sort by class and earliest time
+            /*// Sort by class and earliest time
             if (sortWaitingUsersByClass) {
                 unassignedRequests.sort(Comparator.comparing(User::getPerformanceClass)
                         .thenComparing(User::getReqTime));
 
-                /*System.out.println("##### Users");
+                System.out.println("##### Users");
                 for (User e: setWaitingUsers) {
                     System.out.println(e + String.valueOf(e.getReqTime()));
-                }*/
-            }
+                }
+            }*/
 
             // Store all requests
             for (User e : listPooledUsersTW) {
@@ -431,8 +431,10 @@ public abstract class Simulation {
         unassignedRequests.removeAll(roundRejectedUsers);
         roundPrivateRides.clear();
 
+        printCurrentStatus("Before assignment");
         ///// 3 - ASSIGN WAITING USERS (previous + current round)  TO VEHICLES /////////////////////////////////////////
         ResultAssignment resultAssignment = this.matching.executeStrategy(rightTW, unassignedRequests, listVehicles);
+        printCurrentStatus("After assignment");
 
         ///// 4 - COLLECT HIRED VEHICLES ///////////////////////////////////////////////////////////////////////////////
         for (Vehicle vehicle : resultAssignment.getVehiclesHired()) {
@@ -443,7 +445,12 @@ public abstract class Simulation {
         }
 
         ///// 5 - UPDATE WAITING LIST //////////////////////////////////////////////////////////////////////////////////
-        unassignedRequests = new ArrayList<>(resultAssignment.getRequestsUnassigned());
+        unassignedRequests = resultAssignment.getRequestsUnassigned();
+
+        printCurrentStatus("After unassignment update");
+
+        System.out.println("N. of second tier:" + resultAssignment.requestsServicedLevelNotAchieved.size());
+        Set<Node> result = resultAssignment.getVehiclesHired().stream().map(Vehicle::getLastVisitedNode).collect(Collectors.toSet());
         // resultAssignment.showSecondTierAssignedUsers();
 
 
@@ -458,14 +465,19 @@ public abstract class Simulation {
         if (deniedRequests.size() + unassignedRequests.size() + finishedRequests.size() + inVehicleRequests.size() == allRequests.size()) {
             return true;
         } else {
-            System.out.println(getCollectionInfo("Denied", deniedRequests));
-            System.out.println(getCollectionInfo("Unassigned", unassignedRequests));
-            System.out.println(getCollectionInfo("Finished", finishedRequests));
-            System.out.println(getCollectionInfo("In-Vehicle", inVehicleRequests));
-            System.out.println(getCollectionInfo("All requests", allRequests.values()));
-
+            printCurrentStatus("Inconsistency found");
             return false;
         }
+    }
+
+    private void printCurrentStatus(String label) {
+        System.out.println("\n######################### " + label + " ###########################");
+        List<User> inVehicleRequests = Vehicle.getUsersFrom(listVehicles);
+        System.out.println(getCollectionInfo("Denied", deniedRequests));
+        System.out.println(getCollectionInfo("Unassigned", unassignedRequests));
+        System.out.println(getCollectionInfo("Finished", finishedRequests));
+        System.out.println(getCollectionInfo("In-Vehicle", inVehicleRequests));
+        System.out.println(getCollectionInfo("All requests", allRequests.values()));
     }
 
     public String getCollectionInfo(String label, Collection collection){
