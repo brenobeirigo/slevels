@@ -46,7 +46,7 @@ public class Matching {
     }
 
 
-    public ResultAssignment executeStrategy(int currentTime, List<User> setUnassignedRequests, List<Vehicle> listVehicles) {
+    public ResultAssignment executeStrategy(int currentTime, Collection<User> setUnassignedRequests, List<Vehicle> listVehicles) {
 
         List<User> allRequestsInOutVehicles = new ArrayList<>(setUnassignedRequests);
 

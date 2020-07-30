@@ -5,6 +5,7 @@ import dao.Dao;
 import model.User;
 import model.Vehicle;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -47,7 +48,7 @@ public class HiringFromCenters implements Hiring {
     }
 
     @Override
-    public Set<Vehicle> hire(List<User> users, int currentTime) {
+    public Set<Vehicle> hire(Collection<User> users, int currentTime) {
         Set<Vehicle> closest =  users.stream().map(user->createVehicleAtClosestRegionalCenter(user, currentTime, this.contractDuration)).collect(Collectors.toSet());
         return closest;
     }
