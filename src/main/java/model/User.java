@@ -129,6 +129,10 @@ public class User implements Comparable<User> {
         return users.stream().filter(User::isFirstTier).collect(Collectors.toList());
     }
 
+    public static List<User> filterPreviouslyAssigned(Collection<User> users) {
+        return users.stream().filter(User::isPreviouslyAssigned).collect(Collectors.toList());
+    }
+
     public static List<User> filterSecondTier(Collection<User> users) {
         return users.stream().filter(user -> (user.getCurrentVisit() == null || !user.isFirstTier())).collect(Collectors.toList());
     }
