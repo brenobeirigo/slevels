@@ -311,6 +311,10 @@ public class User implements Comparable<User> {
         return this.servedBy == User.SERVICED_BY_DEDICATED_VEHICLE;
     }
 
+    public boolean isWaiting() {
+        return this.servedBy == User.WAITING;
+    }
+
     /**
      * Show vehicles able to pick up this user within maxDistance
      *
