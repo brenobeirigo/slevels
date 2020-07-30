@@ -58,9 +58,9 @@ public class MatchingOptimal implements RideMatchingStrategy {
         try {
             createModel();
             initVarsStandard();
-            setupVehicleConservationConstraints();
-            setupRequestConservationConstraints();
-            setupPreviouslyAssignedServiced();
+            oneVisitForEveryVehicle();
+            eachRequestToOneVehicle();
+            previouslyAssignedMustBeServiced();
             setupDelayObjective();
 
             // model.write(String.format("round_mip_model/assignment_%d.lp", currentTime));
@@ -312,7 +312,7 @@ public class MatchingOptimal implements RideMatchingStrategy {
     // CONSTRAINTS /////////////////////////////////////////////////////////////////////////////////////////////////////
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-    protected void setupVehicleConservationConstraints() throws GRBException {
+    protected void oneVisitForEveryVehicle() throws GRBException {
         for (Vehicle vehicle : vehicles) {
 
             GRBLinExpr constrVehicleConservation = new GRBLinExpr();
@@ -327,7 +327,7 @@ public class MatchingOptimal implements RideMatchingStrategy {
         }
     }
 
-    protected void setupRequestConservationConstraints() throws GRBException {
+    protected void eachRequestToOneVehicle() throws GRBException {
         // Requests are associated with only one visit
         for (User request : requests) {
 
@@ -344,7 +344,7 @@ public class MatchingOptimal implements RideMatchingStrategy {
         }
     }
 
-    protected void setupPreviouslyAssignedServiced() throws GRBException {
+    protected void previouslyAssignedMustBeServiced() throws GRBException {
 
         for (User request : User.filterPreviouslyAssigned(requests)) {
 
@@ -366,7 +366,7 @@ public class MatchingOptimal implements RideMatchingStrategy {
 
         for (User request : requests) {
 
-            if (varRequestRejected(request).get(GRB.DoubleAttr.X) > 0.99) {
+            if (isRequestRejected(request)) {
                 result.getRequestsUnassigned().add(request);
                 // System.out.println(request + " - REJECTED");
 
@@ -388,6 +388,10 @@ public class MatchingOptimal implements RideMatchingStrategy {
         // Update unassigned vehicles that were previously carrying users.
         // Some vehicles might have lost users but were later associated to new visits (are in vehiclesOK).
         result.vehiclesDisrupted.removeAll(result.getVehiclesOK());
+    }
+
+    protected boolean isRequestRejected(User request) throws GRBException {
+        return varRequestRejected(request).get(GRB.DoubleAttr.X) > 0.99;
     }
 
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
