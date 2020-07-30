@@ -4,7 +4,6 @@ import com.google.common.collect.Sets;
 import model.User;
 import model.Vehicle;
 import model.Visit;
-import model.VisitStop;
 import org.jgrapht.graph.DefaultWeightedEdge;
 import org.jgrapht.graph.SimpleWeightedGraph;
 import simulation.Method;
@@ -103,25 +102,12 @@ public class GraphRTV {
 
         // Add current visits
         for (Vehicle vehicle : listVehicles) {
+            Visit stop = vehicle.getStopVisit();
 
-            if (vehicle.isRebalancing()) {
-                feasibleTrips.get(0).add(vehicle.getVisit());
-                addRequestTripVehicleEdges(vehicle, new HashSet<>(), vehicle.getVisit());
-            }
-
-            if (vehicle.isParked()) {
-                Visit visitStayParked = new VisitStop(vehicle);
-                addRequestTripVehicleEdges(vehicle, new HashSet<>(), visitStayParked);
-                feasibleTrips.get(0).add(visitStayParked);
-            }
-
-            if (vehicle.isServicing()) {
-
-                if (!vehicle.isCarryingPassengers()) {
-                    Visit visitStopAtClosestNode = vehicle.getRebalanceVisit();
-                    addRequestTripVehicleEdges(vehicle, new HashSet<>(), visitStopAtClosestNode);
-                    feasibleTrips.get(0).add(visitStopAtClosestNode);
-                }
+            // Vehicles carrying passengers don't stop
+            if (stop != null) {
+                feasibleTrips.get(0).add(stop);
+                addRequestTripVehicleEdges(vehicle, new HashSet<>(), stop);
             }
         }
     }
@@ -355,7 +341,7 @@ public class GraphRTV {
         // Adding feasible visits of size = 2 **********************************************************************
         //**********************************************************************************************************
 
-        if(vehicle.getCapacity() >= 2) {
+        if (vehicle.getCapacity() >= 2) {
 
             for (int i = 0; i < feasibleVisitsAtLevel.get(0).size() - 1; i++) {
                 for (int j = i + 1; j < feasibleVisitsAtLevel.get(0).size(); j++) {
@@ -420,7 +406,7 @@ public class GraphRTV {
 
         return feasibleVisitsAtLevel;
     }
-    
+
 
     private boolean allSubTripsAreFeasible(Set<Set<User>> feasibleTrips, Set<User> combinedRequestList) {
 
@@ -598,6 +584,10 @@ public class GraphRTV {
 
     public List<Vehicle> getListVehiclesFromRTV() {
         return this.listVehicles.stream().filter(vehicle -> !this.graphRTV.edgesOf(vehicle).isEmpty()).collect(Collectors.toList());
+    }
+
+    public List<Vehicle> getListVehiclesEmptyEdgesFromRTV() {
+        return this.listVehicles.stream().filter(vehicle -> this.graphRTV.edgesOf(vehicle).isEmpty()).collect(Collectors.toList());
     }
 
 }

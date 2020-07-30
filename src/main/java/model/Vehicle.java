@@ -1297,7 +1297,7 @@ public class Vehicle implements Comparable<Vehicle> {
         this.rebalanceTo(middle);
     }
 
-    public Visit getRebalanceVisit() {
+    public Visit getRebalanceVisitToClosestNodeInCurrentLeg() {
 
         Node middle = this.getMiddleNode();
 
@@ -1324,6 +1324,22 @@ public class Vehicle implements Comparable<Vehicle> {
     @Override
     public int hashCode() {
         return this.getId();
+    }
+
+    public Visit getStopVisit() {
+
+        Visit stop = null;
+
+        if (isRebalancing()) {
+            stop = getVisit();
+
+        } else if (isParked()) {
+            stop = new VisitStop(this);
+
+        } else if (!isCarryingPassengers()) {
+            stop = getRebalanceVisitToClosestNodeInCurrentLeg();
+        }
+        return stop;
     }
 }
 
