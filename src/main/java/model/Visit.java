@@ -469,6 +469,7 @@ public class Visit implements Comparable<Visit> {
             pkDpNodeInfo.add(nodeInfo); // config.Config.sec2TStamp(sequenceArrivals.get(i))));
 
         }
+        pkDpNodeInfo.add(String.format("<%d, %d>", departureLastVisited, vehicle.getContractDeadline()));
         String delayInfo = String.format("(delay: %5d - occ.: %5.2f)", delay, avgOccupationLeg);
         return String.format(
                 "%s %s %s %s %s --- %s",
