@@ -333,7 +333,7 @@ public class MatchingGreedy implements RideMatchingStrategy {
 
         result.requestsDisplaced.forEach(user -> user.setCurrentVisit(null));
 
-        if (!result.assignedAndUnassigedAreDisjoint()) {
+        if (!result.assignedAndUnassignedAreDisjoint()) {
             System.out.println("Not Disjoint!");
         }
         /*for (Qos qos : Config.getInstance().qosDic.values()) {

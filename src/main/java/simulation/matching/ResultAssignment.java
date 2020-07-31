@@ -13,26 +13,28 @@ public class ResultAssignment {
 
     public Set<User> requestsServicedLevelAchieved;
     public Map<Qos, Integer> unmetServiceLevelClass;
-    public Map<Qos, Integer> totalServiceLevelClass;
+    public Map<Qos, Integer> nOfRequestsClass;
+    public Map<Qos, Integer> rejectedServiceLevelClass;
     public Set<User> requestsServicedLevelNotAchieved;
-    // Unassigned requests
-    private Set<User> requestsUnassigned;
+    public Map<Qos, Double> violationCountClassServiceLevel;
     // Set of users that were displaced from their current rides (is in unassgigned)
     protected Set<User> requestsDisplaced;
     // Set of vehicles that interrupted routes and parked
     protected Set<Vehicle> vehiclesDisrupted;
-    // New vehicle is added in list
-    private Set<Vehicle> vehiclesHired;
     // Users who were picked up by hired vehicle
     protected List<User> roundPrivateRides;
-    // Result refers to current simulation time
-    private int currentTime;
     // Set of requests scheduled to vehicles
     protected Set<User> requestsOK;
     // Set of vehicles assigned to visits
     protected Set<Vehicle> vehiclesOK;
     // Set of visits chosen in round
     protected Set<Visit> visitsOK;
+    // Unassigned requests
+    private Set<User> requestsUnassigned;
+    // New vehicle is added in list
+    private Set<Vehicle> vehiclesHired;
+    // Result refers to current simulation time
+    private int currentTime;
 
     public ResultAssignment(int currentTime) {
         this.currentTime = currentTime;
@@ -42,8 +44,12 @@ public class ResultAssignment {
         requestsUnassigned = new HashSet<>();
         requestsServicedLevelAchieved = new HashSet<>();
         requestsServicedLevelNotAchieved = new HashSet<>();
+
+        // Class structures
         unmetServiceLevelClass = new HashMap<>();
-        totalServiceLevelClass = new HashMap<>();
+        rejectedServiceLevelClass = new HashMap<>();
+        nOfRequestsClass = new HashMap<>();
+        violationCountClassServiceLevel = new HashMap<>();
 
         // Set of vehicles assigned to visits
         vehiclesOK = new HashSet<>();
@@ -55,6 +61,13 @@ public class ResultAssignment {
 
         // Set of visits chosen in round
         visitsOK = new HashSet<>();
+
+        for (Qos qos : Config.getInstance().qosDic.values()) {
+            unmetServiceLevelClass.put(qos, 0);
+            nOfRequestsClass.put(qos, 0);
+            rejectedServiceLevelClass.put(qos, 0);
+            violationCountClassServiceLevel.put(qos, 0.0);
+        }
     }
 
 
@@ -107,25 +120,37 @@ public class ResultAssignment {
     }
 
     private String overallServiceLevelDistribution() {
-        Map<Qos, List<User>> classUnassignedMap = getClassUnassignedMap();
-        Map<Qos, List<User>> class2ndTierMap = getClassSecondTierMap();
-        return totalServiceLevelClass.keySet().stream()
-                .map(qos -> String.format(
-                        "[%s] sl violation = %d/%d (%.1f * %d) (1st-tier = %.2f) - 2nd tier = %s, unassigned: %s",
-                        qos.id,
-                        unmetServiceLevelClass.get(qos),
-                        (int) Math.ceil(qos.serviceRate * totalServiceLevelClass.get(qos)),
-                        qos.serviceRate,
-                        totalServiceLevelClass.get(qos),
-                        servicedFirstTier(qos),
-                        class2ndTierMap.get(qos).size(),
-                        classUnassignedMap.get(qos).size())
-                )
-                .collect(Collectors.joining(" - "));
+        return nOfRequestsClass.keySet().stream().map(this::getConstraintCheck).collect(Collectors.joining("\n"));
     }
 
-    double servicedFirstTier(Qos qos) {
-        return (double) (totalServiceLevelClass.get(qos) - unmetServiceLevelClass.get(qos)) / totalServiceLevelClass.get(qos);
+    private String getSummaryStats(Qos qos) {
+        return String.format(
+                "\n[%s] sl violation = %3d/ min=%3d (%.1f * %3d), met=%3d, unmet=%3d, unassigned=%3d",
+                qos.id,
+                unmetServiceLevelClass.get(qos) + rejectedServiceLevelClass.get(qos),
+                (int) Math.ceil(qos.serviceRate * nOfRequestsClass.get(qos)),
+                qos.serviceRate,
+                nOfRequestsClass.get(qos),
+                metServiceLevelClass(qos),
+                unmetServiceLevelClass.get(qos),
+                rejectedServiceLevelClass.get(qos));
+    }
+
+    private String getConstraintCheck(Qos qos) {
+        return String.format(
+                "[%s] = %3d (met) +  %.0f (violation) >= %3d (%.1f * %3d) - unmet=%3d, rejected=%3d",
+                qos.id,
+                metServiceLevelClass(qos),
+                violationCountClassServiceLevel.get(qos),
+                (int) Math.ceil(qos.serviceRate * nOfRequestsClass.get(qos)),
+                qos.serviceRate,
+                nOfRequestsClass.get(qos),
+                unmetServiceLevelClass.get(qos),
+                rejectedServiceLevelClass.get(qos));
+    }
+
+    int metServiceLevelClass(Qos qos) {
+        return nOfRequestsClass.get(qos) - unmetServiceLevelClass.get(qos) - rejectedServiceLevelClass.get(qos);
     }
 
     public void addHiredVehicle(Vehicle vehicle) {
@@ -218,7 +243,7 @@ public class ResultAssignment {
         // Are all requests serviced in another visits?
         if (requestsServicedByDifferentVehicles.size() != requestsFormerlyServicedByDisruptedVehicle.size()) {
             requestsFormerlyServicedByDisruptedVehicle.removeAll(requestsServicedByDifferentVehicles);
-            System.out.println(String.format(" - Users %s from vehicle %s were left unmatched", requestsFormerlyServicedByDisruptedVehicle, vehicleDisrupted));
+            System.out.printf(" - Users %s from vehicle %s were left unmatched%n", requestsFormerlyServicedByDisruptedVehicle, vehicleDisrupted);
             return false;
         }
 
@@ -233,7 +258,7 @@ public class ResultAssignment {
         }
     }
 
-    public boolean assignedAndUnassigedAreDisjoint() {
+    public boolean assignedAndUnassignedAreDisjoint() {
         return Collections.disjoint(this.requestsOK, this.requestsUnassigned);
 
     }
@@ -271,5 +296,33 @@ public class ResultAssignment {
 
     public void setVehiclesHired(Set<Vehicle> vehiclesHired) {
         this.vehiclesHired = vehiclesHired;
+    }
+
+    public void accountRejected(User request) {
+        getRequestsUnassigned().add(request);
+        rejectedServiceLevelClass.computeIfPresent(request.qos, (qos, countRejected) -> countRejected + 1);
+
+        // Rejected user was displaced from a routing plan
+        if (request.getCurrentVisit() != null) {
+            request.setCurrentVisit(null);
+            requestsDisplaced.add(request);
+        }
+    }
+
+    public void accountMetServiceLevel(User request) {
+        requestsServicedLevelAchieved.add(request);
+    }
+
+    public void accountUnmetServiceLevel(User request) {
+        unmetServiceLevelClass.computeIfPresent(request.qos, (qos, countUnmet) -> countUnmet + 1);
+        requestsServicedLevelNotAchieved.add(request);
+    }
+
+    public void accountNumberOfServiceLevelViolations(Qos qos, double nOfServiceLevelViolations) {
+        violationCountClassServiceLevel.put(qos, nOfServiceLevelViolations);
+    }
+
+    public void accountNumberOfRequestsClass(Qos qos, int nOfRequestsPerClass) {
+        nOfRequestsClass.put(qos, nOfRequestsPerClass);
     }
 }

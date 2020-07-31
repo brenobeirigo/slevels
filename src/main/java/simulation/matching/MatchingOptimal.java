@@ -367,20 +367,13 @@ public class MatchingOptimal implements RideMatchingStrategy {
         for (User request : requests) {
 
             if (isRequestRejected(request)) {
-                result.getRequestsUnassigned().add(request);
-                // System.out.println(request + " - REJECTED");
-
-                // Rejected user was displaced from a routing plan
-                if (request.getCurrentVisit() != null) {
-                    request.setCurrentVisit(null);
-                    result.requestsDisplaced.add(request);
-                }
+                result.accountRejected(request);
             }
         }
 
         for (Visit visit : visits) {
 
-            if (varVisitSelected(visit).get(GRB.DoubleAttr.X) > 0.99) {
+            if (isVisitSelected(visit)) {
                 result.addVisit(visit);
             }
         }
@@ -388,6 +381,10 @@ public class MatchingOptimal implements RideMatchingStrategy {
         // Update unassigned vehicles that were previously carrying users.
         // Some vehicles might have lost users but were later associated to new visits (are in vehiclesOK).
         result.vehiclesDisrupted.removeAll(result.getVehiclesOK());
+    }
+
+    private boolean isVisitSelected(Visit visit) throws GRBException {
+        return varVisitSelected(visit).get(GRB.DoubleAttr.X) > 0.99;
     }
 
     protected boolean isRequestRejected(User request) throws GRBException {
