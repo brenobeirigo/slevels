@@ -895,7 +895,7 @@ public class Vehicle implements Comparable<Vehicle> {
     @Override
     public String toString() {
         // Print H if vehicle is hired and V otherwise (plus vehicle Id)
-        return String.format("%6s", (this.isHired() ? String.format("H(%d)", this.contractDeadline) : "V") + (id - Node.MAX_NUMBER_NODES * 2));
+        return String.format("%6s", (this.isHired() ? String.format("H(t=%d)", this.contractDeadline) : "V") + (id - Node.MAX_NUMBER_NODES * 2));
     }
 
     public String getJourneyInfo() {
