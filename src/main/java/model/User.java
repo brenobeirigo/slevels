@@ -580,6 +580,10 @@ public class User implements Comparable<User> {
         return this.nodePk.getDelaySoFar() <= this.qos.pkDelayTarget;
     }
 
+    public double pickupDelaySoFar(){
+        return this.nodePk.getDelaySoFar();
+    }
+
     public int getQoSCode() {
         return this.qos.code;
     }
