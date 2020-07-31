@@ -208,6 +208,10 @@ public class ResultAssignment {
         return requestsOK;
     }
 
+    public List<User> getUnmetServiceLevelRequests(){
+        return User.filterSecondTier(this.requestsOK);
+    }
+
     public void setRequestsOK(Set<User> requestsOK) {
         this.requestsOK = requestsOK;
     }
