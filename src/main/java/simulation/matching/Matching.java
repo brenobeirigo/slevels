@@ -58,8 +58,9 @@ public class Matching {
             hired = hiring.hire(setUnassignedRequests, currentTime);
         }
 
-        System.out.println(String.format("time=%4d, requests=%4d, vehicles=%4d, hired(available)=%4d", currentTime, setUnassignedRequests.size(), listVehicles.size(), hired.size()));
         ResultAssignment result = strategy.match(currentTime, allRequestsInOutVehicles, listVehicles, hired, this);
+        System.out.printf("time=%4d, requests=%4d, vehicles=%4d, hired(current period)=%4d, hired(kept):=%4d", currentTime, setUnassignedRequests.size(), listVehicles.size(), hired.size(), result.getVehiclesHired().size());
+
         strategy.realize(result.visitsOK, this.rebalanceUtil, currentTime);
 
         return result;
