@@ -56,8 +56,8 @@ public class MatchingOptimal implements RideMatchingStrategy {
             return result;
 
         try {
-            createModel();
-            initVarsStandard();
+            createGurobiModelAndEnvironment();
+            initVars();
             oneVisitForEveryVehicle();
             eachRequestToOneVehicle();
             previouslyAssignedMustBeServiced();
@@ -265,7 +265,7 @@ public class MatchingOptimal implements RideMatchingStrategy {
         varVisitSelected[visitIndex.get(visit)] = model.addVar(0, 1, visit.getDelay(), GRB.BINARY, label);
     }
 
-    protected void createModel() throws GRBException {
+    protected void createGurobiModelAndEnvironment() throws GRBException {
 
         // Model
         env = new GRBEnv();
@@ -283,7 +283,7 @@ public class MatchingOptimal implements RideMatchingStrategy {
         }
     }
 
-    protected void initVarsStandard() throws GRBException {
+    protected void initVars() throws GRBException {
 
         visitIndex = new HashMap<>();
         for (int i = 0; i < visits.size(); i++) {

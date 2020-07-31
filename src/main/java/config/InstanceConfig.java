@@ -339,10 +339,9 @@ public class InstanceConfig {
         double mipGap = gson.fromJson(element.get("mip_gap"), double.class);
 
         // SERVICE LEVEL PENALTIES
-        int violationPenalty = gson.fromJson(element.get("violation_penalty"), int.class);
         int rejectionPenalty = gson.fromJson(element.get("rejection_penalty"), int.class);
         int badServicePenalty = gson.fromJson(element.get("bad_service_penalty"), int.class);
-        return new MatchingOptimalServiceLevel(maxVehicleCapacityRTV, violationPenalty, badServicePenalty, timeLimit, timeoutVehicleRTV, mipGap, maxEdgesRV, rejectionPenalty);
+        return new MatchingOptimalServiceLevel(maxVehicleCapacityRTV, badServicePenalty, timeLimit, timeoutVehicleRTV, mipGap, maxEdgesRV, rejectionPenalty);
     }
 
     public boolean[] getSortWaitingUsersByClassArray() {
