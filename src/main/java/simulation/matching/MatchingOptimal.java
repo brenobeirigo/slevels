@@ -57,13 +57,11 @@ public class MatchingOptimal implements RideMatchingStrategy {
 
         try {
             createGurobiModelAndEnvironment();
-            initVars();
-            oneVisitForEveryVehicle();
-            eachRequestToOneVehicle();
-            previouslyAssignedMustBeServiced();
+            initVarsStandardAssignment();
+            addConstraintsStandardAssignment();
             setupDelayObjective();
 
-            // model.write(String.format("round_mip_model/assignment_%d.lp", currentTime));
+            saveModel(currentTime);
             model.optimize();
 
             if (isModelOptimal() || isTimeLimitReached()) {
@@ -84,7 +82,7 @@ public class MatchingOptimal implements RideMatchingStrategy {
             }
         } catch (GRBException e) {
             System.out.println("TIME IS OVER - No solution found, keep previous assignment. Gurobi error code: " + e.getErrorCode() + ". " + e.getMessage());
-            keepPreviousAssignement();
+            keepPreviousAssignment();
         } finally {
             closeGurobiModelAndEnvironment();
         }
@@ -102,6 +100,16 @@ public class MatchingOptimal implements RideMatchingStrategy {
         //assert allPassengersAreAssigned(): "Vehicle carrying passenger is not matched.";
 
         return result;
+    }
+
+    protected void addConstraintsStandardAssignment() throws GRBException {
+        oneVisitForEveryVehicle();
+        eachRequestToOneVehicle();
+        previouslyAssignedMustBeServiced();
+    }
+
+    protected void saveModel(int currentTime) throws GRBException {
+        model.write(String.format("round_mip_model/assignment%s_%d.lp", this.toString(), currentTime));
     }
 
     protected boolean isTimeLimitReached() throws GRBException {
@@ -127,7 +135,7 @@ public class MatchingOptimal implements RideMatchingStrategy {
         visits.forEach(visit -> Visit.realize(visit, rebalanceUtil, currentTime));
     }
 
-    protected void keepPreviousAssignement() {
+    protected void keepPreviousAssignment() {
 
         result.getRequestsUnassigned().addAll(User.getUnassigned(requests));
 
@@ -283,7 +291,7 @@ public class MatchingOptimal implements RideMatchingStrategy {
         }
     }
 
-    protected void initVars() throws GRBException {
+    protected void initVarsStandardAssignment() throws GRBException {
 
         visitIndex = new HashMap<>();
         for (int i = 0; i < visits.size(); i++) {

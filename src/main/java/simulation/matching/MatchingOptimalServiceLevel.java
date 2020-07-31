@@ -14,10 +14,6 @@ import java.util.*;
 public class MatchingOptimalServiceLevel extends MatchingOptimal {
 
     private final int badServicePenalty;
-    private GRBVar[] varVehicleIsHired;
-    private Set<Vehicle> hiredCurrentPeriod;
-    private Map<Vehicle, Integer> hiredIndex;
-
     private GRBVar[] varFirstTierMet;
     private GRBVar[] varClassServiceLevelViolation;
     private int[] nOfRequestsPerClass;
@@ -31,7 +27,6 @@ public class MatchingOptimalServiceLevel extends MatchingOptimal {
     @Override
     public ResultAssignment match(int currentTime, List<User> unassignedRequests, List<Vehicle> currentVehicleList, Set<Vehicle> hired, Matching configMatching) {
         this.currentTime = currentTime;
-        this.hiredCurrentPeriod = hired;
         this.result = new ResultAssignment(currentTime);
 
         List<Vehicle> allAvailableVehicles = new ArrayList<>(currentVehicleList);
@@ -44,19 +39,11 @@ public class MatchingOptimalServiceLevel extends MatchingOptimal {
 
         try {
             createGurobiModelAndEnvironment();
-            initVars();
-            addConstraints();
+            initVarsServiceLevel();
+            addConstraintsServiceLevels();
+            setupObjectiveHierarchicalPenaltyThenTotalWaiting();
 
-            if (configMatching.isAllowedToHire) {
-                initVarsHiring();
-                setupIsHiredConstraints();
-                setupObjectiveHiredHierarchicalPenaltyThenTotalWaiting();
-
-            } else {
-                setupObjectiveHierarchicalPenaltyThenTotalWaiting();
-            }
-
-            model.write(String.format("round_mip_model/assignment%s_%d.lp", this, currentTime));
+            saveModel(currentTime);
             this.model.optimize();
 
             if (isModelOptimal() || isTimeLimitReached()) {
@@ -64,7 +51,7 @@ public class MatchingOptimalServiceLevel extends MatchingOptimal {
                     System.out.printf("## TIME LIMIT REACHED = %.2f seconds // Solution count: %s%n", mipTimeLimit, model.get(GRB.IntAttr.SolCount));
                 }
 
-                extractResult();
+                extractResultServiceLevel();
 
             } else {
                 computeIISReduceUntilCanBeSolved();
@@ -72,7 +59,7 @@ public class MatchingOptimalServiceLevel extends MatchingOptimal {
 
         } catch (GRBException e) {
             System.out.println("TIME IS OVER - No solution found, keep previous assignment. Gurobi error code: " + e.getErrorCode() + ". " + e.getMessage());
-            keepPreviousAssignement();
+            keepPreviousAssignment();
         } finally {
             closeGurobiModelAndEnvironment();
         }
@@ -82,10 +69,8 @@ public class MatchingOptimalServiceLevel extends MatchingOptimal {
         return result;
     }
 
-    private void addConstraints() throws GRBException {
-        oneVisitForEveryVehicle();
-        eachRequestToOneVehicle();
-        previouslyAssignedMustBeServiced();
+    protected void addConstraintsServiceLevels() throws GRBException {
+        addConstraintsStandardAssignment();
         activateVarRequestMetSL();
         guaranteeClassMinimumSL();
     }
@@ -103,33 +88,11 @@ public class MatchingOptimalServiceLevel extends MatchingOptimal {
 
         objTotalWaitingTime(penObjectives);
 
-        setHierarchicalObjectives(penObjectives);
+        addHierarchicalObjectives(penObjectives);
     }
 
-    private void setupObjectiveHiredHierarchicalPenaltyThenTotalWaiting() throws GRBException {
 
-
-        Map<String, GRBLinExpr> penObjectives = new LinkedHashMap<>();
-
-        if (!hiredCurrentPeriod.isEmpty())
-            objNumberHired(penObjectives);
-
-        objHierarchicalServiceLevel(penObjectives);
-
-        objTotalWaitingTime(penObjectives);
-
-        setHierarchicalObjectives(penObjectives);
-    }
-
-    private void objNumberHired(Map<String, GRBLinExpr> penObjectives) {
-
-        penObjectives.put("N_HIRED", new GRBLinExpr());
-        for (Vehicle vehicle : hiredCurrentPeriod) {
-            penObjectives.get("N_HIRED").addTerm(1, varVehicleIsHired(vehicle));
-        }
-    }
-
-    private void objHierarchicalServiceLevel(Map<String, GRBLinExpr> penObjectives) {
+    protected void objHierarchicalServiceLevel(Map<String, GRBLinExpr> penObjectives) {
         // Sort QoS order = A, B, C
         List<Qos> sortedQos = Config.getInstance().getSortedQosList();
 
@@ -145,64 +108,40 @@ public class MatchingOptimalServiceLevel extends MatchingOptimal {
         }
     }
 
-    private void objTotalWaitingTime(Map<String, GRBLinExpr> penObjectives) {
-        penObjectives.put("WAITING", new GRBLinExpr());
-        for (Visit visit : visits) {
-            penObjectives.get("WAITING").addTerm(visit.getDelay(), varVisitSelected(visit));
-        }
-    }
-
-    private void setupObjective() throws GRBException {
-
-        Map<String, GRBLinExpr> penObjectives = new LinkedHashMap<>();
-
-        // Sort QoS order = A, B, C
-        objHierarchicalServiceLevel(penObjectives);
-        objTotalWaitingTime(penObjectives);
-
-
-        /*for (User request : requests) {
-            GRBLinExpr constrRequestServiceLevel = new GRBLinExpr();
-            List<Visit> requestVisits = graphRTV.getListOfVisitsFromUser(request);
-            for (Visit visit : requestVisits) {
-                double delay = graphRTV.getWeightFromRequestVisitEdge(request, visit);
-                if (isFirstTier(request, visit)) {
-                    constrRequestServiceLevel.addTerm(delay, varVisitSelected(visit));
-                }
-            }
-        }*/
-
-        setHierarchicalObjectives(penObjectives);
-    }
-
-    private void setupObjectiveHierarchicalPenaltyAndWaiting() throws GRBException {
-
-        Map<String, GRBLinExpr> penObjectives = new LinkedHashMap<>();
-
+    protected void objHierarchicalWaiting(Map<String, GRBLinExpr> penObjectives) {
         // Sort QoS order = A, B, C
         List<Qos> sortedQos = Config.getInstance().getSortedQosList();
 
         // Violation penalty
         for (Qos qos : sortedQos) {
             penObjectives.put(qos.id, new GRBLinExpr());
-            penObjectives.put("DELAY_" + qos.id, new GRBLinExpr());
         }
 
         for (User request : requests) {
-            graphRTV.getListOfVisitsFromUser(request).forEach(
-                    visit -> {
-                        double delay = graphRTV.getWeightFromRequestVisitEdge(request, visit);
-                        penObjectives.get("DELAY_" + request.qos.id).addTerm(delay, varVisitSelected(visit));
-                    }
-            );
-
             penObjectives.get(request.qos.id).addTerm(rejectionPenalty, varRequestRejected(request));
+            List<Visit> requestVisits = graphRTV.getListOfVisitsFromUser(request);
+            for (Visit visit : requestVisits) {
+                //if (isFirstTier(request, visit)) {
+                double delay = getDelayOfRequestInVisit(request, visit);
+                penObjectives.get(request.qos.id).addTerm(delay, varVisitSelected(visit));
+            }
+            penObjectives.get(request.qos.id).addTerm(-badServicePenalty, varRequestServiceLevelAchieved(request));
+            penObjectives.get(request.qos.id).addConstant(badServicePenalty);
         }
-
-        setHierarchicalObjectives(penObjectives);
     }
 
-    private void setHierarchicalObjectives(Map<String, GRBLinExpr> penObjectives) throws GRBException {
+    private double getDelayOfRequestInVisit(User request, Visit visit) {
+        return graphRTV.getWeightFromRequestVisitEdge(request, visit);
+    }
+
+    protected void objTotalWaitingTime(Map<String, GRBLinExpr> penObjectives) {
+        penObjectives.put("WAITING", new GRBLinExpr());
+        for (Visit visit : visits) {
+            penObjectives.get("WAITING").addTerm(visit.getDelay(), varVisitSelected(visit));
+        }
+    }
+
+    protected void addHierarchicalObjectives(Map<String, GRBLinExpr> penObjectives) throws GRBException {
         int i = penObjectives.size();
 
         for (Map.Entry<String, GRBLinExpr> e : penObjectives.entrySet()) {
@@ -214,7 +153,7 @@ public class MatchingOptimalServiceLevel extends MatchingOptimal {
         model.set(GRB.IntAttr.ModelSense, GRB.MINIMIZE);
     }
 
-    protected void keepPreviousAssignement() {
+    protected void keepPreviousAssignment() {
 
         result.getRequestsUnassigned().addAll(User.getUnassigned(requests));
 
@@ -232,24 +171,9 @@ public class MatchingOptimalServiceLevel extends MatchingOptimal {
         }
     }
 
-    private void initVarsHiring() throws GRBException {
-        varVehicleIsHired = new GRBVar[hiredCurrentPeriod.size()];
+    protected void initVarsServiceLevel() throws GRBException {
 
-        hiredIndex = new HashMap<>();
-        int i = 0;
-        for (Vehicle vehicle : hiredCurrentPeriod) {
-            hiredIndex.put(vehicle, i);
-            i++;
-        }
-
-        for (Vehicle vehicle : hiredCurrentPeriod) {
-            addIsHiredVehicleVar(vehicle);
-        }
-    }
-
-    protected void initVars() throws GRBException {
-
-        super.initVars();
+        super.initVarsStandardAssignment();
 
         varFirstTierMet = new GRBVar[requests.size()];
         varClassServiceLevelViolation = new GRBVar[Config.getInstance().getQosCount()];
@@ -269,28 +193,6 @@ public class MatchingOptimalServiceLevel extends MatchingOptimal {
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     // CONSTRAINTS /////////////////////////////////////////////////////////////////////////////////////////////////////
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-    private void setupIsHiredConstraints() throws GRBException {
-
-        Map<Vehicle, GRBLinExpr> hiredVehicleVisits = new HashMap<>();
-
-        for (Vehicle vehicle : hiredCurrentPeriod) {
-            hiredVehicleVisits.put(vehicle, new GRBLinExpr());
-        }
-
-        for (Visit visit : visits) {
-
-            // Exclude visits from previously hired vehicles
-            if (hiredCurrentPeriod.contains(visit.getVehicle()) && visit.getVehicle().isHired()) {
-                hiredVehicleVisits.get(visit.getVehicle()).addTerm(1, varVisitSelected(visit));
-            }
-        }
-
-        for (Vehicle vehicle : hiredCurrentPeriod) {
-            hiredVehicleVisits.get(vehicle).addTerm(-1, varVehicleIsHired(vehicle));
-            model.addConstr(hiredVehicleVisits.get(vehicle), GRB.EQUAL, 0, "hiring_" + vehicle.toString().trim());
-        }
-    }
 
     private void guaranteeClassMinimumSL() {
 
@@ -330,26 +232,22 @@ public class MatchingOptimalServiceLevel extends MatchingOptimal {
 
     private boolean isFirstTier(User request, Visit visit) {
 
-        double pickupDelay = graphRTV.getWeightFromRequestVisitEdge(request, visit);
+        double pickupDelay = getDelayOfRequestInVisit(request, visit);
         return request.isDelayFirstTier(pickupDelay);
     }
 
     private void activateVarRequestMetSL() throws GRBException {
 
         for (User request : requests) {
-            int countFirstTier = 0;
             GRBLinExpr constrRequestServiceLevel = new GRBLinExpr();
 
             List<Visit> requestVisits = graphRTV.getListOfVisitsFromUser(request);
 
             for (Visit visit : requestVisits) {
                 if (isFirstTier(request, visit)) {
-                    countFirstTier++;
                     constrRequestServiceLevel.addTerm(1, varVisitSelected(visit));
                 }
             }
-
-            //assert countFirstTier > 0 : "There are requests with NO first tier options! " + request.getCurrentVisit();
 
             constrRequestServiceLevel.addTerm(-1, varRequestServiceLevelAchieved(request));
             String label = String.format("first_tier_visits_request_%s", request.toString().trim());
@@ -367,15 +265,6 @@ public class MatchingOptimalServiceLevel extends MatchingOptimal {
         return varFirstTierMet[requestIndex.get(request)];
     }
 
-    private GRBVar varVehicleIsHired(Vehicle vehicle) {
-        return varVehicleIsHired[hiredIndex.get(vehicle)];
-    }
-
-    protected void addIsHiredVehicleVar(Vehicle vehicle) throws GRBException {
-        String label = String.format("x_hired_%s", vehicle.toString().trim());
-        varVehicleIsHired[hiredIndex.get(vehicle)] = model.addVar(0, 1, 1, GRB.BINARY, label);
-    }
-
     private void addIsTargetServiceLevelMetVar(User request) throws GRBException {
         String label = "x_sl_" + request.toString().trim();
         varFirstTierMet[requestIndex.get(request)] = model.addVar(0, 1, 1, GRB.BINARY, label);
@@ -391,7 +280,7 @@ public class MatchingOptimalServiceLevel extends MatchingOptimal {
     // RESULT PROCESSING ///////////////////////////////////////////////////////////////////////////////////////////////
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-    protected void extractResult() throws GRBException {
+    protected void extractResultServiceLevel() throws GRBException {
 
         super.extractResult();
 
@@ -409,20 +298,10 @@ public class MatchingOptimalServiceLevel extends MatchingOptimal {
                 }
             }
         }
-
-        for (Vehicle vehicle : hiredCurrentPeriod) {
-            if (isVehicleHired(vehicle)) {
-                result.addHiredVehicle(vehicle);
-            }
-        }
     }
 
-    private double getValue(GRBVar grbVar) throws GRBException {
+    protected double getValue(GRBVar grbVar) throws GRBException {
         return grbVar.get(GRB.DoubleAttr.X);
-    }
-
-    private boolean isVehicleHired(Vehicle vehicle) throws GRBException {
-        return getValue(varVehicleIsHired(vehicle)) > 0.99;
     }
 
     private boolean isServiceLevelMet(User request) throws GRBException {

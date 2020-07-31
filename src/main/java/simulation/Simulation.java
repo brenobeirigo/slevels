@@ -25,7 +25,6 @@ public abstract class Simulation {
     /* Hiring, unbounding, and simulation.rebalancing */
     protected int contractDuration;
     protected boolean isAllowedToHire; // Simulation can hire new vehicles as needed
-    protected boolean isAllowedToLowerServiceLevel;
     protected Rebalance rebalanceUtil;
     protected boolean allowRequestDisplacement;
 
@@ -78,7 +77,6 @@ public abstract class Simulation {
                       int timeHorizon,
                       int contractDuration,
                       boolean isAllowedToHire,
-                      boolean isAllowedToLowerServiceLevel,
                       Rebalance rebalanceUtil,
                       Matching matchingSettings) {
 
@@ -96,7 +94,6 @@ public abstract class Simulation {
         /* DEACTIVATING */
         this.contractDuration = contractDuration;
         this.isAllowedToHire = isAllowedToHire;
-        this.isAllowedToLowerServiceLevel = isAllowedToLowerServiceLevel;
 
         /* VEHICLE INFO */
         this.initialFleetSize = initialFleetSize; // Fleet size

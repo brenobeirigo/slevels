@@ -111,7 +111,7 @@ public class ResultAssignment {
         System.out.printf("# Unassigned users   (%d)  = %s%n", requestsUnassigned.size(), requestsUnassigned);
         System.out.printf("# Assigned users     (%d)  = %s%n", requestsOK.size(), requestsOK);
         System.out.printf("# Displaced users    (%d)  = %s%n", requestsDisplaced.size(), requestsDisplaced);
-        System.out.printf("# Class service quality    = %s%n", overallServiceLevelDistribution());
+        System.out.printf("# Class service quality    = \n%s%n", overallServiceLevelDistribution());
         System.out.printf("# Vehicles disrupted (%d)  = %s%n", vehiclesDisrupted.size(), vehiclesDisrupted);
         System.out.printf("# Vehicles hired           = %s%n", getVehiclesHired().size());
         for (Vehicle vehicle : vehiclesDisrupted) {

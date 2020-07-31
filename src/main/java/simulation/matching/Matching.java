@@ -16,8 +16,8 @@ public class Matching {
     public static final String METHOD_GREEDY = "method_greedy";
     public static final String METHOD_FCFS = "method_fsfc";
     public static final String METHOD_OPTIMAL_ENFORCE_SL = "method_optimal_enforce_sl";
+    public static final String METHOD_OPTIMAL_ENFORCE_SL_HIRE = "method_optimal_enforce_sl_and_hire";
     protected Map<String, Long> runTimes;
-    protected boolean isAllowedToLowerServiceLevel;
     protected int contractDuration;
     protected Rebalance rebalanceUtil;
     protected boolean isAllowedToHire;
@@ -31,13 +31,11 @@ public class Matching {
 
     }
 
-    public Matching(boolean isAllowedToLowerServiceLevel,
-                    CustomerBaseConfig customerBaseConfig,
+    public Matching(CustomerBaseConfig customerBaseConfig,
                     int contractDuration,
                     Rebalance rebalanceUtil,
                     boolean isAllowedToHire,
                     boolean allowUserDisplacement) {
-        this.isAllowedToLowerServiceLevel = isAllowedToLowerServiceLevel;
         this.customerBaseSettings = customerBaseConfig;
         this.contractDuration = contractDuration;
         this.rebalanceUtil = rebalanceUtil;

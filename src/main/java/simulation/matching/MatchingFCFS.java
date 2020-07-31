@@ -168,27 +168,6 @@ public class MatchingFCFS implements RideMatchingStrategy {
 
                     result.addHiredVehicle(bestVisit.getVehicle());
 
-
-                } else if (configMatching.isAllowedToLowerServiceLevel) {
-
-                    // Add  delay to user service level to guarantee he will be picked up
-                    u.lowerServiceLevel(Config.getInstance().qosDic.get(u.getPerformanceClass()).pkDelay);
-
-                    // Compute need for urgent relocation
-                    //if (configMatching.rebalanceUtil.useUrgentKey)
-                    //    u.getNodePk().increaseUrgency();
-
-                    // Find a visit using the TRUE fleet availability
-                    bestVisit = u.getBestVisitByInsertion(
-                            listVehicles,
-                            currentTime,
-                            stopAtFirstBest);
-
-                    // After lowering service level, user can't be picked up
-                    if (bestVisit == null) {
-                        bestVisit = getVisitHiredVehicleUser(u, currentTime, configMatching);
-                    }
-
                 } else {
 
                     if (configMatching.rebalanceUtil.showInfo)

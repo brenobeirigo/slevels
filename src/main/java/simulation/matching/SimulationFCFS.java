@@ -31,7 +31,6 @@ public class SimulationFCFS extends Simulation {
                           int timeHorizon,
                           int contractDuration,
                           boolean isAllowedToHire,
-                          boolean isAllowedToLowerServiceLevel,
                           String serviceRateScenarioLabel,
                           String segmentationScenarioLabel,
                           Rebalance rebalance,
@@ -46,7 +45,6 @@ public class SimulationFCFS extends Simulation {
                 timeHorizon,
                 contractDuration,
                 isAllowedToHire,
-                isAllowedToLowerServiceLevel,
                 rebalance,
                 matchingSettings);
 
@@ -71,7 +69,6 @@ public class SimulationFCFS extends Simulation {
                 contractDuration,
                 matchingSettings.isAllowUserDisplacement(),
                 isAllowedToHire,
-                isAllowedToLowerServiceLevel,
                 serviceRateScenarioLabel,
                 segmentationScenarioLabel,
                 rebalance.strategy,
@@ -217,26 +214,6 @@ public class SimulationFCFS extends Simulation {
 
                     bestVisit = getVisitHiredVehicleUser(u, currentTime);
 
-                } else if (isAllowedToLowerServiceLevel) {
-
-                    // Add  delay to user service level to guarantee he will be picked up
-                    u.lowerServiceLevel(Config.getInstance().qosDic.get(u.getPerformanceClass()).pkDelay);
-
-                    // Compute need for urgent relocation
-                    // TODO fix urgent KEY
-                    /*if (this.rebalanceUtil.useUrgentKey)
-                        u.getNodePk().increaseUrgency();*/
-
-                    // Find a visit using the TRUE fleet availability
-                    bestVisit = u.getBestVisitByInsertion(
-                            listVehicles,
-                            currentTime,
-                            stopAtFirstBest);
-
-                    // After lowering service level, user can't be picked up
-                    if (bestVisit == null) {
-                        bestVisit = getVisitHiredVehicleUser(u, currentTime);
-                    }
                 } else {
                     if (rebalanceUtil.showInfo)
                         System.out.println("CAN'T SERVICE - User:" +

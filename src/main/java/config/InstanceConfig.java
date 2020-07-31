@@ -43,7 +43,6 @@ public class InstanceConfig {
     private boolean[] allowRebalancingArray; // Each round has TW seconds
     private int[] contractDurationArray; // In rounds of tw_batch seconds
     private boolean[] allowVehicleHiringArray;
-    private boolean[] allowServiceDeteriorationArray;
     private boolean[] allowRequestDisplacementArray;
 
     // QoS
@@ -127,7 +126,6 @@ public class InstanceConfig {
             this.vehicleMaxCapacityArray = gson.fromJson(scenarioConfig.get("max_capacity").getAsJsonArray(), int[].class);// Max capacity of vehicle
             this.allowRebalancingArray = gson.fromJson(scenarioConfig.get("rebalance").getAsJsonArray(), boolean[].class);// Each round has TW seconds
             this.contractDurationArray = gson.fromJson(scenarioConfig.get("contract_duration").getAsJsonArray(), int[].class); // In rounds of tw_batch seconds
-            this.allowServiceDeteriorationArray = gson.fromJson(scenarioConfig.get("allow_service_deterioration").getAsJsonArray(), boolean[].class);
             this.allowVehicleHiringArray = gson.fromJson(scenarioConfig.get("allow_vehicle_hiring").getAsJsonArray(), boolean[].class);
             this.allowRequestDisplacementArray = gson.fromJson(scenarioConfig.get("allow_request_displacement").getAsJsonArray(), boolean[].class);
 
@@ -208,7 +206,12 @@ public class InstanceConfig {
                 String name = gson.fromJson(element.get("name"), String.class);
                 System.out.println("Processing " + name);
 
-                if (Matching.METHOD_OPTIMAL_ENFORCE_SL.equals(name)) {
+                if (Matching.METHOD_OPTIMAL_ENFORCE_SL_HIRE.equals(name)) {
+
+                    MatchingOptimalServiceLevelAndHire method = readMatchingOptimalServiceLevelAndHireParams(gson, element);
+                    this.matchingMethods.add(method);
+
+                }if (Matching.METHOD_OPTIMAL_ENFORCE_SL.equals(name)) {
 
                     MatchingOptimalServiceLevel method = readMatchingOptimalServiceLevelParams(gson, element);
                     this.matchingMethods.add(method);
@@ -344,6 +347,19 @@ public class InstanceConfig {
         return new MatchingOptimalServiceLevel(maxVehicleCapacityRTV, badServicePenalty, timeLimit, timeoutVehicleRTV, mipGap, maxEdgesRV, rejectionPenalty);
     }
 
+    private MatchingOptimalServiceLevelAndHire readMatchingOptimalServiceLevelAndHireParams(Gson gson, JsonObject element) {
+        int maxVehicleCapacityRTV = gson.fromJson(element.get("rtv_max_vehicle_capacity"), int.class);
+        double timeoutVehicleRTV = gson.fromJson(element.get("rtv_vehicle_timeout"), double.class);
+        int maxEdgesRV = gson.fromJson(element.get("max_edges_rv"), int.class);
+        double timeLimit = gson.fromJson(element.get("mip_time_limit"), double.class);
+        double mipGap = gson.fromJson(element.get("mip_gap"), double.class);
+
+        // SERVICE LEVEL PENALTIES
+        int rejectionPenalty = gson.fromJson(element.get("rejection_penalty"), int.class);
+        int badServicePenalty = gson.fromJson(element.get("bad_service_penalty"), int.class);
+        return new MatchingOptimalServiceLevelAndHire(maxVehicleCapacityRTV, badServicePenalty, timeLimit, timeoutVehicleRTV, mipGap, maxEdgesRV, rejectionPenalty);
+    }
+
     public boolean[] getSortWaitingUsersByClassArray() {
         return sortWaitingUsersByClassArray;
     }
@@ -380,7 +396,6 @@ public class InstanceConfig {
                 "\nallowRebalancingArray=" + Arrays.toString(allowRebalancingArray) +
                 "\ncontractDurationArray=" + Arrays.toString(contractDurationArray) +
                 "\nallowVehicleHiringArray=" + Arrays.toString(allowVehicleHiringArray) +
-                "\nallowServiceDeteriorationArray=" + Arrays.toString(allowServiceDeteriorationArray) +
                 "\nallowManyToOneTarget=" + Arrays.toString(allowManyToOneTarget) +
                 "\nreinsertTargets=" + Arrays.toString(reinsertTargets) +
                 "\nserviceRateScenarioMap=" + serviceRateScenarioMap +
@@ -434,10 +449,6 @@ public class InstanceConfig {
 
     public boolean[] getAllowVehicleHiringArray() {
         return allowVehicleHiringArray;
-    }
-
-    public boolean[] getAllowServiceDeteriorationArray() {
-        return allowServiceDeteriorationArray;
     }
 
     public HashMap<String, Map<String, Double>> getServiceRateScenarioMap() {

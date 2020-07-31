@@ -38,11 +38,8 @@ public class Main {
                         for (int vehicleMaxCapacity : instanceSettings.getVehicleMaxCapacityArray()) {
                             for (int initialFleet : instanceSettings.getInitialFleetArray()) {
                                 for (boolean isAllowedToHire : instanceSettings.getAllowVehicleHiringArray()) {
-                                    for (boolean isAllowedToLowerServiceLevel : instanceSettings.getAllowServiceDeteriorationArray()) {
                                         for (boolean isAllowedToDisplaceRequests : instanceSettings.getAllowRequestDisplacementArray()) {
 
-                                            // If can hire than service level have to be lowered
-                                            if (isAllowedToHire != isAllowedToLowerServiceLevel) continue;
 
                                             for (int contractDuration : instanceSettings.getContractDurationArray()) {
                                                 for (CustomerBaseConfig customerBaseSettings : instanceSettings.getCustomerBaseSettingsArray()) {
@@ -56,7 +53,6 @@ public class Main {
 
                                                         rebalancingSettings.setStrategy(rebalanceStrategy);
                                                         Matching matchingSettings = new Matching(
-                                                                isAllowedToLowerServiceLevel,
                                                                 customerBaseSettings,
                                                                 contractDuration,
                                                                 rebalancingSettings,
@@ -79,7 +75,6 @@ public class Main {
                                                                     timeHorizon,
                                                                     contractDuration,
                                                                     isAllowedToHire,
-                                                                    isAllowedToLowerServiceLevel,
                                                                     customerBaseSettings.serviceRateLabel,
                                                                     customerBaseSettings.customerSegmentationLabel,
                                                                     rebalancingSettings,
@@ -107,7 +102,7 @@ public class Main {
                                                 Config.reset();
                                             }
                                         }
-                                    }
+
                                 }
                             }
 
