@@ -39,8 +39,6 @@ public class Main {
                             for (int initialFleet : instanceSettings.getInitialFleetArray()) {
                                 for (boolean isAllowedToHire : instanceSettings.getAllowVehicleHiringArray()) {
                                         for (boolean isAllowedToDisplaceRequests : instanceSettings.getAllowRequestDisplacementArray()) {
-
-
                                             for (int contractDuration : instanceSettings.getContractDurationArray()) {
                                                 for (CustomerBaseConfig customerBaseSettings : instanceSettings.getCustomerBaseSettingsArray()) {
 
