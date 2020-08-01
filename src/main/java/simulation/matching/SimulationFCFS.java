@@ -3,7 +3,6 @@ package simulation.matching;
 import config.Config;
 import simulation.Simulation;
 import simulation.Solution;
-import simulation.matching.Matching;
 import simulation.rebalancing.Rebalance;
 import dao.Dao;
 import model.User;
@@ -210,9 +209,9 @@ public class SimulationFCFS extends Simulation {
                 // Try to hire new vehicle to user according to user SQ class
                 if (hireNewVehicleToUser(u)) {
 
-                    roundPrivateRides.add(u);
-
                     bestVisit = getVisitHiredVehicleUser(u, currentTime);
+                    roundHiredVehicles.add(bestVisit.getVehicle());
+
 
                 } else {
                     if (rebalanceUtil.showInfo)
