@@ -297,7 +297,7 @@ public class MatchingGreedy implements RideMatchingStrategy {
 
         // BUILDING GRAPH STRUCTURE ////////////////////////////////////////////////////////////////////////////////////
 
-        GraphRTV graphRTV = new GraphRTV(unassignedRequests, vehicles, maxVehicleCapacityRTV, timeoutVehicleRTV);
+        GraphRTV graphRTV = new GraphRTV(unassignedRequests, vehicles, maxVehicleCapacityRTV, timeoutVehicleRTV, maxEdgesRV);
         // To assure every vehicle is assigned to a visit, create dummy stop visits.
         graphRTV.addStopVisits();
 
