@@ -3,7 +3,8 @@ package simulation;
 import config.Config;
 import config.InstanceConfig;
 import config.Qos;
-import config.RebalanceStrategy;
+import simulation.matching.RideMatchingStrategy;
+import simulation.rebalancing.RebalanceStrategy;
 import dao.Dao;
 import dao.FileUtil;
 import helper.HelperIO;
@@ -309,7 +310,7 @@ public class Solution {
 
         try {
             writer = Files.newBufferedWriter(outputFileUsers);
-            String[] a = new String[]{"earliest", "id", "class", "delay_pk", "delay_in_vehicle", "delay_ride", "pk_time", "dp_time", "id_from", "id_to", "min_dist_sec", "service", "service_level"};
+            String[] a = new String[]{"earliest", "walkaway", "id", "class", "delay_pk", "delay_in_vehicle", "delay_ride", "pk_time", "dp_time", "id_from", "id_to", "min_dist_sec", "service", "service_level"};
 
             CSVPrinter csvPrinter = new CSVPrinter(writer, CSVFormat.DEFAULT.withHeader(a).withCommentMarker('#'));
 
@@ -318,13 +319,13 @@ public class Solution {
             }
             for (User u : sortedUsersPk) {
                 int minDistSec = Dao.getInstance().getDistSec(u.getNodePk(), u.getNodeDp());
-                int inVehicleDelay = u.getNodeDp().getDelay() - u.getNodePk().getDelay();
                 List<String> entry = new ArrayList<>();
                 entry.add(Config.sec2Datetime(u.getNodePk().getEarliest()));
+                entry.add(Config.sec2Datetime(u.getDropoutTime()));
                 entry.add(String.valueOf(u.getId()));
                 entry.add(String.valueOf(u.getPerformanceClass()));
                 entry.add(String.valueOf(u.getNodePk().getDelay()));
-                entry.add(String.valueOf(inVehicleDelay));
+                entry.add(String.valueOf(u.inVehicleDelay()));
                 entry.add(String.valueOf(u.getNodeDp().getDelay()));
                 entry.add(Config.sec2Datetime(u.getNodePk().getArrival()));
                 entry.add(Config.sec2Datetime(u.getNodeDp().getArrival()));
@@ -351,7 +352,7 @@ public class Solution {
                                       Set<Vehicle> setHiredVehicles,
                                       Set<Vehicle> setDeactivated,
                                       List<Vehicle> listHiredVehicles,
-                                      List<User> waitingRequests,
+                                      Collection<User> waitingRequests,
                                       Set<User> finishedRequests,
                                       List<User> roundRejectedUsers,
                                       Set<User> deniedRequests,
