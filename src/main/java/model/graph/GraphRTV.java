@@ -15,7 +15,6 @@ import java.util.stream.Collectors;
 
 public class GraphRTV {
 
-    private final int maxVehReqEdges = 30;
     // Populate list of feasible trips with current trips
     private List<List<Visit>> feasibleTrips;
     private SimpleWeightedGraph<Object, DefaultWeightedEdge> graphRTV;
@@ -26,7 +25,7 @@ public class GraphRTV {
     private Map<String, Long> runTimes;
     private long timeout;
 
-    public GraphRTV(List<User> allRequests, List<Vehicle> listVehicles, int maxVehicleCapacity, double timeout) {
+    public GraphRTV(List<User> allRequests, List<Vehicle> listVehicles, int maxVehicleCapacity, double timeout, int maxVehReqEdges) {
 
         runTimes = new HashMap<>();
         this.timeout = (long) (timeout * 1000000000);
