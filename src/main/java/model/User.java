@@ -224,10 +224,6 @@ public class User implements Comparable<User> {
                 this.performanceClass);
     }
 
-    public String getVarId() {
-        return this.toString().trim();
-    }
-
     public String getInfo() {
         return String.format("%s [%s -> %s -> %s]",
                 this,

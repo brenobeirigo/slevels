@@ -14,10 +14,6 @@ public class VisitStop extends Visit {
     }
 
     public String toString() {
-        return String.format("# Vehicle %s stopped at %s.", this.vehicle, this.vehicle, this.vehicle.getLastVisitedNode());
-    }
-
-    public String getVarId(){
-        return this.vehicle.toString().trim() + "_stay_" + this.getVehicle().getLastVisitedNode().toString().replace(" ", "");
+        return String.format("# Vehicle %s stopped at %s.", this.vehicle, this.vehicle.getLastVisitedNode());
     }
 }

@@ -694,16 +694,6 @@ public class Visit implements Comparable<Visit> {
         this.delay -= delayServicedUser;
     }
 
-    public String getVarId() {
-        return String.format(
-                "%s_P=[%s]-R[%s]_[%s](%d)",
-                this.getVehicle().getVarId(),
-                this.getPassengers().stream().map(User::getVarId).collect(Collectors.joining("_")),
-                this.getRequests().stream().map(User::getVarId).collect(Collectors.joining("_")),
-                this.isSetup() ? "S" : "D",
-                this.getDelay());
-    }
-
     public Set<User> getUsers() {
         return Sets.union(passengers, requests);
     }
