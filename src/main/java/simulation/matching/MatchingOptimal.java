@@ -1,5 +1,6 @@
 package simulation.matching;
 
+import config.Config;
 import gurobi.*;
 import model.*;
 import model.graph.GraphRTV;
@@ -90,8 +91,6 @@ public class MatchingOptimal implements RideMatchingStrategy {
             initVarsStandardAssignment();
             addConstraintsStandardAssignment();
             setupDelayObjective();
-
-            saveModel(currentTime);
             model.optimize();
 
             if (isModelOptimal() || isTimeLimitReached()) {
@@ -114,7 +113,11 @@ public class MatchingOptimal implements RideMatchingStrategy {
             System.out.println("TIME IS OVER - No solution found, keep previous assignment. Gurobi error code: " + e.getErrorCode() + ". " + e.getMessage());
             keepPreviousAssignment();
         } finally {
+            if (Config.saveRoundInfo())
+                saveModel(currentTime);
+
             closeGurobiModelAndEnvironment();
+
         }
 
 
@@ -138,8 +141,12 @@ public class MatchingOptimal implements RideMatchingStrategy {
         previouslyAssignedMustBeServiced();
     }
 
-    protected void saveModel(int currentTime) throws GRBException {
-        model.write(String.format("round_mip_model/assignment%s_%d.lp", this.toString(), currentTime));
+    protected void saveModel(int currentTime) {
+        try {
+            model.write(String.format("round_mip_model/assignment%s_%d.lp", this.toString(), currentTime));
+        } catch (GRBException e) {
+            e.printStackTrace();
+        }
     }
 
     protected boolean isTimeLimitReached() throws GRBException {

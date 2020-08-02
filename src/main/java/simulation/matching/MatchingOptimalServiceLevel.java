@@ -14,8 +14,8 @@ import java.util.*;
 public class MatchingOptimalServiceLevel extends MatchingOptimal {
 
     private final int badServicePenalty;
-    private GRBVar[] varFirstTierMet;
     protected GRBVar[] varClassServiceLevelViolation;
+    private GRBVar[] varFirstTierMet;
     private int[] nOfRequestsPerClass;
 
 
@@ -43,7 +43,6 @@ public class MatchingOptimalServiceLevel extends MatchingOptimal {
             addConstraintsServiceLevels();
             setupObjectiveHierarchicalPenaltyThenTotalWaiting();
 
-            saveModel(currentTime);
             this.model.optimize();
 
             if (isModelOptimal() || isTimeLimitReached()) {
@@ -56,11 +55,13 @@ public class MatchingOptimalServiceLevel extends MatchingOptimal {
             } else {
                 computeIISReduceUntilCanBeSolved();
             }
-
         } catch (GRBException e) {
             System.out.println("TIME IS OVER - No solution found, keep previous assignment. Gurobi error code: " + e.getErrorCode() + ". " + e.getMessage());
             keepPreviousAssignment();
         } finally {
+            if (Config.saveRoundInfo())
+                saveModel(currentTime);
+
             closeGurobiModelAndEnvironment();
         }
 
@@ -105,6 +106,37 @@ public class MatchingOptimalServiceLevel extends MatchingOptimal {
             penObjectives.get(request.qos.id).addTerm(rejectionPenalty, varRequestRejected(request));
             penObjectives.get(request.qos.id).addTerm(-badServicePenalty, varRequestServiceLevelAchieved(request));
             penObjectives.get(request.qos.id).addConstant(badServicePenalty);
+        }
+    }
+
+    protected void objHierarchicalRejection(Map<String, GRBLinExpr> penObjectives) {
+        // Sort QoS order = A, B, C
+        List<Qos> sortedQos = Config.getInstance().getSortedQosList();
+
+        // Violation penalty
+        String label = "REJECTION_";
+        for (Qos qos : sortedQos) {
+            penObjectives.put(label + qos.id, new GRBLinExpr());
+        }
+
+        for (User request : requests) {
+            penObjectives.get(label + request.qos.id).addTerm(rejectionPenalty, varRequestRejected(request));
+        }
+    }
+
+
+    protected void objHierarchicalServiceLevelViolation(Map<String, GRBLinExpr> penObjectives) {
+        // Sort QoS order = A, B, C
+        List<Qos> sortedQos = Config.getInstance().getSortedQosList();
+        String label = "VIOLATION_";
+        // Violation penalty
+        for (Qos qos : sortedQos) {
+            penObjectives.put(label + qos.id, new GRBLinExpr());
+        }
+
+        for (User request : requests) {
+            penObjectives.get(label + request.qos.id).addTerm(-badServicePenalty, varRequestServiceLevelAchieved(request));
+            penObjectives.get(label + request.qos.id).addConstant(badServicePenalty);
         }
     }
 

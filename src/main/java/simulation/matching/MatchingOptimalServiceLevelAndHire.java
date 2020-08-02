@@ -1,5 +1,6 @@
 package simulation.matching;
 
+import config.Config;
 import gurobi.GRB;
 import gurobi.GRBException;
 import gurobi.GRBLinExpr;
@@ -31,6 +32,8 @@ public class MatchingOptimalServiceLevelAndHire extends MatchingOptimalServiceLe
 
         buildGraphRTV(unassignedRequests, allAvailableVehicles, this.maxVehicleCapacityRTV, timeoutVehicleRTV, this.maxEdgesRV);
 
+        printListOfCandidateVehiclesEachRequest();
+
         if (this.requests.isEmpty())
             return result;
 
@@ -39,8 +42,6 @@ public class MatchingOptimalServiceLevelAndHire extends MatchingOptimalServiceLe
             initVarsHiring();
             addConstraintsHiring();
             setupObjectiveHiredHierarchicalPenaltyThenTotalWaiting();
-
-            saveModel(currentTime);
             this.model.optimize();
 
             if (isModelOptimal() || isTimeLimitReached()) {
@@ -58,6 +59,9 @@ public class MatchingOptimalServiceLevelAndHire extends MatchingOptimalServiceLe
             System.out.println("TIME IS OVER - No solution found, keep previous assignment. Gurobi error code: " + e.getErrorCode() + ". " + e.getMessage());
             keepPreviousAssignment();
         } finally {
+            if (Config.saveRoundInfo())
+                saveModel(currentTime);
+
             closeGurobiModelAndEnvironment();
         }
 
@@ -83,10 +87,15 @@ public class MatchingOptimalServiceLevelAndHire extends MatchingOptimalServiceLe
 
         Map<String, GRBLinExpr> penObjectives = new LinkedHashMap<>();
 
+
+        objHierarchicalRejection(penObjectives);
+
         if (!hiredCurrentPeriod.isEmpty())
             objNumberHired(penObjectives);
 
-        objHierarchicalServiceLevel(penObjectives);
+        objHierarchicalServiceLevelViolation(penObjectives);
+
+        // objHierarchicalServiceLevel(penObjectives);
 
         objTotalWaitingTime(penObjectives);
 
