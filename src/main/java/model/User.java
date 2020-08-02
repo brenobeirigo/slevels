@@ -149,6 +149,20 @@ public class User implements Comparable<User> {
         return requests.stream().filter(user -> user.getCurrentVisit() == null).collect(Collectors.toList());
     }
 
+    public static List<Node> getUserPickupNodes(Collection<User> users) {
+        List<Node> targets = new ArrayList<>();
+        if (users != null && !users.isEmpty()) {
+            List<Node> rejected = users.stream().map(User::getNodePk).collect(Collectors.toList());
+            targets.addAll(rejected);
+            //Comparator<Node> comparator = Comparator.comparing(Node::getArrivalSoFar).reversed();
+            //pickupUnmet.sort(comparator);
+            //System.out.println(" Pickup unmet = " + pickupUnmet  + " (" + Sets.intersection(new HashSet<>(targets), new HashSet<>(pickupUnmet)) + ")");
+
+
+        }
+        return targets;
+    }
+
     public static Set<User> filterDisplaced(List<User> requests) {
         return requests.stream().filter(user -> user.getNodePk().getArrivalSoFar() != Integer.MAX_VALUE && user.getCurrentVisit() == null).collect(Collectors.toSet());
     }
