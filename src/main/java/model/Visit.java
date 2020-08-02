@@ -1,5 +1,6 @@
 package model;
 
+import com.google.common.collect.Sets;
 import dao.Dao;
 import model.node.*;
 import simulation.rebalancing.Rebalance;
@@ -148,7 +149,7 @@ public class Visit implements Comparable<Visit> {
                 return -1;
             }
 
-            if(cumulativeLegPK[Vehicle.ARRIVAL] > latestArrival){
+            if (cumulativeLegPK[Vehicle.ARRIVAL] > latestArrival) {
                 return -1;
             }
         }
@@ -696,10 +697,14 @@ public class Visit implements Comparable<Visit> {
     public String getVarId() {
         return String.format(
                 "%s_P=[%s]-R[%s]_[%s](%d)",
-                this.getVehicle().toString().trim(),
-                this.getPassengers().stream().map(user -> user.toString().trim()).collect(Collectors.joining("_")),
-                this.getRequests().stream().map(user -> user.toString().trim()).collect(Collectors.joining("_")),
+                this.getVehicle().getVarId(),
+                this.getPassengers().stream().map(User::getVarId).collect(Collectors.joining("_")),
+                this.getRequests().stream().map(User::getVarId).collect(Collectors.joining("_")),
                 this.isSetup() ? "S" : "D",
                 this.getDelay());
+    }
+
+    public Set<User> getUsers() {
+        return Sets.union(passengers, requests);
     }
 }
