@@ -4,9 +4,7 @@ import gurobi.GRB;
 import gurobi.GRBException;
 import gurobi.GRBLinExpr;
 import gurobi.GRBVar;
-import model.User;
-import model.Vehicle;
-import model.Visit;
+import model.*;
 
 import java.util.*;
 
@@ -31,7 +29,7 @@ public class MatchingOptimalServiceLevelAndHire extends MatchingOptimalServiceLe
         List<Vehicle> allAvailableVehicles = new ArrayList<>(currentVehicleList);
         allAvailableVehicles.addAll(hired);
 
-        buildGraphRTV(unassignedRequests, allAvailableVehicles, this.maxVehicleCapacityRTV, timeoutVehicleRTV);
+        buildGraphRTV(unassignedRequests, allAvailableVehicles, this.maxVehicleCapacityRTV, timeoutVehicleRTV, this.maxEdgesRV);
 
         if (this.requests.isEmpty())
             return result;
@@ -68,9 +66,10 @@ public class MatchingOptimalServiceLevelAndHire extends MatchingOptimalServiceLe
         return result;
     }
 
-
     protected void addConstraintsHiring() throws GRBException {
-        super.addConstraintsServiceLevels();
+        addConstraintsStandardAssignment();
+        activateVarRequestMetSL();
+        guaranteeClassMinimumSL();
         addConstrsVehicleIsHired();
     }
 
@@ -136,16 +135,19 @@ public class MatchingOptimalServiceLevelAndHire extends MatchingOptimalServiceLe
 
         for (Visit visit : visits) {
 
-            // Exclude visits from previously hired vehicles
-            if (hiredCurrentPeriod.contains(visit.getVehicle()) && visit.getVehicle().isHired()) {
+            if (isVisitFromHiringCandidate(visit)) {
                 hiredVehicleVisits.get(visit.getVehicle()).addTerm(1, varVisitSelected(visit));
             }
         }
 
         for (Vehicle vehicle : hiredCurrentPeriod) {
             hiredVehicleVisits.get(vehicle).addTerm(-1, varVehicleIsHired(vehicle));
-            model.addConstr(hiredVehicleVisits.get(vehicle), GRB.EQUAL, 0, "hiring_" + vehicle.toString().trim());
+            model.addConstr(hiredVehicleVisits.get(vehicle), GRB.EQUAL, 0, "hiring_" + getVarVehicle(vehicle));
         }
+    }
+
+    private boolean isVisitFromHiringCandidate(Visit visit) {
+        return hiredCurrentPeriod.contains(visit.getVehicle()) && visit.getVehicle().isHired() && !(visit instanceof VisitStop) && !(visit instanceof VisitRelocation);
     }
 
 
@@ -159,9 +161,10 @@ public class MatchingOptimalServiceLevelAndHire extends MatchingOptimalServiceLe
     }
 
     protected void addIsHiredVehicleVar(Vehicle vehicle) throws GRBException {
-        String label = String.format("x_hired_%s", vehicle.toString().trim());
+        String label = String.format("x_hired_%s", getVarVehicle(vehicle));
         varVehicleIsHired[hiredIndex.get(vehicle)] = model.addVar(0, 1, 1, GRB.BINARY, label);
     }
+
     private boolean isVehicleHired(Vehicle vehicle) throws GRBException {
         return getValue(varVehicleIsHired(vehicle)) > 0.99;
     }
@@ -171,9 +174,11 @@ public class MatchingOptimalServiceLevelAndHire extends MatchingOptimalServiceLe
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
     protected void extractResultServiceLevel() throws GRBException {
-
         super.extractResultServiceLevel();
+        extractCurrentHiredVehicles();
+    }
 
+    private void extractCurrentHiredVehicles() throws GRBException {
         for (Vehicle vehicle : hiredCurrentPeriod) {
             if (isVehicleHired(vehicle)) {
                 result.addHiredVehicle(vehicle);
@@ -185,5 +190,79 @@ public class MatchingOptimalServiceLevelAndHire extends MatchingOptimalServiceLe
     @Override
     public String toString() {
         return "_OPT-ERTV_HIRE";
+    }
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    /// PRINTS /////////////////////////////////////////////////////////////////////////////////////////////////////////
+    ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+    public void printAllVehiclesVisits() {
+        Map<Vehicle, String> visitsVehicle = new HashMap<>();
+        System.out.printf("## Vehicle count = %d", graphRTV.getListVehicles().size());
+        for (Vehicle vehicle : graphRTV.getListVehicles()) {
+            visitsVehicle.put(vehicle, "");
+        }
+        for (Visit visit : visits) {
+            StringBuilder reqs = new StringBuilder();
+            reqs.append(getVarVisit(visit));
+            reqs.append("=[");
+            for (User request : visit.getRequests()) {
+                reqs.append(String.format("%s(%3d)  ", request, (int) getDelayOfRequestInVisit(request, visit)));
+            }
+            reqs.append("]");
+            visitsVehicle.computeIfPresent(visit.getVehicle(), (vehicle, s) -> s + " >> " + reqs);
+        }
+
+        visitsVehicle.forEach((vehicle, s) ->
+        {
+            if (hiredCurrentPeriod.contains(vehicle)) {
+                System.out.printf("\n# === %s --- %s", vehicle, s);
+            } else {
+                System.out.printf("\n# %s --- %s", vehicle, s);
+            }
+        });
+    }
+
+
+    private void printListOfCandidateVehiclesEachRequest() {
+        Map<User, Set<Vehicle>> usersVehicle = new HashMap<>();
+
+        System.out.printf("#Visits: %d\n", visits.size());
+        for (Visit visit : visits) {
+            Set<User> users = visit.getUsers();
+            for (User user : users) {
+                usersVehicle.putIfAbsent(user, new HashSet<>());
+                usersVehicle.get(user).add(visit.getVehicle());
+            }
+        }
+
+        usersVehicle.forEach((user, vehicles1) -> {
+            List<Vehicle> vehicles = new ArrayList<>(vehicles1);
+            vehicles.sort(Comparator.comparing(Vehicle::toString));
+            System.out.printf("%s (vehicles = %4d)=%s\n", user, vehicles1.size(), vehicles);
+        });
+    }
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    /// ASSERTIONS /////////////////////////////////////////////////////////////////////////////////////////////////////
+    ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+    private boolean allRoundRequestsCanBePickedUp() {
+
+        for (Vehicle vehicle : hiredCurrentPeriod) {
+            //System.out.println(vehicle + " - " + graphRTV.getListOfVisitsFromVehicle(vehicle));
+            boolean atLeastOneVisitHasFAVUnser = false;
+            for (Visit visit : graphRTV.getListOfVisitsFromVehicle(vehicle)) {
+                if (visit.getRequests().contains(vehicle.getUser())) {
+                    atLeastOneVisitHasFAVUnser = true;
+                    break;
+                }
+            }
+            if (!atLeastOneVisitHasFAVUnser){
+                System.out.println(vehicle + " - " + vehicle.getUser() +" - Visits:" + graphRTV.getListOfVisitsFromVehicle(vehicle));
+                return false;
+            }
+        }
+        return true;
     }
 }
