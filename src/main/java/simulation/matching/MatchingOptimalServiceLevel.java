@@ -15,7 +15,7 @@ public class MatchingOptimalServiceLevel extends MatchingOptimal {
 
     private final int badServicePenalty;
     private GRBVar[] varFirstTierMet;
-    private GRBVar[] varClassServiceLevelViolation;
+    protected GRBVar[] varClassServiceLevelViolation;
     private int[] nOfRequestsPerClass;
 
 
@@ -32,7 +32,7 @@ public class MatchingOptimalServiceLevel extends MatchingOptimal {
         List<Vehicle> allAvailableVehicles = new ArrayList<>(currentVehicleList);
         allAvailableVehicles.addAll(hired);
 
-        buildGraphRTV(unassignedRequests, allAvailableVehicles, this.maxVehicleCapacityRTV, timeoutVehicleRTV);
+        buildGraphRTV(unassignedRequests, allAvailableVehicles, this.maxVehicleCapacityRTV, timeoutVehicleRTV, maxEdgesRV);
 
         if (this.requests.isEmpty())
             return result;
@@ -72,7 +72,7 @@ public class MatchingOptimalServiceLevel extends MatchingOptimal {
     protected void addConstraintsServiceLevels() throws GRBException {
         addConstraintsStandardAssignment();
         activateVarRequestMetSL();
-        guaranteeClassMinimumSL();
+        guaranteeClassMinimumSLRelaxed();
     }
 
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -130,7 +130,7 @@ public class MatchingOptimalServiceLevel extends MatchingOptimal {
         }
     }
 
-    private double getDelayOfRequestInVisit(User request, Visit visit) {
+    protected double getDelayOfRequestInVisit(User request, Visit visit) {
         return graphRTV.getWeightFromRequestVisitEdge(request, visit);
     }
 
@@ -194,7 +194,38 @@ public class MatchingOptimalServiceLevel extends MatchingOptimal {
     // CONSTRAINTS /////////////////////////////////////////////////////////////////////////////////////////////////////
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-    private void guaranteeClassMinimumSL() {
+    protected void guaranteeClassMinimumSL() {
+
+        GRBLinExpr[] constrGaranteeClassServiceLevel = new GRBLinExpr[Config.getInstance().getQosCount()];
+
+        for (int i = 0; i < Config.getInstance().getQosCount(); i++) {
+            constrGaranteeClassServiceLevel[i] = new GRBLinExpr();
+        }
+
+        // Sum of all user that got first tier service levels of each class
+        for (User request : requests) {
+
+            // GOOD SERVICE = desired service level
+            GRBVar slAchieved = varRequestServiceLevelAchieved(request);
+            if (slAchieved != null) {
+                constrGaranteeClassServiceLevel[request.getQoSCode()].addTerm(1, slAchieved);
+            }
+        }
+
+        Config.getInstance().qosDic.forEach((s, qos) -> {
+            // Number of picked up users has to be higher than service rate promised
+            try {
+                int minRequestsSL = (int) Math.ceil(qos.serviceRate * nOfRequestsPerClass[qos.code]);
+                String label = String.format("class_%s_sr_%.2f_total_%d_min_%d", qos.id, qos.serviceRate, nOfRequestsPerClass[qos.code], minRequestsSL);
+
+                model.addConstr(constrGaranteeClassServiceLevel[qos.code], GRB.GREATER_EQUAL, minRequestsSL, label);
+            } catch (GRBException e) {
+                e.printStackTrace();
+            }
+        });
+    }
+
+    private void guaranteeClassMinimumSLRelaxed() {
 
         GRBLinExpr[] constrGaranteeClassServiceLevel = new GRBLinExpr[Config.getInstance().getQosCount()];
 
@@ -236,7 +267,7 @@ public class MatchingOptimalServiceLevel extends MatchingOptimal {
         return request.isDelayFirstTier(pickupDelay);
     }
 
-    private void activateVarRequestMetSL() throws GRBException {
+    protected void activateVarRequestMetSL() throws GRBException {
 
         for (User request : requests) {
             GRBLinExpr constrRequestServiceLevel = new GRBLinExpr();
@@ -250,7 +281,7 @@ public class MatchingOptimalServiceLevel extends MatchingOptimal {
             }
 
             constrRequestServiceLevel.addTerm(-1, varRequestServiceLevelAchieved(request));
-            String label = String.format("first_tier_visits_request_%s", request.toString().trim());
+            String label = String.format("first_tier_visits_request_%s", getVarUser(request));
             model.addConstr(constrRequestServiceLevel, GRB.EQUAL, 0, label);
 
         }
@@ -261,12 +292,12 @@ public class MatchingOptimalServiceLevel extends MatchingOptimal {
     // VARIABLES ///////////////////////////////////////////////////////////////////////////////////////////////////////
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-    private GRBVar varRequestServiceLevelAchieved(User request) {
+    protected GRBVar varRequestServiceLevelAchieved(User request) {
         return varFirstTierMet[requestIndex.get(request)];
     }
 
     private void addIsTargetServiceLevelMetVar(User request) throws GRBException {
-        String label = "x_sl_" + request.toString().trim();
+        String label = "x_sl_" + getVarUser(request);
         varFirstTierMet[requestIndex.get(request)] = model.addVar(0, 1, 1, GRB.BINARY, label);
     }
 
