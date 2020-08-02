@@ -1,10 +1,9 @@
 package simulation.matching;
 
 import gurobi.*;
-import model.User;
-import model.Vehicle;
-import model.Visit;
+import model.*;
 import model.graph.GraphRTV;
+import model.node.Node;
 import org.jgrapht.graph.DefaultWeightedEdge;
 import simulation.Method;
 import simulation.rebalancing.Rebalance;
@@ -37,6 +36,9 @@ public class MatchingOptimal implements RideMatchingStrategy {
     GraphRTV graphRTV;
     ResultAssignment result;
 
+    // There might have relocation trips to the same node, this variable helps creating unique labels
+    private static int varVisitId = 0;
+
     public MatchingOptimal(int maxVehicleCapacityRTV, double mipTimeLimit, double timeoutVehicleRTV, double mipGap, int maxEdgesRV, int rejectionPenalty) {
         this.maxVehicleCapacityRTV = maxVehicleCapacityRTV;
         this.mipTimeLimit = mipTimeLimit;
@@ -46,10 +48,38 @@ public class MatchingOptimal implements RideMatchingStrategy {
         this.rejectionPenalty = rejectionPenalty;
     }
 
+    public String getVarUser(User user) {
+        return user.toString().trim();
+    }
+
+    public String getVarNode(Node node) {
+        return node.toString().trim();
+    }
+
+    public String getVarVehicle(Vehicle vehicle) {
+        return vehicle.toString().trim().replace(" ", "_");
+    }
+
+    public String getVarVisit(Visit visit) {
+        if (visit instanceof VisitStop) {
+            return visit.getVehicle().toString().trim() + "_stay_" + visit.getVehicle().getLastVisitedNode().toString().replace(" ", "");
+        } else if (visit instanceof VisitRelocation) {
+            return String.format("rebalance_%s_%d", getVarNode(visit.getTargetNode()), varVisitId++);
+        } else {
+            return String.format(
+                    "%s_P=[%s]-R[%s]_[%s](%d)",
+                    getVarVehicle(visit.getVehicle()),
+                    visit.getPassengers().stream().map(this::getVarUser).collect(Collectors.joining("_")),
+                    visit.getRequests().stream().map(this::getVarUser).collect(Collectors.joining("_")),
+                    visit.isSetup() ? "S" : "D",
+                    visit.getDelay());
+        }
+    }
+
     @Override
     public ResultAssignment match(int currentTime, List<User> unassignedRequests, List<Vehicle> listVehicles, Set<Vehicle> hired, Matching configMatching) {
         result = new ResultAssignment(currentTime);
-        buildGraphRTV(unassignedRequests, listVehicles, this.maxVehicleCapacityRTV, timeoutVehicleRTV);
+        buildGraphRTV(unassignedRequests, listVehicles, this.maxVehicleCapacityRTV, timeoutVehicleRTV, maxEdgesRV);
 
 
         if (this.requests.isEmpty())
@@ -145,10 +175,10 @@ public class MatchingOptimal implements RideMatchingStrategy {
 
     }
 
-    protected void buildGraphRTV(List<User> unassignedRequests, List<Vehicle> listVehicles, int maxVehicleCapacity, double timeoutVehicle) {
+    protected void buildGraphRTV(List<User> unassignedRequests, List<Vehicle> listVehicles, int maxVehicleCapacity, double timeoutVehicle, int maxVehReqEdges) {
 
         // BUILDING GRAPH STRUCTURE ////////////////////////////////////////////////////////////////////////////////////
-        this.graphRTV = new GraphRTV(unassignedRequests, listVehicles, maxVehicleCapacity, timeoutVehicle);
+        this.graphRTV = new GraphRTV(unassignedRequests, listVehicles, maxVehicleCapacity, timeoutVehicle, maxVehReqEdges);
         // To assure every vehicle is assigned to a visit, create dummy stop visits.
         this.graphRTV.addStopVisits();
 
@@ -264,12 +294,12 @@ public class MatchingOptimal implements RideMatchingStrategy {
     }
 
     protected void addIsRejectedVar(User request) throws GRBException {
-        String label = String.format("x_rejected_%s", request.toString().trim());
+        String label = String.format("x_rejected_%s", request.toString().replace(" ", "_").trim());
         varRequestRejected[requestIndex.get(request)] = model.addVar(0, 1, rejectionPenalty, GRB.BINARY, label);
     }
 
     protected void addIsVisitChosenVar(Visit visit) throws GRBException {
-        String label = String.format("x_visit_%s", visit.getVarId());
+        String label = String.format("x_visit_%s", getVarVisit(visit).replace(" ", "_").trim());
         varVisitSelected[visitIndex.get(visit)] = model.addVar(0, 1, visit.getDelay(), GRB.BINARY, label);
     }
 
@@ -330,7 +360,7 @@ public class MatchingOptimal implements RideMatchingStrategy {
             }
             // A target can be visited by at most one vehicle
 
-            String label = String.format("conservation_%s", vehicle.toString().trim());
+            String label = String.format("conservation_%s", vehicle.toString().replace(" ", "_").trim());
             model.addConstr(constrVehicleConservation, GRB.EQUAL, 1, label);
         }
     }
@@ -345,9 +375,11 @@ public class MatchingOptimal implements RideMatchingStrategy {
             for (Visit visit : requestVisits) {
                 constrRequestConservation.addTerm(1, varVisitSelected(visit));
             }
-            constrRequestConservation.addTerm(1, varRequestRejected(request));
 
-            String label = String.format("request_visit_conservation_%s", request.toString().trim());
+            if (!request.isPreviouslyAssigned()) {
+                constrRequestConservation.addTerm(1, varRequestRejected(request));
+            }
+            String label = String.format("request_visit_conservation_%s", request.toString().replace(" ", "_").trim());
             model.addConstr(constrRequestConservation, GRB.EQUAL, 1, label);
         }
     }
@@ -365,7 +397,7 @@ public class MatchingOptimal implements RideMatchingStrategy {
                 }
             }
 
-            String label = String.format("request_previously_assigned_is_serviced_%s", request.toString().trim());
+            String label = String.format("request_previously_assigned_is_serviced_%s", request.toString().replace(" ", "_").trim());
             model.addConstr(constrRequestPreviouslyAssignedHaveToBeServiced, GRB.EQUAL, 1, label);
         }
     }
