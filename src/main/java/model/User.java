@@ -219,9 +219,13 @@ public class User implements Comparable<User> {
     @Override
     public String toString() {
         return String.format("%5s(%d%s)",
-                String.valueOf(id),
+                this.id,
                 getNumPassengers(),
                 this.performanceClass);
+    }
+
+    public String getVarId() {
+        return this.toString().trim();
     }
 
     public String getInfo() {
