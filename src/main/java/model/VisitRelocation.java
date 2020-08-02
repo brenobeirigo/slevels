@@ -3,8 +3,6 @@ package model;
 import dao.Dao;
 import model.node.Node;
 
-import java.util.stream.Collectors;
-
 public class VisitRelocation extends Visit {
 
     protected Node targetNode;
@@ -22,16 +20,11 @@ public class VisitRelocation extends Visit {
         target.setArrival(this.targetArrival);
     }
 
-
     public int getArrivalTimeAtNext() {
         return this.targetArrival;
     }
 
     public Node getTargetNode() {
         return this.targetNode;
-    }
-
-    public String getVarId(){
-        return "rebalance_" + this.getTargetNode().toString().replace(" ", "");
     }
 }
