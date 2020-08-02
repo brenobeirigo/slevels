@@ -1,5 +1,6 @@
 package simulation;
 
+import com.google.common.collect.Sets;
 import config.Config;
 import dao.Dao;
 import helper.HelperIO;
@@ -67,7 +68,8 @@ public abstract class Simulation {
     protected Set<Vehicle> setDeactivated; // Vehicles to be deactivated in round
     protected Set<Vehicle> setHired; // Current set of hired vehicles
     protected List<User> roundRejectedUsers;
-    protected List<User> roundPrivateRides;
+    protected Set<User> roundUnmetServiceLevel;
+    protected List<Vehicle> roundHiredVehicles;
     protected Map<String, Long> runTimes;
 
     public Simulation(int initialFleetSize,
@@ -111,7 +113,8 @@ public abstract class Simulation {
         /* SETS OF VEHICLES AND REQUESTS */
         allRequests = new HashMap<>(); // Dictionary of all users
         unassignedRequests = new HashSet<>(); // Requests whose pickup time is lower than the current time
-        roundPrivateRides = new ArrayList<>();
+        roundHiredVehicles = new ArrayList<>();
+        roundUnmetServiceLevel = new HashSet<>();
         deniedRequests = new HashSet<>(); // Requests with expired pickup time
         finishedRequests = new HashSet<>(); // Requests whose DP node was visited
         maxRoundsIdle = 40;
@@ -305,7 +308,8 @@ public abstract class Simulation {
         // Updating vehicle lists
         listVehicles.removeAll(setDeactivated);
         setHired.removeAll(setDeactivated);
-
+        System.out.printf("!!! Removing %d hired vehicles:\n", setDeactivated.size());
+        setDeactivated.forEach(vehicle -> System.out.println("Visit: "+ vehicle.getVisit()));
         return candidateVehiclesToRebalance;
     }
 
@@ -418,15 +422,13 @@ public abstract class Simulation {
         updateSetWaitingUsers();
 
         ///// 2 - REMOVE USERS THAT CANNOT BE PICKED UP  ///////////////////////////////////////////////////////////////
-        roundRejectedUsers = unassignedRequests.stream()
-                .filter(u -> !u.canBePickedUp(rightTW))
-                .collect(Collectors.toList());
-
+        roundHiredVehicles.clear();
+        roundUnmetServiceLevel.clear();
+        roundRejectedUsers = getExpiredRequestsFromUnassigned();
         // Update request status
         roundRejectedUsers.forEach(user -> user.computeRejection(rightTW));
         deniedRequests.addAll(roundRejectedUsers);
         unassignedRequests.removeAll(roundRejectedUsers);
-        roundPrivateRides.clear();
 
         printCurrentStatus("Before assignment");
         ///// 3 - ASSIGN WAITING USERS (previous + current round)  TO VEHICLES /////////////////////////////////////////
@@ -439,11 +441,12 @@ public abstract class Simulation {
             listVehicles.add(vehicle);
             listHiredVehicles.add(vehicle);
             setHired.add(vehicle);
+            roundHiredVehicles.add(vehicle);
         }
 
         ///// 5 - UPDATE WAITING LIST //////////////////////////////////////////////////////////////////////////////////
         unassignedRequests = resultAssignment.getRequestsUnassigned();
-
+        roundUnmetServiceLevel = resultAssignment.requestsServicedLevelNotAchieved;
         printCurrentStatus("After unassignment update");
 
         System.out.println("N. of second tier:" + resultAssignment.requestsServicedLevelNotAchieved.size());
@@ -455,6 +458,12 @@ public abstract class Simulation {
         assert eachUserIsAssignedToSingleVehicle() : "Users are assigned to two vehicles!";
         // assert before.equals(after) : String.format("Before %d X %d After", before.size(), after.size());
         // assert resultAssignment.assignedAndUnassigedAreDisjoint() : "User is assigned to two different vehicles.";
+    }
+
+    private List<User> getExpiredRequestsFromUnassigned() {
+        return unassignedRequests.stream()
+                .filter(u -> !u.canBePickedUp(rightTW))
+                .collect(Collectors.toList());
     }
 
     private boolean rejectedUnassignedFinishedSetsAreConsistent() {
@@ -477,7 +486,7 @@ public abstract class Simulation {
         System.out.println(getCollectionInfo("All requests", allRequests.values()));
     }
 
-    public String getCollectionInfo(String label, Collection collection){
+    public String getCollectionInfo(String label, Collection collection) {
         List col = new ArrayList(collection);
         Collections.sort(col);
         return String.format("# %15s (%d): %s", label, collection.size(), collection);
@@ -485,13 +494,19 @@ public abstract class Simulation {
 
     public void rebalance(Set<Vehicle> idleVehicles) {
 
-        List<Node> targets = null;
+        System.out.println("  Rebal. Idle = " + idleVehicles);
+        List<Node> targets = new ArrayList<>();
         if (rebalanceUtil.strategy instanceof RebalanceOptimal) {
-            if (roundRejectedUsers != null && !roundRejectedUsers.isEmpty()) {
-                targets = roundRejectedUsers.stream().map(User::getNodePk).collect(Collectors.toList());
-            } else if (roundPrivateRides != null && !roundPrivateRides.isEmpty()) {
-                targets = roundPrivateRides.stream().map(User::getNodePk).collect(Collectors.toList());
-            }
+            List<Node> nodesFromRejectedUsers = User.getUserPickupNodes(roundRejectedUsers);
+            List<Node> nodesFromUnmetServiceLevelUsers = User.getUserPickupNodes(roundUnmetServiceLevel);
+            List<Node> nodesFromVehicleOrigins = Vehicle.getVehicleOrigins(roundHiredVehicles);
+            targets.addAll(nodesFromRejectedUsers);
+            targets.addAll(nodesFromUnmetServiceLevelUsers);
+            targets.addAll(nodesFromVehicleOrigins);
+            System.out.println("     Rejected = " + nodesFromRejectedUsers + " (" + Sets.intersection(new HashSet<>(targets), new HashSet<>(nodesFromRejectedUsers)) + ")");
+            System.out.println("Hired origins = " + nodesFromVehicleOrigins + " (" + Sets.intersection(new HashSet<>(targets), new HashSet<>(nodesFromVehicleOrigins)) + ")");
+            System.out.println(" Pickup unmet = " + nodesFromUnmetServiceLevelUsers  + " (" + Sets.intersection(new HashSet<>(targets), new HashSet<>(nodesFromUnmetServiceLevelUsers)) + ")");
+
         } else if (rebalanceUtil.strategy instanceof RebalanceHeuristic) {
             targets = Vehicle.setOfHotPoints;
         }
@@ -570,7 +585,6 @@ public abstract class Simulation {
     //****************************************************************************************************************//
     //***** ASSERTIONS ***********************************************************************************************//
     //****************************************************************************************************************//
-
     public boolean allVehicleVisitsAreValid() {
         for (Vehicle vehicle : listVehicles) {
             if (vehicle.getVisit() != null && !vehicle.getVisit().isValid()) {
