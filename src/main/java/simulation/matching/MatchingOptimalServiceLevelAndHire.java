@@ -253,13 +253,13 @@ public class MatchingOptimalServiceLevelAndHire extends MatchingOptimalServiceLe
             //System.out.println(vehicle + " - " + graphRTV.getListOfVisitsFromVehicle(vehicle));
             boolean atLeastOneVisitHasFAVUnser = false;
             for (Visit visit : graphRTV.getListOfVisitsFromVehicle(vehicle)) {
-                if (visit.getRequests().contains(vehicle.getUser())) {
+                if (visit.getRequests().contains(vehicle.getUserHiredMustPickup())) {
                     atLeastOneVisitHasFAVUnser = true;
                     break;
                 }
             }
             if (!atLeastOneVisitHasFAVUnser){
-                System.out.println(vehicle + " - " + vehicle.getUser() +" - Visits:" + graphRTV.getListOfVisitsFromVehicle(vehicle));
+                System.out.println(vehicle + " - " + vehicle.getUserHiredMustPickup() +" - Visits:" + graphRTV.getListOfVisitsFromVehicle(vehicle));
                 return false;
             }
         }

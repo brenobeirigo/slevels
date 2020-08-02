@@ -45,6 +45,7 @@ public class Vehicle implements Comparable<Vehicle> {
     private List<Node> journey; // List of nodes visited by vehicle
     private List<User> servicedUsers; // List of users picked up (can't change vehicle after pick up)
     private boolean stoppedRebalanceToPickup;
+    private User userHiredMustPickup;
 
 
     public Vehicle(int capacity, int id_network, int currentTime, boolean hired, int contractDeadline) {
@@ -179,6 +180,15 @@ public class Vehicle implements Comparable<Vehicle> {
             }
         }
         return allUsers;
+    }
+
+    public static List<Node> getVehicleOrigins(Collection<Vehicle> vehicles) {
+        List<Node> targets = new ArrayList<>();
+        if (vehicles != null && !vehicles.isEmpty()) {
+            List<Node> hiredOrigins = vehicles.stream().map(Vehicle::getOrigin).collect(Collectors.toList());
+            targets.addAll(hiredOrigins);
+        }
+        return targets;
     }
 
     public static List<Vehicle> getVehiclesServicing(List<Vehicle> vehicles) {
@@ -895,8 +905,9 @@ public class Vehicle implements Comparable<Vehicle> {
     @Override
     public String toString() {
         // Print H if vehicle is hired and V otherwise (plus vehicle Id)
-        return String.format("%6s", (this.isHired() ? String.format("H(t=%d)", this.contractDeadline) : "V") + (id - Node.MAX_NUMBER_NODES * 2));
+        return String.format("%12s", (this.isHired() ? String.format("H(t=%4d)", this.contractDeadline) : "V") + (id - Node.MAX_NUMBER_NODES * 2));
     }
+
 
     public String getJourneyInfo() {
 
@@ -1340,6 +1351,14 @@ public class Vehicle implements Comparable<Vehicle> {
             stop = getRebalanceVisitToClosestNodeInCurrentLeg();
         }
         return stop;
+    }
+
+    public void addUserHiredMustPickup(User user) {
+        this.userHiredMustPickup = user;
+    }
+
+    public User getUserHiredMustPickup() {
+        return userHiredMustPickup;
     }
 }
 

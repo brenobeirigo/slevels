@@ -152,11 +152,10 @@ public class GraphRV {
 
         if (edgesRV.size() > maxRVEdges) {
             Collections.sort(edgesRV);
-            edges.addAll(edgesRV.subList(0, maxRVEdges));
-
-        } else {
-            edges.addAll(edgesRV);
+            edgesRV = edgesRV.subList(0, maxRVEdges);
         }
+
+        edges.addAll(edgesRV);
 
         return edges;
     }
@@ -484,8 +483,26 @@ public class GraphRV {
         }
 
         @Override
-        public int compareTo(EdgeRV o) {
-            return this.delay.compareTo(o.delay);
+        public int compareTo(EdgeRV edge) {
+            if (this.isHiringEdge()) return -1;
+            else if(edge.isHiringEdge()) return 1;
+            else return this.delay.compareTo(edge.delay);
+        }
+
+        public boolean isHiringEdge(){
+            if (this.from instanceof Vehicle){
+                return ((Vehicle) this.from).isHired() && ((Vehicle) this.from).getUserHiredMustPickup() == this.target;
+            }
+            return false;
+        }
+
+        @Override
+        public String toString() {
+            return "EdgeRV{" +
+                    "delay=" + delay +
+                    ", from=" + from +
+                    ", target=" + target +
+                    '}';
         }
     }
 
