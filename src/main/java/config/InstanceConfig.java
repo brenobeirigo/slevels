@@ -357,7 +357,8 @@ public class InstanceConfig {
         // SERVICE LEVEL PENALTIES
         int rejectionPenalty = gson.fromJson(element.get("rejection_penalty"), int.class);
         int badServicePenalty = gson.fromJson(element.get("bad_service_penalty"), int.class);
-        return new MatchingOptimalServiceLevelAndHire(maxVehicleCapacityRTV, badServicePenalty, timeLimit, timeoutVehicleRTV, mipGap, maxEdgesRV, rejectionPenalty);
+        boolean allowHiring = gson.fromJson(element.get("allow_hiring"), boolean.class);
+        return new MatchingOptimalServiceLevelAndHire(maxVehicleCapacityRTV, badServicePenalty, timeLimit, timeoutVehicleRTV, mipGap, maxEdgesRV, rejectionPenalty, allowHiring);
     }
 
     public boolean[] getSortWaitingUsersByClassArray() {
