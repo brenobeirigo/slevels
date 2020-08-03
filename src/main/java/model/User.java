@@ -439,6 +439,10 @@ public class User implements Comparable<User> {
         return currentVisit;
     }
 
+    public Vehicle getCurrentVehicle() {
+        return currentVisit.vehicle;
+    }
+
     public void setCurrentVisit(Visit currentVisit) {
         this.currentVisit = currentVisit;
     }
