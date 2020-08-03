@@ -100,7 +100,7 @@ public class MatchingOptimal implements RideMatchingStrategy {
                 }
 
                 /*if (config.showInfo) {
-                    System.out.println("The optimal objective is " + model.get(GRB.DoubleAttr.ObjVal));
+                    System.out.println("The optimal objective is " + modbefel.get(GRB.DoubleAttr.ObjVal));
                     System.out.println("Optimal simulation.rebalancing:");
                 }*/
 
@@ -113,11 +113,7 @@ public class MatchingOptimal implements RideMatchingStrategy {
             System.out.println("TIME IS OVER - No solution found, keep previous assignment. Gurobi error code: " + e.getErrorCode() + ". " + e.getMessage());
             keepPreviousAssignment();
         } finally {
-            if (Config.saveRoundInfo())
-                saveModel(currentTime);
-
-            closeGurobiModelAndEnvironment();
-
+            disposeModelEnvironmentAndSave();
         }
 
 
@@ -157,7 +153,11 @@ public class MatchingOptimal implements RideMatchingStrategy {
         return this.model.get(GRB.IntAttr.Status) == GRB.Status.OPTIMAL;
     }
 
-    protected void closeGurobiModelAndEnvironment() {
+    protected void disposeModelEnvironmentAndSave() {
+
+        if (Config.saveRoundMIPInfo())
+            saveModel(currentTime);
+
         // Dispose of model and environment
         model.dispose();
         try {
@@ -270,22 +270,18 @@ public class MatchingOptimal implements RideMatchingStrategy {
     protected void setupDelayObjective() throws GRBException {
 
         // Set primary objective
-        //GRBLinExpr obj = new GRBLinExpr();
+        GRBLinExpr obj = new GRBLinExpr();
 
-        /*for (Visit visit : visits) {
+        for (Visit visit : visits) {
             obj.addTerm(visit.getDelay(), varVisitSelected(visit));
-        }*/
+        }
 
-        /*for (User request : requests)
+        for (User request : requests) {
             obj.addTerm(rejectionPenalty, varRequestRejected(request));
+        }
 
-        model.setObjectiveN(obj, 0, 0, 1.0, 0.0, 0.0, "OBJ_DELAY");
+        model.setObjective(obj, GRB.MINIMIZE);
 
-        model.set(GRB.IntAttr.ModelSense, GRB.MINIMIZE);
-
-        model.setObjective(obj, GRB.MINIMIZE);*/
-
-        model.set(GRB.IntAttr.ModelSense, GRB.MINIMIZE);
     }
 
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
