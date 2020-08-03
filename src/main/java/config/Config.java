@@ -15,7 +15,9 @@ public class Config {
     public static final String SAVE_VEHICLE_ROUND_GEOJSON = "save_vehicle_round_geojson";
     public static final String SAVE_REQUEST_INFO_CSV = "save_request_info_csv";
     public static final String SAVE_ROUND_INFO_CSV = "save_round_info_csv";
+    public static final String SAVE_ROUND_MIP_INFO_LP = "save_round_mip_info_lp";
     // Print info in console
+    public static final String SHOW_ROUND_MIP_INFO = "show_round_mip_info";
     public static final String SHOW_ALL_VEHICLE_JOURNEYS = "show_all_vehicle_journeys";
     public static final String SHOW_ROUND_FLEET_STATUS = "show_round_fleet_status";
     public static final String SHOW_ROUND_INFO = "show_round_info";
@@ -64,9 +66,11 @@ public class Config {
             infoHandling.put(SAVE_VEHICLE_ROUND_GEOJSON, false);
             infoHandling.put(SAVE_REQUEST_INFO_CSV, true);
             infoHandling.put(SAVE_ROUND_INFO_CSV, true);
+            infoHandling.put(SAVE_ROUND_MIP_INFO_LP, false);
 
             // Print info in console
             infoHandling.put(SHOW_ALL_VEHICLE_JOURNEYS, false);
+            infoHandling.put(SHOW_ROUND_MIP_INFO, true);
             infoHandling.put(SHOW_ROUND_FLEET_STATUS, false);
             infoHandling.put(SHOW_ROUND_INFO, true);
 
@@ -93,6 +97,14 @@ public class Config {
 
     public static boolean showRoundInfo() {
         return Config.infoHandling.get(SHOW_ROUND_INFO);
+    }
+
+    public static boolean showRoundMIPInfo() {
+        return Config.infoHandling.get(SHOW_ROUND_MIP_INFO);
+    }
+
+    public static boolean saveRoundMIPInfo() {
+        return Config.infoHandling.get(SAVE_ROUND_MIP_INFO_LP);
     }
 
     public static boolean saveRoundInfo() {
