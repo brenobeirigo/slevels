@@ -10,6 +10,7 @@ import model.node.NodeMiddle;
 import simulation.Simulation;
 import simulation.Solution;
 import simulation.matching.Matching;
+import simulation.matching.MatchingOptimalServiceLevelAndHire;
 import simulation.matching.RideMatchingStrategy;
 import simulation.matching.SimulationFCFS;
 import simulation.rebalancing.Rebalance;
@@ -50,14 +51,16 @@ public class Main {
                                                     for (RebalanceStrategy rebalanceStrategy : instanceSettings.getRebalancingMethods()) {
 
                                                         rebalancingSettings.setStrategy(rebalanceStrategy);
-                                                        Matching matchingSettings = new Matching(
-                                                                customerBaseSettings,
-                                                                contractDuration,
-                                                                rebalancingSettings,
-                                                                isAllowedToHire,
-                                                                isAllowedToDisplaceRequests);
 
                                                         for (RideMatchingStrategy matchingMethod : instanceSettings.getMatchingMethods()) {
+
+                                                            Matching matchingSettings = new Matching(
+                                                                    customerBaseSettings,
+                                                                    contractDuration,
+                                                                    rebalancingSettings,
+                                                                    isAllowedToHire && matchingMethod instanceof MatchingOptimalServiceLevelAndHire,
+                                                                    isAllowedToDisplaceRequests);
+
 
                                                             matchingSettings.setStrategy(matchingMethod);
 
