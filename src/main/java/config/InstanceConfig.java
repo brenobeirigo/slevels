@@ -309,21 +309,23 @@ public class InstanceConfig {
 
     private MatchingOptimal readMatchingOptimalParams(Gson gson, JsonObject element) {
         int maxEdgesRV = gson.fromJson(element.get("max_edges_rv"), int.class);
+        int maxEdgesRR = gson.fromJson(element.get("max_edges_rr"), int.class);
         int maxVehicleCapacityRTV = gson.fromJson(element.get("rtv_max_vehicle_capacity"), int.class);
         double timeoutVehicle = gson.fromJson(element.get("rtv_vehicle_timeout"), double.class);
         double timeLimit = gson.fromJson(element.get("mip_time_limit"), double.class);
         double mipGap = gson.fromJson(element.get("mip_gap"), double.class);
         int rejectionPenalty = gson.fromJson(element.get("rejection_penalty"), int.class);
-        return new MatchingOptimal(maxVehicleCapacityRTV, timeLimit, timeoutVehicle, mipGap, maxEdgesRV, rejectionPenalty);
+        return new MatchingOptimal(maxVehicleCapacityRTV, timeLimit, timeoutVehicle, mipGap, maxEdgesRV, maxEdgesRR, rejectionPenalty);
     }
 
     private MatchingGreedy readMatchingGreedyParams(Gson gson, JsonObject element) {
         int maxEdgesRV = gson.fromJson(element.get("max_edges_rv"), int.class);
+        int maxEdgesRR = gson.fromJson(element.get("max_edges_rr"), int.class);
         int maxVehicleCapacityRTV = gson.fromJson(element.get("rtv_max_vehicle_capacity"), int.class);
         double timeoutVehicle = gson.fromJson(element.get("rtv_vehicle_timeout"), double.class);
         double timeLimit = gson.fromJson(element.get("mip_time_limit"), double.class);
         double mipGap = gson.fromJson(element.get("mip_gap"), double.class);
-        return new MatchingGreedy(maxVehicleCapacityRTV, timeLimit, timeoutVehicle, mipGap, maxEdgesRV);
+        return new MatchingGreedy(maxVehicleCapacityRTV, timeLimit, timeoutVehicle, mipGap, maxEdgesRV, maxEdgesRR);
     }
 
     private MatchingFCFS readMatchingFCFSParams(Gson gson, JsonObject element) {
@@ -338,19 +340,21 @@ public class InstanceConfig {
         int maxVehicleCapacityRTV = gson.fromJson(element.get("rtv_max_vehicle_capacity"), int.class);
         double timeoutVehicleRTV = gson.fromJson(element.get("rtv_vehicle_timeout"), double.class);
         int maxEdgesRV = gson.fromJson(element.get("max_edges_rv"), int.class);
+        int maxEdgesRR = gson.fromJson(element.get("max_edges_rr"), int.class);
         double timeLimit = gson.fromJson(element.get("mip_time_limit"), double.class);
         double mipGap = gson.fromJson(element.get("mip_gap"), double.class);
 
         // SERVICE LEVEL PENALTIES
         int rejectionPenalty = gson.fromJson(element.get("rejection_penalty"), int.class);
         int badServicePenalty = gson.fromJson(element.get("bad_service_penalty"), int.class);
-        return new MatchingOptimalServiceLevel(maxVehicleCapacityRTV, badServicePenalty, timeLimit, timeoutVehicleRTV, mipGap, maxEdgesRV, rejectionPenalty);
+        return new MatchingOptimalServiceLevel(maxVehicleCapacityRTV, badServicePenalty, timeLimit, timeoutVehicleRTV, mipGap, maxEdgesRV, maxEdgesRR, rejectionPenalty);
     }
 
     private MatchingOptimalServiceLevelAndHire readMatchingOptimalServiceLevelAndHireParams(Gson gson, JsonObject element) {
         int maxVehicleCapacityRTV = gson.fromJson(element.get("rtv_max_vehicle_capacity"), int.class);
         double timeoutVehicleRTV = gson.fromJson(element.get("rtv_vehicle_timeout"), double.class);
         int maxEdgesRV = gson.fromJson(element.get("max_edges_rv"), int.class);
+        int maxEdgesRR = gson.fromJson(element.get("max_edges_rr"), int.class);
         double timeLimit = gson.fromJson(element.get("mip_time_limit"), double.class);
         double mipGap = gson.fromJson(element.get("mip_gap"), double.class);
 
@@ -358,7 +362,7 @@ public class InstanceConfig {
         int rejectionPenalty = gson.fromJson(element.get("rejection_penalty"), int.class);
         int badServicePenalty = gson.fromJson(element.get("bad_service_penalty"), int.class);
         boolean allowHiring = gson.fromJson(element.get("allow_hiring"), boolean.class);
-        return new MatchingOptimalServiceLevelAndHire(maxVehicleCapacityRTV, badServicePenalty, timeLimit, timeoutVehicleRTV, mipGap, maxEdgesRV, rejectionPenalty, allowHiring);
+        return new MatchingOptimalServiceLevelAndHire(maxVehicleCapacityRTV, badServicePenalty, timeLimit, timeoutVehicleRTV, mipGap, maxEdgesRV, maxEdgesRR, rejectionPenalty, allowHiring);
     }
 
     public boolean[] getSortWaitingUsersByClassArray() {

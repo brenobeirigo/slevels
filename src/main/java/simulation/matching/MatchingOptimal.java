@@ -20,6 +20,7 @@ public class MatchingOptimal implements RideMatchingStrategy {
     protected double mipTimeLimit;
     protected double mipGap;
     protected int maxEdgesRV;
+    protected int maxEdgesRR;
     protected int rejectionPenalty;
     // Model
     protected GRBEnv env;
@@ -40,12 +41,13 @@ public class MatchingOptimal implements RideMatchingStrategy {
     // There might have relocation trips to the same node, this variable helps creating unique labels
     private static int varVisitId = 0;
 
-    public MatchingOptimal(int maxVehicleCapacityRTV, double mipTimeLimit, double timeoutVehicleRTV, double mipGap, int maxEdgesRV, int rejectionPenalty) {
+    public MatchingOptimal(int maxVehicleCapacityRTV, double mipTimeLimit, double timeoutVehicleRTV, double mipGap, int maxEdgesRV, int maxEdgesRR, int rejectionPenalty) {
         this.maxVehicleCapacityRTV = maxVehicleCapacityRTV;
         this.mipTimeLimit = mipTimeLimit;
         this.timeoutVehicleRTV = timeoutVehicleRTV;
         this.mipGap = mipGap;
         this.maxEdgesRV = maxEdgesRV;
+        this.maxEdgesRR = maxEdgesRR;
         this.rejectionPenalty = rejectionPenalty;
     }
 
@@ -80,7 +82,7 @@ public class MatchingOptimal implements RideMatchingStrategy {
     @Override
     public ResultAssignment match(int currentTime, List<User> unassignedRequests, List<Vehicle> listVehicles, Set<Vehicle> hired, Matching configMatching) {
         result = new ResultAssignment(currentTime);
-        buildGraphRTV(unassignedRequests, listVehicles, this.maxVehicleCapacityRTV, timeoutVehicleRTV, maxEdgesRV);
+        buildGraphRTV(unassignedRequests, listVehicles, this.maxVehicleCapacityRTV, timeoutVehicleRTV, maxEdgesRV, maxEdgesRR);
 
 
         if (this.requests.isEmpty())
@@ -182,10 +184,10 @@ public class MatchingOptimal implements RideMatchingStrategy {
 
     }
 
-    protected void buildGraphRTV(List<User> unassignedRequests, List<Vehicle> listVehicles, int maxVehicleCapacity, double timeoutVehicle, int maxVehReqEdges) {
+    protected void buildGraphRTV(List<User> unassignedRequests, List<Vehicle> listVehicles, int maxVehicleCapacity, double timeoutVehicle, int maxVehReqEdges, int maxReqReqEdges) {
 
         // BUILDING GRAPH STRUCTURE ////////////////////////////////////////////////////////////////////////////////////
-        this.graphRTV = new GraphRTV(unassignedRequests, listVehicles, maxVehicleCapacity, timeoutVehicle, maxVehReqEdges);
+        this.graphRTV = new GraphRTV(unassignedRequests, listVehicles, maxVehicleCapacity, timeoutVehicle, maxVehReqEdges, maxReqReqEdges);
         // To assure every vehicle is assigned to a visit, create dummy stop visits.
         this.graphRTV.addStopVisits();
 

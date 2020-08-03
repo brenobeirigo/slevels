@@ -25,7 +25,7 @@ public class GraphRTV {
     private Map<String, Long> runTimes;
     private long timeout;
 
-    public GraphRTV(List<User> allRequests, List<Vehicle> listVehicles, int maxVehicleCapacity, double timeout, int maxVehReqEdges) {
+    public GraphRTV(List<User> allRequests, List<Vehicle> listVehicles, int maxVehicleCapacity, double timeout, int maxVehReqEdges, int maxReqReqEdges) {
 
         runTimes = new HashMap<>();
         this.timeout = (long) (timeout * 1000000000);
@@ -39,7 +39,7 @@ public class GraphRTV {
 
         // REQUEST - VEHICLE (RV)
         this.runTimes.put(Solution.TIME_CREATE_RV, System.nanoTime());
-        this.graphRV = new GraphRV(allRequests, listVehicles, maxVehicleCapacity, maxVehReqEdges);
+        this.graphRV = new GraphRV(allRequests, listVehicles, maxVehicleCapacity, maxVehReqEdges, maxReqReqEdges);
         this.runTimes.put(Solution.TIME_CREATE_RV, System.nanoTime() - this.runTimes.get(Solution.TIME_CREATE_RV));
         //System.out.println(String.format("# RV created (%.2f sec) - %s", (this.runTimes.get(Solution.TIME_CREATE_RV)) / 1000000000.0, this.graphRV.statsRV()));
         System.out.println(String.format("# 1) RV created (%.2f sec) - RV stats: %s", (this.runTimes.get(Solution.TIME_CREATE_RV)) / 1000000000.0, this.graphRV));

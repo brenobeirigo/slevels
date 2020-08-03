@@ -16,8 +16,8 @@ public class MatchingOptimalServiceLevelAndHire extends MatchingOptimalServiceLe
     private Map<Vehicle, Integer> hiredIndex;
 
 
-    public MatchingOptimalServiceLevelAndHire(int maxVehicleCapacityRTV, int badServicePenalty, double mipTimeLimit, double timeoutVehicleRTV, double mipGap, int maxEdgesRV, int rejectionPenalty, boolean allowHiring) {
-        super(maxVehicleCapacityRTV, badServicePenalty, mipTimeLimit, timeoutVehicleRTV, mipGap, maxEdgesRV, rejectionPenalty);
+    public MatchingOptimalServiceLevelAndHire(int maxVehicleCapacityRTV, int badServicePenalty, double mipTimeLimit, double timeoutVehicleRTV, double mipGap, int maxEdgesRV, int maxEdgesRR, int rejectionPenalty, boolean allowHiring) {
+        super(maxVehicleCapacityRTV, badServicePenalty, mipTimeLimit, timeoutVehicleRTV, mipGap, maxEdgesRV, maxEdgesRR, rejectionPenalty);
     }
 
     @Override
@@ -29,7 +29,7 @@ public class MatchingOptimalServiceLevelAndHire extends MatchingOptimalServiceLe
         List<Vehicle> allAvailableVehicles = new ArrayList<>(currentVehicleList);
         allAvailableVehicles.addAll(hired);
 
-        buildGraphRTV(unassignedRequests, allAvailableVehicles, this.maxVehicleCapacityRTV, timeoutVehicleRTV, this.maxEdgesRV);
+        buildGraphRTV(unassignedRequests, allAvailableVehicles, this.maxVehicleCapacityRTV, timeoutVehicleRTV, this.maxEdgesRV, maxEdgesRR);
 
         // printListOfCandidateVehiclesEachRequest();
 

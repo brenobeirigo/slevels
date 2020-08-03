@@ -16,13 +16,15 @@ public class MatchingGreedy implements RideMatchingStrategy {
     protected double mipTimeLimit;
     protected double mipGap;
     protected int maxEdgesRV;
+    protected int maxEdgesRR;
 
-    public MatchingGreedy(int maxVehicleCapacityRTV, double timeLimit, double timeoutVehicle, double mipGap, int maxEdgesRV) {
+    public MatchingGreedy(int maxVehicleCapacityRTV, double timeLimit, double timeoutVehicle, double mipGap, int maxEdgesRV, int maxEdgesRR) {
         this.maxVehicleCapacityRTV = maxVehicleCapacityRTV;
         this.mipTimeLimit = timeLimit;
         this.timeoutVehicleRTV = timeoutVehicle;
         this.mipGap = mipGap;
         this.maxEdgesRV = maxEdgesRV;
+        this.maxEdgesRR = maxEdgesRR;
     }
 
 
@@ -297,7 +299,7 @@ public class MatchingGreedy implements RideMatchingStrategy {
 
         // BUILDING GRAPH STRUCTURE ////////////////////////////////////////////////////////////////////////////////////
 
-        GraphRTV graphRTV = new GraphRTV(unassignedRequests, vehicles, maxVehicleCapacityRTV, timeoutVehicleRTV, maxEdgesRV);
+        GraphRTV graphRTV = new GraphRTV(unassignedRequests, vehicles, maxVehicleCapacityRTV, timeoutVehicleRTV, maxEdgesRV, maxEdgesRR);
         // To assure every vehicle is assigned to a visit, create dummy stop visits.
         graphRTV.addStopVisits();
 

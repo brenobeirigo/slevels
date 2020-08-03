@@ -19,8 +19,8 @@ public class MatchingOptimalServiceLevel extends MatchingOptimal {
     private int[] nOfRequestsPerClass;
 
 
-    public MatchingOptimalServiceLevel(int maxVehicleCapacityRTV, int badServicePenalty, double mipTimeLimit, double timeoutVehicleRTV, double mipGap, int maxEdgesRV, int rejectionPenalty) {
-        super(maxVehicleCapacityRTV, mipTimeLimit, timeoutVehicleRTV, mipGap, maxEdgesRV, rejectionPenalty);
+    public MatchingOptimalServiceLevel(int maxVehicleCapacityRTV, int badServicePenalty, double mipTimeLimit, double timeoutVehicleRTV, double mipGap, int maxEdgesRV, int maxEdgesRR, int rejectionPenalty) {
+        super(maxVehicleCapacityRTV, mipTimeLimit, timeoutVehicleRTV, mipGap, maxEdgesRV, maxEdgesRR, rejectionPenalty);
         this.badServicePenalty = badServicePenalty;
     }
 
@@ -32,7 +32,7 @@ public class MatchingOptimalServiceLevel extends MatchingOptimal {
         List<Vehicle> allAvailableVehicles = new ArrayList<>(currentVehicleList);
         allAvailableVehicles.addAll(hired);
 
-        buildGraphRTV(unassignedRequests, allAvailableVehicles, this.maxVehicleCapacityRTV, timeoutVehicleRTV, maxEdgesRV);
+        buildGraphRTV(unassignedRequests, allAvailableVehicles, this.maxVehicleCapacityRTV, timeoutVehicleRTV, maxEdgesRV, maxEdgesRR);
 
         if (this.requests.isEmpty())
             return result;
