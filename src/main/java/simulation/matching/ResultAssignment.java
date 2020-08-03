@@ -109,6 +109,7 @@ public class ResultAssignment {
         System.out.println("######## Round current time: " + this.currentTime);
         System.out.printf("\n\n# Assigned vehicles  (%d)  = %s%n", vehiclesOK.size(), vehiclesOK);
         System.out.printf("# Unassigned users   (%d)  = %s%n", requestsUnassigned.size(), requestsUnassigned);
+        System.out.printf("# Unmet s. levels    (%d)  = %s%n", getUnmetServiceLevelRequests().size(), getUnmetServiceLevelRequests());
         System.out.printf("# Assigned users     (%d)  = %s%n", requestsOK.size(), requestsOK);
         System.out.printf("# Displaced users    (%d)  = %s%n", requestsDisplaced.size(), requestsDisplaced);
         System.out.printf("# Class service quality    = \n%s%n", overallServiceLevelDistribution());
@@ -117,6 +118,18 @@ public class ResultAssignment {
         for (Vehicle vehicle : vehiclesDisrupted) {
             System.out.println("#### Disrupted = " + vehicle.getVisit());
         }
+    }
+
+    public void printRoundResultSummary() {
+        System.out.println("######## Round current time: " + this.currentTime);
+        System.out.printf("# Assigned vehicles = %d%n", vehiclesOK.size());
+        System.out.printf("# Unassigned users  = %d%n", requestsUnassigned.size());
+        System.out.printf("# Unmet s. levels   = %d%n", getUnmetServiceLevelRequests().size());
+        System.out.printf("# Assigned users    = %d%n", requestsOK.size());
+        System.out.printf("# Displaced users   = %d%n", requestsDisplaced.size());
+        System.out.printf("# Class service quality: \n%s%n", overallServiceLevelDistribution());
+        System.out.printf("# Disrupted         = %d%n", vehiclesDisrupted.size());
+        System.out.printf("# Vehicles hired    = %s%n", getVehiclesHired().size());
     }
 
     private String overallServiceLevelDistribution() {
@@ -138,10 +151,10 @@ public class ResultAssignment {
 
     private String getConstraintCheck(Qos qos) {
         return String.format(
-                "[%s] = %3d (met) +  %.0f (violation) >= %3d (%.1f * %3d) - unmet=%3d, rejected=%3d",
+                "[%s] = %3d (met) %+.0f (violation) >= %3d (%.1f * %3d) - unmet=%3d, rejected=%3d",
                 qos.id,
                 metServiceLevelClass(qos),
-                violationCountClassServiceLevel.get(qos),
+                -violationCountClassServiceLevel.get(qos),
                 (int) Math.ceil(qos.serviceRate * nOfRequestsClass.get(qos)),
                 qos.serviceRate,
                 nOfRequestsClass.get(qos),
