@@ -1,6 +1,5 @@
 package simulation.matching;
 
-import config.Config;
 import gurobi.GRB;
 import gurobi.GRBException;
 import gurobi.GRBLinExpr;
@@ -17,7 +16,7 @@ public class MatchingOptimalServiceLevelAndHire extends MatchingOptimalServiceLe
     private Map<Vehicle, Integer> hiredIndex;
 
 
-    public MatchingOptimalServiceLevelAndHire(int maxVehicleCapacityRTV, int badServicePenalty, double mipTimeLimit, double timeoutVehicleRTV, double mipGap, int maxEdgesRV, int rejectionPenalty) {
+    public MatchingOptimalServiceLevelAndHire(int maxVehicleCapacityRTV, int badServicePenalty, double mipTimeLimit, double timeoutVehicleRTV, double mipGap, int maxEdgesRV, int rejectionPenalty, boolean allowHiring) {
         super(maxVehicleCapacityRTV, badServicePenalty, mipTimeLimit, timeoutVehicleRTV, mipGap, maxEdgesRV, rejectionPenalty);
     }
 
@@ -32,7 +31,7 @@ public class MatchingOptimalServiceLevelAndHire extends MatchingOptimalServiceLe
 
         buildGraphRTV(unassignedRequests, allAvailableVehicles, this.maxVehicleCapacityRTV, timeoutVehicleRTV, this.maxEdgesRV);
 
-        printListOfCandidateVehiclesEachRequest();
+        // printListOfCandidateVehiclesEachRequest();
 
         if (this.requests.isEmpty())
             return result;
@@ -59,13 +58,10 @@ public class MatchingOptimalServiceLevelAndHire extends MatchingOptimalServiceLe
             System.out.println("TIME IS OVER - No solution found, keep previous assignment. Gurobi error code: " + e.getErrorCode() + ". " + e.getMessage());
             keepPreviousAssignment();
         } finally {
-            if (Config.saveRoundInfo())
-                saveModel(currentTime);
-
-            closeGurobiModelAndEnvironment();
+            disposeModelEnvironmentAndSave();
         }
 
-        result.printRoundResult();
+        result.printRoundResultSummary();
 
         return result;
     }
@@ -73,7 +69,7 @@ public class MatchingOptimalServiceLevelAndHire extends MatchingOptimalServiceLe
     protected void addConstraintsHiring() throws GRBException {
         addConstraintsStandardAssignment();
         activateVarRequestMetSL();
-        guaranteeClassMinimumSL();
+        guaranteeClassMinimumSLRelaxed();
         addConstrsVehicleIsHired();
     }
 
@@ -93,6 +89,7 @@ public class MatchingOptimalServiceLevelAndHire extends MatchingOptimalServiceLe
         if (!hiredCurrentPeriod.isEmpty())
             objNumberHired(penObjectives);
 
+        //objHierarchicalSlack(penObjectives);
         objHierarchicalServiceLevelViolation(penObjectives);
 
         // objHierarchicalServiceLevel(penObjectives);

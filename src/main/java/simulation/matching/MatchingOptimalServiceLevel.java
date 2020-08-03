@@ -59,13 +59,10 @@ public class MatchingOptimalServiceLevel extends MatchingOptimal {
             System.out.println("TIME IS OVER - No solution found, keep previous assignment. Gurobi error code: " + e.getErrorCode() + ". " + e.getMessage());
             keepPreviousAssignment();
         } finally {
-            if (Config.saveRoundInfo())
-                saveModel(currentTime);
-
-            closeGurobiModelAndEnvironment();
+            disposeModelEnvironmentAndSave();
         }
 
-        result.printRoundResult();
+        result.printRoundResultSummary();
 
         return result;
     }
@@ -98,14 +95,30 @@ public class MatchingOptimalServiceLevel extends MatchingOptimal {
         List<Qos> sortedQos = Config.getInstance().getSortedQosList();
 
         // Violation penalty
+        String objGoal = "REJ_VIOL";
         for (Qos qos : sortedQos) {
-            penObjectives.put(qos.id, new GRBLinExpr());
+            String objLabel = String.format("%s_%s",objGoal, qos.id);
+            penObjectives.put(objLabel, new GRBLinExpr());
         }
 
         for (User request : requests) {
-            penObjectives.get(request.qos.id).addTerm(rejectionPenalty, varRequestRejected(request));
-            penObjectives.get(request.qos.id).addTerm(-badServicePenalty, varRequestServiceLevelAchieved(request));
-            penObjectives.get(request.qos.id).addConstant(badServicePenalty);
+            String objLabel = String.format("%s_%s",objGoal,request.qos.id);
+            penObjectives.get(objLabel).addTerm(rejectionPenalty, varRequestRejected(request));
+            penObjectives.get(objLabel).addTerm(-badServicePenalty, varRequestServiceLevelAchieved(request));
+            penObjectives.get(objLabel).addConstant(badServicePenalty);
+        }
+    }
+
+
+    protected void objHierarchicalSlack(Map<String, GRBLinExpr> penObjectives) {
+        // Sort QoS order = A, B, C
+        List<Qos> sortedQos = Config.getInstance().getSortedQosList();
+
+        String label  = "VIOLATION_";
+        // Violation penalty
+        for (Qos qos : sortedQos) {
+            penObjectives.put(label + qos.id, new GRBLinExpr());
+            penObjectives.get(label + qos.id).addTerm(1, varClassServiceLevelViolation[qos.code]);
         }
     }
 
@@ -257,7 +270,7 @@ public class MatchingOptimalServiceLevel extends MatchingOptimal {
         });
     }
 
-    private void guaranteeClassMinimumSLRelaxed() {
+    protected void guaranteeClassMinimumSLRelaxed() {
 
         GRBLinExpr[] constrGaranteeClassServiceLevel = new GRBLinExpr[Config.getInstance().getQosCount()];
 
