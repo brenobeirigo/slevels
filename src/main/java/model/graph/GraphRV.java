@@ -36,7 +36,7 @@ public class GraphRV {
         );
     }
 
-    public GraphRV(List<User> allRequests, List<Vehicle> listVehicles, int vehicleCapacity, int maxEdgesRV) {
+    public GraphRV(List<User> allRequests, List<Vehicle> listVehicles, int vehicleCapacity, int maxEdgesRV, int maxEdgesRR) {
 
         this.vehicleCapacity = vehicleCapacity;
 
@@ -48,7 +48,8 @@ public class GraphRV {
                 allRequests,
                 listVehicles,
                 vehicleCapacity,
-                maxEdgesRV
+                maxEdgesRV,
+                maxEdgesRR
         );
     }
 
@@ -98,7 +99,8 @@ public class GraphRV {
     public List<EdgeRV> getRVEdge(int i, List<User> listRequests,
                                   List<Vehicle> listVehicles,
                                   int maxVehicleCapacity,
-                                  int maxRVEdges) {
+                                  int maxRVEdges,
+                                  int maxRREdges) {
 
         List<EdgeRV> edges = new LinkedList<>();
 
@@ -137,6 +139,11 @@ public class GraphRV {
         ////////////////////////////////////////////////////////////////////////////////////////////////////////////////
         // RV EDGES ////////////////////////////////////////////////////////////////////////////////////////////////////
         ////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+        if (edges.size() > maxRREdges) {
+            Collections.sort(edges);
+            edges = edges.subList(0, maxRREdges);
+        }
 
         List<EdgeRV> edgesRV = new ArrayList<>();
 
@@ -300,9 +307,10 @@ public class GraphRV {
      * @return
      */
     public SimpleWeightedGraph<Object, DefaultWeightedEdge> getGraphRVParallel(List<User> listWaitingUsers,
-                                                                               List<Vehicle> listVehicles,
-                                                                               int vehicleCapacity,
-                                                                               int maxEdgesRV) {
+                                                                                        List<Vehicle> listVehicles,
+                                                                                        int vehicleCapacity,
+                                                                                        int maxEdgesRV,
+                                                                                        int maxEdgesRR) {
 
 
         // Create RV graph (r1, r2) and (v, r)
@@ -318,7 +326,7 @@ public class GraphRV {
         }
 
         IntStream.range(0, listWaitingUsers.size()).parallel()
-                .mapToObj(value -> getRVEdge(value, listWaitingUsers, listVehicles, vehicleCapacity, maxEdgesRV))
+                .mapToObj(value -> getRVEdge(value, listWaitingUsers, listVehicles, vehicleCapacity, maxEdgesRV, maxEdgesRR))
                 .collect(HashSet<EdgeRV>::new, HashSet::addAll, HashSet::addAll)
                 .forEach(o -> {
                     DefaultWeightedEdge e = graphRV.addEdge(o.from, o.target);
@@ -360,44 +368,52 @@ public class GraphRV {
 
         Map<User, List<User>> requestRequestsMap = new HashMap<>();
 
-        List<User> requests = graphRV.vertexSet().stream()
-                .filter(o -> o instanceof User)
-                .map(o -> (User) o)
-                .collect(Collectors.toList());
+        List<User> requests = getUsersFromVertexSet();
+
 
         for (User request : requests) {
-
-            List<User> targets = graphRV.edgesOf(request).stream()
-                    .filter(edge -> graphRV.getEdgeSource(edge) instanceof User)
-                    .map(edgeRR -> (User) graphRV.getEdgeTarget(edgeRR))
-                    .collect(Collectors.toList());
-
+            List<User> targets = getTargetsFromRequest(request);
             requestRequestsMap.put(request, targets);
         }
 
         return requestRequestsMap;
     }
 
+    private List<User> getTargetsFromRequest(User request) {
+        return graphRV.edgesOf(request).stream()
+                .filter(edge -> graphRV.getEdgeSource(edge) instanceof User && graphRV.getEdgeSource(edge) != request)
+                .map(edgeVR -> (User) graphRV.getEdgeSource(edgeVR)).collect(Collectors.toList());
+    }
+
     public Map<User, List<Vehicle>> getRVList() {
 
         Map<User, List<Vehicle>> requestRequestsMap = new HashMap<>();
 
-        List<User> requests = graphRV.vertexSet().stream()
-                .filter(o -> o instanceof User)
-                .map(o -> (User) o)
-                .collect(Collectors.toList());
+        List<User> requests = getUsersFromVertexSet();
 
         for (User request : requests) {
 
-            List<Vehicle> vehiclesCanPickup = graphRV.edgesOf(request).stream()
-                    .filter(edge -> graphRV.getEdgeSource(edge) instanceof Vehicle)
-                    .map(edgeVR -> (Vehicle) graphRV.getEdgeSource(edgeVR))
-                    .collect(Collectors.toList());
+            List<Vehicle> vehiclesCanPickup = getVehiclesFromVREdgesOfRequest(request);
 
             requestRequestsMap.put(request, vehiclesCanPickup);
         }
 
         return requestRequestsMap;
+    }
+
+    private List<Vehicle> getVehiclesFromVREdgesOfRequest(User request) {
+
+        return graphRV.edgesOf(request).stream()
+                .filter(edge -> graphRV.getEdgeSource(edge) instanceof Vehicle)
+                .map(edgeVR -> (Vehicle) graphRV.getEdgeSource(edgeVR))
+                .collect(Collectors.toList());
+    }
+
+    private List<User> getUsersFromVertexSet() {
+        return graphRV.vertexSet().stream()
+                .filter(o -> o instanceof User)
+                .map(o -> (User) o)
+                .collect(Collectors.toList());
     }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -407,16 +423,11 @@ public class GraphRV {
     public Map<User, List<DefaultWeightedEdge>> getRVEdges() {
         Map<User, List<DefaultWeightedEdge>> requestEdgesRV = new HashMap<>();
 
-        List<User> requests = graphRV.vertexSet().stream()
-                .filter(o -> o instanceof User)
-                .map(o -> (User) o)
-                .collect(Collectors.toList());
+        List<User> requests = getUsersFromVertexSet();
 
         for (User request : requests) {
 
-            List<DefaultWeightedEdge> edgesRV = graphRV.edgesOf(request).stream()
-                    .filter(defaultEdge -> graphRV.getEdgeSource(defaultEdge) instanceof Vehicle)
-                    .collect(Collectors.toList());
+            List<DefaultWeightedEdge> edgesRV = getRVEdgesFromRequest(request);
 
             requestEdgesRV.put(request, edgesRV);
         }
@@ -424,13 +435,16 @@ public class GraphRV {
         return requestEdgesRV;
     }
 
+    private List<DefaultWeightedEdge> getRVEdgesFromRequest(User request) {
+        return graphRV.edgesOf(request).stream()
+                .filter(defaultEdge -> graphRV.getEdgeSource(defaultEdge) instanceof Vehicle)
+                .collect(Collectors.toList());
+    }
+
     public Map<User, List<DefaultWeightedEdge>> getRREdges() {
         Map<User, List<DefaultWeightedEdge>> requestEdgesRR = new HashMap<>();
 
-        List<User> requests = graphRV.vertexSet().stream()
-                .filter(o -> o instanceof User)
-                .map(o -> (User) o)
-                .collect(Collectors.toList());
+        List<User> requests = getUsersFromVertexSet();
 
         for (User request : requests) {
 
@@ -485,15 +499,33 @@ public class GraphRV {
         @Override
         public int compareTo(EdgeRV edge) {
             if (this.isHiringEdge()) return -1;
-            else if(edge.isHiringEdge()) return 1;
+            else if (edge.isHiringEdge()) return 1;
+                //else if (this.isIncumbentVehicleEdge()) return -1;
+                //else if (edge.isIncumbentVehicleEdge()) return 1;
             else return this.delay.compareTo(edge.delay);
         }
 
-        public boolean isHiringEdge(){
-            if (this.from instanceof Vehicle){
+        public boolean isHiringEdge() {
+            if (this.from instanceof Vehicle) {
                 return ((Vehicle) this.from).isHired() && ((Vehicle) this.from).getUserHiredMustPickup() == this.target;
             }
             return false;
+        }
+
+        public boolean isRV() {
+            return this.from instanceof Vehicle && this.target instanceof Node;
+        }
+
+        public boolean isIncumbentVehicleEdge() {
+            return this.isRV() && this.getRequestFromRV().getCurrentVehicle() == this.getVehicleFromRV();
+        }
+
+        private User getRequestFromRV() {
+            return (User) this.target;
+        }
+
+        private Vehicle getVehicleFromRV() {
+            return (Vehicle) this.from;
         }
 
         @Override
