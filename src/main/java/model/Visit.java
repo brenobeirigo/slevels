@@ -195,8 +195,8 @@ public class Visit implements Comparable<Visit> {
         // If distance is zero, arrival next MUST be at least earliest time at next node
         int arrivalNext = Math.max(cumulativeLeg[Vehicle.ARRIVAL] + distFromTo, nextNode.getEarliest());
 
-//        if (nextNode instanceof NodePK && arrivalNext > nextNode.getArrivalSoFar())
-//            return false;
+//        if ((nextNode instanceof NodePK || nextNode instanceof NodeDP) && arrivalNext > nextNode.getArrivalSoFar())
+//            return true;
 
         // Arrival cannot be later than latest time in node
         if (arrivalNext > nextNode.getLatest()) {
