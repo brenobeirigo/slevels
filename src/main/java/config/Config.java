@@ -2,6 +2,7 @@ package config;
 
 import dao.FileUtil;
 
+import java.io.IOException;
 import java.text.DateFormat;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
@@ -33,86 +34,45 @@ public class Config {
     public static DateFormat formatter_date_time = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
     public static Map<String, Boolean> infoHandling;
     private static Config ourInstance = new Config();
+    private static ConfigInstance configInstance;
     public Map<String, Qos> qosDic;
     private Date earliestTime;
     private List<Qos> qosListPriority;
-
 
     private Config() {
         qosDic = new HashMap<>();
     }
 
-    public static InstanceConfig createInstanceFrom(String source) {
+    public static InstanceConfig createInstanceFrom(String source) throws IOException {
 
+        configInstance = FileUtil.getMapFrom(source);
+        Config.infoHandling = configInstance.getInfoHandling();
 
-        String jsonConfigFilePath;
-        Map<String, Boolean> infoHandling = new HashMap<>();
+        System.out.printf("# Reading configuration from \"%s\"...%n", source);
+        System.out.println("# Executing configuration at \"" + configInstance.getInstanceFilePath() + "\"...");
+        System.out.println("# Round information level: " + configInstance.getInfoLevel());
 
-        try {
-
-            System.out.println(String.format("# Reading configuration from \"%s\"...", source));
-            // Reading input settings
-            Map jsonConfig = FileUtil.getMapFrom(source);
-
-            // Instances
-            jsonConfigFilePath = jsonConfig.get("instance_file_path").toString();
-            System.out.println("# Executing configuration at \"" + jsonConfigFilePath + "\"...");
-
-            // Round information level (no information, round summary, all information)
-            String infoLevelLabel = jsonConfig.get("info_level").toString();
-            System.out.println("# Round information level: " + infoLevelLabel);
-
-            //TODO read infoHandling from file
-            infoHandling.put(SAVE_VEHICLE_ROUND_GEOJSON, false);
-            infoHandling.put(SAVE_REQUEST_INFO_CSV, true);
-            infoHandling.put(SAVE_ROUND_INFO_CSV, true);
-            infoHandling.put(SAVE_ROUND_MIP_INFO_LP, false);
-
-            // Print info in console
-            infoHandling.put(SHOW_ALL_VEHICLE_JOURNEYS, false);
-            infoHandling.put(SHOW_ROUND_MIP_INFO, true);
-            infoHandling.put(SHOW_ROUND_FLEET_STATUS, false);
-            infoHandling.put(SHOW_ROUND_INFO, true);
-
-        } catch (Exception e) {
-            System.out.println("Cannot load configuration: " + e);
-            System.out.println("Loading default instance (show round summary)...");
-            // Json with instance
-            jsonConfigFilePath = "C:\\Users\\LocalAdmin\\IdeaProjects\\slevels\\src\\main\\resources\\default_instance.json";
-
-            infoHandling.put(SAVE_VEHICLE_ROUND_GEOJSON, true);
-            infoHandling.put(SAVE_REQUEST_INFO_CSV, true);
-            infoHandling.put(SAVE_ROUND_INFO_CSV, true);
-
-            // Print info in console
-            infoHandling.put(SHOW_ALL_VEHICLE_JOURNEYS, true);
-            infoHandling.put(SHOW_ROUND_FLEET_STATUS, true);
-            infoHandling.put(SHOW_ROUND_INFO, true);
-        }
-
-        Config.infoHandling = infoHandling;
-
-        return InstanceConfig.getInstance(jsonConfigFilePath);
+        return InstanceConfig.getInstance(configInstance.getInstanceFilePath());
     }
 
     public static boolean showRoundInfo() {
-        return Config.infoHandling.get(SHOW_ROUND_INFO);
+        return Config.configInstance.getInfoHandling().get(SHOW_ROUND_INFO);
     }
 
     public static boolean showRoundMIPInfo() {
-        return Config.infoHandling.get(SHOW_ROUND_MIP_INFO);
+        return Config.configInstance.getInfoHandling().get(SHOW_ROUND_MIP_INFO);
     }
 
     public static boolean saveRoundMIPInfo() {
-        return Config.infoHandling.get(SAVE_ROUND_MIP_INFO_LP);
+        return Config.configInstance.getInfoHandling().get(SAVE_ROUND_MIP_INFO_LP);
     }
 
     public static boolean saveRoundInfo() {
-        return Config.infoHandling.get(SAVE_ROUND_INFO_CSV);
+        return Config.configInstance.getInfoHandling().get(SAVE_ROUND_INFO_CSV);
     }
 
     public static boolean showRoundFleetStatus() {
-        return Config.infoHandling.get(SHOW_ROUND_FLEET_STATUS);
+        return Config.configInstance.getInfoHandling().get(SHOW_ROUND_FLEET_STATUS);
     }
 
     public static void reset() {

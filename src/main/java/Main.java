@@ -16,6 +16,7 @@ import simulation.matching.SimulationFCFS;
 import simulation.rebalancing.Rebalance;
 import simulation.rebalancing.RebalanceStrategy;
 
+import java.io.IOException;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Date;
@@ -27,18 +28,22 @@ public class Main {
 
 
     public static void main(String[] args) {
+        String configFilePath = args[0];
+        InstanceConfig instanceSettings;
+        try {
 
-        InstanceConfig instanceSettings = Config.createInstanceFrom(args[0]);
+            instanceSettings = Config.createInstanceFrom(configFilePath);
 
-        // Vary test case parameters
-        for (Date earliestTime : instanceSettings.getEarliestTimeArray()) {
-            Config.getInstance().setEarliestTime(earliestTime);
-            for (int timeHorizon : instanceSettings.getTimeHorizonArray()) {
-                for (int maxRequestsIteration : instanceSettings.getMaxRequestsIterationArray()) {
-                    for (int timeWindow : instanceSettings.getTimeWindowArray()) {
-                        for (int vehicleMaxCapacity : instanceSettings.getVehicleMaxCapacityArray()) {
-                            for (int initialFleet : instanceSettings.getInitialFleetArray()) {
-                                for (boolean isAllowedToHire : instanceSettings.getAllowVehicleHiringArray()) {
+
+            // Vary test case parameters
+            for (Date earliestTime : instanceSettings.getEarliestTimeArray()) {
+                Config.getInstance().setEarliestTime(earliestTime);
+                for (int timeHorizon : instanceSettings.getTimeHorizonArray()) {
+                    for (int maxRequestsIteration : instanceSettings.getMaxRequestsIterationArray()) {
+                        for (int timeWindow : instanceSettings.getTimeWindowArray()) {
+                            for (int vehicleMaxCapacity : instanceSettings.getVehicleMaxCapacityArray()) {
+                                for (int initialFleet : instanceSettings.getInitialFleetArray()) {
+                                    for (boolean isAllowedToHire : instanceSettings.getAllowVehicleHiringArray()) {
                                         for (boolean isAllowedToDisplaceRequests : instanceSettings.getAllowRequestDisplacementArray()) {
                                             for (int contractDuration : instanceSettings.getContractDurationArray()) {
                                                 for (CustomerBaseConfig customerBaseSettings : instanceSettings.getCustomerBaseSettingsArray()) {
@@ -104,14 +109,18 @@ public class Main {
                                             }
                                         }
 
+                                    }
                                 }
-                            }
 
+                            }
                         }
                     }
-                }
 
+                }
             }
+        } catch (IOException e) {
+            System.out.println("Error! Cannot read " + configFilePath);
+            e.printStackTrace();
         }
     }
 }
