@@ -10,8 +10,8 @@
     "DENIED": "Denied"
   },
   "dict_sl_tier": {
-    "FIRST": "SL achieved",
-    "SECOND": "SL NOT achieved"
+    "FIRST": "Achieved",
+    "SECOND": "Violated"
   },
   "headers": {
     "service_level": "Pickup deadline",
