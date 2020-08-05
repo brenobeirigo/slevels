@@ -83,8 +83,8 @@ public class InstanceConfig {
             String inputSettings = new String(Files.readAllBytes(filePath));
 
             Map jsonConfig = gson.fromJson(inputSettings, Map.class);
-            System.out.println(String.format("# Reading instance data from \"%s\"...", jsonFilePath));
-            System.out.println(String.format("# JSON data: %s...", jsonConfig));
+            System.out.printf("# Reading instance data from \"%s\"...%n", jsonFilePath);
+            System.out.printf("# JSON data: %s...%n", jsonConfig);
 
             //Description
             this.instancesPath = Paths.get(jsonConfig.get("instances_folder").toString());
@@ -149,7 +149,7 @@ public class InstanceConfig {
                 }
             }
 
-            System.out.println(String.format("# Max. time to reach classes (sec): %s", this.maxTimeHiringList));
+            System.out.printf("# Max. time to reach classes (sec): %s%n", this.maxTimeHiringList);
 
             this.customerBaseSettingsArray = new ArrayList<>();
             // All service rate
@@ -164,7 +164,7 @@ public class InstanceConfig {
                     String segmentationScenarioLabel = segmentationScenario.getKey();
 
                     Map<String, Qos> qosDic = new HashMap<>();
-
+                    int qosCode = 0;
                     // Fixed service levels - A (180, 180), B(300, 600), C(600, 900)
                     for (Map.Entry<String, Map<String, Integer>> serviceLevel : serviceLevelMap.entrySet()) {
 
@@ -178,6 +178,7 @@ public class InstanceConfig {
 
                         // Setup QoS class
                         Qos qos = new Qos(serviceLevel.getKey(),
+                                qosCode++,
                                 serviceRateScenario.getKey(),
                                 segmentationScenarioLabel,
                                 serviceLevel.getValue().get("priority"),
@@ -211,7 +212,7 @@ public class InstanceConfig {
                     MatchingOptimalServiceLevelAndHire method = readMatchingOptimalServiceLevelAndHireParams(gson, element);
                     this.matchingMethods.add(method);
 
-                }if (Matching.METHOD_OPTIMAL_ENFORCE_SL.equals(name)) {
+                } else if (Matching.METHOD_OPTIMAL_ENFORCE_SL.equals(name)) {
 
                     MatchingOptimalServiceLevel method = readMatchingOptimalServiceLevelParams(gson, element);
                     this.matchingMethods.add(method);
@@ -532,7 +533,9 @@ public class InstanceConfig {
         return this.earliestTimeArray;
     }
 
-    public boolean[] getAllowRequestDisplacementArray() { return this.allowRequestDisplacementArray; }
+    public boolean[] getAllowRequestDisplacementArray() {
+        return this.allowRequestDisplacementArray;
+    }
 }
 
 

@@ -7,7 +7,6 @@ public class Qos implements Comparable<Qos> {
     public static final int SERVICE_LEVEL_1 = 1;
     public static final int SERVICE_LEVEL_2 = 2;
 
-    private static int countQos = 0;
 
     public String id;
     public int code;
@@ -19,8 +18,8 @@ public class Qos implements Comparable<Qos> {
     public String customerSegmentationLabel;
     private Integer priority;
 
-    public Qos(String id, int pkDelay, int dpDelay, double serviceRate) {
-        this.code = countQos++;
+    public Qos(String id, int code, int pkDelay, int dpDelay, double serviceRate) {
+        this.code = code;
         this.id = id;
         this.serviceRate = serviceRate;
         this.pkDelay = pkDelay;
@@ -29,8 +28,8 @@ public class Qos implements Comparable<Qos> {
     }
 
 
-    public Qos(String id, int pkDelay, int dpDelay, double serviceRate, double share, boolean allowedSharing) {
-        this.code = countQos++;
+    public Qos(String id, int code, int pkDelay, int dpDelay, double serviceRate, double share, boolean allowedSharing) {
+        this.code = code;
         this.id = id;
         this.serviceRate = serviceRate;
         this.pkDelay = pkDelay;
@@ -39,8 +38,8 @@ public class Qos implements Comparable<Qos> {
         this.allowedSharing = allowedSharing;
     }
 
-    public Qos(String id, String serviceRateLabel, String segmentationScenarioLabel, int priority, int pkDelay, int pkDelayTarget, int dpDelay, double serviceRate, double share, boolean allowedSharing) {
-        this.code = countQos++;
+    public Qos(String id, int code, String serviceRateLabel, String segmentationScenarioLabel, int priority, int pkDelay, int pkDelayTarget, int dpDelay, double serviceRate, double share, boolean allowedSharing) {
+        this.code = code;
         this.priority = priority;
         this.id = id;
         this.serviceRate = serviceRate;
