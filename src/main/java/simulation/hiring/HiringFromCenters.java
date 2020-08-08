@@ -6,7 +6,6 @@ import model.User;
 import model.Vehicle;
 
 import java.util.Collection;
-import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -44,7 +43,9 @@ public class HiringFromCenters implements Hiring {
             //System.out.println("          Contract deadline: " + contractDeadline);
         }
 
-        return new Vehicle(u.getNumPassengers(), closestRegionCenterId, currentTime, true, contractDeadline);
+        Vehicle hiredVehicle = new Vehicle(u.getNumPassengers(), closestRegionCenterId, currentTime, true, contractDeadline);
+        hiredVehicle.addUserHiredMustPickup(u);
+        return hiredVehicle;
     }
 
     @Override
