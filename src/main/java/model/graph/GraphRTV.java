@@ -501,6 +501,22 @@ public class GraphRTV {
                 .collect(Collectors.toList());
     }
 
+    public Set<Vehicle> getVehiclesFromUser(User request) {
+        return graphRTV
+                .edgesOf(request)
+                .stream().map(o -> graphRTV.getEdgeTarget(o))
+                .map(o -> ((Visit) o).getVehicle())
+                .collect(Collectors.toSet());
+    }
+
+    public Set<Vehicle> getHiredVehiclesFromUser(User request) {
+        return graphRTV
+                .edgesOf(request)
+                .stream().map(o -> graphRTV.getEdgeTarget(o))
+                .map(o -> ((Visit) o).getVehicle())
+                .filter(Vehicle::isHired).collect(Collectors.toSet());
+    }
+
     public void removeOkVerticesRTV(ResultAssignment result) {
         for (Visit visit : result.getVisitsOK()) {
             this.graphRTV.removeVertex(visit);
