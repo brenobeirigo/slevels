@@ -154,7 +154,7 @@ public class ResultAssignment {
                 "[%s] = %3d (met) %+.0f (violation) >= %3d (%.1f * %3d) - unmet=%3d, rejected=%3d",
                 qos.id,
                 metServiceLevelClass(qos),
-                -violationCountClassServiceLevel.get(qos),
+                violationCountClassServiceLevel.get(qos),
                 (int) Math.ceil(qos.serviceRate * nOfRequestsClass.get(qos)),
                 qos.serviceRate,
                 nOfRequestsClass.get(qos),
