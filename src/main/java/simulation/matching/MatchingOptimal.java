@@ -339,7 +339,7 @@ public class MatchingOptimal implements RideMatchingStrategy {
         // Sort QoS order = A, B, C
         List<Qos> sortedQos = Config.getInstance().getSortedQosList();
 
-        String label = "H_WAIT_";
+        String label = "H_WAIT";
 
         // Violation penalty
         for (Qos qos : sortedQos) {
