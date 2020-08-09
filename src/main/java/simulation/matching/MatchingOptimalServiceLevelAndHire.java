@@ -1,10 +1,14 @@
 package simulation.matching;
 
+import com.google.common.collect.Sets;
+import config.Config;
+import config.Qos;
 import gurobi.GRB;
 import gurobi.GRBException;
 import gurobi.GRBLinExpr;
 import gurobi.GRBVar;
 import model.*;
+import org.apache.commons.collections4.MapUtils;
 
 import java.util.*;
 
@@ -14,10 +18,12 @@ public class MatchingOptimalServiceLevelAndHire extends MatchingOptimalServiceLe
     private GRBVar[] varVehicleIsHired;
     private Set<Vehicle> hiredCurrentPeriod;
     private Map<Vehicle, Integer> hiredIndex;
+    private int hiringPenalty;
 
 
-    public MatchingOptimalServiceLevelAndHire(int maxVehicleCapacityRTV, int badServicePenalty, double mipTimeLimit, double timeoutVehicleRTV, double mipGap, int maxEdgesRV, int maxEdgesRR, int rejectionPenalty, boolean allowHiring) {
-        super(maxVehicleCapacityRTV, badServicePenalty, mipTimeLimit, timeoutVehicleRTV, mipGap, maxEdgesRV, maxEdgesRR, rejectionPenalty);
+    public MatchingOptimalServiceLevelAndHire(int maxVehicleCapacityRTV, int badServicePenalty, int hiringPenalty, double mipTimeLimit, double timeoutVehicleRTV, double mipGap, int maxEdgesRV, int maxEdgesRR, int rejectionPenalty, boolean allowHiring, String[] objectives) {
+        super(maxVehicleCapacityRTV, badServicePenalty, mipTimeLimit, timeoutVehicleRTV, mipGap, maxEdgesRV, maxEdgesRR, rejectionPenalty, objectives);
+        this.hiringPenalty = hiringPenalty;
     }
 
     @Override
@@ -40,7 +46,7 @@ public class MatchingOptimalServiceLevelAndHire extends MatchingOptimalServiceLe
             createGurobiModelAndEnvironment();
             initVarsHiring();
             addConstraintsHiring();
-            setupObjectiveHiredHierarchicalPenaltyThenTotalWaiting();
+            setupObjectives();
             this.model.optimize();
 
             if (isModelOptimal() || isTimeLimitReached()) {
@@ -77,36 +83,138 @@ public class MatchingOptimalServiceLevelAndHire extends MatchingOptimalServiceLe
     // OBJECTIVE ///////////////////////////////////////////////////////////////////////////////////////////////////////
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
+    protected void objHierarchicalHiringVsSlack() {
+        // Sort QoS order = A, B, C
+        List<Qos> sortedQos = Config.getInstance().getSortedQosList();
 
-    private void setupObjectiveHiredHierarchicalPenaltyThenTotalWaiting() throws GRBException {
+        String label = "H_HIRE_VIO_";
 
-
-        Map<String, GRBLinExpr> penObjectives = new LinkedHashMap<>();
-
-
-        objHierarchicalRejection(penObjectives);
-
-        if (!hiredCurrentPeriod.isEmpty())
-            objNumberHired(penObjectives);
-
-        //objHierarchicalSlack(penObjectives);
-        objHierarchicalServiceLevelViolation(penObjectives);
-
-        // objHierarchicalServiceLevel(penObjectives);
-
-        objTotalWaitingTime(penObjectives);
-
-        addHierarchicalObjectives(penObjectives);
-    }
-
-    private void objNumberHired(Map<String, GRBLinExpr> penObjectives) {
-
-        penObjectives.put("N_HIRED", new GRBLinExpr());
         for (Vehicle vehicle : hiredCurrentPeriod) {
             penObjectives.get("N_HIRED").addTerm(1, varVehicleIsHired(vehicle));
         }
+
+        // Violation penalty
+        for (Qos qos : sortedQos) {
+            penObjectives.put(label + qos.id, new GRBLinExpr());
+            penObjectives.get(label + qos.id).addTerm(badServicePenalty, varClassServiceLevelViolation[qos.code]);
+            penObjectives.get(label + qos.id).addTerm(hiringPenalty, varVehicleIsHired[qos.code]);
+        }
     }
 
+    protected void objHierarchicalHiringAndRejectionServiceLevel() {
+        // Sort QoS order = A, B, C
+        List<Qos> sortedQos = Config.getInstance().getSortedQosList();
+        Map<String, Set<Vehicle>> qosVehicles = new HashMap<>();
+
+        // Violation penalty
+        String objGoal = "H_HIRE_RJ_VI";
+        for (Qos qos : sortedQos) {
+            String objLabel = String.format("%s_%s", objGoal, qos.id);
+            penObjectives.put(objLabel, new GRBLinExpr());
+            penObjectives.get(objLabel).addTerm(badServicePenalty, varClassServiceLevelViolation[qos.code]);
+            qosVehicles.put(objLabel, new HashSet<>());
+        }
+
+        for (User request : requests) {
+            String objLabel = String.format("%s_%s", objGoal, request.qos.id);
+            qosVehicles.get(objLabel).addAll(getCandidatesToHireThatCanPickup(request));
+            //penObjectives.get(objLabel).addTerm(rejectionPenalty, varRequestRejected(request));
+            //penObjectives.get(objLabel).addTerm(-badServicePenalty, varRequestServiceLevelAchieved(request));
+            //penObjectives.get(objLabel).addConstant(badServicePenalty);
+        }
+
+        for (Map.Entry<String, Set<Vehicle>> objLabelVehiclesEntry : qosVehicles.entrySet()) {
+            String label = objLabelVehiclesEntry.getKey();
+            Set<Vehicle> hiredVehiclesCanServiceClass = objLabelVehiclesEntry.getValue();
+            for (Vehicle vehicle : hiredVehiclesCanServiceClass) {
+                penObjectives.get(label).addTerm(hiringPenalty, varVehicleIsHired(vehicle));
+            }
+        }
+
+        System.out.println("HIRED CURRENT PERIOD:" + hiredCurrentPeriod);
+        MapUtils.debugPrint(System.out, "QOSVEHICLES", qosVehicles);
+    }
+
+    protected void objKeepServiceHierarchicalHiringAndRejectionServiceLevel() {
+        // Sort QoS order = A, B, C
+        List<Qos> sortedQos = Config.getInstance().getSortedQosList();
+        Map<String, Set<Vehicle>> qosVehicles = new HashMap<>();
+
+        // Violation penalty
+        String objGoal = "H_HIRE_RJ_VI";
+        for (Qos qos : sortedQos) {
+            String objLabel = String.format("%s_%s", objGoal, qos.id);
+            penObjectives.put(objLabel, new GRBLinExpr());
+            penObjectives.get(objLabel).addTerm(badServicePenalty, varClassServiceLevelViolation[qos.code]);
+            qosVehicles.put(objLabel, new HashSet<>());
+        }
+
+        for (User request : requests) {
+            String objLabel = String.format("%s_%s", objGoal, request.qos.id);
+            qosVehicles.get(objLabel).addAll(getCandidatesToHireThatCanPickup(request));
+            //penObjectives.get(objLabel).addTerm(rejectionPenalty, varRequestRejected(request));
+            //penObjectives.get(objLabel).addTerm(-badServicePenalty, varRequestServiceLevelAchieved(request));
+            //penObjectives.get(objLabel).addConstant(badServicePenalty);
+        }
+
+        for (Map.Entry<String, Set<Vehicle>> objLabelVehiclesEntry : qosVehicles.entrySet()) {
+            String label = objLabelVehiclesEntry.getKey();
+            Set<Vehicle> hiredVehiclesCanServiceClass = objLabelVehiclesEntry.getValue();
+            for (Vehicle vehicle : hiredVehiclesCanServiceClass) {
+                penObjectives.get(label).addTerm(hiringPenalty, varVehicleIsHired(vehicle));
+            }
+        }
+
+        System.out.println("HIRED CURRENT PERIOD:" + hiredCurrentPeriod);
+        MapUtils.debugPrint(System.out, "QOSVEHICLES", qosVehicles);
+    }
+
+    private Sets.SetView<Vehicle> getCandidatesToHireThatCanPickup(User request) {
+        Set<Vehicle> hiredThatHaveVisitsIncludingRequest = graphRTV.getHiredVehiclesFromUser(request);
+        return Sets.intersection(hiredThatHaveVisitsIncludingRequest, hiredCurrentPeriod);
+    }
+
+    public void addObjective(String objective) {
+        super.addObjective(objective);
+        switch (objective) {
+            case "obj_number_of_hired":
+                objNumberHired();
+                break;
+            case "obj_hierarchical_hiring_vs_slack":
+                objHierarchicalHiringVsSlack();
+                break;
+            case "obj_hierarchical_hiring_and_rejection_service_level":
+                objHierarchicalHiringAndRejectionServiceLevel();
+                break;
+            case "obj_number_of_hired_and_violations":
+                objNumberHiredAndViolation();
+                break;
+        }
+    }
+
+    private void objNumberHired() {
+
+        if (!hiredCurrentPeriod.isEmpty()) {
+            penObjectives.put("N_HIRED", new GRBLinExpr());
+            for (Vehicle vehicle : hiredCurrentPeriod) {
+                penObjectives.get("N_HIRED").addTerm(1, varVehicleIsHired(vehicle));
+            }
+        }
+    }
+
+    private void objNumberHiredAndViolation() {
+        String label = "HIRED_VIOL";
+        penObjectives.put(label, new GRBLinExpr());
+        if (!hiredCurrentPeriod.isEmpty()) {
+            for (Vehicle vehicle : hiredCurrentPeriod) {
+                penObjectives.get(label).addTerm(hiringPenalty, varVehicleIsHired(vehicle));
+            }
+        }
+        List<Qos> sortedQos = Config.getInstance().getSortedQosList();
+        for (Qos qos : sortedQos) {
+            penObjectives.get(label).addTerm(badServicePenalty, varClassServiceLevelViolation[qos.code]);
+        }
+    }
 
     private void initVarsHiring() throws GRBException {
 
@@ -264,8 +372,8 @@ public class MatchingOptimalServiceLevelAndHire extends MatchingOptimalServiceLe
                     break;
                 }
             }
-            if (!atLeastOneVisitHasFAVUnser){
-                System.out.println(vehicle + " - " + vehicle.getUserHiredMustPickup() +" - Visits:" + graphRTV.getListOfVisitsFromVehicle(vehicle));
+            if (!atLeastOneVisitHasFAVUnser) {
+                System.out.println(vehicle + " - " + vehicle.getUserHiredMustPickup() + " - Visits:" + graphRTV.getListOfVisitsFromVehicle(vehicle));
                 return false;
             }
         }

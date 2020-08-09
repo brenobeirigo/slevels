@@ -13,14 +13,14 @@ import java.util.*;
 
 public class MatchingOptimalServiceLevel extends MatchingOptimal {
 
-    private final int badServicePenalty;
+    protected final int badServicePenalty;
     protected GRBVar[] varClassServiceLevelViolation;
     private GRBVar[] varFirstTierMet;
     private int[] nOfRequestsPerClass;
 
 
-    public MatchingOptimalServiceLevel(int maxVehicleCapacityRTV, int badServicePenalty, double mipTimeLimit, double timeoutVehicleRTV, double mipGap, int maxEdgesRV, int maxEdgesRR, int rejectionPenalty) {
-        super(maxVehicleCapacityRTV, mipTimeLimit, timeoutVehicleRTV, mipGap, maxEdgesRV, maxEdgesRR, rejectionPenalty);
+    public MatchingOptimalServiceLevel(int maxVehicleCapacityRTV, int badServicePenalty, double mipTimeLimit, double timeoutVehicleRTV, double mipGap, int maxEdgesRV, int maxEdgesRR, int rejectionPenalty, String[] objectives) {
+        super(maxVehicleCapacityRTV, mipTimeLimit, timeoutVehicleRTV, mipGap, maxEdgesRV, maxEdgesRR, rejectionPenalty, objectives);
         this.badServicePenalty = badServicePenalty;
     }
 
@@ -41,7 +41,7 @@ public class MatchingOptimalServiceLevel extends MatchingOptimal {
             createGurobiModelAndEnvironment();
             initVarsServiceLevel();
             addConstraintsServiceLevels();
-            setupObjectiveHierarchicalPenaltyThenTotalWaiting();
+            setupObjectives();
 
             this.model.optimize();
 
@@ -77,44 +77,45 @@ public class MatchingOptimalServiceLevel extends MatchingOptimal {
     // OBJECTIVE ///////////////////////////////////////////////////////////////////////////////////////////////////////
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-    private void setupObjectiveHierarchicalPenaltyThenTotalWaiting() throws GRBException {
-
-        Map<String, GRBLinExpr> penObjectives = new LinkedHashMap<>();
-
-        // Sort QoS order = A, B, C
-        objHierarchicalServiceLevel(penObjectives);
-
-        objTotalWaitingTime(penObjectives);
-
-        addHierarchicalObjectives(penObjectives);
+    protected void addObjective(String objective) {
+        super.addObjective(objective);
+        switch (objective) {
+            case "obj_hierarchical_rejection_service_level":
+                objHierarchicalRejectionServiceLevel();
+                break;
+            case "obj_hierarchical_rejection":
+                objHierarchicalRejection();
+                break;
+            case "obj_hierarchical_slack":
+                objHierarchicalSlack();
+                break;
+        }
     }
 
-
-    protected void objHierarchicalServiceLevel(Map<String, GRBLinExpr> penObjectives) {
+    protected void objHierarchicalRejectionServiceLevel() {
         // Sort QoS order = A, B, C
         List<Qos> sortedQos = Config.getInstance().getSortedQosList();
 
         // Violation penalty
         String objGoal = "REJ_VIOL";
         for (Qos qos : sortedQos) {
-            String objLabel = String.format("%s_%s",objGoal, qos.id);
+            String objLabel = String.format("%s_%s", objGoal, qos.id);
             penObjectives.put(objLabel, new GRBLinExpr());
         }
 
         for (User request : requests) {
-            String objLabel = String.format("%s_%s",objGoal,request.qos.id);
+            String objLabel = String.format("%s_%s", objGoal, request.qos.id);
             penObjectives.get(objLabel).addTerm(rejectionPenalty, varRequestRejected(request));
             penObjectives.get(objLabel).addTerm(-badServicePenalty, varRequestServiceLevelAchieved(request));
             penObjectives.get(objLabel).addConstant(badServicePenalty);
         }
     }
 
-
-    protected void objHierarchicalSlack(Map<String, GRBLinExpr> penObjectives) {
+    protected void objHierarchicalSlack() {
         // Sort QoS order = A, B, C
         List<Qos> sortedQos = Config.getInstance().getSortedQosList();
 
-        String label  = "VIOLATION_";
+        String label = "SLACK_";
         // Violation penalty
         for (Qos qos : sortedQos) {
             penObjectives.put(label + qos.id, new GRBLinExpr());
@@ -122,12 +123,12 @@ public class MatchingOptimalServiceLevel extends MatchingOptimal {
         }
     }
 
-    protected void objHierarchicalRejection(Map<String, GRBLinExpr> penObjectives) {
+    protected void objHierarchicalRejection() {
         // Sort QoS order = A, B, C
         List<Qos> sortedQos = Config.getInstance().getSortedQosList();
 
         // Violation penalty
-        String label = "REJECTION_";
+        String label = "H_REJ_";
         for (Qos qos : sortedQos) {
             penObjectives.put(label + qos.id, new GRBLinExpr());
         }
@@ -135,67 +136,6 @@ public class MatchingOptimalServiceLevel extends MatchingOptimal {
         for (User request : requests) {
             penObjectives.get(label + request.qos.id).addTerm(rejectionPenalty, varRequestRejected(request));
         }
-    }
-
-
-    protected void objHierarchicalServiceLevelViolation(Map<String, GRBLinExpr> penObjectives) {
-        // Sort QoS order = A, B, C
-        List<Qos> sortedQos = Config.getInstance().getSortedQosList();
-        String label = "VIOLATION_";
-        // Violation penalty
-        for (Qos qos : sortedQos) {
-            penObjectives.put(label + qos.id, new GRBLinExpr());
-        }
-
-        for (User request : requests) {
-            penObjectives.get(label + request.qos.id).addTerm(-badServicePenalty, varRequestServiceLevelAchieved(request));
-            penObjectives.get(label + request.qos.id).addConstant(badServicePenalty);
-        }
-    }
-
-    protected void objHierarchicalWaiting(Map<String, GRBLinExpr> penObjectives) {
-        // Sort QoS order = A, B, C
-        List<Qos> sortedQos = Config.getInstance().getSortedQosList();
-
-        // Violation penalty
-        for (Qos qos : sortedQos) {
-            penObjectives.put(qos.id, new GRBLinExpr());
-        }
-
-        for (User request : requests) {
-            penObjectives.get(request.qos.id).addTerm(rejectionPenalty, varRequestRejected(request));
-            List<Visit> requestVisits = graphRTV.getListOfVisitsFromUser(request);
-            for (Visit visit : requestVisits) {
-                //if (isFirstTier(request, visit)) {
-                double delay = getDelayOfRequestInVisit(request, visit);
-                penObjectives.get(request.qos.id).addTerm(delay, varVisitSelected(visit));
-            }
-            penObjectives.get(request.qos.id).addTerm(-badServicePenalty, varRequestServiceLevelAchieved(request));
-            penObjectives.get(request.qos.id).addConstant(badServicePenalty);
-        }
-    }
-
-    protected double getDelayOfRequestInVisit(User request, Visit visit) {
-        return graphRTV.getWeightFromRequestVisitEdge(request, visit);
-    }
-
-    protected void objTotalWaitingTime(Map<String, GRBLinExpr> penObjectives) {
-        penObjectives.put("WAITING", new GRBLinExpr());
-        for (Visit visit : visits) {
-            penObjectives.get("WAITING").addTerm(visit.getDelay(), varVisitSelected(visit));
-        }
-    }
-
-    protected void addHierarchicalObjectives(Map<String, GRBLinExpr> penObjectives) throws GRBException {
-        int i = penObjectives.size();
-
-        for (Map.Entry<String, GRBLinExpr> e : penObjectives.entrySet()) {
-            i--;
-            model.setObjectiveN(e.getValue(), i, i, 1.0, 0.0, 0.0, "OBJ_" + e.getKey());
-        }
-
-        // The objective is to minimize the total pay costs
-        model.set(GRB.IntAttr.ModelSense, GRB.MINIMIZE);
     }
 
     protected void keepPreviousAssignment() {
@@ -291,14 +231,14 @@ public class MatchingOptimalServiceLevel extends MatchingOptimal {
         Config.getInstance().qosDic.forEach((s, qos) -> {
 
             // Add slack to each service level class (i.e., number of user who received second tier or were rejected)
-            constrGaranteeClassServiceLevel[qos.code].addTerm(-1, varClassServiceLevelViolation[qos.code]);
+            constrGaranteeClassServiceLevel[qos.code].addTerm(1, varClassServiceLevelViolation[qos.code]);
 
             // Number of picked up users has to be higher than service rate promised
             try {
                 int minRequestsSL = (int) Math.ceil(qos.serviceRate * nOfRequestsPerClass[qos.code]);
                 String label = String.format("class_%s_sr_%.2f_total_%d_min_%d", qos.id, qos.serviceRate, nOfRequestsPerClass[qos.code], minRequestsSL);
 
-                model.addConstr(constrGaranteeClassServiceLevel[qos.code], GRB.EQUAL, minRequestsSL, label);
+                model.addConstr(constrGaranteeClassServiceLevel[qos.code], GRB.GREATER_EQUAL, minRequestsSL, label);
             } catch (GRBException e) {
                 e.printStackTrace();
             }
@@ -349,7 +289,7 @@ public class MatchingOptimalServiceLevel extends MatchingOptimal {
     private void addClassServiceLevelSlack(Qos qos, int userCount) throws GRBException {
         String label = "x_slack_bad_service" + qos.id;
         int minRequestsSL = (int) Math.ceil(qos.serviceRate * nOfRequestsPerClass[qos.code]);
-        varClassServiceLevelViolation[qos.code] = model.addVar(-minRequestsSL, userCount, 1, GRB.INTEGER, label);
+        varClassServiceLevelViolation[qos.code] = model.addVar(0, userCount, 1, GRB.INTEGER, label);
     }
 
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

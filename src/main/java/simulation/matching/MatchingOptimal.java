@@ -1,6 +1,7 @@
 package simulation.matching;
 
 import config.Config;
+import config.Qos;
 import gurobi.*;
 import model.*;
 import model.graph.GraphRTV;
@@ -15,6 +16,8 @@ import java.util.stream.Collectors;
 public class MatchingOptimal implements RideMatchingStrategy {
 
 
+    // There might have relocation trips to the same node, this variable helps creating unique labels
+    private static int varVisitId = 0;
     protected int maxVehicleCapacityRTV;
     protected double timeoutVehicleRTV;
     protected double mipTimeLimit;
@@ -34,14 +37,13 @@ public class MatchingOptimal implements RideMatchingStrategy {
     // Assignment variables: x[r][v] == 1 if request r is assigned to trip v
     protected GRBVar[] varVisitSelected;
     protected GRBVar[] varRequestRejected;
+    protected String[] orderedListOfObjectiveLabels;
     protected int currentTime;
+    protected Map<String, GRBLinExpr> penObjectives;
     GraphRTV graphRTV;
     ResultAssignment result;
 
-    // There might have relocation trips to the same node, this variable helps creating unique labels
-    private static int varVisitId = 0;
-
-    public MatchingOptimal(int maxVehicleCapacityRTV, double mipTimeLimit, double timeoutVehicleRTV, double mipGap, int maxEdgesRV, int maxEdgesRR, int rejectionPenalty) {
+    public MatchingOptimal(int maxVehicleCapacityRTV, double mipTimeLimit, double timeoutVehicleRTV, double mipGap, int maxEdgesRV, int maxEdgesRR, int rejectionPenalty, String[] orderedListOfObjectiveLabels) {
         this.maxVehicleCapacityRTV = maxVehicleCapacityRTV;
         this.mipTimeLimit = mipTimeLimit;
         this.timeoutVehicleRTV = timeoutVehicleRTV;
@@ -49,6 +51,8 @@ public class MatchingOptimal implements RideMatchingStrategy {
         this.maxEdgesRV = maxEdgesRV;
         this.maxEdgesRR = maxEdgesRR;
         this.rejectionPenalty = rejectionPenalty;
+        this.orderedListOfObjectiveLabels = orderedListOfObjectiveLabels;
+        this.penObjectives = new LinkedHashMap<>();
     }
 
     public String getVarUser(User user) {
@@ -92,7 +96,7 @@ public class MatchingOptimal implements RideMatchingStrategy {
             createGurobiModelAndEnvironment();
             initVarsStandardAssignment();
             addConstraintsStandardAssignment();
-            setupDelayObjective();
+            setupObjectives();
             model.optimize();
 
             if (isModelOptimal() || isTimeLimitReached()) {
@@ -269,21 +273,114 @@ public class MatchingOptimal implements RideMatchingStrategy {
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     // OBJECTIVE ///////////////////////////////////////////////////////////////////////////////////////////////////////
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-    protected void setupDelayObjective() throws GRBException {
 
-        // Set primary objective
-        GRBLinExpr obj = new GRBLinExpr();
+    protected void addObjective(String objective) {
+        switch (objective) {
+            case "obj_hierarchical_waiting_and_rejection":
+                objHierarchicalWaitingAndRejection();
+                break;
+            case "obj_hierarchical_waiting":
+                objHierarchicalWaiting();
+                break;
+            case "obj_total_waiting_and_rejection":
+                objTotalWaitingAndRejection();
+                break;
+            case "obj_total_waiting":
+                objTotalWaitingTime();
+                break;
+        }
+    }
+
+    protected void setupObjectives() throws GRBException {
+
+        for (String objective : orderedListOfObjectiveLabels) {
+            addObjective(objective);
+        }
+        System.out.println("All objectives: "+ penObjectives.keySet());
+        addHierarchicalObjectivesToModel();
+
+    }
+
+    protected void addHierarchicalObjectivesToModel() throws GRBException {
+        int i = penObjectives.size();
+
+        for (Map.Entry<String, GRBLinExpr> e : penObjectives.entrySet()) {
+            i--;
+            model.setObjectiveN(e.getValue(), i, i, 1.0, 0.0, 0.0, "OBJ_" + e.getKey());
+        }
+
+        // The objective is to minimize the total pay costs
+        model.set(GRB.IntAttr.ModelSense, GRB.MINIMIZE);
+    }
+
+    protected void objTotalWaitingAndRejection() {
+
+        String label = "TOT_WAIT_REJ";
+        penObjectives.put(label, new GRBLinExpr());
 
         for (Visit visit : visits) {
-            obj.addTerm(visit.getDelay(), varVisitSelected(visit));
+            penObjectives.get(label).addTerm(visit.getDelay(), varVisitSelected(visit));
         }
 
         for (User request : requests) {
-            obj.addTerm(rejectionPenalty, varRequestRejected(request));
+            penObjectives.get(label).addTerm(rejectionPenalty, varRequestRejected(request));
+        }
+    }
+
+    protected void objTotalWaitingTime() {
+        String label = "TOT_WAIT";
+        penObjectives.put(label, new GRBLinExpr());
+        for (Visit visit : visits) {
+            penObjectives.get(label).addTerm(visit.getDelay(), varVisitSelected(visit));
+        }
+    }
+
+    protected void objHierarchicalWaiting() {
+        // Sort QoS order = A, B, C
+        List<Qos> sortedQos = Config.getInstance().getSortedQosList();
+
+        String label = "H_WAIT_";
+
+        // Violation penalty
+        for (Qos qos : sortedQos) {
+            penObjectives.put(String.format("%s_%s", label, qos.id), new GRBLinExpr());
         }
 
-        model.setObjective(obj, GRB.MINIMIZE);
+        for (User request : requests) {
 
+            String labelQos = String.format("%s_%s", label, request.qos.id);
+            penObjectives.get(labelQos).addTerm(rejectionPenalty, varRequestRejected(request));
+
+            List<Visit> requestVisits = graphRTV.getListOfVisitsFromUser(request);
+            for (Visit visit : requestVisits) {
+                double delay = getDelayOfRequestInVisit(request, visit);
+                penObjectives.get(labelQos).addTerm(delay, varVisitSelected(visit));
+            }
+        }
+    }
+
+    protected void objHierarchicalWaitingAndRejection() {
+        // Sort QoS order = A, B, C
+        List<Qos> sortedQos = Config.getInstance().getSortedQosList();
+
+        String label = "H_WAIT_REJ";
+
+        // Violation penalty
+        for (Qos qos : sortedQos) {
+            penObjectives.put(String.format("%s_%s", label, qos.id), new GRBLinExpr());
+        }
+
+        for (User request : requests) {
+
+            String labelQos = String.format("%s_%s", label, request.qos.id);
+            penObjectives.get(labelQos).addTerm(rejectionPenalty, varRequestRejected(request));
+
+            List<Visit> requestVisits = getListOfVisitsFromRequest(request);
+            for (Visit visit : requestVisits) {
+                double delay = getDelayOfRequestInVisit(request, visit);
+                penObjectives.get(labelQos).addTerm(delay, varVisitSelected(visit));
+            }
+        }
     }
 
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -327,7 +424,6 @@ public class MatchingOptimal implements RideMatchingStrategy {
     }
 
     protected void initVarsStandardAssignment() throws GRBException {
-
         visitIndex = new HashMap<>();
         for (int i = 0; i < visits.size(); i++) {
             visitIndex.put(visits.get(i), i);
@@ -349,6 +445,14 @@ public class MatchingOptimal implements RideMatchingStrategy {
         for (Visit visit : visits) {
             addIsVisitChosenVar(visit);
         }
+    }
+
+    protected double getDelayOfRequestInVisit(User request, Visit visit) {
+        return graphRTV.getWeightFromRequestVisitEdge(request, visit);
+    }
+
+    protected List<Visit> getListOfVisitsFromRequest(User request) {
+        return graphRTV.getListOfVisitsFromUser(request);
     }
 
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
