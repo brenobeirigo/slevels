@@ -83,6 +83,9 @@ public class MatchingOptimalServiceLevel extends MatchingOptimal {
             case "obj_hierarchical_rejection_service_level":
                 objHierarchicalRejectionServiceLevel();
                 break;
+            case "obj_hierarchical_service_level":
+                objHierarchicalServiceLevel();
+                break;
             case "obj_hierarchical_rejection":
                 objHierarchicalRejection();
                 break;
@@ -106,6 +109,24 @@ public class MatchingOptimalServiceLevel extends MatchingOptimal {
         for (User request : requests) {
             String objLabel = String.format("%s_%s", objGoal, request.qos.id);
             penObjectives.get(objLabel).addTerm(rejectionPenalty, varRequestRejected(request));
+            penObjectives.get(objLabel).addTerm(-badServicePenalty, varRequestServiceLevelAchieved(request));
+            penObjectives.get(objLabel).addConstant(badServicePenalty);
+        }
+    }
+
+    protected void objHierarchicalServiceLevel() {
+        // Sort QoS order = A, B, C
+        List<Qos> sortedQos = Config.getInstance().getSortedQosList();
+
+        // Violation penalty
+        String objGoal = "VIOL";
+        for (Qos qos : sortedQos) {
+            String objLabel = String.format("%s_%s", objGoal, qos.id);
+            penObjectives.put(objLabel, new GRBLinExpr());
+        }
+
+        for (User request : requests) {
+            String objLabel = String.format("%s_%s", objGoal, request.qos.id);
             penObjectives.get(objLabel).addTerm(-badServicePenalty, varRequestServiceLevelAchieved(request));
             penObjectives.get(objLabel).addConstant(badServicePenalty);
         }
