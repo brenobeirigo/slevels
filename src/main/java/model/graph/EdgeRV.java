@@ -22,9 +22,14 @@ class EdgeRV implements Comparable<EdgeRV> {
 
     public boolean isHiringEdge() {
         if (this.from instanceof Vehicle) {
-            return ((Vehicle) this.from).isHired() && ((Vehicle) this.from).getUserHiredMustPickup() == this.target;
+            return ((Vehicle) this.from).isHired();
+        }else{
+            return false;
         }
-        return false;
+
+    }
+    public boolean isHiringEdgeAndUser() {
+        return isHiringEdge() && ((Vehicle) this.from).getUserHiredMustPickup() == this.target;
     }
 
     public boolean isRV() {
