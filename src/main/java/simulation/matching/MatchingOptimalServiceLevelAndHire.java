@@ -194,10 +194,11 @@ public class MatchingOptimalServiceLevelAndHire extends MatchingOptimalServiceLe
 
     private void objNumberHired() {
 
+        String label = "HIRED";
+        penObjectives.put(label, new GRBLinExpr());
         if (!hiredCurrentPeriod.isEmpty()) {
-            penObjectives.put("N_HIRED", new GRBLinExpr());
             for (Vehicle vehicle : hiredCurrentPeriod) {
-                penObjectives.get("N_HIRED").addTerm(1, varVehicleIsHired(vehicle));
+                penObjectives.get(label).addTerm(hiringPenalty, varVehicleIsHired(vehicle));
             }
         }
     }
