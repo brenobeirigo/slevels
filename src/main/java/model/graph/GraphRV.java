@@ -41,6 +41,7 @@ public class GraphRV {
         edgesRR = limitNumberOfEdgesRR(edgesRR);
 
         List<EdgeRV> edgesRV = getEdgesRV(requestIndexWaitingList);
+        edgesRV = filterCompanyFleetButKeepHiringEdge(edgesRV);
         edgesRV = limitNumberEdgesRVButKeepHiringEdge(edgesRV);
 
         edgesRR.addAll(edgesRV);
@@ -63,7 +64,7 @@ public class GraphRV {
             // Try to find at least ONE way pickup request
             EdgeRV rv = createEdgeRV(r1, vehicle);
             if (rv != null) {
-                if (rv.isHiringEdge()) {
+                if (rv.isHiringEdgeAndUserHasPromptedHiring()) {
                     edgeVehicleHiredToServeUser = rv;
                 } else {
                     edgesRV.add(rv);
@@ -96,9 +97,37 @@ public class GraphRV {
         return edgesRV;
     }
 
+    /**
+     * Company vehicles are filtered to avoid over-hiring, but we keep the backup hiring edge
+     * TODO - If longer contracts are used, need to be changed
+     */
+    private List<EdgeRV> filterCompanyFleetButKeepHiringEdge(List<EdgeRV> edgesRV) {
+
+        EdgeRV hiringEdge = getHiringEdgeFromFirstPosition(edgesRV);
+
+        List<EdgeRV> vehicles = new ArrayList<>();
+        List<EdgeRV> hired = new ArrayList<>();
+
+        for (EdgeRV edgeRV : edgesRV) {
+            if (edgeRV.isHiringEdge()) {
+                hired.add(edgeRV);
+            } else {
+                vehicles.add(edgeRV);
+            }
+        }
+
+        edgesRV = vehicles;
+
+        if (hiringEdge != null) {
+            edgesRV.add(0, hiringEdge);
+        }
+
+        return edgesRV;
+    }
+
     private EdgeRV getHiringEdgeFromFirstPosition(List<EdgeRV> edgesRV) {
         EdgeRV hiringEdge = null;
-        if (!edgesRV.isEmpty() && edgesRV.get(0).isHiringEdge()) {
+        if (!edgesRV.isEmpty() && edgesRV.get(0).isHiringEdgeAndUserHasPromptedHiring()) {
             hiringEdge = edgesRV.remove(0);
         }
         return hiringEdge;
