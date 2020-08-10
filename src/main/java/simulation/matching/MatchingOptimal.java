@@ -349,8 +349,6 @@ public class MatchingOptimal implements RideMatchingStrategy {
         for (User request : requests) {
 
             String labelQos = String.format("%s_%s", label, request.qos.id);
-            penObjectives.get(labelQos).addTerm(rejectionPenalty, varRequestRejected(request));
-
             List<Visit> requestVisits = graphRTV.getListOfVisitsFromUser(request);
             for (Visit visit : requestVisits) {
                 double delay = getDelayOfRequestInVisit(request, visit);
