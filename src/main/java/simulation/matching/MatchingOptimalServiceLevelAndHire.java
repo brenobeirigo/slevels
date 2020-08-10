@@ -45,6 +45,7 @@ public class MatchingOptimalServiceLevelAndHire extends MatchingOptimalServiceLe
         try {
             createGurobiModelAndEnvironment();
             initVarsHiring();
+            initSlacks();
             addConstraintsHiring();
             setupObjectives();
             this.model.optimize();
@@ -75,7 +76,7 @@ public class MatchingOptimalServiceLevelAndHire extends MatchingOptimalServiceLe
     protected void addConstraintsHiring() throws GRBException {
         addConstraintsStandardAssignment();
         activateVarRequestMetSL();
-        guaranteeClassMinimumSLRelaxed();
+        guaranteeClassMinimumSLRelaxedGreaterEqual();
         addConstrsVehicleIsHired();
     }
 
