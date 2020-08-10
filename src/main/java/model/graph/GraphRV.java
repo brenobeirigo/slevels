@@ -31,7 +31,7 @@ public class GraphRV {
         this.listVehicles = listVehicles;
         this.graphRV = new SimpleWeightedGraph<>(DefaultWeightedEdge.class);
 
-        // Which requests can be cobined?
+        // Which requests can be combined?
         createGraphRVInParellel();
     }
 
