@@ -98,9 +98,6 @@ public class MatchingOptimalServiceLevel extends MatchingOptimal {
             case "obj_hierarchical_service_level":
                 objHierarchicalServiceLevel();
                 break;
-            case "obj_hierarchical_rejection":
-                objHierarchicalRejection();
-                break;
             case "obj_hierarchical_slack":
                 objHierarchicalSlack();
                 break;
@@ -153,21 +150,6 @@ public class MatchingOptimalServiceLevel extends MatchingOptimal {
         for (Qos qos : sortedQos) {
             penObjectives.put(label + qos.id, new GRBLinExpr());
             penObjectives.get(label + qos.id).addTerm(1, varClassServiceLevelViolation[qos.code]);
-        }
-    }
-
-    protected void objHierarchicalRejection() {
-        // Sort QoS order = A, B, C
-        List<Qos> sortedQos = Config.getInstance().getSortedQosList();
-
-        // Violation penalty
-        String label = "H_REJ_";
-        for (Qos qos : sortedQos) {
-            penObjectives.put(label + qos.id, new GRBLinExpr());
-        }
-
-        for (User request : requests) {
-            penObjectives.get(label + request.qos.id).addTerm(rejectionPenalty, varRequestRejected(request));
         }
     }
 

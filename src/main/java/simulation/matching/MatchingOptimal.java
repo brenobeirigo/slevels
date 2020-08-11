@@ -282,6 +282,9 @@ public class MatchingOptimal implements RideMatchingStrategy {
             case "obj_hierarchical_waiting":
                 objHierarchicalWaiting();
                 break;
+            case "obj_hierarchical_rejection":
+                objHierarchicalRejection();
+                break;
             case "obj_total_waiting_and_rejection":
                 objTotalWaitingAndRejection();
                 break;
@@ -324,6 +327,22 @@ public class MatchingOptimal implements RideMatchingStrategy {
 
         for (User request : requests) {
             penObjectives.get(label).addTerm(rejectionPenalty, varRequestRejected(request));
+        }
+    }
+
+
+    protected void objHierarchicalRejection() {
+        // Sort QoS order = A, B, C
+        List<Qos> sortedQos = Config.getInstance().getSortedQosList();
+
+        // Violation penalty
+        String label = "H_REJ_";
+        for (Qos qos : sortedQos) {
+            penObjectives.put(label + qos.id, new GRBLinExpr());
+        }
+
+        for (User request : requests) {
+            penObjectives.get(label + request.qos.id).addTerm(rejectionPenalty, varRequestRejected(request));
         }
     }
 
