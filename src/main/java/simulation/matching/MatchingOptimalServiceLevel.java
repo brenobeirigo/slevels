@@ -92,13 +92,13 @@ public class MatchingOptimalServiceLevel extends MatchingOptimal {
     protected void addObjective(String objective) {
         super.addObjective(objective);
         switch (objective) {
-            case "obj_hierarchical_rejection_service_level":
+            case Objective.HIERARCHICAL_REJECTION_SERVICE_LEVEL:
                 objHierarchicalRejectionServiceLevel();
                 break;
-            case "obj_hierarchical_service_level":
+            case Objective.HIERARCHICAL_SERVICE_LEVEL:
                 objHierarchicalServiceLevel();
                 break;
-            case "obj_hierarchical_slack":
+            case Objective.HIERARCHICAL_SLACK:
                 objHierarchicalSlack();
                 break;
         }

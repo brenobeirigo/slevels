@@ -178,16 +178,16 @@ public class MatchingOptimalServiceLevelAndHire extends MatchingOptimalServiceLe
     public void addObjective(String objective) {
         super.addObjective(objective);
         switch (objective) {
-            case "obj_number_of_hired":
+            case Objective.NUMBER_OF_HIRED:
                 objNumberHired();
                 break;
-            case "obj_hierarchical_hiring_vs_slack":
+            case Objective.HIERARCHICAL_HIRING_VS_SLACK:
                 objHierarchicalHiringVsSlack();
                 break;
-            case "obj_hierarchical_hiring_and_rejection_service_level":
+            case Objective.HIERARCHICAL_HIRING_AND_REJECTION_SERVICE_LEVEL:
                 objHierarchicalHiringAndRejectionServiceLevel();
                 break;
-            case "obj_number_of_hired_and_violations":
+            case Objective.NUMBER_OF_HIRED_AND_VIOLATIONS:
                 objNumberHiredAndViolation();
                 break;
         }

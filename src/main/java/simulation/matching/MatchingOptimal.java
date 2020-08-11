@@ -276,19 +276,19 @@ public class MatchingOptimal implements RideMatchingStrategy {
 
     protected void addObjective(String objective) {
         switch (objective) {
-            case "obj_hierarchical_waiting_and_rejection":
+            case Objective.HIERARCHICAL_WAITING_AND_REJECTION:
                 objHierarchicalWaitingAndRejection();
                 break;
-            case "obj_hierarchical_waiting":
+            case Objective.HIERARCHICAL_WAITING:
                 objHierarchicalWaiting();
                 break;
-            case "obj_hierarchical_rejection":
+            case Objective.HIERARCHICAL_REJECTION:
                 objHierarchicalRejection();
                 break;
-            case "obj_total_waiting_and_rejection":
+            case Objective.TOTAL_WAITING_AND_REJECTION:
                 objTotalWaitingAndRejection();
                 break;
-            case "obj_total_waiting":
+            case Objective.TOTAL_WAITING:
                 objTotalWaitingTime();
                 break;
         }
@@ -342,7 +342,7 @@ public class MatchingOptimal implements RideMatchingStrategy {
         }
 
         for (User request : requests) {
-            penObjectives.get(label + request.qos.id).addTerm(rejectionPenalty, varRequestRejected(request));
+            penObjectives.get(label + request.qos.id).addTerm(1, varRequestRejected(request));
         }
     }
 
@@ -414,7 +414,7 @@ public class MatchingOptimal implements RideMatchingStrategy {
 
     protected void addIsRejectedVar(User request) throws GRBException {
         String label = String.format("x_rejected_%s", request.toString().replace(" ", "_").trim());
-        varRequestRejected[requestIndex.get(request)] = model.addVar(0, 1, rejectionPenalty, GRB.BINARY, label);
+        varRequestRejected[requestIndex.get(request)] = model.addVar(0, 1, 1, GRB.BINARY, label);
     }
 
     protected void addIsVisitChosenVar(Visit visit) throws GRBException {
