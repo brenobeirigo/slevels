@@ -1,0 +1,176 @@
+{
+    "instance_description": "Add auxiliary variable (greater equal)",
+    "instance_name": "SCENARIO",
+    "result_folder": "C:/Users/LocalAdmin/IdeaProjects/slevels/instance_output/day_enforce_sl/",
+  "instances_folder": "C:/Users/LocalAdmin/IdeaProjects/slevels/instance_output/day_enforce_sl/",
+  "distances_file": "C:/Users/LocalAdmin/OneDrive/leap_forward/street_network_server/tenv/data/out/manhattan/distance/dist_matrix_m.csv",
+  "durations_file": "C:/Users/LocalAdmin/OneDrive/leap_forward/street_network_server/tenv/data/out/manhattan/distance/dist_matrix_duration_s.csv",
+  "adjacency_matrix_file": "C:/Users/LocalAdmin/OneDrive/leap_forward/street_network_server/tenv/data/out/manhattan/network_info/adjacency_matrix.csv",
+  "requests_file": "C:/Users/LocalAdmin/OneDrive/leap_forward/street_network_server/tenv/data/out/manhattan/tripdata/ids/tripdata_ids_2011-02-01_000000_2011-02-07_235959.csv",
+  "network_node_info_file": "C:/Users/LocalAdmin/OneDrive/leap_forward/street_network_server/tenv/data/out/manhattan/network_info/nodeset_info.json",
+    "scenario_config": {
+      "batch_duration": [
+        30
+      ],
+      "earliest_time": [
+        "2011-02-01 18:00:00"
+      ],
+      "time_horizon": [
+        10800
+      ],
+      "max_requests": [
+        1000
+      ],
+      "initial_fleet": [
+        1000
+      ],
+      "max_capacity": [
+        4
+      ],
+      "rebalance": [
+        true
+      ],
+      "contract_duration": [
+        0
+      ],
+      "allow_request_displacement": [
+        true
+      ],
+      "allow_vehicle_hiring": [
+        true
+      ],
+      "service_rate": {
+        "S0": {
+            "A": 0.0,
+            "B": 0.0,
+            "C": 0.0
+        },
+        "S8": {
+            "A": 0.8,
+            "B": 0.8,
+            "C": 0.8
+          },
+        "S9": {
+            "A": 0.9,
+            "B": 0.9,
+            "C": 0.9
+          },
+          
+        "S10": {
+            "A": 1.0,
+            "B": 1.0,
+            "C": 1.0
+          } 
+      },
+      "customer_segmentation": {
+        "BB": {
+          "A": 0.16,
+          "B": 0.68,
+          "C": 0.16
+        }
+      },
+      "service_level": {
+        "A": {
+          "priority": 1,
+          "pk_delay_target": 180,
+          "pk_delay": 420,
+          "trip_delay": 420,
+          "sharing_preference": 0
+        },
+        "B": {
+          "priority": 2,
+          "pk_delay_target": 300,
+          "pk_delay": 420,
+          "trip_delay": 420,
+          "sharing_preference": 1
+        },
+        "C": {
+          "priority": 3,
+          "pk_delay_target": 420,
+          "pk_delay": 420,
+          "trip_delay": 420,
+          "sharing_preference": 1
+        }
+      }
+    },
+    "hiring_config": [
+      {
+        "name": "method_hire_from_regional_center"
+      }
+    ],
+    "matching_config": [
+        {
+            "name": "method_optimal_enforce_sl",
+            "mip_time_limit": 60,
+            "mip_gap": 0.01,
+            "max_edges_rv": 30,
+            "max_edges_rr": 30,
+            "rtv_vehicle_timeout": 0.20,
+            "rtv_max_vehicle_capacity": 4,
+            "rejection_penalty": 5,
+            "bad_service_penalty": 1,
+            "allow_hiring": false,
+            "objectives": [
+                "obj_hierarchical_slack",
+                "obj_hierarchical_rejection",
+                "obj_hierarchical_service_level",
+                "obj_hierarchical_waiting"
+            ]
+          },
+          {
+            "name": "method_optimal_enforce_sl_and_hire",
+            "mip_time_limit": 60,
+            "mip_gap": 0.01,
+            "max_edges_rv": 30,
+            "max_edges_rr": 30,
+            "rtv_vehicle_timeout": 0.20,
+            "rtv_max_vehicle_capacity": 4,
+            "rejection_penalty": 5,
+            "bad_service_penalty": 1,
+            "hiring_penalty": 1,
+            "allow_hiring": true,
+            "contract_duration_h": 0,
+            "objectives": [
+                "obj_hierarchical_slack",
+                "obj_number_of_hired",
+                "obj_hierarchical_rejection",
+                "obj_hierarchical_service_level",
+                "obj_hierarchical_waiting"
+            ]
+          }       
+      ],
+    "method_options": [
+      "method_optimal",
+      "method_greedy",
+      "method_fsfc",
+      "method_optimal_enforce_sl",
+      "method_optimal_enforce_sl_and_hire"
+    ],
+    "rebalancing_config": [
+      {
+        "name": "rebalance_optimal_alonso_mora"
+      }
+    ],
+    "labels": {
+      "BA": "batch_duration",
+      "ST": "simulation_time",
+      "MR": "max_requests",
+      "IF": "initial_fleet",
+      "MC": "max_capacity",
+      "RE": "rebalance",
+      "CD": "contract_duration",
+      "SD": "allow_service_deterioration",
+      "VH": "allow_vehicle_hiring",
+      "SR": "service_rate",
+      "CS": "customer_segmentation",
+      "MO": "allow_many_to_one",
+      "RT": "reinsert_targets",
+      "CT": "clear_target_list_every_round",
+      "UR": "allow_urgent_relocation",
+      "IN": "instance_name",
+      "ID": "instance_description",
+      "HE": "rebalance_heuristic",
+      "OPT": "matching",
+      "HC": "maximal_hiring_delay"
+    }
+  }

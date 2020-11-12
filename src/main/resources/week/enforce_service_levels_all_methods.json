@@ -95,7 +95,48 @@
       "violation_penalty": 1000,
       "bad_service_penalty": 10
     }
-  ],
+    [
+      {
+        "name": "method_optimal",
+        "mip_time_limit": 15,
+        "mip_gap": 0.01,
+        "max_edges_rv": 30,
+        "rtv_vehicle_timeout": 0.2,
+        "rtv_max_vehicle_capacity": 4,
+        "rejection_penalty": 10000
+      },
+      {
+        "name": "method_optimal_enforce_sl",
+        "mip_time_limit": 15,
+        "mip_gap": 0.01,
+        "max_edges_rv": 30,
+        "rtv_vehicle_timeout": 0.20,
+        "rtv_max_vehicle_capacity": 4,
+        "rejection_penalty": 5,
+        "violation_penalty": 1000,
+        "bad_service_penalty": 1,
+        "objectives": [
+          "hierarchical_penalty_total_delay",
+          "hierarchical_penalty_delay",
+          "hierarchical_penalty_"
+        ]
+      },
+      {
+        "name": "method_greedy",
+        "mip_time_limit": 15,
+        "mip_gap": 0.01,
+        "max_edges_rv": 30,
+        "rtv_vehicle_timeout": 0.2,
+        "rtv_max_vehicle_capacity": 4
+      },
+      {
+        "name": "method_fsfc",
+        "max_permutations": 100,
+        "all_permutations": true,
+        "stop_at_first_best": false,
+        "check_in_parallel": false
+      }
+    ],
   "method_options": [
     "method_optimal",
     "method_greedy",

@@ -1,8 +1,8 @@
 {
   "instance_description": "User can have their times worsened",
-  "instance_name": "ENFORCE",
-  "result_folder": "C:/Users/LocalAdmin/IdeaProjects/slevels/instance_output/enforcesl/",
-  "instances_folder": "C:/Users/LocalAdmin/IdeaProjects/slevels/instance_output/enforcesl/",
+  "instance_name": "STA",
+  "result_folder": "C:/Users/LocalAdmin/IdeaProjects/slevels/instance_output/day_enforce_sl/",
+  "instances_folder": "C:/Users/LocalAdmin/IdeaProjects/slevels/instance_output/day_enforce_sl/",
   "distances_file": "C:/Users/LocalAdmin/OneDrive/leap_forward/street_network_server/tenv/data/out/manhattan/distance/dist_matrix_m.csv",
   "durations_file": "C:/Users/LocalAdmin/OneDrive/leap_forward/street_network_server/tenv/data/out/manhattan/distance/dist_matrix_duration_s.csv",
   "adjacency_matrix_file": "C:/Users/LocalAdmin/OneDrive/leap_forward/street_network_server/tenv/data/out/manhattan/network_info/adjacency_matrix.csv",
@@ -13,10 +13,10 @@
       30
     ],
     "earliest_time": [
-      "2011-02-01 00:00:00"
+      "2011-02-01 18:00:00"
     ],
     "time_horizon": [
-      86400
+      60
     ],
     "max_requests": [
       1000
@@ -24,6 +24,12 @@
     "initial_fleet": [
       1000
     ],
+    "regional_centers": [
+      180,
+      300,
+      420
+    ],
+    "max_time_to_reach_region_center": 150,
     "max_capacity": [
       4
     ],
@@ -33,13 +39,10 @@
     "contract_duration": [
       0
     ],
-    "allow_service_deterioration": [
+    "allow_request_displacement": [
       true
     ],
     "allow_vehicle_hiring": [
-      true
-    ],
-    "allow_vehicle_creation": [
       true
     ],
     "service_rate": {
@@ -50,26 +53,29 @@
       }
     },
     "customer_segmentation": {
-      "BB": {
+      "CC": {
         "A": 0.16,
-        "B": 0.68,
-        "C": 0.16
+        "B": 0.16,
+        "C": 0.68
       }
     },
     "service_level": {
       "A": {
+        "priority": 1,
         "pk_delay_target": 180,
         "pk_delay": 420,
         "trip_delay": 420,
         "sharing_preference": 0
       },
       "B": {
+        "priority": 2,
         "pk_delay_target": 300,
         "pk_delay": 420,
         "trip_delay": 420,
         "sharing_preference": 1
       },
       "C": {
+        "priority": 3,
         "pk_delay_target": 420,
         "pk_delay": 420,
         "trip_delay": 420,
@@ -77,39 +83,73 @@
       }
     }
   },
+  "hiring_config": [
+    {
+      "name": "method_hire_from_regional_center"
+    }
+  ],
   "matching_config": [
     {
+      "name": "method_optimal_enforce_sl_and_hire",
+      "mip_time_limit": 30,
+      "mip_gap": 0.01,
+      "max_edges_rv": 15,
+      "max_edges_rr": 15,
+      "rtv_vehicle_timeout": 0.20,
+      "rtv_max_vehicle_capacity": 4,
+      "rejection_penalty": 5,
+      "bad_service_penalty": 1,
+      "hiring_penalty": 1,
+      "allow_hiring": true,
+      "contract_duration_h": 0,
+      "objectives": [
+        "obj_hierarchical_slack",
+        "obj_hierarchical_rejection",
+        "obj_number_of_hired",
+        "obj_hierarchical_service_level",
+        "obj_hierarchical_waiting"
+      ]
+    },{
       "name": "method_optimal",
       "mip_time_limit": 15,
       "mip_gap": 0.01,
       "max_edges_rv": 30,
-      "rtv_vehicle_timeout": 0.2,
-      "rtv_max_vehicle_capacity": 4,
-      "rejection_penalty": 10000
-    },
-    {
-      "name": "method_optimal_enforce_sl",
-      "mip_time_limit": 15,
-      "mip_gap": 0.01,
-      "max_edges_rv": 30,
+      "max_edges_rr": 30,
       "rtv_vehicle_timeout": 0.20,
       "rtv_max_vehicle_capacity": 4,
       "rejection_penalty": 10000,
-      "violation_penalty": 1000,
-      "bad_service_penalty": 10
+      "bad_service_penalty": 1,
+      "allow_hiring": false,
+      "objectives": [
+        "obj_hierarchical_rejection",
+        "obj_hierarchical_waiting"
+      ]
     }
+  ],
+  "objective_options": [
+    "obj_number_of_hired_and_violations",
+    "obj_hierarchical_rejection",
+    "obj_hierarchical_slack",
+    "obj_hierarchical_rejection_service_level",
+    "obj_hierarchical_hiring_and_rejection_service_level",
+    "obj_number_of_hired",
+    "obj_hierarchical_service_level",
+    "obj_total_waiting",
+    "obj_hierarchical_waiting_and_rejection",
+    "obj_hierarchical_waiting",
+    "obj_total_waiting_and_rejection"
   ],
   "method_options": [
     "method_optimal",
     "method_greedy",
     "method_fsfc",
-    "method_optimal_enforce_sl"
+    "method_optimal_enforce_sl",
+    "method_optimal_enforce_sl_and_hire"
   ],
   "rebalancing_config": [
     {
       "name": "rebalance_optimal_alonso_mora"
-    },
-    {}
+    }
   ],
   "labels": {
     "BA": "batch_duration",
@@ -130,6 +170,7 @@
     "IN": "instance_name",
     "ID": "instance_description",
     "HE": "rebalance_heuristic",
-    "OP": "rebalance_optimal_alonso_mora"
+    "OPT": "rebalance_optimal_alonso_mora",
+    "HC": "maximal_hiring_delay"
   }
 }
