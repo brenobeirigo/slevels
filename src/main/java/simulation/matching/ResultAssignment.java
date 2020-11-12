@@ -188,9 +188,6 @@ public class ResultAssignment {
                 this.vehiclesDisrupted.add(user.getCurrentVisit().getVehicle());
             }
         }
-
-        //System.out.println(String.format("Setting up %s - User: %s", visit, visit.getUserInfo()));
-        //printCurrentStatus();
     }
 
     private void printCurrentStatus() {

@@ -3,8 +3,6 @@ package simulation;
 import config.Config;
 import config.InstanceConfig;
 import config.Qos;
-import simulation.matching.RideMatchingStrategy;
-import simulation.rebalancing.RebalanceStrategy;
 import dao.Dao;
 import dao.FileUtil;
 import helper.HelperIO;
@@ -12,6 +10,8 @@ import model.User;
 import model.Vehicle;
 import org.apache.commons.csv.CSVFormat;
 import org.apache.commons.csv.CSVPrinter;
+import simulation.matching.RideMatchingStrategy;
+import simulation.rebalancing.RebalanceStrategy;
 import visualization.GeoJsonUtil;
 
 import java.io.BufferedWriter;
@@ -26,19 +26,24 @@ import static java.util.Comparator.comparingInt;
 public class Solution {
 
     // Execution time headers
-    public static final String TIME_UPDATE_FLEET_STATUS = "time_update_fleet_status_ms";
-    public static final String TIME_REBALANCING_FLEET = "time_vehicle_rebalancing_ms";
-    public static final String TIME_UPDATE_DEMAND = "time_ride_matching_ms";
+    public static final String TIME_UPDATE_FLEET_STATUS = "time_update_fleet_status_s";
+    public static final String TIME_REBALANCING_FLEET = "time_vehicle_rebalancing_s";
+    public static final String TIME_UPDATE_DEMAND = "time_ride_matching_s";
     public static final String TIME_CREATE_RV = "time_create_rv_graph";
     public static final String TIME_CREATE_RTV = "time_create_rtv_graph";
     public static final String TIME_MATCHING = "time_matching";
-    public static final String[] TIME_HEADERS = new String[]{TIME_UPDATE_DEMAND, TIME_UPDATE_FLEET_STATUS, TIME_REBALANCING_FLEET};
+    public static final String[] TIME_HEADERS = new String[]{
+            TIME_UPDATE_DEMAND,
+            TIME_UPDATE_FLEET_STATUS,
+            TIME_REBALANCING_FLEET
+    };
 
     private BufferedWriter writer;
     /* Instance */
     private int nOfVehicles;
     private int maxNumberOfTrips;
     private int vehicleCapacity;
+    private int maxTimeToReachRegionCenter;
     private int timeHorizon;
     private int totalHorizon;
     private String methodName;
@@ -68,6 +73,7 @@ public class Solution {
     private Path outputGeoJson;
 
     public Solution(String methodName,
+                    int maxTimeToReachRegionCenter,
                     int nOfVehicles,
                     int maxNumberOfTrips,
                     int vehicleCapacity,
@@ -78,6 +84,7 @@ public class Solution {
                     boolean allowDelayExtension) {
 
         this.methodName = methodName;
+        this.maxTimeToReachRegionCenter = maxTimeToReachRegionCenter;
         this.nOfVehicles = nOfVehicles;
         this.maxNumberOfTrips = maxNumberOfTrips;
         this.vehicleCapacity = vehicleCapacity;
@@ -93,6 +100,7 @@ public class Solution {
 
     // Initialize solution
     public Solution(String methodName,
+                    int maxTimeToReachRegionCenter,
                     int nOfVehicles,
                     int maxNumberOfTrips,
                     int vehicleCapacity,
@@ -108,6 +116,7 @@ public class Solution {
 
         // Initialize solution
         this(methodName,
+                maxTimeToReachRegionCenter,
                 nOfVehicles,
                 maxNumberOfTrips,
                 vehicleCapacity,
@@ -122,8 +131,9 @@ public class Solution {
 
 
         testCaseName = String.format(
-                "IN-%s_BA-%d_ST-%d_MR-%d_IF-%d_MC-%d_CS-%s",
+                "IN-%s_HC-%d_BA-%d_ST-%d_MR-%d_IF-%d_MC-%d_CS-%s",
                 methodName,
+                maxTimeToReachRegionCenter,
                 timeHorizon,
                 totalHorizon,
                 maxNumberOfTrips,

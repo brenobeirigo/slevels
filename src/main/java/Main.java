@@ -71,9 +71,11 @@ public class Main {
 
                                                             Instant before = Instant.now();
 
+                                                            //TODO instance objects generating solution objects
                                                             // Create FCFS simulation
                                                             Simulation simulation = new SimulationFCFS(
                                                                     instanceSettings.getInstanceName(),
+                                                                    instanceSettings.getMaxTimeToReachRegionCenter(),
                                                                     initialFleet,
                                                                     vehicleMaxCapacity,
                                                                     maxRequestsIteration,

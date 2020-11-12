@@ -134,12 +134,6 @@ public class MatchingFCFS implements RideMatchingStrategy {
         // Loop users
         for (User u : unassignedRequests) {
 
-            // User waits one or more rounds
-            u.increaseRoundsWaiting();
-
-            //################### REBALANCE ##### REBALANCE ##### REBALANCE ############################################
-            // All points are relocation targets BUT failed pickups have priority
-            computeAttractivenessLocationUser(u, configMatching.rebalanceUtil);
 
             // Aux. best visit for comparison
             Visit bestVisit = u.getBestVisitByInsertion(
@@ -147,17 +141,8 @@ public class MatchingFCFS implements RideMatchingStrategy {
                     currentTime,
                     stopAtFirstBest);
 
-            //##########################################################################################################
-            //## VISIT WAS NOT FOUND ###################################################################################
-            //##########################################################################################################
-
             // Depending on user class, decide if new vehicle will be created.
             if (bestVisit == null) {
-
-                //################### REBALANCE ##### REBALANCE ##### REBALANCE ########################################
-                // Some vehicle should be sent there urgently to fix supply-demand imbalance
-                //if (configMatching.rebalanceUtil.useUrgentKey)
-                //    u.getNodePk().increaseUrgency();
 
                 // Try to hire new vehicle to user according to user SQ class
                 if (hireNewVehicleToUser(u, configMatching)) {

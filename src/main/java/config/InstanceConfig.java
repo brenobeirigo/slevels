@@ -69,6 +69,7 @@ public class InstanceConfig {
     private String roundTrackFolder;
     private String requestTrackFolder;
     private String geojsonTrackFolder;
+    private int maxTimeToReachRegionCenter;
 
     private InstanceConfig(String jsonFilePath) {
 
@@ -128,6 +129,7 @@ public class InstanceConfig {
             this.contractDurationArray = gson.fromJson(scenarioConfig.get("contract_duration").getAsJsonArray(), int[].class); // In rounds of tw_batch seconds
             this.allowVehicleHiringArray = gson.fromJson(scenarioConfig.get("allow_vehicle_hiring").getAsJsonArray(), boolean[].class);
             this.allowRequestDisplacementArray = gson.fromJson(scenarioConfig.get("allow_request_displacement").getAsJsonArray(), boolean[].class);
+            this.maxTimeToReachRegionCenter = gson.fromJson(scenarioConfig.get("max_time_to_reach_region_center"), int.class);
 
             // Customer base settings
             Type segmentationScenarioType = new TypeToken<HashMap<String, HashMap<String, Double>>>() {
@@ -539,6 +541,14 @@ public class InstanceConfig {
 
     public boolean[] getAllowRequestDisplacementArray() {
         return this.allowRequestDisplacementArray;
+    }
+
+    public int getMaxTimeToReachRegionCenter() {
+        return maxTimeToReachRegionCenter;
+    }
+
+    public void setMaxTimeToReachRegionCenter(int maxTimeToReachRegionCenter) {
+        this.maxTimeToReachRegionCenter = maxTimeToReachRegionCenter;
     }
 }
 

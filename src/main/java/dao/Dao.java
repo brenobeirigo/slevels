@@ -966,7 +966,13 @@ public class Dao {
 
     public int getClosestRegion(int networkId, String performanceClass) {
 
-        int maxTimeToReach = InstanceConfig.getInstance().getMaxTimeHiringList().get(performanceClass);
+        int maxTimeToReach;
+        if (InstanceConfig.getInstance().getMaxTimeToReachRegionCenter() == 0) {
+            maxTimeToReach = InstanceConfig.getInstance().getMaxTimeHiringList().get(performanceClass);
+        }
+        else{
+            maxTimeToReach = InstanceConfig.getInstance().getMaxTimeToReachRegionCenter();
+        }
 
         // System.out.println(networkId + " - " + performanceClass + " - " + maxTimeToReach);
         // Network id

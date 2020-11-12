@@ -10,7 +10,7 @@
     "save_vehicle_round_geojson": false,
     "save_request_info_csv": true,
     "save_round_info_csv": true,
-    "save_round_mip_info_lp": false,
+    "save_round_mip_info_lp": true,
     "show_all_vehicle_journeys": false,
     "show_round_fleet_status": false,
     "show_round_info": true,

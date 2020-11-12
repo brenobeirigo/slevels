@@ -23,6 +23,7 @@ public class SimulationFCFS extends Simulation {
 
     /* Construct FCFS simulation */
     public SimulationFCFS(String methodName,
+                          int maxTimeToReachRegionCenter,
                           int initialFleet,
                           int vehicleMaxCapacity,
                           int maxRequestsIteration,
@@ -60,6 +61,7 @@ public class SimulationFCFS extends Simulation {
         // Initialize solution
         sol = new Solution(
                 methodName,
+                maxTimeToReachRegionCenter,
                 initialFleet,
                 maxRequestsIteration,
                 vehicleMaxCapacity,

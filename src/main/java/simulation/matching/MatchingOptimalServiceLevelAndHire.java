@@ -305,7 +305,7 @@ public class MatchingOptimalServiceLevelAndHire extends MatchingOptimalServiceLe
 
     @Override
     public String toString() {
-        return "_OPT-ERTV_HIRE";
+        return "_OPT-ERTV";
     }
 
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
