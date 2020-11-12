@@ -1,5 +1,5 @@
 {
-  "paper_folder": "C:/Users/LocalAdmin/OneDrive/leap_forward/phd_project/sqc/business_class_amod/trc/",
+  "paper_folder": "C:/Users/LocalAdmin/OneDrive/leap_forward/phd_project/sqc/business_class_amod/trc/plus/",
   "dict_sl_class": {
     "A": "Business",
     "B": "Standard",
@@ -62,6 +62,7 @@
     "serviced": "Serviced",
     "unmet_sl": "Violated SL",
     "rejected": "Rejected",
+
     "service_level": "Pickup deadline",
     "class": "SQ Class",
     "delay_pk": "Pickup waiting (min)",
@@ -100,30 +101,8 @@
   "test_cases": {
     "standard_vs_enforce_BB": {
       "SLH": {
-        "source": "IN-SCENARIO_HC-150_BA-30_ST-3600_MR-1000_IF-1000_MC-4_CS-BB_CD-0_SR-S9_VH_SD_RE-OP_OPT-ERTV",
+        "source": "IN-WHOLEDAYPLUS_HC-150_BA-30_ST-86400_MR-1000_IF-1000_MC-4_CS-BB_CD-0_SR-S9_VH_SD_RE-OP_OPT-ERTV_HIRE",
         "order": 0
-      },
-      "SL": {
-        "source": "IN-SCENARIO_HC-2_BA-30_ST-3600_MR-1000_IF-1000_MC-4_CS-BB_CD-0_SR-S9_VH_SD_RE-OP_OPT-JAVIERSL",
-        "order": 1
-      },
-      "SQ": {
-        "source": "IN-SCENARIO_HC-1_BA-30_ST-3600_MR-1000_IF-1000_MC-4_CS-BB_CD-0_SR-S0_VH_SD_RE-OP_OPT-JAVIER",
-        "order": 2
-      }
-    },
-    "standard_vs_enforce_AA": {
-      "SLH": {
-        "source": "IN-SCENARIO_HC-150_BA-30_ST-3600_MR-1000_IF-1000_MC-4_CS-AA_CD-0_SR-S9_VH_SD_RE-OP_OPT-ERTV",
-        "order": 0
-      },
-      "SL": {
-        "source": "IN-SCENARIO_HC-2_BA-30_ST-3600_MR-1000_IF-1000_MC-4_CS-AA_CD-0_SR-S9_VH_SD_RE-OP_OPT-JAVIERSL",
-        "order": 1
-      },
-      "SQ": {
-        "source": "IN-SCENARIO_HC-1_BA-30_ST-3600_MR-1000_IF-1000_MC-4_CS-AA_CD-0_SR-S0_VH_SD_RE-OP_OPT-JAVIER",
-        "order": 2
       }
     }
   }

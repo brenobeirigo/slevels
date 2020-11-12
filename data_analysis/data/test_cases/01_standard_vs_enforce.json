@@ -1,0 +1,10 @@
+{
+  "sources": {
+    "Status quo": "IN-SLBENCH_BA-30_ST-86400_MR-1000_IF-1000_MC-4_CS-BB_CD-0_SR-S1_VH_SD_RE-OP_OPT-JAVIER",
+    "Enforce SL": "IN-SLBENCH_BA-30_ST-86400_MR-1000_IF-1000_MC-4_CS-BB_CD-0_SR-S1_VH_SD_RE-OP_OPT-JAVIERSL"
+  },
+  "order": {
+    "Status quo": 1,
+    "Enforce SL": 0
+  }
+}

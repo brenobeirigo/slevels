@@ -1,0 +1,22 @@
+User base,Service rate,Policy,Total time (s),Avg. round time (s)
+B+,0%,Min. waiting,1694.11,8.69
+B+,80%,Enforce SL,1637.73,8.44
+B+,80%,Enforce SL + Hire,1853.63,9.70
+B+,90%,Enforce SL,1524.22,7.82
+B+,90%,Enforce SL + Hire,1704.90,9.12
+B+,100%,Enforce SL,1557.43,8.28
+B+,100%,Enforce SL + Hire,836.98,4.52
+S+,0%,Min. waiting,2026.37,10.34
+S+,80%,Enforce SL,2101.49,11.30
+S+,80%,Enforce SL + Hire,2439.43,12.57
+S+,90%,Enforce SL,1986.42,10.19
+S+,90%,Enforce SL + Hire,2255.83,12.19
+S+,100%,Enforce SL,2074.08,10.58
+S+,100%,Enforce SL + Hire,1414.21,7.52
+L+,0%,Min. waiting,1699.82,8.85
+L+,80%,Enforce SL,1918.99,9.84
+L+,80%,Enforce SL + Hire,2371.18,12.29
+L+,90%,Enforce SL,1886.39,9.62
+L+,90%,Enforce SL + Hire,2432.48,12.29
+L+,100%,Enforce SL,1897.20,9.68
+L+,100%,Enforce SL + Hire,1813.61,9.75

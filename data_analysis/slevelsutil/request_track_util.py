@@ -1,11 +1,13 @@
 from collections import defaultdict
 
+import numpy as np
 import pandas as pd
 
 
 def read_request_track(folder, request_track_experiment_label):
     experiment_path = "{}request_track/{}.csv".format(folder, request_track_experiment_label)
-    return pd.read_csv(experiment_path, parse_dates=True, comment="#")
+    df = pd.read_csv(experiment_path, parse_dates=True, comment="#")
+    return df
 
 
 def concat_dfs(user_track_dfs, method_labels):
@@ -19,6 +21,23 @@ def concat_dfs(user_track_dfs, method_labels):
     df_compare = pd.concat(df_compare_list)
 
     return df_compare
+
+
+def add_ticks(ax, start, end, step, label_min=None, label_max=None, label_step=None, tick_format=None):
+    if label_min is not None:
+        y_tick_labels = np.arange(label_min, label_max, label_step)
+    else:
+        y_tick_labels = np.arange(start, end, step)
+
+    if tick_format is not None:
+        y_tick_labels = [tick_format.format(tick) for tick in y_tick_labels]
+
+    ax = ax.set(
+        yticks=np.arange(start, end, step),
+        yticklabels=y_tick_labels
+    )
+
+    return ax
 
 
 def add_labels(df_user_track, dict_sl_class, dict_slevel, dict_fleet, headers):
@@ -56,10 +75,10 @@ def get_dict_method_status(dict_sl_class, request_track_experiment_labels, dict_
     for status, df in dict_status.items():
         for method in request_track_experiment_labels:
             for sl_class in dict_sl_class.values():
-                dict_methods_class["Status"].append(status)
-                dict_methods_class["Method"].append(method)
-                dict_methods_class["Class"].append(sl_class)
+                dict_methods_class[headers["status"]].append(status)
+                dict_methods_class[headers["method"]].append(method)
+                dict_methods_class[headers["class"]].append(sl_class)
                 user_count_method_status = value_counts_dict(df, sl_class, header_method, header_class).get(method, 0)
-                dict_methods_class["Count"].append(user_count_method_status)
+                dict_methods_class[headers["status_count"]].append(user_count_method_status)
 
     return dict_methods_class

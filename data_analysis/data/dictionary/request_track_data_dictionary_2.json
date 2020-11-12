@@ -1,0 +1,96 @@
+{
+  "paper_folder": "C:/Users/LocalAdmin/OneDrive/leap_forward/phd_project/sqc/business_class_amod/",
+  "dict_sl_class": {
+    "A": "Business",
+    "B": "Standard",
+    "C": "Low-cost"
+  },
+  "dict_fleet": {
+    "FLEET": "Company",
+    "FREELANCE": "Freelance",
+    "DENIED": "Denied"
+  },
+  "dict_sl_tier": {
+    "FIRST": "Achieved",
+    "SECOND": "Violated",
+    "REJECTED": "Rejected"
+  },
+  "dict_segmentation": {
+    "AA": "B+",
+    "BB": "S+",
+    "CC": "L+",
+    "A": "B",
+    "B": "S",
+    "C": "L"
+  },
+  "dict_contract_duration": {
+    "0": "Single-ride",
+    "3600": "1h",
+    "10800": "3h",
+    "-1": "-"
+  },
+  "dict_method": {
+    "JAVIER": "Min. waiting",
+    "JAVIERSL": "Enforce SL",
+    "ERTV": "Enforce SL + Hire"
+  },
+  "dict_service_rate": {
+    "S0": "0%",
+    "S8": "80%",
+    "S9": "90%",
+    "S10": "100%"
+  },
+  "order_class_labels": [
+    "A",
+    "B",
+    "C"
+  ],
+  "order_classes": [
+    "Business",
+    "Standard",
+    "Low-cost"
+  ],
+  "headers": {
+    "service_level": "Pickup deadline",
+    "class": "SQ Class",
+    "delay_pk": "Pickup waiting (min)",
+    "service": "Service",
+    "method": "Policy",
+    "status": "Status",
+    "status_count": "Count",
+    "user_base": "User base",
+    "contract_duration": "Contract duration",
+    "service_rate": "Service rate"
+  },
+  "methods": {
+    "SQ": "Min. waiting",
+    "SL": "Enforce SL",
+    "SLH": "Enforce SL + Hire"
+  },
+  "test_cases": {
+    "standard_vs_enforce_BB": {
+      "SLH": {
+        "source": "IN-HIERARCHICAL_AUX_BA-30_ST-10800_MR-1000_IF-1000_MC-4_CS-BB_CD-0_SR-S1_VH_SD_RE-OP_OPT-ERTV_HIRE",
+        "order": 0
+      },
+      "SL": {
+        "source": "IN-HIERARCHICAL_AUX_BA-30_ST-10800_MR-1000_IF-1000_MC-4_CS-BB_CD-0_SR-S1_VH_SD_RE-OP_OPT-JAVIERSL",
+        "order": 1
+      },
+      "SQ": {
+        "source": "IN-HIERARCHICAL_BA-30_ST-10800_MR-1000_IF-1000_MC-4_CS-BB_CD-0_SR-S1_VH_SD_RE-OP_OPT-JAVIER",
+        "order": 2
+      }
+    },
+    "standard_vs_enforce_AA": {
+      "SQ": {
+        "source": "IN-SLBENCH_BA-30_ST-86400_MR-1000_IF-1000_MC-4_CS-AA_CD-0_SR-S1_VH_SD_RE-OP_OPT-JAVIER",
+        "order": 0
+      },
+      "SL": {
+        "source": "IN-SLBENCH_BA-30_ST-86400_MR-1000_IF-1000_MC-4_CS-AA_CD-0_SR-S1_VH_SD_RE-OP_OPT-JAVIERSL",
+        "order": 1
+      }
+    }
+  }
+}
