@@ -1,5 +1,5 @@
 {
-  "instance_file_path": "C:\\Users\\LocalAdmin\\IdeaProjects\\slevels\\src\\main\\resources\\week\\enforce_service_levels.json",
+  "instance_file_path": "C:\\Users\\LocalAdmin\\IdeaProjects\\slevels\\src\\main\\resources\\hour\\enforce_sl_all_hierarchical_scenarios_no_hiring_plus.json",
   "info_level": "print_summary_round_info",
   "info_level_options": [
     "print_summary_round_info",
@@ -7,7 +7,7 @@
     "print_no_round_info"
   ],
   "info_handling": {
-    "save_vehicle_round_geojson": false,
+    "save_vehicle_round_geojson": true,
     "save_request_info_csv": true,
     "save_round_info_csv": true,
     "save_round_mip_info_lp": true,
