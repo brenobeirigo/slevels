@@ -1,6 +1,7 @@
 package simulation;
 
 import config.Config;
+import config.Qos;
 import dao.Dao;
 import model.User;
 import model.Vehicle;
@@ -1172,12 +1173,16 @@ public class Method {
         // inserted in the RTV graph.
 
         List<List<Node>> sequences = new LinkedList<>();
+        Map<String, Visit> bestVisitOfEachClass = new HashMap<>();
 
         Visit visit = null;
         int lowestDelay = Integer.MAX_VALUE;
         for (ICombinatoricsVector<Node> combination : gen) {
 
             List<Node> sequence = combination.getVector();
+            for(Qos qos : Config.getInstance().qosDic.values()){
+                bestVisitOfEachClass.put(qos.id, null);
+            }
 
             /*if (requests.isEmpty() && sequence.size() > 2) {
                 System.out.println("start tracking empty request" + vehicle.getVisit());
