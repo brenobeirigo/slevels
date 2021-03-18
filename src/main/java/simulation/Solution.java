@@ -286,6 +286,12 @@ public class Solution {
                 this.testCaseName);
         FileUtil.createDir(caseStudyPath);
 
+        Path outputGeoJsonFleet = Paths.get(
+                String.format("%s/fleetJourney.json",
+                        caseStudyPath
+                ));
+
+        List<String> geojsonList = new ArrayList();
 
         for (Vehicle v : vehicleList) {
 
@@ -301,12 +307,32 @@ public class Solution {
                         "    \"type\": \"FeatureCollection\",\n" +
                         "    \"features\": %s\n}", String.join(",\n", GeoJsonUtil.getJourneyComplete(v)));
 
+                String geojsonFleet = String.format(
+                        "    {\n" +
+                                "        \"id\": \"%s\"," +
+                                "        \"path\": %s\n    }", v, geojson);
+
+                geojsonList.add(geojsonFleet);
+
                 writer.write(geojson);
                 writer.close();
 
             } catch (IOException e) {
                 e.printStackTrace();
             }
+        }
+
+
+
+        try {
+            writer = Files.newBufferedWriter(outputGeoJsonFleet);
+            String geoJsonFleet = String.format("{\n" +
+                    "    \"routes\": [%s]\n}", String.join(",\n", geojsonList));
+            writer.write(geoJsonFleet);
+            writer.close();
+
+        } catch (IOException e) {
+            e.printStackTrace();
         }
 
     }
