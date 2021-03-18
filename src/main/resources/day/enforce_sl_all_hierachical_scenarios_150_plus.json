@@ -1,6 +1,6 @@
 {
     "instance_description": "Tests cases currently used in paper (with more flexible time cuts and larger graphs), 1h from 18h, region centers from max waiting (150)",
-    "instance_name": "PLUS",
+    "instance_name": "PLUS2",
     "result_folder": "C:/Users/LocalAdmin/IdeaProjects/slevels/instance_output/hour_enforce_sl_plus/",
     "instances_folder": "C:/Users/LocalAdmin/IdeaProjects/slevels/instance_output/hour_enforce_sl_plus/",
     "distances_file": "C:/Users/LocalAdmin/OneDrive/leap_forward/street_network_server/tenv/data/out/manhattan/distance/dist_matrix_m.csv",

@@ -1,5 +1,5 @@
 {
-  "paper_folder": "C:/Users/LocalAdmin/OneDrive/leap_forward/phd_project/sqc/business_class_amod/trc/plus/",
+  "paper_folder": "C:/Users/LocalAdmin/Documents/articles/trc_sl/img/",
   "dict_sl_class": {
     "A": "Business",
     "B": "Standard",
@@ -38,8 +38,8 @@
   },
   "dict_method": {
     "JAVIER": "Min. waiting",
-    "JAVIERSL": "Enforce SL",
-    "ERTV": "Enforce SL + Hire"
+    "JAVIERSL": "SL constr.",
+    "ERTV": "SL constr. + Hire"
   },
   "dict_service_rate": {
     "S1": "-",
@@ -94,8 +94,8 @@
   },
   "methods": {
     "SQ": "Min. waiting",
-    "SL": "Enforce SL",
-    "SLH": "Enforce SL + Hire"
+    "SL": "SL constrs.",
+    "SLH": "SL constrs. + Hire"
   },
   "test_cases": {
     "standard_vs_enforce_BB": {
