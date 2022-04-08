@@ -1085,9 +1085,9 @@ public class Method {
      * - Vehicle is rebalancing, e.g., ST-->RE = ST-->BP-->SEQ
      * - Vehicle is moving to pickup different node, e.g., ST-->PK1 = ST-->BK-->SEQ (with SEQ[0] != PK1)
      *
-     * @param sequence
-     * @param vehicle
-     * @return
+     * @param sequence Candidate sequence of pickup and delivery nodes
+     * @param vehicle Candidate vehicle to carry out sequence
+     * @return New sequence with nodes from previous vehicle plan (stop and possibly breakpoint)
      */
     public static LinkedList<Node> addLastVisitedAndMiddleNodesToStart(List<Node> sequence, Vehicle vehicle) {
 
@@ -1169,24 +1169,18 @@ public class Method {
         Generator<Node> gen = getGeneratorOfNodeSequence(requests, vehicle);
         // System.out.println("Setting up sequence " + vehicle.getVisit());
 
-        // A single request can be inserted in a vehicle in multiple ways. Only the best (lowest delay) visit is
-        // inserted in the RTV graph.
+        // A single request can be inserted in a vehicle in multiple ways. Only the best (i.e., the lowest delay)
+        // visit is inserted in the RTV graph.
 
         List<List<Node>> sequences = new LinkedList<>();
-        Map<String, Visit> bestVisitOfEachClass = new HashMap<>();
+        //Map<String, Visit> bestVisitOfEachClass = new HashMap<>();
 
         Visit visit = null;
         int lowestDelay = Integer.MAX_VALUE;
         for (ICombinatoricsVector<Node> combination : gen) {
 
             List<Node> sequence = combination.getVector();
-            for(Qos qos : Config.getInstance().qosDic.values()){
-                bestVisitOfEachClass.put(qos.id, null);
-            }
 
-            /*if (requests.isEmpty() && sequence.size() > 2) {
-                System.out.println("start tracking empty request" + vehicle.getVisit());
-            }*/
 
             LinkedList<Node> sequenceFromVehiclePositionToLastDelivery = addLastVisitedAndMiddleNodesToStart(sequence, vehicle);
             sequences.add(sequenceFromVehiclePositionToLastDelivery);
@@ -1228,6 +1222,8 @@ public class Method {
                 visit.setPassengers(vehicle.getVisit().getPassengers());
             }
         }
+
+        // TODO: is this needed?
         if (visit == null && requests.isEmpty()) {
             System.out.println(sequences);
             System.out.println("Invalid sequence!");
