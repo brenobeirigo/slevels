@@ -111,11 +111,42 @@ public class Visit implements Comparable<Visit> {
             // Add pickup node
             sequence.add(r.getNodePk().getTripId());
 
-            // Add dropoff node
+            // Add drop-off node
             sequence.add(r.getNodeDp().getTripId());
         }
 
         return sequence;
+    }
+
+    /**
+     * Check if a valid pickup and delivery sequence is valid regarding load and TW consistency.
+     *
+     * @param validPDSequence Valid PD sequence
+     * @param departureTimeFromVehicle
+     * @param load
+     * @param maxCapacity
+     * @param latestArrival
+     * @return
+     */
+    public static int isValidSequenceFeasible(LinkedList<Node> validPDSequence, int departureTimeFromVehicle, int load, int maxCapacity, int latestArrival) {
+
+        // Data passed over legs
+        int[] cumulativeLegPK = new int[]{
+                departureTimeFromVehicle,
+                load,
+                0};
+
+        for (int i = 0; i < validPDSequence.size() - 1; i++) {
+
+            if (Visit.isLegInvalid(validPDSequence.get(i), validPDSequence.get(i + 1), cumulativeLegPK, maxCapacity)) {
+                return -1;
+            }
+
+            if (cumulativeLegPK[Vehicle.ARRIVAL] > latestArrival) {
+                return -1;
+            }
+        }
+        return cumulativeLegPK[Vehicle.DELAY];
     }
 
     public static int isValidSequence(LinkedList<Node> sequence, int departureTimeFromVehicle, int load, int maxCapacity, int latestArrival) {
@@ -205,7 +236,7 @@ public class Visit implements Comparable<Visit> {
 
         int delay = arrivalNext - nextNode.getEarliest();
 
-        // Arrival cannot be later than latest time in node
+        // Arrival cannot be later than the latest time in node
         if (delay < 0) {
             return true;
         }
