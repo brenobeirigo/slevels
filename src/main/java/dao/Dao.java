@@ -9,6 +9,7 @@ import model.User;
 import model.node.Node;
 import model.node.NodeNetwork;
 import org.apache.commons.csv.CSVFormat;
+import org.apache.commons.csv.CSVParser;
 import org.apache.commons.csv.CSVRecord;
 import org.jgrapht.alg.shortestpath.DijkstraShortestPath;
 import org.jgrapht.graph.DefaultWeightedEdge;
@@ -32,6 +33,15 @@ public class Dao {
 
     // Speed of vehicles m/s
     public static final double SPEED = 30;
+    public static final String PICKUP_DATETIME = "pickup_datetime";
+    public static final String USER_ID = "id";
+    public static final String PASSENGER_COUNT = "passenger_count";
+    public static final String PICKUP_NODE_ID = "pickup_node_id";
+    public static final String DROPOFF_NODE_ID = "dropoff_node_id";
+    public static final String PICKUP_LATITUDE = "pickup_latitude";
+    public static final String PICKUP_LONGITUDE = "pickup_longitude";
+    public static final String DROPOFF_LATITUDE = "dropoff_latitude";
+    public static final String DROPOFF_LONGITUDE = "dropoff_longitude";
     public static int numberOfNodes;
     private static Dao ourInstance = new Dao();
     public final long SEED = 0;
@@ -79,7 +89,7 @@ public class Dao {
 
             // Reading map data ////////////////////////////////////////////////////////////////////////////////////////
 
-            System.out.println(String.format("# Reading nodeset data from \"%s\"...", pathNetworkNodeInfo));
+            System.out.printf("# Reading nodeset data from \"%s\"...%n", pathNetworkNodeInfo);
             nodeNetworkInfo = ParseJsonUtil.getNodeDictionaryFromJsonString(HelperIO.readFileFromPath(pathNetworkNodeInfo));
             numberOfNodes = nodeNetworkInfo.size();
 
@@ -108,8 +118,8 @@ public class Dao {
                 }
             }
 
-            System.out.println(String.format("# Reading all records from \"%s\"...", pathRequestList));
-            records = CSVFormat.RFC4180.withFirstRecordAsHeader().parse(new FileReader(pathRequestList));
+            System.out.printf("# Reading all records from \"%s\"...%n", pathRequestList);
+            records = CSVParser.parse(new FileReader(pathRequestList), CSVFormat.RFC4180.withFirstRecordAsHeader());
 
 
             // TODO Read nodes from server
@@ -410,7 +420,7 @@ public class Dao {
      * Read a request batch of timeSpanSec seconds from file whose number of passengers is <= maxPassengerCount
      *
      * @param timeSpanSec       Time window of batch of requests
-     * @param maxPassengerCount
+     * @param maxPassengerCount Keep records with PASSENGER_COUNT lower
      * @return
      */
     public List<User> getListTrips(int timeSpanSec, int maxPassengerCount) {
@@ -419,19 +429,19 @@ public class Dao {
 
         for (CSVRecord record : records) {
 
-            if (Integer.valueOf(record.get("passenger_count")) > maxPassengerCount) {
+            if (Integer.parseInt(record.get(PASSENGER_COUNT)) > maxPassengerCount) {
                 continue;
             }
 
             User user = new User(
-                    record.get("pickup_datetime"),
-                    Integer.valueOf(record.get("passenger_count")),
-                    Integer.valueOf(record.get("pk_id")),
-                    Integer.valueOf(record.get("dp_id")),
-                    Double.valueOf(record.get("pickup_latitude")),
-                    Double.valueOf(record.get("pickup_longitude")),
-                    Double.valueOf(record.get("dropoff_latitude")),
-                    Double.valueOf(record.get("dropoff_longitude")));
+                    record.get(PICKUP_DATETIME),
+                    Integer.parseInt(record.get(PASSENGER_COUNT)),
+                    Integer.parseInt(record.get(PICKUP_NODE_ID)),
+                    Integer.parseInt(record.get(DROPOFF_NODE_ID)),
+                    Double.parseDouble(record.get(PICKUP_LATITUDE)),
+                    Double.parseDouble(record.get(PICKUP_LONGITUDE)),
+                    Double.parseDouble(record.get(DROPOFF_LATITUDE)),
+                    Double.parseDouble(record.get(DROPOFF_LONGITUDE)));
 
             if (user.getReqTime() >= currentTime + timeSpanSec) {
                 currentTime = currentTime + timeSpanSec;
@@ -534,12 +544,12 @@ public class Dao {
         // Continue reading records
         for (CSVRecord record : records) {
 
-            // Fiter requests before earliest configured time
+            // Filter requests before earliest configured time
             if (getPickupDateTime(record).before(Config.getInstance().getEarliestTime())){
                 continue;
             }
             // Skip passenger record with high passenger count
-                if (Integer.parseInt(record.get("passenger_count")) > maxPassengerCount) {
+                if (Integer.parseInt(record.get(PASSENGER_COUNT)) > maxPassengerCount) {
                 continue;
             }
 
@@ -570,7 +580,7 @@ public class Dao {
 
     private Date getPickupDateTime(CSVRecord record) {
         try {
-            return Config.formatter_date_time.parse(record.get("pickup_datetime"));
+            return Config.formatter_date_time.parse(record.get(PICKUP_DATETIME));
         } catch (ParseException e) {
             e.printStackTrace();
         }

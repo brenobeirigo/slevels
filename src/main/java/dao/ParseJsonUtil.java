@@ -34,14 +34,14 @@ public class ParseJsonUtil {
             JsonObject centers = arr.get(i).getAsJsonObject().get("step_center").getAsJsonObject();
             Map<Integer, Integer> centerNodeId = new HashMap<>();
             for (Map.Entry<String, JsonElement> entry : centers.entrySet()) {
-                centerNodeId.put(Integer.valueOf(entry.getKey()), entry.getValue().getAsInt());
+                centerNodeId.put(Integer.valueOf(entry.getKey()), Integer.valueOf(entry.getKey()));
             }
             Point2D point = new Point2D.Double(x, y);
             NodeNetwork node = new NodeNetwork(id, point, centerNodeId);
 
             nodes.put(id, node);
         }
-        System.out.println(String.format("# %d nodes read.", nodes.size()));
+        System.out.printf("# %d nodes read.\n", nodes.size());
         return nodes;
     }
 }
