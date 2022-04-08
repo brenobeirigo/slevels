@@ -6,7 +6,7 @@ Node ids and shortest distances are pulled from a REST server.
 This server have to be initialized using the same travel
 network the experiments are running.
 
-Access file `InstanceConfig.java` and attribute instance name to the `source` variable.
+Access file `config/InstanceConfig.java` and attribute instance name to the `source` variable.
 
 ## Installation
 
