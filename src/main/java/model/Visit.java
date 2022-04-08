@@ -119,8 +119,12 @@ public class Visit implements Comparable<Visit> {
     }
 
     /**
-     * Check if a valid pickup and delivery sequence is valid regarding load and TW consistency.
+     * Check if a valid pickup and delivery sequence (i.e., fulfils precedence constraints  — PU before DO) is also
+     * valid regarding:
+     * - Load (vehicle load is lower than vehicle capacity at any leg)
+     * - TWs (arrival at nodes are within respective TWs)
      *
+     * - Warning! Make sure the sequence is valid!
      * @param validPDSequence Valid PD sequence
      * @param departureTimeFromVehicle
      * @param load
@@ -149,6 +153,18 @@ public class Visit implements Comparable<Visit> {
         return cumulativeLegPK[Vehicle.DELAY];
     }
 
+    /** Check if pickup-and-delivery sequence is valid regarding:
+     * - Node precedence (PU before DO)
+     * - Load (vehicle load is lower than vehicle capacity at any leg)
+     * - TWs (arrival at nodes are within respective TWs)
+     *
+     * @param sequence
+     * @param departureTimeFromVehicle
+     * @param load
+     * @param maxCapacity
+     * @param latestArrival
+     * @return
+     */
     public static int isValidSequence(LinkedList<Node> sequence, int departureTimeFromVehicle, int load, int maxCapacity, int latestArrival) {
 
         // All valid trips finish at delivery nodes
