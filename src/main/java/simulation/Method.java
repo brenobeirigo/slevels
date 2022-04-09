@@ -1164,6 +1164,15 @@ public class Method {
         return createPermutationGenerator(vector);
     }
 
+
+    /**
+     * Find the best itinerary (over all possible PU/DO permutations) for a vehicle to service all requests.
+     * TODO: If n. of requests > 4, many combinations are possible.
+     *
+     * @param vehicle Vehicle carrying out the visit
+     * @param requests Candidate requests to build a visiting sequence
+     * @return Best visiting sequence or null if visit does not exist
+     */
     public static Visit getBestVisitFor(Vehicle vehicle, Set<User> requests) {
 
         Generator<Node> gen = getGeneratorOfNodeSequence(requests, vehicle);
