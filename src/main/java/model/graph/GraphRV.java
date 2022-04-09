@@ -6,9 +6,8 @@ import model.Visit;
 import model.node.Node;
 import org.jgrapht.graph.DefaultWeightedEdge;
 import org.jgrapht.graph.SimpleWeightedGraph;
-import org.paukov.combinatorics.Generator;
-import org.paukov.combinatorics.ICombinatoricsVector;
 import simulation.Method;
+import util.PDPermutations;
 
 import java.util.*;
 import java.util.stream.Collectors;
@@ -32,7 +31,7 @@ public class GraphRV {
         this.graphRV = new SimpleWeightedGraph<>(DefaultWeightedEdge.class);
 
         // Which requests can be combined?
-        createGraphRVInParellel();
+        createGraphRVInParallel();
     }
 
     /**
@@ -291,8 +290,8 @@ public class GraphRV {
                 .mapToObj(this::getRVEdge)
                 .collect(HashSet<EdgeRV>::new, HashSet::addAll, HashSet::addAll)
                 .forEach(o -> {
-                    DefaultWeightedEdge e = graphRV.addEdge(o.from, o.target);
-                    graphRV.setEdgeWeight(e, o.delay);
+                    DefaultWeightedEdge e = graphRV.addEdge(o.getFrom(), o.getTarget());
+                    graphRV.setEdgeWeight(e, o.getDelay());
                 });
     }
 
