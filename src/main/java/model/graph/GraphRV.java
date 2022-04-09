@@ -167,11 +167,21 @@ public class GraphRV {
             Node pk2 = r2.getNodePk();
             Node dp2 = r2.getNodeDp();
 
+            // Valid sequences for two requests
+            List<LinkedList<Node>> sequencesPkDpTwoRequests = Arrays.asList(
+                    new LinkedList<>(Arrays.asList(pk1, pk2, dp2, dp1)),
+                    new LinkedList<>(Arrays.asList(pk1, pk2, dp1, dp2)),
+                    new LinkedList<>(Arrays.asList(pk1, dp1, pk2, dp2)),
+                    new LinkedList<>(Arrays.asList(pk2, pk1, dp1, dp2)),
+                    new LinkedList<>(Arrays.asList(pk2, pk1, dp2, dp1)),
+                    new LinkedList<>(Arrays.asList(pk2, dp2, pk1, dp1)));
 
-            LinkedList<Node> seq1 = new LinkedList<>(Arrays.asList(pk1, pk2, dp1, dp2));
-            LinkedList<Node> seq2 = new LinkedList<>(Arrays.asList(pk1, pk2, dp2, dp1));
-            LinkedList<Node> seq3 = new LinkedList<>(Arrays.asList(pk2, pk1, dp1, dp2));
-            LinkedList<Node> seq4 = new LinkedList<>(Arrays.asList(pk2, pk1, dp2, dp1));
+            for (LinkedList<Node> validSequence : sequencesPkDpTwoRequests) {
+                int delay = Visit.isValidSequenceFeasible(
+                        validSequence, validSequence.get(0).getDeparture(),
+                        validSequence.get(0).getLoad(),
+                        vehicleCapacity,
+                        Integer.MAX_VALUE);
 
             List<LinkedList<Node>> sequencesPkDpTwoRequests = Arrays.asList(seq1, seq2, seq3, seq4);
 
