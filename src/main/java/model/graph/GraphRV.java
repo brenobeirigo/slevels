@@ -196,7 +196,49 @@ public class GraphRV {
         return edges;
     }
 
-    private EdgeRV createEdgeRV(User request, Vehicle vehicle) {
+    /**
+     * Return an edge connecting requests 1 and 2 if they can be serviced in a visit.
+     * All possible permutations are tried out.
+     * TODO Cap if cannot pickup requests within TW?
+     *
+     * @param request1
+     * @param request2
+     * @return EdgeRV or null if does not exist
+     */
+    private EdgeRV getRREdgesFromRequests(User request1, User request2) {
+
+        // Pickups
+        Node pk1 = request1.getNodePk();
+        Node pk2 = request2.getNodePk();
+
+        // Drop-offs
+        Node dp1 = request1.getNodeDp();
+        Node dp2 = request2.getNodeDp();
+
+        // Valid sequences for two requests = 4 permutations
+        List<LinkedList<Node>> sequencesPkDpTwoRequests = Arrays.asList(
+                new LinkedList<>(Arrays.asList(pk1, pk2, dp2, dp1)),
+                new LinkedList<>(Arrays.asList(pk1, pk2, dp1, dp2)),
+                new LinkedList<>(Arrays.asList(pk1, dp1, pk2, dp2)),
+                new LinkedList<>(Arrays.asList(pk2, pk1, dp1, dp2)),
+                new LinkedList<>(Arrays.asList(pk2, pk1, dp2, dp1)),
+                new LinkedList<>(Arrays.asList(pk2, dp2, pk1, dp1)));
+
+        for (LinkedList<Node> validSequence : sequencesPkDpTwoRequests) {
+            int delay = Visit.isValidSequenceFeasible(
+                    validSequence, validSequence.get(0).getDeparture(),
+                    validSequence.get(0).getLoad(),
+                    vehicleCapacity,
+                    Integer.MAX_VALUE);
+
+            if (delay >= 0) {
+                return new EdgeRV(delay, request1, request2);
+            }
+        }
+        return null;
+    }
+
+    private EdgeRV createEdgeRV_old(User request, Vehicle vehicle) {
 
         Generator<Node> gen = Method.getGeneratorOfNodeSequence(new HashSet<>(Collections.singletonList(request)), vehicle);
 
