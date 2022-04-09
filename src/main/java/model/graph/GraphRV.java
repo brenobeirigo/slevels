@@ -133,6 +133,12 @@ public class GraphRV {
         return hiringEdge;
     }
 
+    /**
+     * Sort edges by delay and cap the number of edges to maxEdgesRR.
+     * TODO Insert sorted to avoid sorting
+     * @param edges RR edges
+     * @return Subset of RR edges
+     */
     private List<EdgeRV> limitNumberOfEdgesRR(List<EdgeRV> edges) {
         if (edges.size() > maxEdgesRR) {
             Collections.sort(edges);
