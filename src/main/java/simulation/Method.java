@@ -60,13 +60,13 @@ public class Method {
     }
 
     /**
-     * Get sequence of user ids representing nodes to visit (including vehicle nodes) and return visit (if possible)/
+     * Get sequence of user ids representing nodes to visit (including vehicle nodes) and return visit (if possible)
      *
      * @param sequenceUserIds
-     * @param v               Model.Vehicle
-     * @return Model.Visit or null
+     * @param vehicle Vehicle carrying out the visit
+     * @return Visit or null
      */
-    public static Visit getValidVisit(List<Integer> sequenceUserIds, Vehicle v) {
+    public static Visit getValidVisit(List<Integer> sequenceUserIds, Vehicle vehicle) {
 
         // Update values in nodes
         int totalIdleness = 0;
@@ -80,7 +80,7 @@ public class Method {
         LinkedList<Node> sequenceVisits = new LinkedList<>();
 
         // Model.Vehicle node data
-        Node fromNode = v.getLastVisitedNode();
+        Node fromNode = vehicle.getLastVisitedNode();
         int load = fromNode.getLoad();
         int arrivalFrom = fromNode.getDeparture();
 
@@ -97,7 +97,7 @@ public class Method {
             //System.out.println("Load:"+load);
 
             // Capacity constraint (if lower than zero, sequence is invalid! Visited DP before PK)
-            if (load < 0 || load > v.getCapacity()) {
+            if (load < 0 || load > vehicle.getCapacity()) {
                 return null;
             }
 
