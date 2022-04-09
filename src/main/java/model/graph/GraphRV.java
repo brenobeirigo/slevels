@@ -35,17 +35,41 @@ public class GraphRV {
         createGraphRVInParellel();
     }
 
+    /**
+     * Get RV edges (RR and VR) for a request in waiting list
+     * @param requestIndexWaitingList
+     * @return List of RV edges
+     */
     public List<EdgeRV> getRVEdge(int requestIndexWaitingList) {
-
-        List<EdgeRV> edgesRR = getEdgesRR(requestIndexWaitingList);
-        edgesRR = limitNumberOfEdgesRR(edgesRR);
-
-        List<EdgeRV> edgesRV = getEdgesRV(requestIndexWaitingList);
-        edgesRV = filterCompanyFleetButKeepHiringEdge(edgesRV);
-        edgesRV = limitNumberEdgesRVButKeepHiringEdge(edgesRV);
-
+        List<EdgeRV> edgesRR = getRREdges(requestIndexWaitingList);
+        List<EdgeRV> edgesRV = getRVEdgesFromUser(requestIndexWaitingList);
         edgesRR.addAll(edgesRV);
         return edgesRR;
+    }
+
+    /**
+     * Check which requests can share a ride with request i
+     * @param i Index of user in the waiting list
+     * @return List of (user, user) edges
+     */
+    public List<EdgeRV> getRREdges(int i) {
+        List<EdgeRV> edgesRR = getEdgesRR(i);
+        //TODO fix filtering
+        edgesRR = limitNumberOfEdgesRR(edgesRR);
+        return edgesRR;
+    }
+
+    /**
+     * Check which vehicles can include a user in their visit.
+     * @param i Index of user in the waiting list
+     * @return List of (vehicle, user) edges
+     */
+    public List<EdgeRV> getRVEdgesFromUser(int i) {
+        List<EdgeRV> edgesRV = getEdgesRV(i);
+        //TODO fix filtering sorting
+        edgesRV = filterCompanyFleetButKeepHiringEdge(edgesRV);
+        edgesRV = limitNumberEdgesRVButKeepHiringEdge(edgesRV);
+        return edgesRV;
     }
 
 
@@ -147,52 +171,31 @@ public class GraphRV {
         return edges;
     }
 
+    /**
+     * Return an edge connecting i to all subsequent requests in waiting list.
+     * TODO Cap if cannot pickup requests within TW?
+     *
+     * @param i Index of request in waiting list
+     */
     private List<EdgeRV> getEdgesRR(int i) {
-        ////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-        // RR EDGES ////////////////////////////////////////////////////////////////////////////////////////////////////
-        ////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
         List<EdgeRV> edges = new LinkedList<>();
 
         // Request r1 data
         User r1 = listWaitingUsers.get(i);
-        Node pk1 = r1.getNodePk();
-        Node dp1 = r1.getNodeDp();
-
 
         for (int j = i + 1; j < listWaitingUsers.size(); j++) {
 
             // Request r2 data
             User r2 = listWaitingUsers.get(j);
-            Node pk2 = r2.getNodePk();
-            Node dp2 = r2.getNodeDp();
 
-            // Valid sequences for two requests
-            List<LinkedList<Node>> sequencesPkDpTwoRequests = Arrays.asList(
-                    new LinkedList<>(Arrays.asList(pk1, pk2, dp2, dp1)),
-                    new LinkedList<>(Arrays.asList(pk1, pk2, dp1, dp2)),
-                    new LinkedList<>(Arrays.asList(pk1, dp1, pk2, dp2)),
-                    new LinkedList<>(Arrays.asList(pk2, pk1, dp1, dp2)),
-                    new LinkedList<>(Arrays.asList(pk2, pk1, dp2, dp1)),
-                    new LinkedList<>(Arrays.asList(pk2, dp2, pk1, dp1)));
+            EdgeRV edge = getRREdgesFromRequests(r1,r2);
 
-            for (LinkedList<Node> validSequence : sequencesPkDpTwoRequests) {
-                int delay = Visit.isValidSequenceFeasible(
-                        validSequence, validSequence.get(0).getDeparture(),
-                        validSequence.get(0).getLoad(),
-                        vehicleCapacity,
-                        Integer.MAX_VALUE);
-
-            List<LinkedList<Node>> sequencesPkDpTwoRequests = Arrays.asList(seq1, seq2, seq3, seq4);
-
-            for (LinkedList<Node> seq : sequencesPkDpTwoRequests) {
-                int delay = Visit.isValidSequence(seq, seq.get(0).getDeparture(), seq.get(0).getLoad(), vehicleCapacity, Integer.MAX_VALUE);
-                if (delay >= 0) {
-                    edges.add(new EdgeRV(delay, r1, r2));
-                    break;
-                }
+            if (edge != null){
+                edges.add(edge);
             }
         }
+
         return edges;
     }
 
@@ -232,26 +235,27 @@ public class GraphRV {
                     Integer.MAX_VALUE);
 
             if (delay >= 0) {
-                return new EdgeRV(delay, request1, request2);
+                return new EdgeRR(delay, request1, request2);
             }
         }
         return null;
     }
 
-    private EdgeRV createEdgeRV_old(User request, Vehicle vehicle) {
+    private EdgeRV createEdgeRV(User request, Vehicle vehicle) {
 
-        Generator<Node> gen = Method.getGeneratorOfNodeSequence(new HashSet<>(Collections.singletonList(request)), vehicle);
+        // Create request set out of one request
+        Set<User> requests = new HashSet<>(Collections.singletonList(request));
+        PDPermutations perms = new PDPermutations(requests, vehicle);
 
-        for (ICombinatoricsVector<Node> combinationUsersPickupsAndDeliveries : gen) {
-
-            List<Node> sequencePickupsAndDeliveries = combinationUsersPickupsAndDeliveries.getVector();
+        while (perms.hasNext()) {
+            List<Node> sequencePickupsAndDeliveries = List.of(perms.next());
 
             LinkedList<Node> sequenceFromVehiclePositionToLastDelivery = Method.addLastVisitedAndMiddleNodesToStart(sequencePickupsAndDeliveries, vehicle);
 
             if (sequenceFromVehiclePositionToLastDelivery == null)
                 continue;
 
-            int delay = Visit.isValidSequence(
+            int delay = Visit.isValidSequenceFeasible(
                     sequenceFromVehiclePositionToLastDelivery,
                     vehicle.getDepartureCurrent(),
                     vehicle.getCurrentLoad(),
@@ -263,7 +267,7 @@ public class GraphRV {
             // The BEST way will be generated by the RTV graph.
             if (delay >= 0) {
                 // Connect vehicle to request
-                return new EdgeRV(delay, vehicle, request);
+                return new EdgeVR(delay, vehicle, request);
             }
         }
         return null;
@@ -272,7 +276,7 @@ public class GraphRV {
     /**
      * Pairwise graph of vehicles and requests. Combine vehicles and requests.
      */
-    public void createGraphRVInParellel() {
+    public void createGraphRVInParallel() {
 
         // Populating RV graph
         for (User user : listWaitingUsers) {

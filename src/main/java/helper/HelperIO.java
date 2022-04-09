@@ -9,17 +9,15 @@ import model.node.NodeTargetRebalancing;
 import org.apache.commons.csv.CSVFormat;
 import org.apache.commons.csv.CSVPrinter;
 
-import java.io.BufferedWriter;
-import java.io.IOException;
+import java.io.*;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 public class HelperIO {
+
+    public static Map<String, FileOutputStream> logs = new HashMap<>();
 
     public static String getHeaderTW(int start_time,
                                      int duration,
@@ -173,6 +171,28 @@ public class HelperIO {
 
     }
 
+
+    public static void saveDataWithHeaders(String fileName, String line, String headers, boolean append){
+
+        FileOutputStream fos;
+        try {
+            fos = logs.computeIfAbsent(fileName, f-> {
+                FileOutputStream fo = null;
+                try {
+                    fo = new FileOutputStream(f, append);
+                    fo.write(String.format("%s\r\n",headers).getBytes());
+                    return fo;
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+                return fo;
+            });
+            assert fos != null;
+            fos.write(String.format("%s\r\n",line).getBytes());
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
 
     public static String printJourneys(List<Vehicle> vd) {
         String str = ("\n######### JOURNEYS #########################################");
