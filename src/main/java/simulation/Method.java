@@ -1122,6 +1122,12 @@ public class Method {
             // TODO If next in sequence is middle, is it worth it breaking again???
             //assert !(vehicle.getVisit().getTargetNode() instanceof NodeMiddle) : String.format("First is middle (current middle = %s) - Visit: %s", middle, vehicle.getVisit());
 
+            // Assumption: Vehicle can take a turn at the location of the next node
+            // Why? Because ANOTHER vehicle can pick-up that user
+            // O -------------- 1'------ 2  ------ 2'
+            // 0 -------------- M -------3' ------ 4 (Vehicle can take a turn at location of 1')
+            // It may be frustrating for user 1 to be its drop-off delayed (the car would pass by 1's location),
+            // but it might be worthwhile for the system
             if (middle != null) {
                 sequenceWithVehicleNode.add(0, middle);
             } else {
