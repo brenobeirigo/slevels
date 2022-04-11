@@ -11,6 +11,7 @@ import model.node.Node;
 import org.paukov.combinatorics.CombinatoricsVector;
 import org.paukov.combinatorics.Generator;
 import org.paukov.combinatorics.ICombinatoricsVector;
+import util.PDPermutations;
 
 import java.util.*;
 import java.util.concurrent.ExecutorService;
@@ -1173,7 +1174,70 @@ public class Method {
      * @param requests Candidate requests to build a visiting sequence
      * @return Best visiting sequence or null if visit does not exist
      */
-    public static Visit getBestVisitFor(Vehicle vehicle, Set<User> requests) {
+    public static Visit getBestVisitFromPDPermutations(Vehicle vehicle, Set<User> requests) {
+
+        // A single request can be inserted in a vehicle in multiple ways. Only the best (i.e., the lowest delay)
+        // visit is inserted in the RTV graph.
+
+        Visit visit = null;
+        int lowestDelay = Integer.MAX_VALUE;
+
+        // Create request set out of one request
+        PDPermutations perms = new PDPermutations(requests, vehicle);
+
+        while (perms.hasNext()) {
+
+            List<Node> sequencePickupsAndDeliveries = List.of(perms.next());
+
+            LinkedList<Node> sequenceFromVehiclePositionToLastDelivery = Method.addLastVisitedAndMiddleNodesToStart(sequencePickupsAndDeliveries, vehicle);
+
+            if (sequenceFromVehiclePositionToLastDelivery == null)
+                continue;
+
+            int delay = Visit.isValidSequenceFeasible(
+                    sequenceFromVehiclePositionToLastDelivery,
+                    vehicle.getDepartureCurrent(),
+                    vehicle.getCurrentLoad(),
+                    vehicle.getCapacity(),
+                    vehicle.getContractDeadline());
+
+            System.out.printf(
+                    "delay = %4d - %s -> %s (network ids = %s)\n", delay,
+                    sequencePickupsAndDeliveries,
+                    sequenceFromVehiclePositionToLastDelivery,
+                    getNetworkIdsFromNodeSequence(sequenceFromVehiclePositionToLastDelivery));
+
+            if (delay >= 0 && delay < lowestDelay) {
+
+                lowestDelay = delay;
+
+                // Remove vehicle's last visited node (i.e., sequence's first node)
+                sequenceFromVehiclePositionToLastDelivery.poll();
+
+                // Setup new visit
+                visit = new Visit(sequenceFromVehiclePositionToLastDelivery, delay);
+                //System.out.println("     # comb " + sequence + " - " + delay + " = " + visit);
+            }
+        }
+
+        if (visit != null) {
+
+            // Finish visit configuration
+            visit.setVehicle(vehicle);
+            visit.getRequests().addAll(requests);
+
+            // printMapOfNodesPerNetworkIdSortedByEarliestTime(vehicle, visit);
+
+            // All passengers in vehicle belong to visit (they need to be drop off)
+            if (vehicle.isServicing()) {
+                visit.setPassengers(vehicle.getVisit().getPassengers());
+            }
+        }
+
+        return visit;
+    }
+
+    public static Visit getBestVisitFromAllNodePermutations(Vehicle vehicle, Set<User> requests) {
 
         Generator<Node> gen = getGeneratorOfNodeSequence(requests, vehicle);
         // System.out.println("Setting up sequence " + vehicle.getVisit());
