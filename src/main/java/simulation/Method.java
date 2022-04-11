@@ -1187,6 +1187,7 @@ public class Method {
 
         Visit visit = null;
         int lowestDelay = Integer.MAX_VALUE;
+        LinkedList<Node> lowestDelaySequence = null;
 
         // Create request set out of one request
         PDPermutations perms = new PDPermutations(requests, vehicle);
@@ -1207,26 +1208,28 @@ public class Method {
                     vehicle.getCapacity(),
                     vehicle.getContractDeadline());
 
-            System.out.printf(
-                    "delay = %4d - %s -> %s (network ids = %s)\n", delay,
-                    sequencePickupsAndDeliveries,
-                    sequenceFromVehiclePositionToLastDelivery,
-                    getNetworkIdsFromNodeSequence(sequenceFromVehiclePositionToLastDelivery));
+//            System.out.printf(
+//                    "delay = %4d - %s -> %s (network ids = %s)\n", delay,
+//                    sequencePickupsAndDeliveries,
+//                    sequenceFromVehiclePositionToLastDelivery,
+//                    getNetworkIdsFromNodeSequence(sequenceFromVehiclePositionToLastDelivery));
 
-            if (delay >= 0 && delay < lowestDelay) {
-
-                lowestDelay = delay;
-
-                // Remove vehicle's last visited node (i.e., sequence's first node)
-                sequenceFromVehiclePositionToLastDelivery.poll();
-
-                // Setup new visit
-                visit = new Visit(sequenceFromVehiclePositionToLastDelivery, delay);
-                //System.out.println("     # comb " + sequence + " - " + delay + " = " + visit);
+            // Update if delay is valid
+            if (delay >= 0){
+                if (delay < lowestDelay || (delay == lowestDelay && sequenceFromVehiclePositionToLastDelivery.size() < lowestDelaySequence.size())) {
+                    lowestDelay = delay;
+                    lowestDelaySequence = sequenceFromVehiclePositionToLastDelivery;
+                }
             }
         }
 
-        if (visit != null) {
+        if (lowestDelaySequence != null) {
+
+            // Remove vehicle's last visited node (i.e., sequence's first node)
+            lowestDelaySequence.poll();
+
+            // Setup new visit
+            visit = new Visit(lowestDelaySequence, lowestDelay);
 
             // Finish visit configuration
             visit.setVehicle(vehicle);
@@ -1256,6 +1259,7 @@ public class Method {
 
         Visit visit = null;
         int lowestDelay = Integer.MAX_VALUE;
+        LinkedList<Node> lowestDelaySequence = null;
         for (ICombinatoricsVector<Node> combination : gen) {
 
             List<Node> sequence = combination.getVector();
@@ -1277,20 +1281,22 @@ public class Method {
                     vehicle.getContractDeadline()
             );
 
-            if (delay >= 0 && delay < lowestDelay) {
-
-                lowestDelay = delay;
-
-                // Remove last visited node from sequence
-                sequenceFromVehiclePositionToLastDelivery.poll();
-
-                // Setup new visit
-                visit = new Visit(sequenceFromVehiclePositionToLastDelivery, delay);
-                //System.out.println("     # comb " + sequence + " - " + delay + " = " + visit);
+            // Update if delay is valid
+            if (delay >= 0){
+                if (delay < lowestDelay || (delay == lowestDelay && sequenceFromVehiclePositionToLastDelivery.size() < lowestDelaySequence.size())) {
+                    lowestDelay = delay;
+                    lowestDelaySequence = sequenceFromVehiclePositionToLastDelivery;
+                }
             }
         }
 
-        if (visit != null) {
+        if (lowestDelaySequence != null) {
+
+            // Remove vehicle's last visited node (i.e., sequence's first node)
+            lowestDelaySequence.poll();
+
+            // Setup new visit
+            visit = new Visit(lowestDelaySequence, lowestDelay);
 
             // Finish visit configuration
             visit.setVehicle(vehicle);
@@ -1302,20 +1308,6 @@ public class Method {
             }
         }
 
-        // TODO: is this needed?
-        if (visit == null && requests.isEmpty()) {
-            System.out.println(sequences);
-            System.out.println("Invalid sequence!");
-            for (List<Node> seq : sequences) {
-                int delay = Visit.isValidSequence(
-                        (LinkedList<Node>) seq,
-                        vehicle.getDepartureCurrent(),
-                        vehicle.getCurrentLoad(),
-                        vehicle.getCapacity(),
-                        vehicle.getContractDeadline()
-                );
-            }
-        }
         return visit;
     }
 
