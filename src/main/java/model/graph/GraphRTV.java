@@ -333,7 +333,7 @@ public class GraphRTV {
             User request = (User) this.graphRV.getEdgeTarget(edge);
 
             // Try ALL insertions of request in vehicle visit sequence
-            addRTVEdgeAtLevel(vehicle, new HashSet<>(Arrays.asList(request)), feasibleVisitsAtLevel, 0);
+            addRTVEdgeAtLevel(vehicle, new HashSet<>(Arrays.asList(request)), feasibleVisitsAtLevel.get(0));
         }
 
         //**********************************************************************************************************
@@ -363,7 +363,7 @@ public class GraphRTV {
 
                         Set<User> requests = new HashSet<>(visit1.getRequests());
                         requests.addAll(visit2.getRequests());
-                        if (addRTVEdgeAtLevel(vehicle, requests, feasibleVisitsAtLevel, 1)) {
+                        if (addRTVEdgeAtLevel(vehicle, requests, feasibleVisitsAtLevel.get(1))) {
                             feasibleTripsAtLevel.get(1).add(requests);
                         }
                     }
@@ -394,7 +394,7 @@ public class GraphRTV {
                         tripsAlreadyAddedToCurrentLevel.add(combinedTrip);
 
                         if (allSubTripsAreFeasible(feasibleTripsPreviousLevel, combinedTrip)) {
-                            if (addRTVEdgeAtLevel(vehicle, combinedTrip, feasibleVisitsAtLevel, k)) {
+                            if (addRTVEdgeAtLevel(vehicle, combinedTrip, feasibleVisitsAtLevel.get(k))) {
                                 feasibleTripsAtLevel.get(k).add(combinedTrip);
                             }
                         }
