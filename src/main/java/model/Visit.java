@@ -1,6 +1,8 @@
 package model;
 
 import com.google.common.collect.Sets;
+import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
 import dao.Dao;
 import model.node.*;
 import simulation.rebalancing.Rebalance;
@@ -484,51 +486,10 @@ public class Visit implements Comparable<Visit> {
             sequenceNodesToVisit = this.getSequenceVisits();
         }
 
-        //List<Node> sequenceNodesToVisit = this.getSequenceVisits();
-
-        Node lastVisitedNode = this.vehicle.getLastVisitedNode();
-        int loadUntilLastVisited = this.vehicle.getCurrentLoad();
-        int departureLastVisited = this.vehicle.getLastVisitedNode().getDeparture();
-
-        //Current node info
-        String lastVisitedNodeInfo = String.format(
-                "%s [target=%s]||| %s ::: {%4s} %s {%4s}:::",
-                (this.vehicle.isRebalancing() ? "--RE--" : "--ST--"),
-                this.getTargetNode(),
-                legInfo(lastVisitedNode, loadUntilLastVisited, departureLastVisited, 0),
-                this.vehicle.getMiddleNode() == null ? " -- " : Dao.getInstance().getDistSec(this.vehicle.getLastVisitedNode(), this.vehicle.getMiddleNode()),
-                this.vehicle.getMiddleNode() == null ? "-------" : this.vehicle.getMiddleNode(),
-                this.vehicle.getMiddleNode() == null || sequenceNodesToVisit.isEmpty() ? " -- " : Dao.getInstance().getDistSec(this.vehicle.getMiddleNode(), sequenceNodesToVisit.get(0))
-        );
-
-        // Node strings
-        List<String> pkDpNodeInfo = new ArrayList<>();
-        for (int i = 0; i < sequenceNodesToVisit.size(); i++) {
-
-            Node next = sequenceNodesToVisit.get(i);
-            int dist = Dao.getInstance().getDistSec(lastVisitedNode, next);
-
-            // Update data from last visited node
-            lastVisitedNode = next;
-            departureLastVisited = Math.max(departureLastVisited + dist, lastVisitedNode.getEarliest());
-            loadUntilLastVisited += lastVisitedNode.getLoad();
-
-            String nodeInfo = legInfo(lastVisitedNode, loadUntilLastVisited, departureLastVisited, dist);
-            pkDpNodeInfo.add(nodeInfo); // config.Config.sec2TStamp(sequenceArrivals.get(i))));
-
-        }
-        pkDpNodeInfo.add(String.format("<%d, %d>", departureLastVisited, vehicle.getContractDeadline()));
-        String delayInfo = String.format("(delay: %5d - occ.: %5.2f)", delay, avgOccupationLeg);
-        return String.format(
-                "%s %s %s %s %s --- %s",
-                draftVisit,
-                delayInfo,
-                vehicleData,
-                lastVisitedNodeInfo,
-                String.join(" ", pkDpNodeInfo),
-                this.getUserInfo());
-    }
-
+    /**
+     * Check if vehicle is carrying out this visit
+     * @return True, if visit is assigned to its vehicle
+     */
     public boolean isSetup() {
         return this.vehicle.getVisit() == this;
     }
@@ -692,23 +653,6 @@ public class Visit implements Comparable<Visit> {
     }
 
 
-
-    /*
-    This method is called when a visit is chosen to be the best match for a vehicle.
-    The vehicle is updated with the information of a visit.
-
-     */
-
-    public String getInfo() {
-        return "  - Users: " + passengers + requests +
-                " - Avg. Occupation: " + avgOccupationLeg +
-                " - Visits: " + sequenceVisits +
-                " - Delay: " + delay +
-                " - Idle: " + idle +
-                " - Vehicle: " + vehicle.getInfo();
-    }
-
-
     /**
      * Get arrival time at first node in sequence of visits
      *
@@ -744,4 +688,196 @@ public class Visit implements Comparable<Visit> {
     public Set<User> getUsers() {
         return Sets.union(passengers, requests);
     }
+
+    public static List<Integer> getArrivalTimesFromVisit(Vehicle vehicle, Visit visit) {
+        int previousArrival = vehicle.getLastVisitedNode().getDeparture();
+        Node previousNode = vehicle.getLastVisitedNode();
+        List<Integer> arrivals = new ArrayList<>();
+        arrivals.add(previousArrival);
+
+        for (Node currentNode : visit.getSequenceVisits()) {
+            previousArrival += Dao.getInstance().getDistSec(previousNode, currentNode);
+            //TODO add service time
+            arrivals.add(previousArrival);
+            previousNode = currentNode;
+        }
+        return arrivals;
+    }
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    /// INFO ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+    ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+    /**
+     * This method is called when a visit is chosen to be the best match for a vehicle.
+     * The vehicle is updated with the information of a visit.
+     * @return String with visit info
+     */
+    public String getInfo() {
+        return "  - Users: " + passengers + requests +
+                " - Avg. Occupation: " + avgLoadPerVisitLeg +
+                " - Visits: " + sequenceVisits +
+                " - Delay: " + delay +
+                " - Idle: " + idle +
+                " - Vehicle: " + vehicle.getInfo();
+    }
+
+
+    /**
+     * Transform visit to json object.
+     * @return String with json representation of object.
+     */
+    public String toJson(){
+        Gson gson = new GsonBuilder().setPrettyPrinting().serializeNulls().create();
+        // deserialize with gson.fromJson(this.getClass());
+        return gson.toJson(this);
+    }
+
+    /**
+     * Return a string featuring detailed information about users (ids, passengers, requests)
+     * @return String with user information
+     */
+    public String getUserInfo() {
+        return String.format("P: %s - R: %s", this.getPassengers(), this.getRequests());
+    }
+
+    @Override
+    public String toString() {
+        if (this.vehicle == null) {
+            return "DUMMY VISIT";
+        }
+
+        String vehicleData = getVehicleInfo();
+
+        // When visit was not yet setup to vehicle, shows that it refers to a draft visit
+        String draftVisit = this.isSetup() ? "[SETUP]" : "[DRAFT]";
+
+        // If rebalancing, create sequence with rebalancing node
+        List<Node> sequenceNodesToVisit;
+        //if (this.vehicle.isRebalancing() && this.vehicle.getVisit().getSequenceVisits() == null) {
+        if (this instanceof VisitRelocation) {
+            sequenceNodesToVisit = new LinkedList<>();
+
+            // Add rebalancing target to list
+            sequenceNodesToVisit.add(getTargetNode());
+        } else {
+            sequenceNodesToVisit = this.getSequenceVisits();
+        }
+
+        //List<Node> sequenceNodesToVisit = this.getSequenceVisits();
+
+        Node lastVisitedNode = this.vehicle.getLastVisitedNode();
+        int loadUntilLastVisited = this.vehicle.getCurrentLoad();
+        int departureLastVisited = this.vehicle.getLastVisitedNode().getDeparture();
+
+        //Current node info
+        String lastVisitedNodeInfo = getVehicleDepartureNodeInfo(sequenceNodesToVisit);
+
+        // Node strings
+        List<String> pkDpNodeInfo = new ArrayList<>();
+        for (int i = 0; i < sequenceNodesToVisit.size(); i++) {
+
+            Node next = sequenceNodesToVisit.get(i);
+            int dist = Dao.getInstance().getDistSec(lastVisitedNode, next);
+
+            // Update data from last visited node
+            lastVisitedNode = next;
+            departureLastVisited = Math.max(departureLastVisited + dist, lastVisitedNode.getEarliest());
+            loadUntilLastVisited += lastVisitedNode.getLoad();
+
+            String nodeInfo = legInfo(lastVisitedNode, loadUntilLastVisited, departureLastVisited, dist);
+            pkDpNodeInfo.add(nodeInfo); // config.Config.sec2TStamp(sequenceArrivals.get(i))));
+
+        }
+
+        pkDpNodeInfo.add(String.format("<%d, %d>", departureLastVisited, vehicle.getContractDeadline()));
+        String delayInfo = String.format("(delay: %5d - occ.: %5.2f)", delay, avgLoadPerVisitLeg);
+        return String.format(
+                "%s %s %s %s %s --- %s",
+                draftVisit,
+                delayInfo,
+                vehicleData,
+                lastVisitedNodeInfo,
+                String.join(" ", pkDpNodeInfo),
+                this.getUserInfo());
+    }
+    private String getDistanceLegInfoFromNodes(Node from, Node to){
+        String distLegInfo = from == null || to == null? "--------------" : String.format(
+                "--> {%4s} -->", Dao.getInstance().getDistSec(from, to));
+        return distLegInfo;
+    }
+    private String getVehicleDepartureNodeInfo(List<Node> sequenceNodesToVisit) {
+
+        //
+        return String.format(
+                "%s (target=%10s) :::%s%s%s%s:::",
+                (this.vehicle.isRebalancing() ? "--RE--" : "--ST--"),
+                this.getTargetNode(),
+                legInfo(
+                        this.vehicle.getLastVisitedNode(),
+                        this.vehicle.getCurrentLoad(),
+                        this.vehicle.getLastVisitedNode().getDeparture(),
+                        Integer.MIN_VALUE),
+                getDistanceLegInfoFromNodes(this.vehicle.getLastVisitedNode(), this.vehicle.getMiddleNode()),
+                this.vehicle.getMiddleNode() == null ? "-------" : this.vehicle.getMiddleNode(),
+                getDistanceLegInfoFromNodes(this.vehicle.getMiddleNode(), sequenceNodesToVisit.get(0))
+        );
+    }
+
+    /**
+     * Summary of vehicle status.
+     * @return Vehicle data (id, passengers, requests, etc.)
+     */
+    private String getVehicleInfo() {
+        return String.format(
+                "%s[%2d] [P=%2d(%2d), R=%2d(%2d)]",
+                vehicle,
+                this.vehicle.getCurrentLoad(),
+                passengers.size(),
+                passengers.stream().mapToInt(User::getNumPassengers).sum(),
+                requests.size(),
+                requests.stream().mapToInt(User::getNumPassengers).sum()
+        );
+    }
+
+    /**
+     * Detailed information of visit leg.
+     * Example:
+     *  --> { 183} -->DP2164916[ 1] (earliest=  1, departure=     453,   arrival=0, latest=419)
+     * @param currentNode
+     * @param loadVehicleAtCurrentNode
+     * @param arrivalAtCurrentNode
+     * @param distBetweenPreviousAndCurrentNodes
+     * @return
+     */
+    private String legInfo(Node currentNode, int loadVehicleAtCurrentNode, int arrivalAtCurrentNode, int distBetweenPreviousAndCurrentNodes) {
+        return String.format(
+                "%s%s[%2d/%2d] (e=%7s, a=%7s, l=%7s / Δe=%3s, Δa=%3s, Δl=%3s)",
+                distBetweenPreviousAndCurrentNodes == Integer.MIN_VALUE? "": String.format("--> {%4s} -->", distBetweenPreviousAndCurrentNodes),
+                currentNode,
+                loadVehicleAtCurrentNode,
+                vehicle.getCapacity(),
+                currentNode.getEarliest(),
+                arrivalAtCurrentNode,
+                currentNode.getLatest() == Integer.MAX_VALUE ? "INF" : currentNode.getLatest(),
+                currentNode.getEarliest() == 0 ? "-" : arrivalAtCurrentNode - currentNode.getEarliest(),
+                currentNode.getArrivalSoFar() == Integer.MAX_VALUE ? "INF" : currentNode.getArrivalSoFar() - arrivalAtCurrentNode,
+                currentNode.getLatest() == Integer.MAX_VALUE ? "INF" : currentNode.getLatest() - arrivalAtCurrentNode
+        );
+    }
+
+    public void calculateArrivals() {
+        this.draftArrivalTimes = getArrivalTimesFromVisit(this.vehicle, this);
+
+    }
+
+    public List<Integer> getDraftArrivalTimes() {
+        return draftArrivalTimes;
+    }
+
+    public void setDraftArrivalTimes(List<Integer> draftArrivalTimes) {
+        this.draftArrivalTimes = draftArrivalTimes;
+    }
+
 }
+
