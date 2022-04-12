@@ -23,27 +23,20 @@ public class PDPermutations implements Iterator<Node[]> {
     private static Map<Integer, Map<Integer, int[][]>>  mapPUDO;
 
     public static int[][] getPUDOPermutations(int nOfPUDOs, int nOfDOs){
-
-        if (mapPUDO == null){
-            String s = "D:\\projects\\dev\\mobio\\notebooks\\precalculated_pudo_permutations_requests=4_passengers=3.dat";
-            mapPUDO = loadPrecalculatedPermutationsPUDO(s);
-            System.out.println(mapPUDO);
-        }
-
-        //System.out.printf("Returning map for %d PUDOs and %d DOs\n", nOfPUDOs, nOfDOs);
         int[][] permutations = mapPUDO.get(nOfPUDOs).get(nOfDOs);
-        //System.out.println(Arrays.deepToString(permutations));
         return permutations;
     }
 
-    public static Map<Integer, Map<Integer, int[][]>> loadPrecalculatedPermutationsPUDO(String pathPrecalculatedPUDOPermutations) {
+    public static void loadPrecalculatedPermutationsPUDO(String pathPrecalculatedPUDOPermutations) {
 
         Path path = Paths.get(pathPrecalculatedPUDOPermutations);
         BufferedReader reader = null;
-        Map<Integer, Map<Integer, int[][]>> mapPUDO = new HashMap<>();
+        mapPUDO = new HashMap<>();
 
         try {
             reader = Files.newBufferedReader(path);
+
+            System.out.print("#PUDOs  #DOs    #Permut.\n");
 
             String strCurrentLine;
             while ((strCurrentLine = reader.readLine()) != null) {
@@ -55,7 +48,7 @@ public class PDPermutations implements Iterator<Node[]> {
                 mapPUDO.putIfAbsent(nRequests, new HashMap<>());
                 mapPUDO.get(nRequests).put(nDropoffs, new int[nPermutations][]);
 
-                System.out.printf("%d %d %d\n", nRequests, nDropoffs, nPermutations);
+                System.out.printf("%7d %7d %7d\n", nRequests, nDropoffs, nPermutations);
                 for (int i = 0; i < nPermutations; i++) {
                     strCurrentLine = reader.readLine();
                     if (!strCurrentLine.equals("")){
@@ -74,8 +67,6 @@ public class PDPermutations implements Iterator<Node[]> {
         } catch (IOException e) {
             e.printStackTrace();
         }
-
-        return mapPUDO;
     }
 
     @Override
