@@ -1221,6 +1221,7 @@ public class Vehicle implements Comparable<Vehicle> {
                         elapsedTime);
 
         // Can't move to a middle node, closest middle node is next pickup
+        // TODO why having a middle node == next?
         if (nodeBetweenId < 0) {
             nodeBetweenId = next.getNetworkId();
         }
@@ -1359,6 +1360,10 @@ public class Vehicle implements Comparable<Vehicle> {
 
     public User getUserHiredMustPickup() {
         return userHiredMustPickup;
+    }
+
+    public boolean isMoving() {
+        return this.isRebalancing() || this.isServicing();
     }
 }
 
