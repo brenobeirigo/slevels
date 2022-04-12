@@ -16,7 +16,7 @@ public class NodeOrigin extends Node {
 
     @Override
     public String toString() {
-        return String.format("%7s", "OR" + String.valueOf(this.getId() - Node.MAX_NUMBER_NODES * 2));
+        return String.format("%10s", "OR" + String.valueOf(this.getId() - Node.MAX_NUMBER_NODES * 2));
     }
 
     @Override

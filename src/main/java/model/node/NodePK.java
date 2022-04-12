@@ -11,7 +11,7 @@ public class NodePK extends Node {
 
     @Override
     public String toString() {
-        return String.format("%7s", "PK" + String.valueOf(tripId));
+        return String.format("%10s", "PK" + String.valueOf(tripId));
     }
 
     public String toGeoJson() {

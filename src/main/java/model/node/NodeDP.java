@@ -9,7 +9,7 @@ public class NodeDP extends Node {
 
     @Override
     public String toString() {
-        return String.format("%7s", "DP" + String.valueOf(this.tripId));
+        return String.format("%10s", "DP" + String.valueOf(this.tripId));
     }
 
     public String toGeoJson() {
