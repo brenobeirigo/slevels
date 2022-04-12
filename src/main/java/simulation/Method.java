@@ -1311,6 +1311,54 @@ public class Method {
         return visit;
     }
 
+    public static Visit getBestVisitFromPDPermutationsSummarized(Vehicle vehicle, Set<User> requests) {
+        // A single request can be inserted in a vehicle in multiple ways. Only the best (i.e., the lowest delay)
+        // visit is inserted in the RTV graph.
+
+        Visit visit = null;
+        Node[] lowestDelaySequence = null;
+        Leg bestDraftVisit = null;
+
+        // Create request set out of one request
+        PDPermutations perms = new PDPermutations(requests, vehicle);
+
+        while (perms.hasNext()) {
+
+            Node[] PDPermutation = perms.next();
+            // getMapNetworkIdNodes(sequencePickupsAndDeliveries);
+
+            Leg draftVisit = Visit.getDraftVisit(vehicle, PDPermutation);
+
+            // Update if delay is valid
+            if (draftVisit != null) {
+                if (draftVisit.compareTo(bestDraftVisit) < 0) {
+                    bestDraftVisit = draftVisit;
+                    lowestDelaySequence = PDPermutation;
+                }
+            }
+        }
+
+        if (lowestDelaySequence != null) {
+
+            // Setup new visit
+            visit = new Visit(lowestDelaySequence, bestDraftVisit.delay, bestDraftVisit.idleness, vehicle);
+            // System.out.println(visit.getSequenceVisits());
+
+            // Finish visit configuration
+            visit.setVehicle(vehicle);
+            visit.getRequests().addAll(requests);
+
+            // printMapOfNodesPerNetworkIdSortedByEarliestTime(vehicle, visit);
+
+            // All passengers in vehicle belong to visit (they need to be dropped off)
+            if (vehicle.isServicing()) {
+                visit.setPassengers(vehicle.getVisit().getPassengers());
+            }
+        }
+
+        return visit;
+    }
+
 
     public static void reset() {
         return;
