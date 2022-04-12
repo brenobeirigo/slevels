@@ -26,6 +26,7 @@ import java.util.Map.Entry;
 import java.util.stream.Collectors;
 
 import static java.util.stream.Collectors.toSet;
+import static util.PDPermutations.loadPrecalculatedPermutationsPUDO;
 
 
 public class Dao {
@@ -50,6 +51,7 @@ public class Dao {
     protected ArrayList<ArrayList<List<Integer>>> shortestPathsNodeIds;
     protected ArrayList<ArrayList<List<Integer>>> shortestPathDistances;
     private String pathDistanceMatrix;
+    private String pathPrecalculatedPermutations;
     private String pathDurationsMatrix;
     private String pathRequestList;
     private String pathadjacencyMatrix;
@@ -86,6 +88,7 @@ public class Dao {
             pathadjacencyMatrix = InstanceConfig.getInstance().getAdjacencyMatrixPath().toString();
             pathNetworkNodeInfo = InstanceConfig.getInstance().getNetworkNodeInfoPath().toString();
             pathRequestList = InstanceConfig.getInstance().getRequestsPath().toString();
+            pathPrecalculatedPermutations = InstanceConfig.getInstance().getPrecalculatedPermutationsPath().toString();
 
             // Reading map data ////////////////////////////////////////////////////////////////////////////////////////
 
@@ -95,6 +98,7 @@ public class Dao {
 
             //distMatrix = getDistanceMatrixFrom(pathDistanceMatrix);
             distMatrix = getDistanceMatrixFrom(pathDurationsMatrix, false);
+            loadPrecalculatedPermutationsPUDO(pathPrecalculatedPermutations);
 
             distMatrixDerivedFromSP = new short[numberOfNodes][numberOfNodes];
 

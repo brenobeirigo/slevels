@@ -58,6 +58,7 @@ public class InstanceConfig {
     private boolean[] useUrgentKey;
     // Info
     private Path instancesPath;
+    private Path precalculatedPermutationsPath;
     private Path resultPath;
     private Path distancesPath;
     private Path durationsPath;
@@ -89,6 +90,7 @@ public class InstanceConfig {
 
             //Description
             this.instancesPath = Paths.get(jsonConfig.get("instances_folder").toString());
+            this.precalculatedPermutationsPath = Paths.get(jsonConfig.get("precalculated_permutations_file").toString());
             this.resultPath = Paths.get(jsonConfig.get("result_folder").toString());
             this.distancesPath = Paths.get(jsonConfig.get("distances_file").toString());
             this.durationsPath = Paths.get(jsonConfig.get("durations_file").toString());
@@ -549,6 +551,14 @@ public class InstanceConfig {
 
     public void setMaxTimeToReachRegionCenter(int maxTimeToReachRegionCenter) {
         this.maxTimeToReachRegionCenter = maxTimeToReachRegionCenter;
+    }
+
+    public Path getPrecalculatedPermutationsPath() {
+        return precalculatedPermutationsPath;
+    }
+
+    public void setPrecalculatedPermutationsPath(Path precalculatedPermutationsPath) {
+        this.precalculatedPermutationsPath = precalculatedPermutationsPath;
     }
 }
 
