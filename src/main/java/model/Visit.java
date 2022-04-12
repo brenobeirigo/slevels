@@ -1,5 +1,6 @@
 package model;
 
+import com.google.common.base.Objects;
 import com.google.common.collect.Sets;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
@@ -17,10 +18,10 @@ public class Visit implements Comparable<Visit> {
     private static int visitCount;
     protected LinkedList<Node> sequenceVisits; // Sequence of pickup and delivery nodes
     protected Vehicle vehicle;
-    protected double avgOccupationLeg;
-    // Delays and idle times
-    protected int delay, idle;
-    private int arrival;
+    protected double avgLoadPerVisitLeg; // Load divided by visit's legs
+    protected Integer delay; // Requests' total waiting time
+    protected Integer idle; // Vehicle's total waiting time
+    private int arrival; // Arrival time at the last visited node
     private Set<User> passengers; // Users picked up
     private Set<User> requests; // Users that can still be moved (not picked up)
 
@@ -30,7 +31,7 @@ public class Visit implements Comparable<Visit> {
         this.passengers = new HashSet<>(v.passengers);
         this.sequenceVisits = new LinkedList<>(v.sequenceVisits);
         this.vehicle = v.vehicle;
-        this.avgOccupationLeg = v.avgOccupationLeg;
+        this.avgLoadPerVisitLeg = v.avgLoadPerVisitLeg;
         this.delay = v.delay;
         this.idle = v.idle;
     }
@@ -55,6 +56,7 @@ public class Visit implements Comparable<Visit> {
     public Visit(LinkedList<Node> sequenceVisits, int delay) {
         this.sequenceVisits = sequenceVisits;
         this.delay = delay;
+        this.idle = 0;
         this.requests = new HashSet<>();
         this.passengers = new HashSet<>();
     }
@@ -62,6 +64,7 @@ public class Visit implements Comparable<Visit> {
     public Visit(LinkedList<Node> sequenceVisits, int delay, Vehicle v) {
         this.sequenceVisits = sequenceVisits;
         this.delay = delay;
+        this.idle = 0;
         this.vehicle = v;
         this.requests = new HashSet<>();
         this.passengers = new HashSet<>();
@@ -70,6 +73,7 @@ public class Visit implements Comparable<Visit> {
     public Visit(LinkedList<Node> sequenceVisits, int delay, Vehicle v, User request) {
         this.sequenceVisits = sequenceVisits;
         this.delay = delay;
+        this.idle = 0;
         this.vehicle = v;
         this.requests = new HashSet<>();
         this.requests.add(request);
@@ -82,13 +86,13 @@ public class Visit implements Comparable<Visit> {
                  double avgOccupationLeg) {
 
         this(sequenceVisits, delay, idle);
-        this.avgOccupationLeg = avgOccupationLeg;
+        this.avgLoadPerVisitLeg = avgOccupationLeg;
     }
 
     public Visit() {
         this.delay = Integer.MAX_VALUE;
         this.idle = Integer.MAX_VALUE;
-        this.avgOccupationLeg = Double.MIN_VALUE;
+        this.avgLoadPerVisitLeg = Double.MIN_VALUE;
         this.passengers = new HashSet<>();
         this.requests = new HashSet<>();
     }
@@ -134,7 +138,7 @@ public class Visit implements Comparable<Visit> {
      * @param latestArrival
      * @return
      */
-    public static int isValidSequenceFeasible(LinkedList<Node> validPDSequence, int departureTimeFromVehicle, int load, int maxCapacity, int latestArrival) {
+    public static int isValidSequenceFeasible(List<Node> validPDSequence, int departureTimeFromVehicle, int load, int maxCapacity, int latestArrival) {
 
         // Data passed over legs
         int[] cumulativeLegPK = new int[]{
@@ -151,6 +155,8 @@ public class Visit implements Comparable<Visit> {
             if (cumulativeLegPK[Vehicle.ARRIVAL] > latestArrival) {
                 return -1;
             }
+
+            // TODO add service time to arrival
         }
         return cumulativeLegPK[Vehicle.DELAY];
     }
@@ -629,6 +635,7 @@ public class Visit implements Comparable<Visit> {
         Node first = this.getVehicle().getLastVisitedNode();
         for (Node next : this.getSequenceVisits()) {
             arrival += Dao.getInstance().getDistSec(first, next);
+            // TODO add service time
             next.setArrivalSoFar(arrival);
             first = next;
         }
