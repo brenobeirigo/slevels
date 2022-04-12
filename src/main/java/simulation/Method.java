@@ -1,12 +1,8 @@
 package simulation;
 
 import config.Config;
-import config.Qos;
 import dao.Dao;
-import model.User;
-import model.Vehicle;
-import model.Visit;
-import model.VisitByInsertion;
+import model.*;
 import model.node.Node;
 import org.paukov.combinatorics.CombinatoricsVector;
 import org.paukov.combinatorics.Generator;
@@ -1215,7 +1211,7 @@ public class Method {
 //                    getNetworkIdsFromNodeSequence(sequenceFromVehiclePositionToLastDelivery));
 
             // Update if delay is valid
-            if (delay >= 0){
+            if (delay >= 0) {
                 if (delay < lowestDelay || (delay == lowestDelay && sequenceFromVehiclePositionToLastDelivery.size() < lowestDelaySequence.size())) {
                     lowestDelay = delay;
                     lowestDelaySequence = sequenceFromVehiclePositionToLastDelivery;
@@ -1282,7 +1278,7 @@ public class Method {
             );
 
             // Update if delay is valid
-            if (delay >= 0){
+            if (delay >= 0) {
                 if (delay < lowestDelay || (delay == lowestDelay && sequenceFromVehiclePositionToLastDelivery.size() < lowestDelaySequence.size())) {
                     lowestDelay = delay;
                     lowestDelaySequence = sequenceFromVehiclePositionToLastDelivery;
