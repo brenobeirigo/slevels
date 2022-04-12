@@ -14,11 +14,12 @@ public class Leg implements Comparable<Leg> {
     public int load;
     public int delay;
     public int idleness;
+    public int totalVisitSize;
     public Vehicle vehicle;
 
 
     public static Comparator<Leg> legComparator = Comparator.nullsLast(
-            Comparator.comparing(Leg::getDelay).thenComparing(Leg::getIdleness));
+            Comparator.comparing(Leg::getDelay).thenComparing(Leg::getTotalVisitSize).thenComparing(Leg::getIdleness));
 
     /**
      * Leg always start from a vehicle's last visited node
@@ -28,7 +29,15 @@ public class Leg implements Comparable<Leg> {
         this.vehicle = vehicle;
         this.fromNode = vehicle.getLastVisitedNode();
         this.arrivalNext = this.fromNode.getDeparture();
-        this.load = this.fromNode.getLoad();
+        this.load = this.vehicle.getCurrentLoad();
+    }
+
+    public int getTotalVisitSize() {
+        return totalVisitSize;
+    }
+
+    public void setTotalVisitSize(int totalVisitSize) {
+        this.totalVisitSize = totalVisitSize;
     }
 
     /**
@@ -41,6 +50,7 @@ public class Leg implements Comparable<Leg> {
     public boolean updateNextNode(Node nextNode) {
 
         this.nextNode = nextNode;
+        this.totalVisitSize +=1;
 
         if (!updateLoad()) return false;
         if (!updateArrivalNextDelayAndIdleness()) return false;
@@ -75,12 +85,13 @@ public class Leg implements Comparable<Leg> {
             int arrivalNext = this.arrivalNext + distFromTo;
 
             if (arrivalNext <= nextNode.getLatest()){
+
                 this.arrivalNext = Math.max(arrivalNext, nextNode.getEarliest());
 
                 if (nextNode instanceof NodeDP)
                     this.delay += this.arrivalNext - nextNode.getEarliest();
 
-                if (nextNode instanceof NodePK)
+                else if (nextNode instanceof NodePK && arrivalNext < nextNode.getEarliest())
                     this.idleness += nextNode.getEarliest() - arrivalNext;
 
 
