@@ -48,7 +48,7 @@ public class PDPermutations implements Iterator<Node[]> {
                 mapPUDO.putIfAbsent(nRequests, new HashMap<>());
                 mapPUDO.get(nRequests).put(nDropoffs, new int[nPermutations][]);
 
-                System.out.printf("%7d %7d %7d\n", nRequests, nDropoffs, nPermutations);
+                System.out.printf("%7d %7d %12d\n", nRequests, nDropoffs, nPermutations);
                 for (int i = 0; i < nPermutations; i++) {
                     strCurrentLine = reader.readLine();
                     if (!strCurrentLine.equals("")){
