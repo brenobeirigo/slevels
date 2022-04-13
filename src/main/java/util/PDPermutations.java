@@ -36,7 +36,7 @@ public class PDPermutations implements Iterator<Node[]> {
         try {
             reader = Files.newBufferedReader(path);
 
-            System.out.print("#PUDOs  #DOs    #Permut.\n");
+            System.out.print("#PUDOs  #DOs        #Permut.\n");
 
             String strCurrentLine;
             while ((strCurrentLine = reader.readLine()) != null) {
