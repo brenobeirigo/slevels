@@ -1,0 +1,120 @@
+{
+  "instance_description": "Tests cases currently used in paper (with more flexible time cuts and larger graphs), 1h from 18h, region centers from max waiting (150)",
+  "instance_name": "DAY_NYC_ZONES",
+  "result_folder": "D:\\projects\\dev\\slevels\\data\\nyc\\processed\\result\\",
+  "instances_folder": "D:\\projects\\dev\\slevels\\src\\main\\resources\\day\\",
+  "distances_file": "D:\\projects\\dev\\slevels\\data\\nyc\\processed\\network\\distance\\dist_matrix_m.csv",
+  "durations_file": "D:\\projects\\dev\\slevels\\data\\nyc\\processed\\network\\distance\\dist_matrix_duration_s.csv",
+  "adjacency_matrix_file": "D:\\projects\\dev\\slevels\\data\\nyc\\processed\\network\\adjacency_matrix.csv",
+  "requests_file": "D:\\projects\\dev\\slevels\\data\\nyc\\processed\\trip_records\\2019-2-yellow-Manhattan-00-00-00-23-59-59.csv",
+  "network_node_info_file": "D:\\projects\\dev\\slevels\\data\\nyc\\processed\\network\\nodeset_info.json",
+  "precalculated_permutations_file": "D:\\projects\\dev\\mobio\\data\\permutations\\processed\\precalculated_pudo_permutations_requests=4_passengers=3.dat",
+  "scenario_config": {
+    "batch_duration": [
+      30
+    ],
+    "earliest_time": [
+      "2011-02-01 18:00:00"
+    ],
+    "time_horizon": [
+      3600
+    ],
+    "max_time_to_reach_region_center": 150,
+    "max_requests": [
+      1000
+    ],
+    "initial_fleet": [
+      1000
+    ],
+    "max_capacity": [
+      4
+    ],
+    "rebalance": [
+      true
+    ],
+    "contract_duration": [
+      0
+    ],
+    "allow_request_displacement": [
+      true
+    ],
+    "allow_vehicle_hiring": [
+      false
+    ],
+    "service_rate": {
+      "S0": {
+        "B": 1.0
+      }
+    },
+    "customer_segmentation": {
+      "BB": {
+        "B": 1
+      }
+    },
+    "service_level": {
+      "B": {
+        "priority": 2,
+        "pk_delay_target": 300,
+        "pk_delay": 420,
+        "trip_delay": 420,
+        "sharing_preference": 1
+      }
+    }
+  },
+  "hiring_config": [
+    {
+      "name": "method_hire_from_regional_center"
+    }
+  ],
+  "matching_config": [
+    {
+      "name": "method_optimal",
+      "mip_time_limit": 240,
+      "mip_gap": 0.01,
+      "max_edges_rv": 15,
+      "max_edges_rr": 15,
+      "rtv_vehicle_timeout": 0.10,
+      "rtv_max_vehicle_capacity": 4,
+      "rejection_penalty": 5,
+      "bad_service_penalty": 1,
+      "allow_hiring": false,
+      "objectives": [
+        "obj_total_waiting_and_rejection"
+      ]
+    }
+  ],
+  "method_options": [
+    "method_optimal",
+    "method_greedy",
+    "method_fsfc",
+    "method_optimal_enforce_sl",
+    "method_optimal_enforce_sl_and_hire"
+  ],
+  "rebalancing_config": [
+    {
+      "name": "rebalance_optimal_alonso_mora"
+    }
+  ],
+  "labels": {
+    "BA": "batch_duration",
+    "ST": "simulation_time",
+    "MR": "max_requests",
+    "IF": "initial_fleet",
+    "MC": "max_capacity",
+    "RE": "rebalance",
+    "CD": "contract_duration",
+    "SD": "allow_service_deterioration",
+    "VH": "allow_vehicle_hiring",
+    "SR": "service_rate",
+    "CS": "customer_segmentation",
+    "MO": "allow_many_to_one",
+    "RT": "reinsert_targets",
+    "CT": "clear_target_list_every_round",
+    "UR": "allow_urgent_relocation",
+    "IN": "instance_name",
+    "ID": "instance_description",
+    "HE": "rebalance_heuristic",
+    "OPT": "matching",
+    "HC": "maximal_hiring_delay"
+  }
+}
