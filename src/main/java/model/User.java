@@ -66,11 +66,11 @@ public class User implements Comparable<User> {
      */
     public User(CSVRecord record) {
 
-        int originId = Integer.parseInt(record.get("pk_id"));
-        int destinationId = Integer.parseInt(record.get("dp_id"));
+        int originId = Integer.parseInt(record.get(Dao.PICKUP_NODE_ID));
+        int destinationId = Integer.parseInt(record.get(Dao.DROPOFF_NODE_ID));
         this.distFromTo = Dao.getInstance().getDistSec(originId, destinationId);
-        this.reqTime = Config.getInstance().date2Seconds(record.get("pickup_datetime"));
-        this.setNumPassengers(Integer.parseInt(record.get("passenger_count")));
+        this.reqTime = Config.getInstance().date2Seconds(record.get(Dao.PICKUP_DATETIME));
+        this.setNumPassengers(Integer.parseInt(record.get(Dao.PASSENGER_COUNT)));
         this.id = ++nTrips;
         this.record = record;
         this.servedBy = User.WAITING;
