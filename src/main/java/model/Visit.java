@@ -425,7 +425,21 @@ public class Visit implements Comparable<Visit> {
         this.sequenceVisits = sequenceVisits;
         this.delay = delay;
         this.idle = idle;
-        this.avgOccupationLeg = avgOccupationLeg;
+        this.avgLoadPerVisitLeg = avgOccupationLeg;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+        Visit visit = (Visit) o;
+        return Objects.equal(getVehicle(), visit.getVehicle()) &&
+        getSequenceVisits().containsAll(visit.getSequenceVisits());
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hashCode(getSequenceVisits(), getVehicle());
     }
 
     /**

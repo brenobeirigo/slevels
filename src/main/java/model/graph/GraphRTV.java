@@ -144,20 +144,34 @@ public class GraphRTV {
         }
     }
 
+    /**
+     * Add vertices and edges to RTV graph.
+     * Add:
+     *  - ( visit : vehicle ) edge
+     *  - ( request : visit ) edges for each request covered by the visit. These edges have weights equal to user
+     *    pickup delays.
+     *
+     * @param vehicle Vehicle
+     * @param requests List of users
+     * @param visit Visit (vehicle and route)
+     */
     private void addRequestTripVehicleEdges(
             Vehicle vehicle,
             Set<User> requests,
             Visit visit) {
 
-        // Add best visit to RTV graph
-        graphRTV.addVertex(visit);
-        graphRTV.addEdge(visit, vehicle);
+        // Add best visit to RTV graph if not added before. Visits are the same if vehicles and routes are equal.
+        // For example, if the setup visit was already there, similar draft visits do not need to be added.
+        if (graphRTV.addVertex(visit)) {
+            graphRTV.addEdge(visit, vehicle);
 
-        Map<User, Integer> userDelayMap = visit.getUserDelayPairs();
+            Map<User, Integer> userDelayMap = visit.getUserDelayPairs();
 
-        for (User request : requests) {
-            DefaultWeightedEdge requestVisitEdge = graphRTV.addEdge(request, visit);
-            graphRTV.setEdgeWeight(requestVisitEdge, userDelayMap.get(request));
+            for (User request : requests) {
+                DefaultWeightedEdge requestVisitEdge = graphRTV.addEdge(request, visit);
+                int weight = userDelayMap.get(request);
+                graphRTV.setEdgeWeight(requestVisitEdge, weight);
+            }
         }
 
         // assert visit.getRequests() != null && !visit.getRequests().isEmpty() : String.format("VISIT %s", visit);
