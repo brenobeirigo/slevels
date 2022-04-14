@@ -87,7 +87,7 @@ public class PDPermutations implements Iterator<Node[]> {
     private void loadAllPUDOPermutationsFrom(Set<User> requests, Set<User> passengers) {
 
         // [PU_1, PU_2, ..., PU_n, DO_n, DO_(n-1), ..., DO_1, DO_(n+1), DO_(n+2),..., DO_(nOfPassengers)]
-        basePUDOVector = getSeedSequence(requests, passengers);
+        basePUDOVector = getSeedNodeSequence(requests, passengers);
 
         // Precalculated valid permutations
         int[][] validIndexConfigPermutations = getPUDOPermutations(requests.size(), passengers.size());
@@ -132,13 +132,13 @@ public class PDPermutations implements Iterator<Node[]> {
     /**
      * Prepare seed sequence to create permutations.
      * For $n$ requests and $p$ passengers, the seed sequence follows the form:
-     * [PU_1, PU_2, ..., PU_n, DO_n, DO_(n-1), ..., DO_1, DO_(n+1), DO_(n+2),..., DO_m]
+     * [PU_1, PU_2, ..., PU_n, DO_1, DO_2, ..., DO_n,  DO_(n+1), DO_(n+2),..., DO_m]
      *
      * @param requests
      * @param passengers
      * @return
      */
-    private Node[] getSeedSequence(Set<User> requests, Set<User> passengers) {
+    private Node[] getSeedNodeSequence(Set<User> requests, Set<User> passengers) {
         int nPassengers = passengers.size();
         int nRequests = requests.size();
         Node[] sequence = new Node[2 * nRequests + nPassengers];
