@@ -1338,6 +1338,10 @@ public class Vehicle implements Comparable<Vehicle> {
         return this.getId();
     }
 
+    /**
+     * Stop visit for vehicles rebalancing, cruising, and parked.
+     * @return Stop visit, or null if vehicle is carrying passengers (can't stop)
+     */
     public Visit getStopVisit() {
 
         Visit stop = null;

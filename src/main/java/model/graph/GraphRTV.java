@@ -96,14 +96,22 @@ public class GraphRTV {
 
         // Add current visits
         for (Vehicle vehicle : listVehicles) {
+            addStopVisit(vehicle);
+        }
+    }
+
+    /**
+     * Add stop visit to RTV for vehicle moving (rebalancing, cruising)
+     * @param vehicle Vehicle to create stop visit
+     */
+    public void addStopVisit(Vehicle vehicle) {
             Visit stop = vehicle.getStopVisit();
 
             // Vehicles carrying passengers don't stop
             if (stop != null) {
                 feasibleTrips.get(0).add(stop);
-                addRequestTripVehicleEdges(vehicle, new HashSet<>(), stop);
+                addRequestTripVehicleEdges(stop);
             }
-        }
     }
 
     private void initDataStructures() {
@@ -411,6 +419,12 @@ public class GraphRTV {
                 }
             }
         }
+
+
+        //**********************************************************************************************************
+        // Add stop visit to empty vehicle *************************************************************************
+        //**********************************************************************************************************
+        addStopVisit(vehicle);
 
         return feasibleVisitsAtLevel;
     }
