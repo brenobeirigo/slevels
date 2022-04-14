@@ -17,7 +17,7 @@ public class ResultAssignment {
     public Map<Qos, Integer> rejectedServiceLevelClass;
     public Set<User> requestsServicedLevelNotAchieved;
     public Map<Qos, Double> violationCountClassServiceLevel;
-    // Set of users that were displaced from their current rides (is in unassgigned)
+    // Set of users that were displaced from their current rides (is in unassigned)
     protected Set<User> requestsDisplaced;
     // Set of vehicles that interrupted routes and parked
     protected Set<Vehicle> vehiclesDisrupted;
