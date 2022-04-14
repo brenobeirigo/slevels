@@ -38,32 +38,27 @@ public class GraphRTV {
         this.listVehicles = listVehicles;
 
         // REQUEST - VEHICLE (RV)
-        this.runTimes.put(Solution.TIME_CREATE_RV, System.nanoTime());
+        Dao.getInstance().getRunTimes().startTimerFor(Runtime.TIME_CREATE_RV);
         this.graphRV = new GraphRV(allRequests, listVehicles, maxVehicleCapacity, maxVehReqEdges, maxReqReqEdges);
-        this.runTimes.put(Solution.TIME_CREATE_RV, System.nanoTime() - this.runTimes.get(Solution.TIME_CREATE_RV));
+        Dao.getInstance().getRunTimes().endTimerFor(Runtime.TIME_CREATE_RV);
         //System.out.println(String.format("# RV created (%.2f sec) - %s", (this.runTimes.get(Solution.TIME_CREATE_RV)) / 1000000000.0, this.graphRV.statsRV()));
-        System.out.println(String.format("# 1) RV created (%.2f sec) - RV stats: %s", (this.runTimes.get(Solution.TIME_CREATE_RV)) / 1000000000.0, this.graphRV));
-        //graphRV.printRVEdges();
-        //graphRV.printRREdges();
-        //this.runTimes.put(Solution.TIME_CREATE_RV + "2", System.nanoTime());
-        //GraphRV graphRV = new GraphRV(allRequests, listVehicles, vehicleCapacity);
-        //graphRV.keepFastestRVLinks(maxVehReqEdges);
-        //this.runTimes.put(Solution.TIME_CREATE_RV + "2", System.nanoTime() - this.runTimes.get(Solution.TIME_CREATE_RV + "2"));
-        //System.out.println(String.format("# 2) RV created (%.2f sec) - RV stats: %s", (this.runTimes.get(Solution.TIME_CREATE_RV + "2")) / 1000000000.0, graphRV));
-
-        //this.graphRV.keepFastestRVLinks(maxVehReqEdges);
-        //System.out.println(String.format("# RV created (%.2f sec) - RV stats: %s", (this.runTimes.get(Solution.TIME_CREATE_RV)) / 1000000000.0, this.graphRV));
+        System.out.println(String.format("# Matching - RTV - RV - Creation=%.2fs / Stats=%s", Dao.getInstance().getRunTimes().getExecutionTimeSecFor(Runtime.TIME_CREATE_RV), this.graphRV));
         //graphRV.printRVEdges();
         //graphRV.printRREdges();
 
         // Add the data of current trips in the RTV graph
+        Dao.getInstance().getRunTimes().startTimerFor(Runtime.TIME_INIT_RTV);
         this.initDataStructures();
+        Dao.getInstance().getRunTimes().endTimerFor(Runtime.TIME_INIT_RTV);
 
         // Create request-trip-vehicle (RTV) structure
-        this.runTimes.put(Solution.TIME_CREATE_RTV, System.nanoTime());
+        Dao.getInstance().getRunTimes().startTimerFor(Runtime.TIME_CREATE_RTV);
         this.buildGraph();
-        this.runTimes.put(Solution.TIME_CREATE_RTV, System.nanoTime() - this.runTimes.get(Solution.TIME_CREATE_RTV));
-        System.out.println(String.format("# 2) RTV created (%.2f sec) - %s", (this.runTimes.get(Solution.TIME_CREATE_RTV) / 1000000000.0), this.getSummaryFeasibleTripsLevel()));
+        Dao.getInstance().getRunTimes().endTimerFor(Runtime.TIME_CREATE_RTV);
+        System.out.println(String.format("# Matching - RTV - Initialization=%.2fs Creation=%.2fs / %s%n",
+                Dao.getInstance().getRunTimes().getExecutionTimeSecFor(Runtime.TIME_INIT_RTV),
+                Dao.getInstance().getRunTimes().getExecutionTimeSecFor(Runtime.TIME_CREATE_RTV),
+                this.getSummaryFeasibleTripsLevel()));
     }
 
     public GraphRTV(GraphRV graphRV, int maxVehicleCapacity, List<User> allRequests, List<Vehicle> listVehicles) {

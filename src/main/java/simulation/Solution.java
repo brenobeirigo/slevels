@@ -6,6 +6,7 @@ import config.Qos;
 import dao.Dao;
 import dao.FileUtil;
 import helper.HelperIO;
+import helper.Runtime;
 import model.User;
 import model.Vehicle;
 import org.apache.commons.csv.CSVFormat;
@@ -24,19 +25,6 @@ import java.util.*;
 import static java.util.Comparator.comparingInt;
 
 public class Solution {
-
-    // Execution time headers
-    public static final String TIME_UPDATE_FLEET_STATUS = "time_update_fleet_status_s";
-    public static final String TIME_REBALANCING_FLEET = "time_vehicle_rebalancing_s";
-    public static final String TIME_UPDATE_DEMAND = "time_ride_matching_s";
-    public static final String TIME_CREATE_RV = "time_create_rv_graph";
-    public static final String TIME_CREATE_RTV = "time_create_rtv_graph";
-    public static final String TIME_MATCHING = "time_matching";
-    public static final String[] TIME_HEADERS = new String[]{
-            TIME_UPDATE_DEMAND,
-            TIME_UPDATE_FLEET_STATUS,
-            TIME_REBALANCING_FLEET
-    };
 
     private BufferedWriter writer;
     /* Instance */
@@ -60,6 +48,11 @@ public class Solution {
     private int deactivationFactor;
     private int maxDelayExtensionsBeforeHiring;
 
+    public static final String[] TIME_HEADERS = new String[]{
+            Runtime.TIME_UPDATE_DEMAND,
+            Runtime.TIME_UPDATE_FLEET_STATUS,
+            Runtime.TIME_REBALANCING_FLEET
+    };
 
     /* CSV output
     departureVehicleCurrent;seatCount;activeVehicles;enrouteCount;deniedRequests.size();finishedRequests.size();
@@ -394,7 +387,7 @@ public class Solution {
                                       Set<User> deniedRequests,
                                       List<User> setOfRequests,
                                       Map<Integer, User> allRequests,
-                                      Map<String, Long> runTimes,
+                                      Runtime runTimes,
                                       boolean saveRoundInfoCSV,
                                       boolean showRoundInfo) {
 
@@ -667,9 +660,9 @@ public class Solution {
                 totalCurrentCapacity,
                 setHiredVehicles.size(),
                 setDeactivated.size(),
-                runTimes.get(Solution.TIME_UPDATE_FLEET_STATUS) / 1000000000.0,
-                runTimes.get(Solution.TIME_REBALANCING_FLEET) / 1000000000.0,
-                runTimes.get(Solution.TIME_UPDATE_DEMAND) / 1000000000.0
+                runTimes.getExecutionTimeSecFor(Runtime.TIME_UPDATE_FLEET_STATUS),
+                runTimes.getExecutionTimeSecFor(Runtime.TIME_REBALANCING_FLEET),
+                runTimes.getExecutionTimeSecFor(Runtime.TIME_UPDATE_DEMAND)
         );
     }
 
@@ -699,7 +692,7 @@ public class Solution {
                             double distTraveledEmpty,
                             double distTraveledLoaded,
                             double distTraveledRebal,
-                            Map<String, Long> runTimes) {
+                            Runtime runTimes) {
 
         List<String> roundEntry = new ArrayList<>();
         roundEntry.add(Config.sec2Datetime(currentTime));
@@ -738,7 +731,7 @@ public class Solution {
         roundEntry.add(String.format("%.4f", distTraveledLoaded));
         roundEntry.add(String.format("%.4f", distTraveledRebal));
         for (String h : Solution.TIME_HEADERS) {
-            roundEntry.add(String.valueOf(runTimes.get(h) / 1000000000.0));
+            roundEntry.add(String.valueOf(runTimes.getExecutionTimeSecFor(h)));
         }
 
 

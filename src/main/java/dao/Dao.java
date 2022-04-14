@@ -5,6 +5,7 @@ import config.Config;
 import config.InstanceConfig;
 import config.Qos;
 import helper.HelperIO;
+import helper.Runtime;
 import model.User;
 import model.node.Node;
 import model.node.NodeNetwork;
@@ -69,9 +70,16 @@ public class Dao {
     private List<User> allUsers;
     private Iterable<CSVRecord> records;
     private int currentTime = 0;
+    private Runtime runTimes;
+
+    public Runtime getRunTimes() {
+        return runTimes;
+    }
 
     public Dao() {
         try {
+
+            runTimes = new Runtime();
 
             // Log user data
             allUsers = new ArrayList<>();
@@ -353,6 +361,9 @@ public class Dao {
         // System.out.println("Resetting trip records...");
 
         try {
+
+            // Timers are cleaned for next simulation
+            runTimes = new Runtime();
 
             // Reset system current for next test set
             currentTime = 0;

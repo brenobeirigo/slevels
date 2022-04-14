@@ -5,7 +5,9 @@ import config.Config;
 import dao.Dao;
 import helper.HelperIO;
 import helper.MethodHelper;
+import helper.Runtime;
 import model.*;
+import model.graph.GraphRV;
 import model.node.Node;
 import simulation.matching.Matching;
 import simulation.matching.ResultAssignment;
@@ -121,7 +123,7 @@ public abstract class Simulation {
         activeFleet = false;
         setHired = new HashSet<>();
 
-        runTimes = new HashMap<>();
+        runTimes = Dao.getInstance().getRunTimes();
 
         listVehicles = MethodHelper.createListVehicles(initialFleetSize, vehicleCapacity, true, leftTW); // List of vehicles
         listHiredVehicles = new ArrayList<>();
@@ -530,21 +532,21 @@ public abstract class Simulation {
 
             // Rebalance, deactivate, and update parking nodes /////////////////////////////////////////////////////////
             // Move vehicles, Compute serviced users, remove hired
-            runTimes.put(Solution.TIME_UPDATE_FLEET_STATUS, System.nanoTime());
+            runTimes.startTimerFor(Runtime.TIME_UPDATE_FLEET_STATUS);
             Set<Vehicle> idleVehicles = updateFleetStatus();
             // TODO Preliminary tests show that parallel stream is slower. Can more cores be of any help?
             //updateFleetStatusParallel();
-            runTimes.put(Solution.TIME_UPDATE_FLEET_STATUS, System.nanoTime() - runTimes.get(Solution.TIME_UPDATE_FLEET_STATUS));
+            runTimes.endTimerFor(Runtime.TIME_UPDATE_FLEET_STATUS);
 
             // Rebalance idle vehicles
-            runTimes.put(Solution.TIME_REBALANCING_FLEET, System.nanoTime());
+            runTimes.startTimerFor(Runtime.TIME_REBALANCING_FLEET);
             rebalance(idleVehicles);
-            runTimes.put(Solution.TIME_REBALANCING_FLEET, System.nanoTime() - runTimes.get(Solution.TIME_REBALANCING_FLEET));
+            runTimes.endTimerFor(Runtime.TIME_REBALANCING_FLEET);
 
             // Pool, service, and reject users /////////////////////////////////////////////////////////////////////////
-            runTimes.put(Solution.TIME_UPDATE_DEMAND, System.nanoTime());
+            runTimes.startTimerFor(Runtime.TIME_UPDATE_DEMAND);
             updateDemandStatus();
-            runTimes.put(Solution.TIME_UPDATE_DEMAND, System.nanoTime() - runTimes.get(Solution.TIME_UPDATE_DEMAND));
+            runTimes.endTimerFor(Runtime.TIME_UPDATE_DEMAND);
 
             // Save solution and print round info
             computeRoundInfo(Config.showRoundInfo(), Config.saveRoundInfo(), Config.showRoundFleetStatus());
