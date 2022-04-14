@@ -415,18 +415,34 @@ public class GraphRTV {
         return feasibleVisitsAtLevel;
     }
 
+    /**
+     * Determine if all sub-trips featuring $k-1$ users are feasible (i.e., users can be combined).
+     * If so, trip of size $k$ may also be feasible.
+     * Example:
+     * Trip featuring users (u1, u2, u3) is feasible if:
+     * - Trip (u1, u2) is feasible
+     * - Trip (u1, u3) is feasible
+     * - Trip (u2, u3) is feasible
+     *  A trip is feasible, if there is any visit where users can be successfully picked up and delivered.
+     *  Example:
+     *  Trip (u1, u2) is feasible if there is a feasible visit in:
+     *   - 1,1',2,2'
+     *   - 1,2,1',2'
+     *   ...
+     *   - 2,2',1,1'
+     * @param usersFeasibleTripsPreviousLevel Set of feasible trips of size $k-1$.
+     * @param usersCandidateTripCurrentLevel Candidate trip of size $k$.
+     * @return true if all sub-trips of candidate trip are feasible (i.e., featured in previous level)
+     */
+    private boolean allSubTripsAreFeasible(Set<Set<User>> usersFeasibleTripsPreviousLevel, Set<User> usersCandidateTripCurrentLevel) {
 
-    private boolean allSubTripsAreFeasible(Set<Set<User>> feasibleTrips, Set<User> combinedRequestList) {
+        for (User request : usersCandidateTripCurrentLevel) {
 
-        for (User request : combinedRequestList) {
-
-            // Sub trip MUST be part of last level
-            Set<User> subTrip = new HashSet<>(combinedRequestList);
-
+            // Create sub-trip from candidate trip with one fewer request
+            Set<User> subTrip = new HashSet<>(usersCandidateTripCurrentLevel);
             subTrip.remove(request);
-            //System.out.println("-testing=" + subTrip);
 
-            if (!feasibleTrips.contains(subTrip))
+            if (!usersFeasibleTripsPreviousLevel.contains(subTrip))
                 return false;
         }
         return true;
