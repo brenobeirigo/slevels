@@ -62,14 +62,14 @@ public abstract class Simulation {
     /* SETS OF VEHICLES AND REQUESTS */
     protected Map<Integer, User> allRequests; // Dictionary of all users
     protected Set<User> unassignedRequests; // Requests whose pickup time is lower than the current time
-    protected List<User> listPooledUsersTW;  // Requests pooled within TW
+    protected Set<User> listPooledUsersTW;  // Requests pooled within TW
     protected Set<User> deniedRequests; // Requests with expired pickup time
     protected Set<User> finishedRequests; // Requests whose DP node was visited
     protected List<Vehicle> listVehicles; // List of vehicles
     protected List<Vehicle> listHiredVehicles; //List of hired vehicles
     protected Set<Vehicle> setDeactivated; // Vehicles to be deactivated in round
     protected Set<Vehicle> setHired; // Current set of hired vehicles
-    protected List<User> roundRejectedUsers;
+    protected Set<User> roundRejectedUsers;
     protected Set<User> roundUnmetServiceLevel;
     protected List<Vehicle> roundHiredVehicles;
     protected Map<String, Long> runTimes;
@@ -322,7 +322,7 @@ public abstract class Simulation {
     public void updateSetWaitingUsers() {
 
         // Clean list of pooled users
-        listPooledUsersTW = new ArrayList<>();
+        listPooledUsersTW = new LinkedHashSet<>();
 
         // After the number of rounds stop pooling requests but finish waiting requests
         if (roundCount < totalRounds) {
@@ -462,10 +462,10 @@ public abstract class Simulation {
         // assert resultAssignment.assignedAndUnassigedAreDisjoint() : "User is assigned to two different vehicles.";
     }
 
-    private List<User> getExpiredRequestsFromUnassigned() {
+    private Set<User> getExpiredRequestsFromUnassigned() {
         return unassignedRequests.stream()
                 .filter(u -> !u.canBePickedUp(rightTW))
-                .collect(Collectors.toList());
+                .collect(Collectors.toSet());
     }
 
     private boolean rejectedUnassignedFinishedSetsAreConsistent() {

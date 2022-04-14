@@ -4,6 +4,7 @@ import model.Vehicle;
 
 import java.util.List;
 import java.util.Scanner;
+import java.util.Set;
 
 public class TestFCFS {
 

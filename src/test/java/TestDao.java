@@ -2,16 +2,19 @@ import dao.Dao;
 import model.User;
 import model.Vehicle;
 import model.Visit;
+import org.testng.annotations.Test;
 import simulation.Method;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 
+@Test
 public class TestDao {
 
     public static void main(String[] arg) {
         Dao dao = Dao.getInstance();
-        List<User> users = dao.getListTrips(1, 10);
+        Set<User> users = dao.getListTrips(1, 10);
         for (User l : users) {
             System.out.println(l);
         }
