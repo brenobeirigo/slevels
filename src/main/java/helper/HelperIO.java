@@ -171,7 +171,23 @@ public class HelperIO {
 
     }
 
-
+    /**
+     * Helper to save .csv files with data columns.
+     *
+     * Example:
+     * >> t1 = 3
+     * >> t2 = 1
+     * >> saveDataWithHeaders("C:\\project\\time_comparison.csv", String.format("%d %d", t1, t2), "OLD NEW", true);
+     *
+     * Will generate .csv:
+     * OLD NEW
+     * 3 1
+     *
+     * @param fileName Where file is saved
+     * @param line Data row to be saved
+     * @param headers Headers of the .csv table
+     * @param append If True, append new rows to file
+     */
     public static void saveDataWithHeaders(String fileName, String line, String headers, boolean append){
 
         FileOutputStream fos;
