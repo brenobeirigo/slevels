@@ -23,7 +23,7 @@ public class HelperIO {
                                      int duration,
                                      int left_tw,
                                      int right_tw,
-                                     List<User> req_dic,
+                                     Set<User> req_dic,
                                      Map<Integer, User> all_req,
                                      int n_vehicles,
                                      int t_horizon,

@@ -17,13 +17,13 @@ public class TestDao {
         }
 
         System.out.println("Get second batch...");
-        List<User> trips2 = dao.getListTrips(1, 10);
+        Set<User> trips2 = dao.getListTrips(1, 10);
         for (User l : trips2) {
             System.out.println(l);
         }
 
         System.out.println("Get second batch...");
-        List<User> trips3 = dao.getListTrips(100, 10);
+        Set<User> trips3 = dao.getListTrips(100, 10);
 
         int size = 3;
         int cont = 0;

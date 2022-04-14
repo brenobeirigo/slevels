@@ -4,6 +4,7 @@ import dao.Dao;
 import model.User;
 
 import java.util.List;
+import java.util.Set;
 
 public class TestPointGeoJson {
 
@@ -18,7 +19,7 @@ public class TestPointGeoJson {
 //        Config.getInstance().qosDic.put("C", qos3);
 
         Dao dao = Dao.getInstance();
-        List<User> listUsers = dao.getListTripsClassed(30, 10, 10);
+        Set<User> listUsers = dao.getListTripsClassed(30, 10, 10);
 
         /*
 

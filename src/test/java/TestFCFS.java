@@ -39,7 +39,7 @@ public class TestFCFS {
             System.out.println(v);
         }
 
-        List<User> listU = dao.getListTrips(1, 20);
+        Set<User> listU = dao.getListTrips(1, 20);
 
         System.out.println("USER LIST:");
         for (User u : listU) {

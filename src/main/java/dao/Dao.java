@@ -66,7 +66,7 @@ public class Dao {
     private SimpleDirectedWeightedGraph<Integer, DefaultWeightedEdge> networkGraph;
     private Map<Integer, Map<String, List<Integer>>> canReachClass;
     private int iUserNextRound;
-    private List<User> userBuff;
+    private Set<User> userBuff;
     private List<User> allUsers;
     private Iterable<CSVRecord> records;
     private int currentTime = 0;
@@ -83,7 +83,7 @@ public class Dao {
 
             // Log user data
             allUsers = new ArrayList<>();
-            userBuff = new ArrayList<>();
+            userBuff = new LinkedHashSet<>();
 
             // Set seed to guarantee reproducibility
             rand = new Random(SEED);
@@ -375,7 +375,7 @@ public class Dao {
             rand = new Random(SEED);
 
             // Buffer that saves previous is reset
-            userBuff = new ArrayList<>();
+            userBuff = new LinkedHashSet<>();
 
 
         } catch (FileNotFoundException e) {
@@ -412,21 +412,21 @@ public class Dao {
         return dist_matrix;
     }
 
-    public List<User> getListTripsClassed(int timeSpanSec, int maxPassengerCount, int maxNumber) {
+    public Set<User> getListTripsClassed(int timeSpanSec, int maxPassengerCount, int maxNumber) {
 
-        List<User> trips = getListTripsClassed(timeSpanSec, maxPassengerCount);
+        Set<User> trips = getListTripsClassed(timeSpanSec, maxPassengerCount);
 
         if (trips.size() > maxNumber) {
-            trips = trips.subList(0, maxNumber);
+            trips = trips.stream().limit(maxNumber).collect(Collectors.toSet());
         }
 
         return trips;
     }
 
-    public List<User> getListTrips(int timeSpanSec, int maxPassengerCount, int maxNumber) {
-        List<User> trips = getListTrips(timeSpanSec, maxPassengerCount);
+    public Set<User> getListTrips(int timeSpanSec, int maxPassengerCount, int maxNumber) {
+        Set<User> trips = getListTrips(timeSpanSec, maxPassengerCount);
         if (trips.size() > maxNumber) {
-            trips = trips.subList(0, maxNumber);
+            trips = trips.stream().limit(maxNumber).collect(Collectors.toSet());
         }
         return trips;
     }
@@ -438,9 +438,9 @@ public class Dao {
      * @param maxPassengerCount Keep records with PASSENGER_COUNT lower
      * @return
      */
-    public List<User> getListTrips(int timeSpanSec, int maxPassengerCount) {
+    public Set<User> getListTrips(int timeSpanSec, int maxPassengerCount) {
 
-        List<User> listUser = userBuff;
+        Set<User> listUser = userBuff;
 
         for (CSVRecord record : records) {
 
@@ -460,7 +460,7 @@ public class Dao {
 
             if (user.getReqTime() >= currentTime + timeSpanSec) {
                 currentTime = currentTime + timeSpanSec;
-                userBuff = new ArrayList<>();
+                userBuff = new LinkedHashSet<>();
                 userBuff.add(user);
                 break;
             }
@@ -551,10 +551,10 @@ public class Dao {
      * @param maxPassengerCount Maximum passenger count (<= max. vehicle capacity)
      * @return
      */
-    public List<User> getListTripsClassed(int timeSpanSec, int maxPassengerCount) {
+    public Set<User> getListTripsClassed(int timeSpanSec, int maxPassengerCount) {
 
         // Start list of users with buffer from last iteration (users read, but not in time span)
-        List<User> listUser = userBuff;
+        Set<User> listUser = userBuff;
 
         // Continue reading records
         for (CSVRecord record : records) {
@@ -574,7 +574,7 @@ public class Dao {
             // Stop reading if request is out of time span
             if (user.getReqTime() >= currentTime + timeSpanSec) {
                 currentTime = currentTime + timeSpanSec;
-                userBuff = new ArrayList<>();
+                userBuff = new LinkedHashSet<>();
                 // Save user wrongfully read to next iteration
                 userBuff.add(user);
                 break;
@@ -632,12 +632,9 @@ public class Dao {
 
         // Start list of users with buffer from last iteration
         // (users read ahead time span to be placed in next iteration)
-        List<User> listUser = userBuff;
+        Set<User> listUser = userBuff;
         // System.out.println("%d",timeSpanSec);
         // Continue reading records
-        if (listUser.size() > 0) {
-            System.out.println("LAST:" + userBuff.get(userBuff.size() - 1).getReqTime() + " - " + currentTime + timeSpanSec);
-        }
 //            if (userBuff.get(userBuff.size()-1).getReqTime() < currentTime + timeSpanSec){
 //            return new ArrayList<>();
 //        }
