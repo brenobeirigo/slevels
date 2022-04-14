@@ -420,6 +420,11 @@ public class GraphRTV {
             }
         }
 
+        //**********************************************************************************************************
+        // Add visit with no requests ******************************************************************************
+        //**********************************************************************************************************
+        addOnlyPassengerVisitOfOnDutyVehicle(vehicle, feasibleVisitsAtLevel);
+
 
         //**********************************************************************************************************
         // Add stop visit to empty vehicle *************************************************************************
@@ -471,7 +476,7 @@ public class GraphRTV {
         return false;
     }
 
-    private void addVisitWithPassengers(Vehicle vehicle, List<List<Visit>> feasibleVisitsCurrentVehicleAtLevel) {
+    private void addOnlyPassengerVisitOfOnDutyVehicle(Vehicle vehicle, List<List<Visit>> feasibleVisitsCurrentVehicleAtLevel) {
         if (vehicle.isCarryingPassengers()) {
             Visit visitWithoutRequests = Method.getBestVisitFromPDPermutationsSummarized(vehicle, new HashSet<>());
 
