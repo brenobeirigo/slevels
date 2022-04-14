@@ -94,8 +94,6 @@ public class PDPermutations implements Iterator<Node[]> {
 
         configIndexPermutationIterator = Arrays.stream(validIndexConfigPermutations).iterator();
 
-        // System.out.println("BasePUDOVector: " + Arrays.toString(basePUDOVector));
-
     }
 
     private void loadAllPUDOPermutationsFrom(Set<User> requests, Vehicle vehicle) {

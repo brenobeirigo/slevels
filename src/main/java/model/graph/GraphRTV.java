@@ -459,7 +459,7 @@ public class GraphRTV {
 
     private void addVisitWithPassengers(Vehicle vehicle, List<List<Visit>> feasibleVisitsCurrentVehicleAtLevel) {
         if (vehicle.isCarryingPassengers()) {
-            Visit visitWithoutRequests = Method.getBestVisitFor(vehicle, new HashSet<>());
+            Visit visitWithoutRequests = Method.getBestVisitFromPDPermutationsSummarized(vehicle, new HashSet<>());
 
             // Add best visit to RTV graph
             assert visitWithoutRequests != null : String.format("Cannot find visit for vehicle %s (carrying passengers) with current visit = %s", vehicle, vehicle.getVisit());
