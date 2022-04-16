@@ -1359,4 +1359,75 @@ public class Method {
     public static void reset() {
         return;
     }
+
+
+    /**
+     * Get nodes associated to each network id.
+     * @param requests
+     * @return
+     */
+    private static Map<Integer, TreeSet<Node>> getMapNetworkIdUserNodes(Set<User> requests, Set<User> passengers) {
+        Map<Integer, TreeSet<Node>> networkIdNodes = new HashMap<>();
+
+        for (User user : requests) {
+            // Add pickup nodes
+            networkIdNodes.putIfAbsent(user.getNodePk().getNetworkId(), new TreeSet<>(Comparator.comparingInt(Node::getEarliest)));
+            networkIdNodes.get(user.getNodePk().getNetworkId()).add(user.getNodePk());
+            networkIdNodes.putIfAbsent(user.getNodeDp().getNetworkId(), new TreeSet<>(Comparator.comparingInt(Node::getEarliest)));
+            networkIdNodes.get(user.getNodeDp().getNetworkId()).add(user.getNodeDp());
+        }
+
+        for (User user : passengers) {
+            // Add pickup nodes
+            networkIdNodes.putIfAbsent(user.getNodeDp().getNetworkId(), new TreeSet<>(Comparator.comparingInt(Node::getEarliest)));
+            networkIdNodes.get(user.getNodeDp().getNetworkId()).add(user.getNodeDp());
+        }
+        return networkIdNodes;
+    }
+
+    private static void printMapOfNodesPerNetworkIdSortedByEarliestTime(Vehicle vehicle, Visit visit) {
+        System.out.printf("BEST(%s):(%s)\n", vehicle, visit.getSequenceVisits());
+        System.out.printf("ARRIVALS: %s\n", Visit.getArrivalTimesFromVisit(vehicle, visit));
+        //Map<Integer, TreeSet<Node>> networkIdNodes = getMapNetworkIdNodes(visit.getSequenceVisits());
+        //sortNodesPerNetworkIdsByEarliestArrivalTime(networkIdNodes);
+    }
+
+    private static void sortNodesPerNetworkIdsByEarliestArrivalTime(Map<Integer, TreeSet<Node>> networkIdNodes) {
+        for (Map.Entry<Integer, TreeSet<Node>> e : networkIdNodes.entrySet()) {
+            StringBuilder b = new StringBuilder("%s = ".formatted(e.getKey()));
+            for (Node node : networkIdNodes.get(e.getKey())) {
+                b.append("\n%s(e=%7s, a=%7s, l=%7s)".formatted(
+                        node,
+                        node.getEarliest(),
+                        node.getArrivalSoFar() == Integer.MAX_VALUE ? "-" : node.getArrivalSoFar(),
+                        node.getLatest() == Integer.MAX_VALUE ? "-" : node.getLatest()));
+            }
+            System.out.println(b);
+        }
+    }
+
+    /**
+     * Get nodes associated to each network id.
+     * @param sequence
+     * @return
+     */
+    private static Map<Integer, TreeSet<Node>> getMapNetworkIdNodes(Node[] sequence) {
+        Map<Integer, TreeSet<Node>> networkIdNodes = new HashMap<>();
+
+        for (Node node : sequence) {
+            networkIdNodes.putIfAbsent(node.getNetworkId(), new TreeSet<>(Comparator.comparingInt(Node::getEarliest)) {
+            });
+            networkIdNodes.get(node.getNetworkId()).add(node);
+        }
+        return networkIdNodes;
+    }
+
+    public static List<Integer> getNetworkIdsFromNodeSequence(List<Node> nodeSequence) {
+        List<Integer> networkIds = new ArrayList<>();
+        for (Node node : nodeSequence) {
+            networkIds.add(node.getNetworkId());
+
+        }
+        return networkIds;
+    }
 }
