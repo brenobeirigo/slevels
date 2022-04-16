@@ -25,6 +25,9 @@ public class Visit implements Comparable<Visit> {
     private Set<User> passengers; // Users picked up
     private Set<User> requests; // Users that can still be moved (not picked up)
 
+    public static Comparator<Visit> visitComparator = Comparator.comparing(Visit::getDelay).thenComparing(Visit::getVisitSequenceSize);
+    private List<Integer> draftArrivalTimes;
+
     public Visit(Visit v) {
         this.arrival = v.arrival;
         this.requests = new HashSet<>(v.requests);
