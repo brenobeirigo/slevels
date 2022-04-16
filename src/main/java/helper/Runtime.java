@@ -11,9 +11,11 @@ public class Runtime {
     public static final String TIME_REBALANCING_FLEET = "time_vehicle_rebalancing_s";
     public static final String TIME_UPDATE_DEMAND = "time_ride_matching_s";
     public static final String TIME_CREATE_RV = "time_create_rv_graph";
-    public static final String TIME_CREATE_RTV = "time_create_rtv_graph";
+    public static final String TIME_RTV_BUILDING_TOTAL = "time_rtv_building_total";
     public static final String TIME_MATCHING = "time_matching";
-    public static final String TIME_INIT_RTV = "time_init_rtv";
+    public static final String TIME_RTV_INIT = "time_rtv_init";
+    public static final String TIME_RTV_FEASIBLE_TRIPS = " time_rtv_feasible_trips";
+    public static final String TIME_RTV_POPULATE_GRAPH = "time_rtv_populate_graph";
 
     public static final String[] TIME_HEADERS = new String[]{
             TIME_UPDATE_DEMAND,
