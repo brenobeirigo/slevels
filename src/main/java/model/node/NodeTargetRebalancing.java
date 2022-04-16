@@ -51,7 +51,7 @@ public class NodeTargetRebalancing extends Node {
     @Override
     public String toString() {
         // RM = Middle node becomes rebalancing target (happens when vehicle is disrupted)
-        return String.format("%7s", (this.tripId < 0 ? "RM" + (this.tripId + Integer.MAX_VALUE) : "RE" + this.tripId));
+        return String.format("%10s", (this.tripId < 0 ? "RM" + (this.tripId + Integer.MAX_VALUE) : "RE" + this.tripId));
     }
 
     /**
