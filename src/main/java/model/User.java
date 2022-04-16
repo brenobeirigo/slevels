@@ -623,4 +623,12 @@ public class User implements Comparable<User> {
     public int getDropoutTime() {
         return this.dropoutTime;
     }
+
+    public boolean hasSameOriginOfUser(User u){
+        return this.nodePk.getNetworkId() == u.nodePk.getNetworkId();
+    }
+
+    public boolean hasSameDestinationOfUser(User u){
+        return this.nodeDp.getNetworkId() == u.nodeDp.getNetworkId();
+    }
 }

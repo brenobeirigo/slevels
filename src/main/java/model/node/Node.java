@@ -122,13 +122,16 @@ public abstract class Node implements Comparable<Node> {
 
     public String getInfo() {
         return String.format(
-                "%7s (%4s | %4s - %4s | %4s) [%4s]",
+                "[timestep=%4d] %7s (earliest=%4s, ear. dep=%4s, departure=%4s, arrival=%4s, latest=%4s) [delay=%4s] %s",
+                Simulation.rightTW,
                 this,
                 String.valueOf(this instanceof NodePK || this instanceof NodeDP ? this.getEarliest() : "----"),
-                String.valueOf(this.getArrival()),
+                String.valueOf(this instanceof NodePK || this instanceof NodeDP ? this.getEarliestDeparture() : "----"),
                 String.valueOf(this.getDeparture()),
+                String.valueOf(this.getArrival()),
                 String.valueOf(this instanceof NodePK || this instanceof NodeDP ? this.getLatest() : "----"),
-                String.valueOf(this instanceof NodePK || this instanceof NodeDP ? this.getArrival() - getEarliest() : "----"));
+                String.valueOf(this instanceof NodePK || this instanceof NodeDP ? this.getArrival() - getEarliest() : "----"),
+                String.valueOf(this instanceof NodePK? String.format("(dist. DP=%4d)", Dao.getInstance().getDistSec(this, User.mapOfUsers.get(this.tripId).getNodeDp())): ""));
     }
 
     public int getDelay() {
