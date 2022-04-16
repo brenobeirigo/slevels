@@ -1,13 +1,14 @@
 package model.graph;
 
 import com.google.common.collect.Sets;
+import dao.Dao;
+import helper.Runtime;
 import model.User;
 import model.Vehicle;
 import model.Visit;
 import org.jgrapht.graph.DefaultWeightedEdge;
 import org.jgrapht.graph.SimpleWeightedGraph;
 import simulation.Method;
-import simulation.Solution;
 import simulation.matching.ResultAssignment;
 
 import java.util.*;
@@ -37,27 +38,39 @@ public class GraphRTV {
         this.allRequests = allRequests;
         this.listVehicles = listVehicles;
 
-        // REQUEST - VEHICLE (RV)
+        ////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+        // REQUEST - VEHICLE (RV) //////////////////////////////////////////////////////////////////////////////////////
+
         Dao.getInstance().getRunTimes().startTimerFor(Runtime.TIME_CREATE_RV);
         this.graphRV = new GraphRV(allRequests, listVehicles, maxVehicleCapacity, maxVehReqEdges, maxReqReqEdges);
         Dao.getInstance().getRunTimes().endTimerFor(Runtime.TIME_CREATE_RV);
-        //System.out.println(String.format("# RV created (%.2f sec) - %s", (this.runTimes.get(Solution.TIME_CREATE_RV)) / 1000000000.0, this.graphRV.statsRV()));
-        System.out.println(String.format("# Matching - RTV - RV - Creation=%.2fs / Stats=%s", Dao.getInstance().getRunTimes().getExecutionTimeSecFor(Runtime.TIME_CREATE_RV), this.graphRV));
+
         //graphRV.printRVEdges();
         //graphRV.printRREdges();
 
-        // Add the data of current trips in the RTV graph
-        Dao.getInstance().getRunTimes().startTimerFor(Runtime.TIME_INIT_RTV);
+        ////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+        // REQUEST - TRIP - VEHICLE (RTV) //////////////////////////////////////////////////////////////////////////////
+
+        // Add the data (visit, vehicle, and user vertices) of current trips in the RTV graph
+        Dao.getInstance().getRunTimes().startTimerFor(Runtime.TIME_RTV_INIT);
         this.initDataStructures();
-        Dao.getInstance().getRunTimes().endTimerFor(Runtime.TIME_INIT_RTV);
+        Dao.getInstance().getRunTimes().endTimerFor(Runtime.TIME_RTV_INIT);
 
         // Create request-trip-vehicle (RTV) structure
-        Dao.getInstance().getRunTimes().startTimerFor(Runtime.TIME_CREATE_RTV);
+        Dao.getInstance().getRunTimes().startTimerFor(Runtime.TIME_RTV_BUILDING_TOTAL);
         this.buildGraph();
-        Dao.getInstance().getRunTimes().endTimerFor(Runtime.TIME_CREATE_RTV);
-        System.out.println(String.format("# Matching - RTV - Initialization=%.2fs Creation=%.2fs / %s%n",
-                Dao.getInstance().getRunTimes().getExecutionTimeSecFor(Runtime.TIME_INIT_RTV),
-                Dao.getInstance().getRunTimes().getExecutionTimeSecFor(Runtime.TIME_CREATE_RTV),
+        Dao.getInstance().getRunTimes().endTimerFor(Runtime.TIME_RTV_BUILDING_TOTAL);
+
+
+        System.out.println(String.format(
+                "\n\n# Matching - RTV"
+                        + "\n    - %6.2f s - RV Creation        (%s)"
+                        + "\n    - %6.2f s - RTV Initialization "
+                        + "\n    - %6.2f s - RTV Building       (%s)",
+                Dao.getInstance().getRunTimes().getExecutionTimeSecFor(Runtime.TIME_CREATE_RV),
+                this.graphRV,
+                Dao.getInstance().getRunTimes().getExecutionTimeSecFor(Runtime.TIME_RTV_INIT),
+                Dao.getInstance().getRunTimes().getExecutionTimeSecFor(Runtime.TIME_RTV_BUILDING_TOTAL),
                 this.getSummaryFeasibleTripsLevel()));
     }
 
@@ -105,15 +118,21 @@ public class GraphRTV {
      * @param vehicle Vehicle to create stop visit
      */
     public void addStopVisit(Vehicle vehicle) {
-            Visit stop = vehicle.getStopVisit();
+        Visit stop = vehicle.getStopVisit();
 
-            // Vehicles carrying passengers don't stop
-            if (stop != null) {
-                feasibleTrips.get(0).add(stop);
-                addRequestTripVehicleEdges(stop);
-            }
+        // Vehicles carrying passengers don't stop
+        if (stop != null) {
+            feasibleTrips.get(0).add(stop);
+            addRequestTripVehicleEdges(stop);
+        }
     }
 
+    /**
+     * Populate RTV graph with the setup visits.
+     * - Add vertices for users and vehicles
+     * - Add vertices for passengers
+     * - Add visit vertices for current trips
+     */
     private void initDataStructures() {
 
         for (int i = 0; i < maxVehicleCapacity; i++) {
@@ -140,8 +159,10 @@ public class GraphRTV {
                         graphRTV.addVertex(user);
                     }
 
-                    addRequestTripVehicleEdges(vehicle, vehicle.getVisit().getRequests(), vehicle.getVisit());
-                    feasibleTrips.get(Math.max(vehicle.getVisit().getRequests().size() - 1, 0)).add(vehicle.getVisit());
+                    addRequestTripVehicleEdges(vehicle.getVisit());
+                    // Level depends on number of requests
+                    int levelIndex = Math.max(vehicle.getVisit().getRequests().size() - 1, 0);
+                    feasibleTrips.get(levelIndex).add(vehicle.getVisit());
                 }
             }
         }
@@ -154,23 +175,18 @@ public class GraphRTV {
      *  - ( request : visit ) edges for each request covered by the visit. These edges have weights equal to user
      *    pickup delays.
      *
-     * @param vehicle Vehicle
-     * @param requests List of users
-     * @param visit Visit (vehicle and route)
+     * @param visit Visit (vehicle, route, requests, passengers)
      */
-    private void addRequestTripVehicleEdges(
-            Vehicle vehicle,
-            Set<User> requests,
-            Visit visit) {
+    private void addRequestTripVehicleEdges(Visit visit) {
 
         // Add best visit to RTV graph if not added before. Visits are the same if vehicles and routes are equal.
         // For example, if the setup visit was already there, similar draft visits do not need to be added.
         if (graphRTV.addVertex(visit)) {
-            graphRTV.addEdge(visit, vehicle);
+            graphRTV.addEdge(visit, visit.getVehicle());
 
             Map<User, Integer> userDelayMap = visit.getUserDelayPairs();
 
-            for (User request : requests) {
+            for (User request : visit.getRequests()) {
                 DefaultWeightedEdge requestVisitEdge = graphRTV.addEdge(request, visit);
                 int weight = userDelayMap.get(request);
                 graphRTV.setEdgeWeight(requestVisitEdge, weight);
@@ -245,59 +261,25 @@ public class GraphRTV {
 
     public void buildGraph() {
 
-        /*this.listVehicles.parallelStream()
-                .map(this::getFeasibleTripsVehicle)
-                .collect(
-                        ArrayList::new,
-                        (listOfLevels, visits) -> {
-                            for (int i = 0; i < visits.size(); i++) {
-                                this.feasibleTrips.get(i).addAll(visits.get(i));
-                            }
-                        }, (lists, lists2) -> {
-                        });
+        ////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+        // FIND FEASIBLE TRIPS /////////////////////////////////////////////////////////////////////////////////////////
 
-        this.feasibleTrips.forEach(visits -> visits.forEach(visit -> addRequestTripVehicleEdges(this.graphRTV, visit.getVehicle(), visit.getRequests(), visit)));
-*/
-        long processFeasibleTripsParallel = System.nanoTime();
-        Map<Vehicle, List<List<Visit>>> allFeasibleTrips = this.listVehicles.parallelStream()
+        Dao.getInstance().getRunTimes().startTimerFor(Runtime.TIME_RTV_FEASIBLE_TRIPS);
+        Map<Vehicle, List<List<Visit>>> allFeasibleTrips = this.listVehicles.stream()
                 .collect(Collectors.toMap(o -> o, this::getFeasibleTripsVehicle));
+        Dao.getInstance().getRunTimes().endTimerFor(Runtime.TIME_RTV_FEASIBLE_TRIPS);
 
+        Dao.getInstance().getRunTimes().startTimerFor(Runtime.TIME_RTV_POPULATE_GRAPH);
         allFeasibleTrips.forEach((vehicle, levelVisits) -> {
-                    addVisitWithPassengers(vehicle, levelVisits);
                     for (int i = 0; i < levelVisits.size(); i++) {
-                        levelVisits.get(i).forEach(visit -> addRequestTripVehicleEdges(
-                                visit.getVehicle(),
-                                visit.getRequests(),
-                                visit));
-
+                        levelVisits.get(i).forEach(this::addRequestTripVehicleEdges);
                         this.feasibleTrips.get(i).addAll(levelVisits.get(i));
-                    }
-                }
-        );
+                    }});
+        Dao.getInstance().getRunTimes().endTimerFor(Runtime.TIME_RTV_POPULATE_GRAPH);
 
-        System.out.println(String.format("# Processing fleet parallel (%.2f sec)...", ((System.nanoTime() - processFeasibleTripsParallel) / 1000000000.0)));
-
-
-        /*long processFeasibleTripsSingle = System.nanoTime();
-        for (Vehicle vehicle : this.listVehicles) {
-            long processFeasibleTrips = System.nanoTime();
-            List<List<Visit>> feasibleVisitsCurrentVehicleAtLevel = getFeasibleTripsVehicle(vehicle);
-        }
-        System.out.println(String.format("# Processing fleet single (%.2f sec)...", ((System.nanoTime() - processFeasibleTripsSingle) / 1000000000.0)));
-        */
-        /*for (Vehicle vehicle : this.listVehicles) {
-            // long processFeasibleTrips = System.nanoTime();
-            List<List<Visit>> feasibleVisitsCurrentVehicleAtLevel = getFeasibleTripsVehicle(vehicle);
-
-            for (int i = 0; i < vehicle.getCapacity(); i++) {
-                for (Visit visit : feasibleVisitsCurrentVehicleAtLevel.get(i)) {
-                    addRequestTripVehicleEdges(visit.getVehicle(), visit.getRequests(), visit);
-                }
-                this.feasibleTrips.get(i).addAll(feasibleVisitsCurrentVehicleAtLevel.get(i));
-            }
-
-            //System.out.println(String.format("# Processing vehicle %s (%.2f sec)...", vehicle, ((System.nanoTime() - processFeasibleTrips) / 1000000000.0)));
-        }*/
+        System.out.printf("    - %6.2f s - Finding feasible trips\n    - %6.2f s - Populating graph\n",
+                Dao.getInstance().getRunTimes().getExecutionTimeSecFor(Runtime.TIME_RTV_FEASIBLE_TRIPS),
+                Dao.getInstance().getRunTimes().getExecutionTimeSecFor(Runtime.TIME_RTV_POPULATE_GRAPH));
     }
 
     /**
@@ -331,6 +313,9 @@ public class GraphRTV {
 
         // Feasible visits of size k={1,2,3, ..., capacity(vehicle)}
         List<List<Visit>> feasibleVisitsAtLevel = new ArrayList<>();
+
+        // Feasible trips of size k={1,2,3, ..., capacity(vehicle)}
+        // A trip is feasible if there is ANY feasible visit featuring its users.
         List<Set<Set<User>>> feasibleTripsAtLevel = new ArrayList<>();
 
         for (int i = 0; i < vehicle.getCapacity(); i++) {
@@ -427,7 +412,7 @@ public class GraphRTV {
 
 
         //**********************************************************************************************************
-        // Add stop visit to empty vehicle *************************************************************************
+        // Add dummy stop visit to assure every vehicle can be assigned to a visit *********************************
         //**********************************************************************************************************
         addStopVisit(vehicle);
 

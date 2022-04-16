@@ -1,5 +1,7 @@
 package model.graph;
 
+import dao.Dao;
+import model.Leg;
 import model.User;
 import model.Vehicle;
 import model.Visit;
@@ -12,6 +14,8 @@ import util.PDPermutations;
 import java.util.*;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
+
+import static java.util.stream.Collectors.toList;
 
 public class GraphRV {
 
@@ -350,7 +354,7 @@ public class GraphRV {
         return graphRV.edgesOf(request).stream()
                 .filter(edge -> graphRV.getEdgeSource(edge) instanceof Vehicle)
                 .map(edgeVR -> (Vehicle) graphRV.getEdgeSource(edgeVR))
-                .collect(Collectors.toList());
+                .collect(toList());
     }
 
     private List<User> getUsersFromVertexSet() {
@@ -360,7 +364,7 @@ public class GraphRV {
         return graphRV.vertexSet().stream()
                 .filter(o -> o instanceof User)
                 .map(o -> (User) o)
-                .collect(Collectors.toList());
+                .collect(toList());
     }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
