@@ -8,6 +8,8 @@ import model.node.NodePK;
 import java.util.Comparator;
 
 public class Leg implements Comparable<Leg> {
+    public int contractDeadline;
+    public int maxCapacity;
     public Node fromNode;
     public Node nextNode;
     public int arrivalNext;
@@ -30,6 +32,23 @@ public class Leg implements Comparable<Leg> {
         this.fromNode = vehicle.getLastVisitedNode();
         this.arrivalNext = this.fromNode.getDeparture();
         this.load = this.vehicle.getCurrentLoad();
+        this.maxCapacity = this.vehicle.getCapacity();
+        this.contractDeadline = this.vehicle.getContractDeadline();
+    }
+
+
+    /**
+     * Leg starting from first node of sequence assuming a vehicle can start from it immediately.
+     * @param node First node of sequence
+     */
+    public Leg(Node node) {
+        this.fromNode = node;
+        this.arrivalNext = this.fromNode.getEarliestDeparture();
+        this.delay = this.arrivalNext - this.fromNode.getEarliest();
+        assert this.delay >= 0;
+        this.load = this.fromNode.getLoad();
+        this.maxCapacity = Integer.MAX_VALUE;
+        this.contractDeadline = Integer.MAX_VALUE;
     }
 
     public int getTotalVisitSize() {
@@ -64,7 +83,7 @@ public class Leg implements Comparable<Leg> {
     }
 
     private boolean isArrivalWithinContractDeadline() {
-        return this.arrivalNext <= vehicle.getContractDeadline();
+        return this.arrivalNext <= this.contractDeadline;
     }
 
     private boolean updateLoad() {
@@ -72,7 +91,7 @@ public class Leg implements Comparable<Leg> {
         this.load = this.load + this.nextNode.getLoad();
 
         // Capacity constraint
-        return this.load >= 0 && this.load <= vehicle.getCapacity();
+        return this.load >= 0 && this.load <= this.maxCapacity;
     }
 
     private boolean updateArrivalNextDelayAndIdleness() {
@@ -82,18 +101,22 @@ public class Leg implements Comparable<Leg> {
         if (distFromTo >= 0) {
             // Time vehicle arrives at next node (can be earlier or later)
             // If distance is zero, arrival next MUST be at least earliest time at next node
-            int arrivalNext = this.arrivalNext + distFromTo;
+            this.arrivalNext = this.arrivalNext + distFromTo;
+            assert this.arrivalNext >= Simulation.rightTW: String.format("Simulation=%s / Arrival=%s", Simulation.rightTW, arrivalNext);
+            if (this.arrivalNext <= nextNode.getLatest()){
 
-            if (arrivalNext <= nextNode.getLatest()){
-
-                this.arrivalNext = Math.max(arrivalNext, nextNode.getEarliest());
-
-                if (nextNode instanceof NodeDP)
-                    this.delay += this.arrivalNext - nextNode.getEarliest();
-
-                else if (nextNode instanceof NodePK && arrivalNext < nextNode.getEarliest())
+                // Idleness - Vehicle arrives at pickup location BEFORE request is placed
+                // Happens only if requests are placed in advance
+                if (nextNode instanceof NodePK && arrivalNext < nextNode.getEarliest()) {
                     this.idleness += nextNode.getEarliest() - arrivalNext;
-
+                    //System.out.printf("Idleness: %s - NextNode: %s - Arrival next: %s ", this.idleness, nextNode.getEarliest(), this.arrivalNext);
+                    assert this.idleness == 0;
+                }
+                else if (nextNode instanceof NodeDP) {
+                    int currentDelay = this.arrivalNext - nextNode.getEarliest();
+                    this.delay += currentDelay;
+                    assert currentDelay >= 0:String.format("NextNode: %s - Earliest: %s - New arrival next: %s", nextNode, nextNode.getEarliest(), this.arrivalNext);
+                }
 
                 return true;
             }
