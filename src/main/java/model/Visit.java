@@ -446,43 +446,12 @@ public class Visit implements Comparable<Visit> {
     }
 
     /**
-     * @param that is a non-null Visit.
+     * @param v is a non-null Visit.
      */
     @Override
-    public int compareTo(Visit that) {
-
-        // Objects are equal
-        //if (this == that) return EQUAL;
-        if (that == null) return BEFORE;
-
-        //"Empty" visit
-
-        //if (this.getSequenceVisits() == null) return BEFORE;
-        //if (that.getSequenceVisits() == null) return AFTER;
-
-        // Privilege trip size
-        //if (this.getSequenceVisits().size() > that.getSequenceVisits().size()) return BEFORE;
-        //if (this.getSequenceVisits().size() < that.getSequenceVisits().size()) return AFTER;
-
-        // Compare average occupation per leg
-        //if (this.avgOccupationLeg > that.avgOccupationLeg) return BEFORE;
-        //if (this.avgOccupationLeg < that.avgOccupationLeg) return AFTER;
-
-        //if (this.getVehicle().getUsers().size() > this.getVehicle().getUsers().size()) return BEFORE;
-        //if (this.getVehicle().getUsers().size() < this.getVehicle().getUsers().size()) return AFTER;
-
-        //primitive numbers follow this form
-        if (this.delay < that.delay) return BEFORE;
-        if (this.delay > that.delay) return AFTER;
-
-        return EQUAL;
+    public int compareTo(Visit v) {
+        return visitComparator.compare(this, v);
     }
-
-    @Override
-    public String toString() {
-        if (this.vehicle == null) {
-            return "DUMMY VISIT";
-        }
 
         String vehicleData = String.format(
                 "%s[%2d] [P=%2d(%2d), R=%2d(%2d)]",
