@@ -66,7 +66,7 @@ public class Dao {
     private SimpleDirectedWeightedGraph<Integer, DefaultWeightedEdge> networkGraph;
     private Map<Integer, Map<String, List<Integer>>> canReachClass;
     private int iUserNextRound;
-    private Set<User> userBuff;
+    private User userBuff;
     private List<User> allUsers;
     private Iterable<CSVRecord> records;
     private int currentTime = 0;
@@ -83,7 +83,7 @@ public class Dao {
 
             // Log user data
             allUsers = new ArrayList<>();
-            userBuff = new LinkedHashSet<>();
+            userBuff = null;
 
             // Set seed to guarantee reproducibility
             rand = new Random(SEED);
@@ -375,7 +375,7 @@ public class Dao {
             rand = new Random(SEED);
 
             // Buffer that saves previous is reset
-            userBuff = new LinkedHashSet<>();
+            userBuff = null;
 
 
         } catch (FileNotFoundException e) {
@@ -440,7 +440,7 @@ public class Dao {
      */
     public Set<User> getListTrips(int timeSpanSec, int maxPassengerCount) {
 
-        Set<User> listUser = userBuff;
+        Set<User> listUser = new HashSet<>();
 
         for (CSVRecord record : records) {
 
@@ -460,8 +460,7 @@ public class Dao {
 
             if (user.getReqTime() >= currentTime + timeSpanSec) {
                 currentTime = currentTime + timeSpanSec;
-                userBuff = new LinkedHashSet<>();
-                userBuff.add(user);
+                userBuff = user;
                 break;
             }
 
@@ -554,7 +553,16 @@ public class Dao {
     public Set<User> getListTripsClassed(int timeSpanSec, int maxPassengerCount) {
 
         // Start list of users with buffer from last iteration (users read, but not in time span)
-        Set<User> listUser = userBuff;
+        Set<User> listUser = new HashSet<>();
+
+        if (userBuff != null){
+            if (userBuff.getReqTime() < currentTime + timeSpanSec){
+                listUser.add(userBuff);
+            }else{
+                currentTime = currentTime + timeSpanSec;
+                return listUser;
+            }
+        }
 
         // Continue reading records
         for (CSVRecord record : records) {
@@ -574,9 +582,8 @@ public class Dao {
             // Stop reading if request is out of time span
             if (user.getReqTime() >= currentTime + timeSpanSec) {
                 currentTime = currentTime + timeSpanSec;
-                userBuff = new LinkedHashSet<>();
                 // Save user wrongfully read to next iteration
-                userBuff.add(user);
+                userBuff = user;
                 break;
             }
 
@@ -632,7 +639,7 @@ public class Dao {
 
         // Start list of users with buffer from last iteration
         // (users read ahead time span to be placed in next iteration)
-        Set<User> listUser = userBuff;
+        Set<User> listUser = new HashSet<>();
         // System.out.println("%d",timeSpanSec);
         // Continue reading records
 //            if (userBuff.get(userBuff.size()-1).getReqTime() < currentTime + timeSpanSec){
