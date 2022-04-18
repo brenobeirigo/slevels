@@ -7,7 +7,6 @@ import helper.HelperIO;
 import helper.MethodHelper;
 import helper.Runtime;
 import model.*;
-import model.graph.GraphRV;
 import model.node.Node;
 import simulation.matching.Matching;
 import simulation.matching.ResultAssignment;
@@ -52,7 +51,7 @@ public abstract class Simulation {
     protected int maxNumberOfTrips; //How many trips are pooled in time horizon
     protected int time_slot;
     protected int start_timestamp; // (00:00:00) Initial timestamp for pooling data
-    protected int leftTW, rightTW; // Left and right time windows (rightTW = current time)
+    public static int leftTW, rightTW; // Left and right time windows (rightTW = current time)
 
     /* ROUND INFO */
     protected int totalRounds; // How many rounds of time horizon will be pooled
@@ -72,7 +71,7 @@ public abstract class Simulation {
     protected Set<User> roundRejectedUsers;
     protected Set<User> roundUnmetServiceLevel;
     protected List<Vehicle> roundHiredVehicles;
-    protected Map<String, Long> runTimes;
+    protected Runtime runTimes;
 
     public Simulation(int initialFleetSize,
                       int vehicleCapacity,
@@ -103,7 +102,7 @@ public abstract class Simulation {
         this.initialFleetSize = initialFleetSize; // Fleet size
         this.vehicleCapacity = vehicleCapacity; // Number of seats (1 - 4)
 
-        /* POOLING DATA */
+        /* PULLING DATA */
         this.maxNumberOfTrips = maxNumberOfTrips; //How many trips are pooled in time horizon
         totalRounds = timeHorizon / timeWindow; // How many rounds of time horizon will be pooled
         time_slot = totalRounds * timeWindow;
@@ -134,225 +133,31 @@ public abstract class Simulation {
         return;
     }
 
-    public static int getInfoLevel(String infoLevelLabel) {
-        int infoLevel;
-        switch (infoLevelLabel) {
-            case "print_all_round_info":
-                infoLevel = Config.PRINT_ALL_ROUND_INFO;
-                break;
-            case "print_no_round_info":
-                infoLevel = Config.PRINT_NO_ROUND_INFO;
-                break;
-            case "print_summary_round_info":
-                infoLevel = Config.PRINT_SUMMARY_ROUND_INFO;
-                break;
-            default:
-                infoLevel = Config.PRINT_SUMMARY_ROUND_INFO;
-        }
-        return infoLevel;
-    }
-
     public boolean canEndContract(Vehicle v, int currentTime) {
-        // Is the vehicle hired?
-        // Has the contracted deadline been met?
-
-        /*
-            System.out.println(v.getContractDeadline() + "-"+ v.getVisit());
-            if (v.isParked()) {
-                System.out.println("Vehicle is parked!");
-            } else if (v.isRebalancing()) {
-                System.out.println("OMG! Rebalancing!");
-            } else if (v.isCruising()) {
-                System.out.println("OMG! Cruising!");
-            }else{
-                System.out.println("OMG! Servicing!");
-            }
-            */
         return v.isHired() && currentTime >= v.getContractDeadline();
     }
 
     public abstract Set<User> getUsersAssigned(int currentTime);
 
-    /*public void updateFleetStatusParallel() {
-        ////// 1 - GET FINISHED USERS (before current time) ////////////////////////////////////////////////////////
-        setDeactivated = new HashSet<>();
-
-        // Vehicles not servicing users nor rebalancing
-        ConcurrentHashSet<Vehicle> candidateVehiclesToRebalance = new ConcurrentHashSet<>();
-
-        //Instant before = Instant.now();
-        // Loop vehicles to get set of finished requests and set of active vehicles (servicing users OR rebalancing)
-        listVehicles.parallelStream().filter(v ->
-        {
-
-            // Limits the hiring contract
-            v.increaseActiveRounds();
-
-            // Return set of users and update rebalancing vehicles
-            Set<User> serviced = v.getServicedUsersUntil(rightTW);
-
-            if (serviced != null) {
-                finishedRequests.addAll(serviced);
-            }
-
-            // If vehicle is hired, it has to be deactivated as soon as it delivers its last customer
-            if (canEndContract(v, rightTW)) {
-                //setDeactivated.add(v);
-                setHired.remove(v);
-                return false;
-            } else
-                return true;
-        }).map(v -> {
-
-            // If vehicle is not parked, it is either cruising, servicing or rebalancing
-            if (!v.isParked()) {
-                activeFleet = true;
-            } else {
-
-                *//* Update vehicle's current nodes (if they are of types NodeOrigin and NodeStop)
-     * with the rightmost time window value. This is the time a vehicle is allowed to
-     * depart to get the customers.
-     * E.g.:
-     * [00:00:00 - 00:00:30] -> Pool requests
-     * [00:00:30 :] -> Route vehicles
-     *//*
-                // Time from current node in vehicle is only updated when:
-                //  - Current node is origin or NodeStop
-                //  - Model.Vehicle is idle
-
-                v.updateDeparture(rightTW);
-
-                // Vehicle is not servicing customers
-                v.increaseRoundsIdle();
-
-                // Check if it is candidate to rebalance
-                if (Rebalanc) {
-                    // System.out.println("REBALANCE - - - "+ v.getId() + " - - - - - " + v + " - " + v.getRoundsIdle() + "----" + maxRoundsIdleBeforeRebalance);
-                    candidateVehiclesToRebalance.add(v);
-                }
-            }
-            v.updateMiddle(rightTW);
-            return v;
-        }).collect(Collectors.toList());
-
-        //Instant after = Instant.now();
-        //Duration duration = Duration.between(before, after);
-        //System.out.println("Duration update (" + listVehicles.size() + " vehices): " + duration.toMillis());
-        // Updating vehicle lists
-        //listVehicles.removeAll(setDeactivated);
-        //setHired.removeAll(setDeactivated);
-    }*/
-
     /**
-     * Vehicle can:
-     * - Finish rebalance
-     * - Start rebalance
-     * - Be deactivated
-     * - Have parking nodes (origin, stop) updated in departure
+     * Pull new requests (within TW) from database. Stop pulling if number of simulation rounds has reached set limit.
      */
-    public Set<Vehicle> updateFleetStatus() {
-        ////// 1 - GET FINISHED USERS (before current time) ////////////////////////////////////////////////////////
-        setDeactivated = new HashSet<>();
-
-        // Vehicles not servicing users nor rebalancing
-        Set<Vehicle> candidateVehiclesToRebalance = new HashSet<>();
-
-        // Loop vehicles to get set of finished requests and set of active vehicles (servicing users OR rebalancing)
-        for (Vehicle v : listVehicles) {
-
-            // Limits the hiring contract
-            v.increaseActiveRounds();
-
-            // Return set of users and update rebalancing vehicles
-            Set<User> serviced = v.getServicedUsersUntil(rightTW);
-
-            if (serviced != null) {
-                finishedRequests.addAll(serviced);
-            }
-
-            // If vehicle is hired, it has to be deactivated as soon as it delivers its last customer
-            if (canEndContract(v, rightTW)) {
-                setDeactivated.add(v);
-            }
-
-            // If vehicle is not parked, it is either cruising, servicing or rebalancing
-            if (!v.isParked()) {
-                activeFleet = true;
-            } else {
-
-                /* Update vehicle's current nodes (if they are of types NodeOrigin and NodeStop)
-                 * with the rightmost time window value. This is the time a vehicle is allowed to
-                 * depart to get the customers.
-                 * E.g.:
-                 * [00:00:00 - 00:00:30] -> Pool requests
-                 * [00:00:30 :] -> Route vehicles
-                 */
-                // Time from current node in vehicle is only updated when:
-                //  - Current node is origin or NodeStop
-                //  - Model.Vehicle is idle
-
-                v.updateDeparture(rightTW);
-
-                // Vehicle is not servicing customers
-                v.increaseRoundsIdle();
-
-                // Check if it is candidate to rebalance
-                if (rebalanceUtil.isRebalanceEnabled()) {
-                    // System.out.println("REBALANCE - - - "+ v.getId() + " - - - - - " + v + " - " + v.getRoundsIdle() + "----" + maxRoundsIdleBeforeRebalance);
-                    candidateVehiclesToRebalance.add(v);
-                }
-            }
-            v.updateMiddle(rightTW);
-            if (v.isRebalancing() && v.getMiddleNode() == null)
-                System.out.println(v);
-        }
-
-        // Updating vehicle lists
-        listVehicles.removeAll(setDeactivated);
-        setHired.removeAll(setDeactivated);
-        System.out.printf("$# Removing %d hired vehicles:\n", setDeactivated.size());
-        // setDeactivated.forEach(vehicle -> System.out.println("Visit: "+ vehicle.getVisit()));
-        return candidateVehiclesToRebalance;
-    }
-
-
-    /**
-     * Pool new requests (within TW) from database
-     */
-    public void updateSetWaitingUsers() {
+    public Set<User> pullCurrentRequestBatch() {
 
         // Clean list of pooled users
-        listPooledUsersTW = new LinkedHashSet<>();
+        Set<User> newUsers = new LinkedHashSet<>();
 
         // After the number of rounds stop pooling requests but finish waiting requests
         if (roundCount < totalRounds) {
 
             // Dictionary of pooled requests inside time slot
-            listPooledUsersTW = Dao.getInstance()
+            newUsers = Dao.getInstance()
                     .getListTripsClassed(
                             timeWindow,
                             vehicleCapacity,
                             maxNumberOfTrips);
-
-            // Add pooled requests into waiting list
-            unassignedRequests.addAll(listPooledUsersTW);
-
-            /*// Sort by class and earliest time
-            if (sortWaitingUsersByClass) {
-                unassignedRequests.sort(Comparator.comparing(User::getPerformanceClass)
-                        .thenComparing(User::getReqTime));
-
-                System.out.println("##### Users");
-                for (User e: setWaitingUsers) {
-                    System.out.println(e + String.valueOf(e.getReqTime()));
-                }
-            }*/
-
-            // Store all requests
-            for (User e : listPooledUsersTW) {
-                allRequests.put(e.getId(), e);
-            }
         }
+        return newUsers;
     }
 
     /**
@@ -418,85 +223,13 @@ public abstract class Simulation {
         }
     }
 
-    public void updateDemandStatus() {
-
-        ////// 1 - GET USERS INSIDE TW /////////////////////////////////////////////////////////////////////////////////
-        updateSetWaitingUsers();
-
-        ///// 2 - REMOVE USERS THAT CANNOT BE PICKED UP  ///////////////////////////////////////////////////////////////
-        roundHiredVehicles.clear();
-        roundUnmetServiceLevel.clear();
-        roundRejectedUsers = getExpiredRequestsFromUnassigned();
-        // Update request status
-        roundRejectedUsers.forEach(user -> user.computeRejection(rightTW));
-        deniedRequests.addAll(roundRejectedUsers);
-        unassignedRequests.removeAll(roundRejectedUsers);
-
-        //printCurrentStatus("Before assignment");
-        ///// 3 - ASSIGN WAITING USERS (previous + current round)  TO VEHICLES /////////////////////////////////////////
-        ResultAssignment resultAssignment = this.matching.executeStrategy(rightTW, unassignedRequests, listVehicles);
-        //printCurrentStatus("After assignment");
-
-        ///// 4 - COLLECT HIRED VEHICLES ///////////////////////////////////////////////////////////////////////////////
-        for (Vehicle vehicle : resultAssignment.getVehiclesHired()) {
-            // New vehicle is added in list
-            listVehicles.add(vehicle);
-            listHiredVehicles.add(vehicle);
-            setHired.add(vehicle);
-            roundHiredVehicles.add(vehicle);
-        }
-
-        ///// 5 - UPDATE WAITING LIST //////////////////////////////////////////////////////////////////////////////////
-        unassignedRequests = resultAssignment.getRequestsUnassigned();
-        roundUnmetServiceLevel = resultAssignment.requestsServicedLevelNotAchieved;
-        //printCurrentStatus("After unassignment update");
-
-        System.out.println("N. of second tier:" + resultAssignment.requestsServicedLevelNotAchieved.size());
-        Set<Node> result = resultAssignment.getVehiclesHired().stream().map(Vehicle::getLastVisitedNode).collect(Collectors.toSet());
-        // resultAssignment.showSecondTierAssignedUsers();
-
-
-        assert rejectedUnassignedFinishedSetsAreConsistent() : "Not all requests are processed.";
-        assert eachUserIsAssignedToSingleVehicle() : "Users are assigned to two vehicles!";
-        // assert before.equals(after) : String.format("Before %d X %d After", before.size(), after.size());
-        // assert resultAssignment.assignedAndUnassigedAreDisjoint() : "User is assigned to two different vehicles.";
-    }
-
     private Set<User> getExpiredRequestsFromUnassigned() {
         return unassignedRequests.stream()
                 .filter(u -> !u.canBePickedUp(rightTW))
                 .collect(Collectors.toSet());
     }
 
-    private boolean rejectedUnassignedFinishedSetsAreConsistent() {
-        List<User> inVehicleRequests = Vehicle.getUsersFrom(listVehicles);
-        if (deniedRequests.size() + unassignedRequests.size() + finishedRequests.size() + inVehicleRequests.size() == allRequests.size()) {
-            return true;
-        } else {
-            printCurrentStatus("Inconsistency found");
-            return false;
-        }
-    }
-
-    private void printCurrentStatus(String label) {
-        System.out.println("\n######################### " + label + " ###########################");
-        List<User> inVehicleRequests = Vehicle.getUsersFrom(listVehicles);
-        System.out.println(getCollectionInfo("Denied", deniedRequests));
-        System.out.println(getCollectionInfo("Unassigned", unassignedRequests));
-        System.out.println(getCollectionInfo("Finished", finishedRequests));
-        System.out.println(getCollectionInfo("In-Vehicle", inVehicleRequests));
-        System.out.println(getCollectionInfo("All requests", allRequests.values()));
-    }
-
-    public String getCollectionInfo(String label, Collection collection) {
-        List col = new ArrayList(collection);
-        Collections.sort(col);
-        return String.format("# %15s (%d): %s", label, collection.size(), collection);
-    }
-
-    public void rebalance(Set<Vehicle> idleVehicles) {
-
-        System.out.println("  Rebal. Idle = " + idleVehicles.size());
+    public List<Node> getRebalancingTargets() {
         List<Node> targets = new ArrayList<>();
         if (rebalanceUtil.strategy instanceof RebalanceOptimal) {
             List<Node> nodesFromRejectedUsers = User.getUserPickupNodes(roundRejectedUsers);
@@ -507,12 +240,12 @@ public abstract class Simulation {
             targets.addAll(nodesFromVehicleOrigins);
             System.out.println("     Rejected = " + nodesFromRejectedUsers.size() + " (" + Sets.intersection(new HashSet<>(targets), new HashSet<>(nodesFromRejectedUsers)).size() + ")");
             System.out.println("Hired origins = " + nodesFromVehicleOrigins.size() + " (" + Sets.intersection(new HashSet<>(targets), new HashSet<>(nodesFromVehicleOrigins)).size() + ")");
-            System.out.println(" Pickup unmet = " + nodesFromUnmetServiceLevelUsers.size()  + " (" + Sets.intersection(new HashSet<>(targets), new HashSet<>(nodesFromUnmetServiceLevelUsers)).size() + ")");
+            System.out.println(" Pickup unmet = " + nodesFromUnmetServiceLevelUsers.size() + " (" + Sets.intersection(new HashSet<>(targets), new HashSet<>(nodesFromUnmetServiceLevelUsers)).size() + ")");
 
         } else if (rebalanceUtil.strategy instanceof RebalanceHeuristic) {
             targets = Vehicle.setOfHotPoints;
         }
-        rebalanceUtil.executeStrategy(idleVehicles, targets);
+        return targets;
     }
 
     public void run() {
@@ -530,28 +263,127 @@ public abstract class Simulation {
             // Status will change if vehicles are still working or there are users to service
             activeFleet = false;
 
-            // Rebalance, deactivate, and update parking nodes /////////////////////////////////////////////////////////
-            // Move vehicles, Compute serviced users, remove hired
+            ////////////////////////////////////////////////////////////////////////////////////////////////////////////
+            // FLEET STATUS UPDATE - Where are all vehicles at the current time? ///////////////////////////////////////
+            ////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
             runTimes.startTimerFor(Runtime.TIME_UPDATE_FLEET_STATUS);
-            Set<Vehicle> idleVehicles = updateFleetStatus();
-            // TODO Preliminary tests show that parallel stream is slower. Can more cores be of any help?
-            //updateFleetStatusParallel();
+
+            setDeactivated = new HashSet<>();
+
+            // Loop vehicles to get set of finished requests and set of active vehicles (servicing users OR rebalancing)
+            for (Vehicle vehicle : listVehicles) {
+
+                // Limits the hiring contract
+                vehicle.increaseActiveRounds();
+
+                // Return set of users and update rebalancing vehicles
+                Set<User> serviced = vehicle.getServicedUsersUntil(rightTW);
+
+                if (serviced != null) {
+                    finishedRequests.addAll(serviced);
+                }
+
+                // If vehicle is hired, it has to be deactivated as soon as it delivers its last customer
+                if (canEndContract(vehicle, rightTW)) {
+                    setDeactivated.add(vehicle);
+                }
+
+                // If vehicle is not parked, it is either cruising, servicing or rebalancing
+                if (!vehicle.isParked()) {
+                    activeFleet = true;
+                } else {
+
+                    /* Update vehicle's current nodes (if they are of types NodeOrigin and NodeStop)
+                     * with the rightmost time window value. This is the time a vehicle is allowed to
+                     * depart to get the customers.
+                     * E.g.:
+                     * [00:00:00 - 00:00:30] -> Pool requests
+                     * [00:00:30 :] -> Route vehicles
+                     */
+                    // Time from current node in vehicle is only updated when:
+                    //  - Current node is origin or NodeStop
+                    //  - Model.Vehicle is idle
+
+                    vehicle.updateDeparture(rightTW);
+
+                    // Vehicle is not servicing customers
+                    vehicle.increaseRoundsIdle();
+
+                }
+                vehicle.updateMiddle(rightTW);
+            }
+
+            // Updating vehicle lists
+            listVehicles.removeAll(setDeactivated);
+            setHired.removeAll(setDeactivated);
+            System.out.printf("# Removing %d hired vehicles:\n", setDeactivated.size());
+
             runTimes.endTimerFor(Runtime.TIME_UPDATE_FLEET_STATUS);
 
-            // Rebalance idle vehicles
-            runTimes.startTimerFor(Runtime.TIME_REBALANCING_FLEET);
-            rebalance(idleVehicles);
-            runTimes.endTimerFor(Runtime.TIME_REBALANCING_FLEET);
-
-            // Pool, service, and reject users /////////////////////////////////////////////////////////////////////////
+            ////////////////////////////////////////////////////////////////////////////////////////////////////////////
+            // UPDATE USER DEMAND //////////////////////////////////////////////////////////////////////////////////////
+            ////////////////////////////////////////////////////////////////////////////////////////////////////////////
             runTimes.startTimerFor(Runtime.TIME_UPDATE_DEMAND);
-            updateDemandStatus();
-            runTimes.endTimerFor(Runtime.TIME_UPDATE_DEMAND);
 
-            // Save solution and print round info
+            listPooledUsersTW = pullCurrentRequestBatch();
+            unassignedRequests.addAll(listPooledUsersTW);
+
+            // Store all requests
+            for (User e : listPooledUsersTW) {
+                allRequests.put(e.getId(), e);
+            }
+
+            // Compute requests that cannot be serviced
+            roundRejectedUsers = getExpiredRequestsFromUnassigned();
+            roundRejectedUsers.forEach(user -> user.computeRejection(rightTW));
+            deniedRequests.addAll(roundRejectedUsers);
+            unassignedRequests.removeAll(roundRejectedUsers);
+
+            runTimes.endTimerFor(Runtime.TIME_UPDATE_DEMAND);
+            // Info to rebalance vehicles (to hired origins and unmet service level origins)
+            roundHiredVehicles.clear();
+            roundUnmetServiceLevel.clear();
+
+            ///// 3 - ASSIGN WAITING USERS (previous + current round)  TO VEHICLES /////////////////////////////////////
+            ResultAssignment resultAssignment = this.matching.executeStrategy(rightTW, unassignedRequests, listVehicles);
+
+            ///// 4 - COLLECT HIRED VEHICLES ///////////////////////////////////////////////////////////////////////////
+            for (Vehicle vehicle : resultAssignment.getVehiclesHired()) {
+                // New vehicle is added in list
+                listVehicles.add(vehicle);
+                listHiredVehicles.add(vehicle);
+                setHired.add(vehicle);
+                roundHiredVehicles.add(vehicle);
+            }
+
+            ///// 5 - UPDATE WAITING LIST //////////////////////////////////////////////////////////////////////////////
+            unassignedRequests = resultAssignment.getRequestsUnassigned();
+            roundUnmetServiceLevel = resultAssignment.requestsServicedLevelNotAchieved;
+            System.out.println("N. of second tier:" + roundUnmetServiceLevel.size());
+
+            assert rejectedUnassignedFinishedSetsAreConsistent() : "Not all requests are processed.";
+            assert eachUserIsAssignedToSingleVehicle() : "Users are assigned to two vehicles!";
+
+            ////////////////////////////////////////////////////////////////////////////////////////////////////////////
+            //REBALANCING //////////////////////////////////////////////////////////////////////////////////////////////
+            ////////////////////////////////////////////////////////////////////////////////////////////////////////////
+            if (rebalanceUtil.isRebalanceEnabled()) {
+                // Rebalance idle vehicles
+
+                runTimes.startTimerFor(Runtime.TIME_REBALANCING_FLEET);
+                Set<Vehicle> idleVehicles = Vehicle.getIdleVehiclesFrom(listVehicles);
+                System.out.println("  Rebal. Idle = " + idleVehicles.size());
+                List<Node> targets = getRebalancingTargets();
+                rebalanceUtil.executeStrategy(idleVehicles, targets);
+                runTimes.endTimerFor(Runtime.TIME_REBALANCING_FLEET);
+            }
+
+            ////////////////////////////////////////////////////////////////////////////////////////////////////////////
+            //COMPUTE AND PRINT ////////////////////////////////////////////////////////////////////////////////////////
+            ////////////////////////////////////////////////////////////////////////////////////////////////////////////
             computeRoundInfo(Config.showRoundInfo(), Config.saveRoundInfo(), Config.showRoundFleetStatus());
 
-            //System.out.println(HelperIO.printJourneys(listHiredVehicles));
 
             //// UPDATING TW ///////////////////////////////////////////////////////////////////////////////////////////
             leftTW = rightTW;
@@ -561,9 +393,8 @@ public abstract class Simulation {
         } while (!unassignedRequests.isEmpty() || roundCount < totalRounds || activeFleet);
 
         // Print detailed journeys for each vehicle
-        if (Config.infoHandling.get(Config.SHOW_ALL_VEHICLE_JOURNEYS)) {
+        if (Config.infoHandling.get(Config.SHOW_ALL_VEHICLE_JOURNEYS))
             sol.printAllJourneys(listVehicles);
-        }
 
         // Saving vehicles traces
         if (Config.infoHandling.get(Config.SAVE_VEHICLE_ROUND_GEOJSON))
@@ -577,11 +408,6 @@ public abstract class Simulation {
         if (Config.infoHandling.get(Config.SAVE_REQUEST_INFO_CSV))
             sol.saveUserInfo(allRequests);
     }
-
-    /**
-     * Add user to vehicle and setup visit.
-     * Called when best visit is determined.
-     */
 
 
     //****************************************************************************************************************//
@@ -600,6 +426,11 @@ public abstract class Simulation {
     public boolean thereAreNoRepeatedRequests(List<User> allRequests) {
         return (new HashSet<>(allRequests)).size() == allRequests.size();
     }
+
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    // ASSERTIONS //////////////////////////////////////////////////////////////////////////////////////////////////////
+    ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
     public boolean eachUserIsAssignedToSingleVehicle() {
 
@@ -628,5 +459,31 @@ public abstract class Simulation {
             }
         }
         return true;
+    }
+
+    private boolean rejectedUnassignedFinishedSetsAreConsistent() {
+        List<User> inVehicleRequests = Vehicle.getUsersFrom(listVehicles);
+        if (deniedRequests.size() + unassignedRequests.size() + finishedRequests.size() + inVehicleRequests.size() == allRequests.size()) {
+            return true;
+        } else {
+            printCurrentStatus("Inconsistency found");
+            return false;
+        }
+    }
+
+    private void printCurrentStatus(String label) {
+        System.out.println("\n######################### " + label + " ###########################");
+        List<User> inVehicleRequests = Vehicle.getUsersFrom(listVehicles);
+        System.out.println(getCollectionInfo("Denied", deniedRequests));
+        System.out.println(getCollectionInfo("Unassigned", unassignedRequests));
+        System.out.println(getCollectionInfo("Finished", finishedRequests));
+        System.out.println(getCollectionInfo("In-Vehicle", inVehicleRequests));
+        System.out.println(getCollectionInfo("All requests", allRequests.values()));
+    }
+
+    public String getCollectionInfo(String label, Collection collection) {
+        List col = new ArrayList(collection);
+        Collections.sort(col);
+        return String.format("# %15s (%d): %s", label, collection.size(), collection);
     }
 }
