@@ -100,6 +100,22 @@ public class Visit implements Comparable<Visit> {
         this.requests = new HashSet<>();
     }
 
+    public Visit(Node[] sequencePD, int delay, int idleness, Vehicle vehicle) {
+
+        this.sequenceVisits = new LinkedList<>(Arrays.asList(sequencePD));
+
+        if (vehicle.getMiddleNode() != null){
+            if(vehicle.getVisit().getTargetNode() != sequencePD[0])
+                this.sequenceVisits.push(vehicle.getMiddleNode());
+        }
+
+        this.delay = delay;
+        this.idle = idleness;
+        this.requests = new HashSet<>();
+        this.passengers = new HashSet<>();
+    }
+
+
     public static void reset() {
         Visit.visitCount = 0;
     }
