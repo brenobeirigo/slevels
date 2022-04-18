@@ -264,25 +264,10 @@ public class ResultAssignment {
         return true;
     }
 
-    public void showSecondTierAssignedUsers() {
-        List<User> listAssigned = getSortedListOfAssignedUsers();
-        for (User user : listAssigned) {
-            if (!user.isFirstTier())
-                System.out.println(user.getCurrentAssigmentInfo());
-        }
-    }
 
     public boolean assignedAndUnassignedAreDisjoint() {
         return Collections.disjoint(this.requestsOK, this.requestsUnassigned);
 
-    }
-
-    public void showFirstTierFromAssigned() {
-        List<User> listAssigned = getSortedListOfAssignedUsers();
-        for (User user : listAssigned) {
-            if (user.isFirstTier())
-                System.out.println(user.getCurrentAssigmentInfo());
-        }
     }
 
     private List<User> getSortedListOfAssignedUsers() {
@@ -338,5 +323,24 @@ public class ResultAssignment {
 
     public void accountNumberOfRequestsClass(Qos qos, int nOfRequestsPerClass) {
         nOfRequestsClass.put(qos, nOfRequestsPerClass);
+    }
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    /// SHOW ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+    ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+    public void showSecondTierAssignedUsers() {
+        List<User> listAssigned = getSortedListOfAssignedUsers();
+        for (User user : listAssigned) {
+            if (!user.isFirstTier())
+                System.out.println(user.getCurrentAssigmentInfo());
+        }
+    }
+    public void showFirstTierFromAssigned() {
+        List<User> listAssigned = getSortedListOfAssignedUsers();
+        for (User user : listAssigned) {
+            if (user.isFirstTier())
+                System.out.println(user.getCurrentAssigmentInfo());
+        }
     }
 }
