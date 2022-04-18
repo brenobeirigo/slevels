@@ -163,8 +163,7 @@ public class RebalanceOptimal implements RebalanceStrategy {
         // Vehicle is no longer simulation.rebalancing (User was inserted)
         vehicle.stoppedRebalancingToPickup();
 
-        if (middleNode == null)
-            System.out.println("Middle node");
+        assert middleNode != null;
 
         double distTraveledKmCurrentMiddle = Dao.getInstance().getDistKm(currentNode, middleNode);
 
