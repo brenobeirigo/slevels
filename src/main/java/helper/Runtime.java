@@ -18,6 +18,8 @@ public class Runtime {
     public static final String TIME_RTV_POPULATE_GRAPH = "time_rtv_populate_graph";
     public static final String TIME_ILP_BUILDING = "time_ilp_building";
     public static final String TIME_ILP_SOLVING = "time_ilp_solving";
+    public static final String TIME_RTV_GRAPH = "time_rtv_graph";
+    public static final String TIME_PARALLEL_RTV_GRAPH = "time_parallel_rtv_graph";
 
 
     public static final String[] TIME_HEADERS = new String[]{
