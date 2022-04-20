@@ -22,13 +22,13 @@ public class GraphRV {
     private final List<User> listWaitingUsers;
     private final int vehicleCapacity;
     private final SimpleWeightedGraph<Object, DefaultWeightedEdge> graphRV;
-    private final List<Vehicle> listVehicles;
+    private final Set<Vehicle> listVehicles;
     private final int maxEdgesRR;
     private final int maxEdgesRV;
 
-    public GraphRV(List<User> listWaitingUsers, List<Vehicle> listVehicles, int vehicleCapacity, int maxEdgesRV, int maxEdgesRR) {
+    public GraphRV(Set<User> listWaitingUsers, Set<Vehicle> listVehicles, int vehicleCapacity, int maxEdgesRV, int maxEdgesRR) {
         this.vehicleCapacity = vehicleCapacity;
-        this.listWaitingUsers = listWaitingUsers;
+        this.listWaitingUsers = new ArrayList<>(listWaitingUsers);
         this.maxEdgesRV = maxEdgesRV;
         this.maxEdgesRR = maxEdgesRR;
         this.listVehicles = listVehicles;
