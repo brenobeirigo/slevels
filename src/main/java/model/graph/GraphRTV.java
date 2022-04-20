@@ -20,8 +20,8 @@ public class GraphRTV {
     private List<List<Visit>> feasibleTrips;
     private SimpleWeightedGraph<Object, DefaultWeightedEdge> graphRTV;
     private int maxVehicleCapacity;
-    private List<Vehicle> listVehicles;
-    private List<User> allRequests;
+    private Set<Vehicle> listVehicles;
+    private Set<User> allRequests;
     private GraphRV graphRV;
     private Map<String, Long> runTimes;
     private long timeout;
@@ -584,8 +584,10 @@ public class GraphRTV {
         return (int) graphRTV.vertexSet().stream().filter(o -> o instanceof Visit).count();
     }
 
-    public List<Visit> getAllVisits() {
-        return graphRTV.vertexSet().stream().filter(o -> o instanceof Visit).map(o -> (Visit) o).collect(Collectors.toList());
+    public Set<Visit> getAllVisits() {
+        Set<Visit> visits = graphRTV.vertexSet().stream().filter(o -> o instanceof Visit).map(o -> (Visit) o).collect(Collectors.toSet());
+        assert allVisits.containsAll(visits);
+        return visits;
     }
 
     public int getVisitCountSetVertex() {
@@ -624,16 +626,19 @@ public class GraphRTV {
         return graphRTV.containsVertex(vertex);
     }
 
-    public List<User> getAllRequests() {
+    public Set<User> getAllRequests() {
+        assert mapUserVehicles.keySet().containsAll(allRequests);
         return allRequests;
     }
 
-    public List<Vehicle> getListVehicles() {
+    public Set<Vehicle> getListVehicles() {
         return listVehicles;
     }
 
-    public List<Vehicle> getListVehiclesFromRTV() {
-        return this.listVehicles.stream().filter(vehicle -> !this.graphRTV.edgesOf(vehicle).isEmpty()).collect(Collectors.toList());
+    public Set<Vehicle> getListVehiclesFromRTV() {
+        Set<Vehicle> vehicles = this.listVehicles.stream().filter(vehicle -> !this.graphRTV.edgesOf(vehicle).isEmpty()).collect(Collectors.toSet());
+        assert mapVehicleVisits.keySet().containsAll(vehicles);
+        return vehicles;
     }
 
     public List<Vehicle> getListVehiclesEmptyEdgesFromRTV() {
