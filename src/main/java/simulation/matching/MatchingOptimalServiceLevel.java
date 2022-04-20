@@ -9,8 +9,6 @@ import gurobi.GRBVar;
 import model.User;
 import model.Vehicle;
 import model.Visit;
-
-import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -274,7 +272,7 @@ public class MatchingOptimalServiceLevel extends MatchingOptimal {
         for (User request : requests) {
             GRBLinExpr constrRequestServiceLevel = new GRBLinExpr();
 
-            List<Visit> requestVisits = graphRTV.getListOfVisitsFromUser(request);
+            Set<Visit> requestVisits = graphRTV.getListOfVisitsFromUser(request);
 
             for (Visit visit : requestVisits) {
                 if (isFirstTier(request, visit)) {

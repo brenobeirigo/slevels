@@ -15,7 +15,7 @@ import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
-public class ParallelGraphRTV {
+public class ParallelGraphRTV implements GraphRTV{
 
     // Populate list of feasible trips with current trips
     private List<List<Visit>> feasibleTrips;
@@ -112,7 +112,6 @@ public class ParallelGraphRTV {
         // Vehicles carrying passengers don't stop
         if (stop != null) {
             feasibleTrips.get(0).add(stop);
-            addRequestTripVehicleEdges(stop);
             computeVisit(stop);
         }
     }
@@ -131,7 +130,6 @@ public class ParallelGraphRTV {
 
         // Populate graph with request vertex
         for (User request : this.allRequests) {
-            graphRTV.addVertex(request);
             mapUserVisits.put(request, ConcurrentHashMap.newKeySet());
             mapUserVehicles.put(request, ConcurrentHashMap.newKeySet());
         }
@@ -140,19 +138,11 @@ public class ParallelGraphRTV {
         for (Vehicle vehicle : this.listVehicles) {
 
             mapVehicleVisits.put(vehicle, new HashSet<>());
-            graphRTV.addVertex(vehicle);
 
             if (vehicle.isServicing()) {
 
                 // Add RTV edges for current trips
                 if (!vehicle.getVisit().getRequests().isEmpty()) {
-
-                    // All requests not picked up by vehicle also integrate RTV graph
-                    for (User user : vehicle.getVisit().getRequests()) {
-                        graphRTV.addVertex(user);
-                    }
-
-                    addRequestTripVehicleEdges(vehicle.getVisit());
                     computeVisit(vehicle.getVisit());
                     // Level depends on number of requests
                     int levelIndex = Math.max(vehicle.getVisit().getRequests().size() - 1, 0);
@@ -162,56 +152,6 @@ public class ParallelGraphRTV {
         }
     }
 
-    /**
-     * Add vertices and edges to RTV graph.
-     * Add:
-     *  - ( visit : vehicle ) edge
-     *  - ( request : visit ) edges for each request covered by the visit. These edges have weights equal to user
-     *    pickup delays.
-     *
-     * @param visit Visit (vehicle, route, requests, passengers)
-     */
-    private void addRequestTripVehicleEdges(Visit visit) {
-
-        // Add best visit to RTV graph if not added before. Visits are the same if vehicles and routes are equal.
-        // For example, if the setup visit was already there, similar draft visits do not need to be added.
-        if (graphRTV.addVertex(visit)) {
-            graphRTV.addEdge(visit, visit.getVehicle());
-
-            Map<User, Integer> userDelayMap = visit.getUserDelayPairs();
-
-            for (User request : visit.getRequests()) {
-                DefaultWeightedEdge requestVisitEdge = graphRTV.addEdge(request, visit);
-                int weight = userDelayMap.get(request);
-                graphRTV.setEdgeWeight(requestVisitEdge, weight);
-            }
-        }
-
-        // assert visit.getRequests() != null && !visit.getRequests().isEmpty() : String.format("VISIT %s", visit);
-    }
-
-
-    private void addRequestTripVehicleEdgesWithWeights(
-            Vehicle vehicle,
-            Set<User> requests,
-            Visit visit) {
-
-        // Add best visit to RTV graph
-        graphRTV.addVertex(visit);
-        graphRTV.addEdge(visit, vehicle);
-
-        Map<User, Integer> userDelayMap = visit.getUserDelayPairs();
-
-        for (User request : requests) {
-
-            DefaultWeightedEdge requestVisitEdge = graphRTV.addEdge(request, visit);
-            graphRTV.setEdgeWeight(requestVisitEdge, userDelayMap.get(request));
-            // double a = graphRTV.getEdgeWeight(requestVisitEdge);
-            // System.out.println(request + "-" + a);
-        }
-
-        // assert visit.getRequests() != null && !visit.getRequests().isEmpty() : String.format("VISIT %s", visit);
-    }
 
 
     public void printFeasibleTrips(String label) {
@@ -229,19 +169,6 @@ public class ParallelGraphRTV {
         }
     }
 
-    public void printDetailedVisitsLevel() {
-
-        System.out.println("### Vertices:");
-        for (Object o : this.graphRTV.vertexSet()) {
-            System.out.println(o);
-        }
-        for (int i = 0; i < feasibleTrips.size(); i++) {
-            System.out.println(String.format("#### RTV LEVEL %d", i));
-            for (Visit visit : feasibleTrips.get(i)) {
-                System.out.println(String.format(" - %s", visit));
-            }
-        }
-    }
 
     public String getSummaryFeasibleTripsLevel() {
         List<String> builder = new ArrayList<>();
@@ -278,7 +205,6 @@ public class ParallelGraphRTV {
             addStopVisit(vehicle);
 
                     for (int i = 0; i < levelVisits.size(); i++) {
-                        levelVisits.get(i).forEach(this::addRequestTripVehicleEdges);
                         this.feasibleTrips.get(i).addAll(levelVisits.get(i));
                     }});
         Dao.getInstance().getRunTimes().endTimerFor(Runtime.TIME_RTV_POPULATE_GRAPH);
@@ -468,8 +394,6 @@ public class ParallelGraphRTV {
 
             feasibleVisitsCurrentVehicleAtLevel.get(0).add(visitWithoutRequests);
             computeVisit(visitWithoutRequests);
-            graphRTV.addVertex(visitWithoutRequests);
-            graphRTV.addEdge(visitWithoutRequests, vehicle);
         }
     }
 
@@ -505,25 +429,19 @@ public class ParallelGraphRTV {
         return mapVehicleVisits.get(vehicle);
     }
 
-    public Set<DefaultWeightedEdge> edgesOf(Object o) {
-        return graphRTV.edgesOf(o);
-    }
-
-    public boolean removeVertex(Object o) {
-        return graphRTV.removeVertex(o);
-    }
-
-    public Object getEdgeTarget(DefaultWeightedEdge edge) {
-        return graphRTV.getEdgeTarget(edge);
-    }
+//    public Set<DefaultWeightedEdge> edgesOf(Object o) {
+//        return graphRTV.edgesOf(o);
+//    }
+//
+//    public boolean removeVertex(Object o) {
+//        return graphRTV.removeVertex(o);
+//    }
+//
+//    public Object getEdgeTarget(DefaultWeightedEdge edge) {
+//        return graphRTV.getEdgeTarget(edge);
+//    }
 
     public double getWeightFromRequestVisitEdge(User request, Visit visit) {
-        double weight = this.graphRTV.getEdgeWeight(this.graphRTV.getEdge(request, visit));
-        assert Double.compare(weight, getWeightFromRequestVisitEdge2(request, visit))==0;
-        return weight;
-    }
-
-    public double getWeightFromRequestVisitEdge2(User request, Visit visit) {
         return visit.userDelayMap.get(request);
     }
 
@@ -532,100 +450,31 @@ public class ParallelGraphRTV {
     }
 
     public Set<Vehicle> getVehiclesFromUser(User request) {
-        return graphRTV
-                .edgesOf(request)
-                .stream().map(o -> graphRTV.getEdgeTarget(o))
-                .map(o -> ((Visit) o).getVehicle())
-                .collect(Collectors.toSet());
-    }
-
-    public Set<Vehicle> getVehiclesFromUser2(User request) {
         return mapUserVehicles.get(request);
     }
 
     public Set<Vehicle> getHiredVehiclesFromUser(User request) {
-        return graphRTV
-                .edgesOf(request)
-                .stream().map(o -> graphRTV.getEdgeTarget(o))
-                .map(o -> ((Visit) o).getVehicle())
-                .filter(Vehicle::isHired).collect(Collectors.toSet());
-    }
-
-    public Set<Vehicle> getHiredVehiclesFromUser2(User request) {
         return mapUserVehicles.get(request).stream().filter(Vehicle::isHired).collect(Collectors.toSet());
     }
 
-    public void removeOkVerticesRTV(ResultAssignment result) {
-        for (Visit visit : result.getVisitsOK()) {
-            this.graphRTV.removeVertex(visit);
-        }
-        for (Vehicle vehicle : result.getVehiclesOK()) {
-            this.graphRTV.removeVertex(vehicle);
-        }
-        for (User request : result.getRequestsOK()) {
-            this.graphRTV.removeVertex(request);
-        }
+    @Override
+    public Set<Vehicle> getListVehicles() {
+        return mapVehicleVisits.keySet();
     }
-
-    public boolean allRequestsUnmatched(Visit visit) {
 
     public Set<Visit> getAllVisits() {
         return allVisits;
     }
-
-    public int getVisitCountSetVertex() {
-        return graphRTV.vertexSet().stream().filter(o -> o instanceof Visit).collect(Collectors.toSet()).size();
+    public Set<User> getAllRequests() {
+        return mapUserVehicles.keySet();
     }
 
-    public int getMaxVehicleCapacity() {
-        return (int) graphRTV.vertexSet().stream().filter(o -> o instanceof Vehicle).count();
-    }
-
-    public int getUserCountVertex() {
-        return (int) graphRTV.vertexSet().stream().filter(o -> o instanceof User).count();
-    }
-
-    public int getTotalVertex() {
-        return graphRTV.vertexSet().size();
+    public Set<Vehicle> getListVehiclesFromRTV() {
+        return mapVehicleVisits.keySet();
     }
 
     public int getFeasibleVisitCount() {
         return feasibleTrips.stream().map(visits -> visits.size()).collect(Collectors.summingInt(value -> value.intValue()));
-    }
-
-    public void removeVisit(Visit visit) {
-
-        // Remove vehicle and users matched from graph
-        for (User user : visit.getRequests()) {
-            graphRTV.removeVertex(user);
-        }
-
-        // Remove visit from graph
-        graphRTV.removeVertex(visit);
-        graphRTV.removeVertex(visit.getVehicle());
-    }
-
-    public boolean containsVertex(Object vertex) {
-        return graphRTV.containsVertex(vertex);
-    }
-
-    public List<User> getAllRequests() {
-        assert mapUserVehicles.keySet().containsAll(allRequests);
-        return allRequests;
-    }
-
-    public List<Vehicle> getListVehicles() {
-        return listVehicles;
-    }
-
-    public List<Vehicle> getListVehiclesFromRTV() {
-        List<Vehicle> vehicles = this.listVehicles.stream().filter(vehicle -> !this.graphRTV.edgesOf(vehicle).isEmpty()).collect(Collectors.toList());
-        assert mapVehicleVisits.keySet().containsAll(vehicles);
-        return vehicles;
-    }
-
-    public List<Vehicle> getListVehiclesEmptyEdgesFromRTV() {
-        return this.listVehicles.stream().filter(vehicle -> this.graphRTV.edgesOf(vehicle).isEmpty()).collect(Collectors.toList());
     }
 
 }

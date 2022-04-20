@@ -3,7 +3,7 @@ package simulation.matching;
 import model.User;
 import model.Vehicle;
 import model.Visit;
-import model.graph.GraphRTV;
+import model.graph.StandardGraphRTV;
 import simulation.rebalancing.Rebalance;
 
 import java.util.*;
@@ -37,7 +37,7 @@ public class MatchingGreedy implements RideMatchingStrategy {
      * vehicles (i.e., vehicles not carrying passengers).
      */
 
-    private ResultAssignment greedyAssignmentVehiclesCarryingPassengers2(GraphRTV graphRTV, List<Vehicle> listVehicles, ResultAssignment result) {
+    private ResultAssignment greedyAssignmentVehiclesCarryingPassengers2(StandardGraphRTV graphRTV, List<Vehicle> listVehicles, ResultAssignment result) {
 
         // Vehicles with passengers
         Set<Vehicle> vehiclesWithPassengers = Vehicle.getVehiclesWithPassengers(listVehicles);
@@ -110,7 +110,7 @@ public class MatchingGreedy implements RideMatchingStrategy {
      * vehicles (i.e., vehicles not carrying passengers).
      */
 
-    private ResultAssignment greedyAssignmentVehiclesCarryingPassengers(GraphRTV graphRTV, Set<Vehicle> listVehicles, ResultAssignment result) {
+    private ResultAssignment greedyAssignmentVehiclesCarryingPassengers(StandardGraphRTV graphRTV, Set<Vehicle> listVehicles, ResultAssignment result) {
 
         // Vehicles with passengers
         List<Vehicle> vehiclesWithPassengers = Vehicle.getVehiclesServicing(listVehicles);
@@ -175,7 +175,7 @@ public class MatchingGreedy implements RideMatchingStrategy {
         return result;
     }
 
-    private ResultAssignment greedyAssignmentFlexibleVehicles(GraphRTV graphRTV, ResultAssignment result) {
+    private ResultAssignment greedyAssignmentFlexibleVehicles(StandardGraphRTV graphRTV, ResultAssignment result) {
 
         // Loop visits starting from the longest (combining more requests)
         for (int k = graphRTV.getFeasibleTrips().size() - 1; k >= 0; k--) {
@@ -213,7 +213,7 @@ public class MatchingGreedy implements RideMatchingStrategy {
         return result;
     }
 
-    private ResultAssignment fixDisplaced(GraphRTV graphRTV, ResultAssignment result) {
+    private ResultAssignment fixDisplaced(StandardGraphRTV graphRTV, ResultAssignment result) {
 
         // Find users and vehicles left unassigned
         List<User> unassignedUsers = new ArrayList<>();
@@ -299,7 +299,7 @@ public class MatchingGreedy implements RideMatchingStrategy {
 
         // BUILDING GRAPH STRUCTURE ////////////////////////////////////////////////////////////////////////////////////
 
-        GraphRTV graphRTV = new GraphRTV(unassignedRequests, vehicles, maxVehicleCapacityRTV, timeoutVehicleRTV, maxEdgesRV, maxEdgesRR);
+        StandardGraphRTV graphRTV = new StandardGraphRTV(unassignedRequests, vehicles, maxVehicleCapacityRTV, timeoutVehicleRTV, maxEdgesRV, maxEdgesRR);
         // To assure every vehicle is assigned to a visit, create dummy stop visits.
         // graphRTV.addStopVisits();
 

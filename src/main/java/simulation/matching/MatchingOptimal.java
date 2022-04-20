@@ -7,6 +7,8 @@ import gurobi.*;
 import helper.Runtime;
 import model.*;
 import model.graph.GraphRTV;
+import model.graph.StandardGraphRTV;
+import model.graph.ParallelGraphRTV;
 import model.node.Node;
 import org.jgrapht.graph.DefaultWeightedEdge;
 import simulation.Method;
@@ -204,7 +206,7 @@ public class MatchingOptimal implements RideMatchingStrategy {
     protected void buildGraphRTV(Set<User> unassignedRequests, Set<Vehicle> listVehicles, int maxVehicleCapacity, double timeoutVehicle, int maxVehReqEdges, int maxReqReqEdges) {
 
         // BUILDING GRAPH STRUCTURE ////////////////////////////////////////////////////////////////////////////////////
-        this.graphRTV = new GraphRTV(unassignedRequests, listVehicles, maxVehicleCapacity, timeoutVehicle, maxVehReqEdges, maxReqReqEdges);
+        this.graphRTV = new ParallelGraphRTV(unassignedRequests, listVehicles, maxVehicleCapacity, timeoutVehicle, maxVehReqEdges, maxReqReqEdges);
         this.visits = graphRTV.getAllVisits();
         this.requests = graphRTV.getAllRequests();
         this.vehicles = graphRTV.getListVehiclesFromRTV();
@@ -297,6 +299,9 @@ public class MatchingOptimal implements RideMatchingStrategy {
             case Objective.TOTAL_WAITING_AND_REJECTION:
                 objTotalWaitingAndRejection();
                 break;
+            case Objective.TOTAL_REJECTION:
+                objRejection();
+                break;
             case Objective.TOTAL_WAITING:
                 objTotalWaitingTime();
                 break;
@@ -355,6 +360,16 @@ public class MatchingOptimal implements RideMatchingStrategy {
         }
     }
 
+    protected void objRejection() {
+        // Violation penalty
+        String label = "TOT_REJ";
+        penObjectives.put(label, new GRBLinExpr());
+
+        for (User request : requests) {
+            penObjectives.get(label).addTerm(1, varRequestRejected(request));
+        }
+    }
+
     protected void objTotalWaitingTime() {
         String label = "TOT_WAIT";
         penObjectives.put(label, new GRBLinExpr());
@@ -377,7 +392,7 @@ public class MatchingOptimal implements RideMatchingStrategy {
         for (User request : requests) {
 
             String labelQos = String.format("%s_%s", label, request.qos.id);
-            List<Visit> requestVisits = graphRTV.getListOfVisitsFromUser(request);
+            Set<Visit> requestVisits = graphRTV.getListOfVisitsFromUser(request);
             for (Visit visit : requestVisits) {
                 double delay = getDelayOfRequestInVisit(request, visit);
                 penObjectives.get(labelQos).addTerm(delay, varVisitSelected(visit));
@@ -401,7 +416,7 @@ public class MatchingOptimal implements RideMatchingStrategy {
             String labelQos = String.format("%s_%s", label, request.qos.id);
             penObjectives.get(labelQos).addTerm(rejectionPenalty, varRequestRejected(request));
 
-            List<Visit> requestVisits = getListOfVisitsFromRequest(request);
+            Set<Visit> requestVisits = getListOfVisitsFromRequest(request);
             for (Visit visit : requestVisits) {
                 double delay = getDelayOfRequestInVisit(request, visit);
                 penObjectives.get(labelQos).addTerm(delay, varVisitSelected(visit));
@@ -479,7 +494,7 @@ public class MatchingOptimal implements RideMatchingStrategy {
         return weight;
     }
 
-    protected List<Visit> getListOfVisitsFromRequest(User request) {
+    protected Set<Visit> getListOfVisitsFromRequest(User request) {
         return graphRTV.getListOfVisitsFromUser(request);
     }
 
@@ -506,7 +521,7 @@ public class MatchingOptimal implements RideMatchingStrategy {
         // Requests are associated with only one visit
         for (User request : requests) {
 
-            List<Visit> requestVisits = graphRTV.getListOfVisitsFromUser(request);
+            Set<Visit> requestVisits = graphRTV.getListOfVisitsFromUser(request);
 
             GRBLinExpr constrRequestConservation = new GRBLinExpr();
             for (Visit visit : requestVisits) {
@@ -525,7 +540,7 @@ public class MatchingOptimal implements RideMatchingStrategy {
 
         for (User request : User.filterPreviouslyAssigned(requests)) {
 
-            List<Visit> requestVisits = graphRTV.getListOfVisitsFromUser(request);
+            Set<Visit> requestVisits = graphRTV.getListOfVisitsFromUser(request);
             GRBLinExpr constrRequestPreviouslyAssignedHaveToBeServiced = new GRBLinExpr();
 
             for (Visit visit : requestVisits) {
@@ -580,8 +595,8 @@ public class MatchingOptimal implements RideMatchingStrategy {
 
     protected boolean userCannotBePickedUpByIdleVehicles(GraphRTV graphRTV, Set<Vehicle> unassignedVehicles, User u) {
 
-        for (DefaultWeightedEdge edge : graphRTV.edgesOf(u)) {
-            Vehicle v = ((Visit) graphRTV.getEdgeTarget(edge)).getVehicle();
+        for (Visit visit: graphRTV.getListOfVisitsFromUser(u)) {
+            Vehicle v = visit.getVehicle();
             if (unassignedVehicles.contains(v)) {
                 System.out.println(unassignedVehicles);
                 System.out.println(String.format("Free vehicle %s can service request %s: Visit = %s", v, u, v.getVisit()));

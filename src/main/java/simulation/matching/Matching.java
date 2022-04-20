@@ -3,13 +3,11 @@ package simulation.matching;
 import config.CustomerBaseConfig;
 import model.User;
 import model.Vehicle;
-import model.VehicleHired;
 import simulation.hiring.Hiring;
 import simulation.hiring.HiringFromCenters;
 import simulation.rebalancing.Rebalance;
 
 import java.util.*;
-import java.util.stream.Collectors;
 
 public class Matching {
     public static final String METHOD_OPTIMAL = "method_optimal";
@@ -50,8 +48,11 @@ public class Matching {
         System.out.println(String.format("# Matching - %4d unassigned users.", allRequestsInOutVehicles.size()));
 
         if (allowUserDisplacement) {
-            allRequestsInOutVehicles.addAll(Vehicle.getRequestsFrom(listVehicles));
+            List<User> assignedUsers = Vehicle.getRequestsFrom(listVehicles);
+            allRequestsInOutVehicles.addAll(assignedUsers);
+            System.out.println(String.format("# Matching - %4d assigned users.", assignedUsers.size()));
         }
+        System.out.println(String.format("# Matching - %4d users to be matched.", allRequestsInOutVehicles.size()));
 
         Set<Vehicle> hired = new HashSet<>();
         if (isAllowedToHire) {
@@ -60,7 +61,7 @@ public class Matching {
         }
 
         ResultAssignment result = strategy.match(currentTime, allRequestsInOutVehicles, listVehicles, hired, this);
-        System.out.printf("time=%4d, requests=%4d, vehicles=%4d, hired(current period)=%4d, hired(kept):=%4d", currentTime, setUnassignedRequests.size(), listVehicles.size(), hired.size(), result.getVehiclesHired().size());
+        System.out.println(String.format("# Matching - Time step=%4d, #Requests=%4d, #Vehicles=%4d, #Hired(current period)=%4d, #Hired(kept)=%4d", currentTime, setUnassignedRequests.size(), listVehicles.size(), hired.size(), result.getVehiclesHired().size()));
 
         strategy.realize(result.visitsOK, this.rebalanceUtil, currentTime);
 
