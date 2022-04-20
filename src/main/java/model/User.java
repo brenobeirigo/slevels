@@ -462,7 +462,7 @@ public class User implements Comparable<User> {
     /**
      * Try to insert the user in a list of vehicles, and return the best insertion.
      */
-    public Visit getBestVisitByInsertion(List<Vehicle> listVehicles, int currentTime, boolean stopAtFirstBest) {
+    public Visit getBestVisitByInsertion(Set<Vehicle> listVehicles, int currentTime, boolean stopAtFirstBest) {
 
         Visit bestVisit = null;
 
