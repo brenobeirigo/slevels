@@ -116,7 +116,7 @@ public class MatchingOptimal implements RideMatchingStrategy {
                 computeIIS();
             }
         } catch (GRBException e) {
-            System.out.println("TIME IS OVER - No solution found, keep previous assignment. Gurobi error code: " + e.getErrorCode() + ". " + e.getMessage());
+            System.out.println("# Matching - ILP - TIME IS OVER - No solution found, keep previous assignment. Gurobi error code: " + e.getErrorCode() + ". " + e.getMessage());
             keepPreviousAssignment();
         } finally {
             disposeModelEnvironmentAndSave();
@@ -145,7 +145,7 @@ public class MatchingOptimal implements RideMatchingStrategy {
 
     protected void saveModel(int currentTime) {
         try {
-            model.write(String.format("round_mip_model/assignment%s_%d.lp", this.toString(), currentTime));
+            model.write(String.format("assignment%s_%d.lp", this.toString(), currentTime));
         } catch (GRBException e) {
             e.printStackTrace();
         }
@@ -192,10 +192,6 @@ public class MatchingOptimal implements RideMatchingStrategy {
 
         // BUILDING GRAPH STRUCTURE ////////////////////////////////////////////////////////////////////////////////////
         this.graphRTV = new GraphRTV(unassignedRequests, listVehicles, maxVehicleCapacity, timeoutVehicle, maxVehReqEdges, maxReqReqEdges);
-        // To assure every vehicle is assigned to a visit, create dummy stop visits.
-        this.graphRTV.addStopVisits();
-
-
         this.visits = graphRTV.getAllVisits();
         this.requests = graphRTV.getAllRequests();
         this.vehicles = graphRTV.getListVehiclesFromRTV();
@@ -435,9 +431,6 @@ public class MatchingOptimal implements RideMatchingStrategy {
         model.set(GRB.DoubleParam.TimeLimit, mipTimeLimit);
         model.set(GRB.DoubleParam.MIPGap, mipGap);
 
-        for (Vehicle vehicle : vehicles) {
-            assert !graphRTV.getListOfVisitsFromVehicle(vehicle).isEmpty() : "Vehicle is disconnected!" + vehicle;
-        }
     }
 
     protected void initVarsStandardAssignment() throws GRBException {
@@ -580,7 +573,7 @@ public class MatchingOptimal implements RideMatchingStrategy {
         }
 
         for (Vehicle v : unassignedVehicles) {
-            Visit candidateVisit = Method.getBestVisitFor(v, new HashSet<>(Arrays.asList(u)));
+            Visit candidateVisit = Method.getBestVisitFromPDPermutations(v, new HashSet<>(Arrays.asList(u)));
             if (candidateVisit != null) {
                 System.out.println(String.format("(CANDIDATE VISIT) Free vehicle %s can service request %s: Visit = %s", v, u, candidateVisit));
                 return false;
