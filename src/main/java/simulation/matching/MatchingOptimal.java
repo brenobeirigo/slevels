@@ -465,7 +465,8 @@ public class MatchingOptimal implements RideMatchingStrategy {
     }
 
     protected double getDelayOfRequestInVisit(User request, Visit visit) {
-        return graphRTV.getWeightFromRequestVisitEdge(request, visit);
+        double weight = graphRTV.getWeightFromRequestVisitEdge(request, visit);
+        return weight;
     }
 
     protected List<Visit> getListOfVisitsFromRequest(User request) {
