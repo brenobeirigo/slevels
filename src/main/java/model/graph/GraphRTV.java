@@ -474,12 +474,18 @@ public class GraphRTV {
         }
     }
 
-    private boolean addRTVEdgeAtLevel(Vehicle vehicle, Set<User> requests, List<List<Visit>> feasibleVisitsCurrentVehicleAtLevel, int level) {
+    /**
+     * Add RTV Edge with best visit found for vehicle and requests.
+     * @param vehicle
+     * @param requests
+     * @param feasibleVisitsCurrentVehicleAtLevel
+     * @return True, if there is a feasible visit where requests can be picked up by the vehicle.
+     */
+    private boolean addRTVEdgeAtLevel(Vehicle vehicle, Set<User> requests, List<Visit> feasibleVisitsCurrentVehicleAtLevel) {
+        Visit bestVisit = Method.getBestVisitFromPDPermutationsSummarized(vehicle, requests);
 
-        Visit visit = Method.getBestVisitFor(vehicle, requests);
-
-        if (visit != null) {
-            feasibleVisitsCurrentVehicleAtLevel.get(level).add(visit);
+        if (bestVisit != null) {
+            feasibleVisitsCurrentVehicleAtLevel.add(bestVisit);
             return true;
         }
         return false;
