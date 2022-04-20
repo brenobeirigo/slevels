@@ -2,7 +2,9 @@ package simulation.matching;
 
 import config.Config;
 import config.Qos;
+import dao.Dao;
 import gurobi.*;
+import helper.Runtime;
 import model.*;
 import model.graph.GraphRTV;
 import model.node.Node;
@@ -93,12 +95,23 @@ public class MatchingOptimal implements RideMatchingStrategy {
             return result;
 
         try {
+            ////////////////////////////////////////////////////////////////////////////////////////////////////////////
+            // Building the model //////////////////////////////////////////////////////////////////////////////////////
+            Dao.getInstance().getRunTimes().startTimerFor(Runtime.TIME_ILP_BUILDING);
             createGurobiModelAndEnvironment();
             initVarsStandardAssignment();
             addConstraintsStandardAssignment();
             setupObjectives();
-            model.optimize();
+            Dao.getInstance().getRunTimes().endTimerFor(Runtime.TIME_ILP_BUILDING);
 
+            ////////////////////////////////////////////////////////////////////////////////////////////////////////////
+            // Building the model //////////////////////////////////////////////////////////////////////////////////////
+            Dao.getInstance().getRunTimes().startTimerFor(Runtime.TIME_ILP_SOLVING);
+            model.optimize();
+            Dao.getInstance().getRunTimes().endTimerFor(Runtime.TIME_ILP_SOLVING);
+
+            System.out.printf("\n# Matching - ILP - Building time = %.2f", Dao.getInstance().getRunTimes().getExecutionTimeSecFor(Runtime.TIME_ILP_BUILDING));
+            System.out.printf("\n# Matching - ILP - Opt. time     = %.2f\n", Dao.getInstance().getRunTimes().getExecutionTimeSecFor(Runtime.TIME_ILP_SOLVING));
             if (isModelOptimal() || isTimeLimitReached()) {
 
                 if (isTimeLimitReached()) {
