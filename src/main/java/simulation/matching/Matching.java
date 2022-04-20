@@ -44,9 +44,10 @@ public class Matching {
     }
 
 
-    public ResultAssignment executeStrategy(int currentTime, Collection<User> setUnassignedRequests, List<Vehicle> listVehicles) {
+    public ResultAssignment executeStrategy(int currentTime, Set<User> setUnassignedRequests, Set<Vehicle> listVehicles) {
 
-        List<User> allRequestsInOutVehicles = new ArrayList<>(setUnassignedRequests);
+        Set<User> allRequestsInOutVehicles = new HashSet<>(setUnassignedRequests);
+        System.out.println(String.format("# Matching - %4d unassigned users.", allRequestsInOutVehicles.size()));
 
         if (allowUserDisplacement) {
             allRequestsInOutVehicles.addAll(Vehicle.getRequestsFrom(listVehicles));
