@@ -24,6 +24,7 @@ public class Visit implements Comparable<Visit> {
     private int arrival; // Arrival time at the last visited node
     private Set<User> passengers; // Users picked up
     private Set<User> requests; // Users that can still be moved (not picked up)
+    public Map<User, Integer> userDelayMap;
 
     public static Comparator<Visit> visitComparator = Comparator.comparing(Visit::getDelay).thenComparing(Visit::getVisitSequenceSize);
     private List<Integer> draftArrivalTimes;
@@ -643,19 +644,33 @@ public class Visit implements Comparable<Visit> {
         }
     }
 
+    public void setUserDelayPairs(){
+        this.userDelayMap = this.getUserDelayPairs();
+    }
+    /**
+     * Get the pickup delays of each user for the current visit
+     * @return (User, Pickup delay) pairs.
+     */
     public Map<User, Integer> getUserDelayPairs() {
+
+        // Stop and rebalancing visits have no users
         if (this.getSequenceVisits() == null)
             return null;
 
         Map<User, Integer> userDelayPair = new HashMap<>();
-        int arrival = this.getVehicle().getLastVisitedNode().getDeparture();
         Node first = this.getVehicle().getLastVisitedNode();
+        int arrival = first.getDeparture();
+
         for (Node next : this.getSequenceVisits()) {
+
             arrival += Dao.getInstance().getDistSec(first, next);
+
+            // Assumption: RTV graph is built using pickup delays (more discomfort)
             if (next instanceof NodePK) {
                 User u = User.mapOfUsers.get(next.getTripId());
                 userDelayPair.put(u, arrival - next.getEarliest());
             }
+            // TODO add service times
             first = next;
         }
         return userDelayPair;
