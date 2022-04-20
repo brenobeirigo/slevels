@@ -269,7 +269,7 @@ public class Solution {
      *
      * @param vehicleList
      */
-    public void saveGeoJsonPerVehicle(List<Vehicle> vehicleList) {
+    public void saveGeoJsonPerVehicle(Set<Vehicle> vehicleList) {
         System.out.println("Saving geojson vehicle traces...");
 
 
@@ -377,10 +377,10 @@ public class Solution {
 
     public String calculateRoundStats(int currentTime,
                                       int vehicleSize,
-                                      List<Vehicle> listVehicles,
+                                      Set<Vehicle> listVehicles,
                                       Set<Vehicle> setHiredVehicles,
                                       Set<Vehicle> setDeactivated,
-                                      List<Vehicle> listHiredVehicles,
+                                      Set<Vehicle> listHiredVehicles,
                                       Collection<User> waitingRequests,
                                       Set<User> finishedRequests,
                                       Set<User> roundRejectedUsers,
@@ -753,7 +753,7 @@ public class Solution {
         this.listRoundEntries.add(roundEntry);
     }
 
-    public void printAllJourneys(List<Vehicle> listVehicles) {
+    public void printAllJourneys(Set<Vehicle> listVehicles) {
 
         System.out.println(HelperIO.printJourneys(listVehicles));
         System.out.println("GEOJSON DATA");

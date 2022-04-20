@@ -110,7 +110,7 @@ public class MatchingGreedy implements RideMatchingStrategy {
      * vehicles (i.e., vehicles not carrying passengers).
      */
 
-    private ResultAssignment greedyAssignmentVehiclesCarryingPassengers(GraphRTV graphRTV, List<Vehicle> listVehicles, ResultAssignment result) {
+    private ResultAssignment greedyAssignmentVehiclesCarryingPassengers(GraphRTV graphRTV, Set<Vehicle> listVehicles, ResultAssignment result) {
 
         // Vehicles with passengers
         List<Vehicle> vehiclesWithPassengers = Vehicle.getVehiclesServicing(listVehicles);
@@ -290,7 +290,7 @@ public class MatchingGreedy implements RideMatchingStrategy {
      */
 
     @Override
-    public ResultAssignment match(int currentTime, List<User> unassignedRequests, List<Vehicle> vehicles, Set<Vehicle> hired, Matching configMatching) {
+    public ResultAssignment match(int currentTime, Set<User> unassignedRequests, Set<Vehicle> vehicles, Set<Vehicle> hired, Matching configMatching) {
 
 
         //assert thereAreNoRepeatedRequests(requests) : "There are repeated elements in request list!";
@@ -301,7 +301,7 @@ public class MatchingGreedy implements RideMatchingStrategy {
 
         GraphRTV graphRTV = new GraphRTV(unassignedRequests, vehicles, maxVehicleCapacityRTV, timeoutVehicleRTV, maxEdgesRV, maxEdgesRR);
         // To assure every vehicle is assigned to a visit, create dummy stop visits.
-        graphRTV.addStopVisits();
+        // graphRTV.addStopVisits();
 
         ResultAssignment result = new ResultAssignment(currentTime);
 

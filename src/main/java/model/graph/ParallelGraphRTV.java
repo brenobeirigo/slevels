@@ -19,26 +19,24 @@ public class ParallelGraphRTV {
 
     // Populate list of feasible trips with current trips
     private List<List<Visit>> feasibleTrips;
-    private SimpleWeightedGraph<Object, DefaultWeightedEdge> graphRTV;
     private int maxVehicleCapacity;
-    private List<Vehicle> listVehicles;
-    private List<User> allRequests;
-    public ConcurrentHashMap.KeySetView<Object, Boolean> allVisits;
+    private Set<Vehicle> listVehicles;
+    private Set<User> allRequests;
     private GraphRV graphRV;
     private long timeout;
+    public ConcurrentHashMap.KeySetView<Visit, Boolean> allVisits;
     public ConcurrentHashMap<Vehicle, Set<Visit>>  mapVehicleVisits;
     public ConcurrentHashMap<User, Set<Visit>> mapUserVisits;
     public ConcurrentHashMap<User, Set<Vehicle>> mapUserVehicles;
 
 
-    public ParallelGraphRTV(List<User> allRequests, List<Vehicle> listVehicles, int maxVehicleCapacity, double timeout, int maxVehReqEdges, int maxReqReqEdges) {
+    public ParallelGraphRTV(Set<User> allRequests, Set<Vehicle> listVehicles, int maxVehicleCapacity, double timeout, int maxVehReqEdges, int maxReqReqEdges) {
         System.out.println(String.format("# Matching - RTV - Graph (VR=%d,RR=%d) - #Requests: %d  / #Vehicles: %d (%d) - timeout: %.2f sec", maxVehReqEdges, maxReqReqEdges, allRequests.size(), listVehicles.size(), maxVehicleCapacity, timeout));
         this.timeout = (long) (timeout * 1000000000);
 
         // Populate list of feasible trips with current trips
         this.feasibleTrips = new ArrayList<>();
         this.maxVehicleCapacity = maxVehicleCapacity;
-        this.graphRTV = new SimpleWeightedGraph<>(DefaultWeightedEdge.class);
         this.allRequests = allRequests;
         this.listVehicles = listVehicles;
         mapVehicleVisits = new ConcurrentHashMap<>();
@@ -503,31 +501,7 @@ public class ParallelGraphRTV {
         });
     }
 
-
-    public List<Visit> getListOfSortedVisitsFromVehicle(Vehicle vehicleCarryingPassenger) {
-        return graphRTV
-                .edgesOf(vehicleCarryingPassenger)
-                .stream().map(o -> graphRTV.getEdgeSource(o))
-                .map(o -> (Visit) o)
-                .filter(o -> !o.getPassengers().isEmpty())
-                .sorted(Comparator.comparing(visit -> ((Visit) visit).getRequests().size())
-                        .reversed()
-                        .thenComparing(o -> ((Visit) o).getDelay()))
-                .collect(Collectors.toList());
-    }
-
-    public List<Visit> getListOfVisitsFromVehicle(Vehicle vehicle) {
-        List<Visit> visits = graphRTV
-                .edgesOf(vehicle)
-                .stream().map(o -> graphRTV.getEdgeSource(o))
-                .map(o -> (Visit) o)
-                .collect(Collectors.toList());
-        assert getListOfVisitsFromVehicle2(vehicle).containsAll(visits);
-        return visits;
-
-    }
-
-    public Set<Visit> getListOfVisitsFromVehicle2(Vehicle vehicle) {
+    public Set<Visit> getListOfVisitsFromVehicle(Vehicle vehicle) {
         return mapVehicleVisits.get(vehicle);
     }
 
@@ -553,16 +527,7 @@ public class ParallelGraphRTV {
         return visit.userDelayMap.get(request);
     }
 
-    public List<Visit> getListOfVisitsFromUser(User request) {
-        List<Visit> visits = graphRTV
-                .edgesOf(request)
-                .stream().map(o -> graphRTV.getEdgeTarget(o))
-                .map(o -> (Visit) o)
-                .collect(Collectors.toList());
-        assert getListOfVisitsFromUser2(request).containsAll(visits);
-        return visits;
-    }
-    public Set<Visit> getListOfVisitsFromUser2(User request) {
+    public Set<Visit> getListOfVisitsFromUser(User request) {
         return mapUserVisits.get(request);
     }
 
@@ -604,28 +569,8 @@ public class ParallelGraphRTV {
 
     public boolean allRequestsUnmatched(Visit visit) {
 
-        for (User request : visit.getRequests()) {
-
-            // If user is not in graph, it means another trip picked up user
-            if (!containsVertex(request)) {
-                return false;
-            }
-        }
-        return true;
-    }
-
-    public Set<Object> vertexSet() {
-        return graphRTV.vertexSet();
-    }
-
-    public int getVisitCount() {
-        return (int) graphRTV.vertexSet().stream().filter(o -> o instanceof Visit).count();
-    }
-
-    public List<Visit> getAllVisits() {
-        List<Visit> visits = graphRTV.vertexSet().stream().filter(o -> o instanceof Visit).map(o -> (Visit) o).collect(Collectors.toList());
-        assert allVisits.containsAll(visits);
-        return visits;
+    public Set<Visit> getAllVisits() {
+        return allVisits;
     }
 
     public int getVisitCountSetVertex() {

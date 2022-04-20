@@ -11,6 +11,7 @@ import model.Vehicle;
 import model.Visit;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
@@ -29,11 +30,11 @@ public class MatchingOptimalServiceLevel extends MatchingOptimal {
     }
 
     @Override
-    public ResultAssignment match(int currentTime, List<User> unassignedRequests, List<Vehicle> currentVehicleList, Set<Vehicle> hired, Matching configMatching) {
+    public ResultAssignment match(int currentTime, Set<User> unassignedRequests, Set<Vehicle> currentVehicleList, Set<Vehicle> hired, Matching configMatching) {
         this.currentTime = currentTime;
         this.result = new ResultAssignment(currentTime);
 
-        List<Vehicle> allAvailableVehicles = new ArrayList<>(currentVehicleList);
+        Set<Vehicle> allAvailableVehicles = new HashSet<>(currentVehicleList);
         allAvailableVehicles.addAll(hired);
 
         buildGraphRTV(unassignedRequests, allAvailableVehicles, this.maxVehicleCapacityRTV, timeoutVehicleRTV, maxEdgesRV, maxEdgesRR);

@@ -169,7 +169,7 @@ public class Vehicle implements Comparable<Vehicle> {
         return allRequests;
     }
 
-    public static List<User> getUsersFrom(List<Vehicle> listVehicles) {
+    public static List<User> getUsersFrom(Set<Vehicle> listVehicles) {
         List<User> allUsers = new ArrayList<>();
 
         // Requests can still be picked up by other vehicles, add them to request list
@@ -182,7 +182,7 @@ public class Vehicle implements Comparable<Vehicle> {
         return allUsers;
     }
 
-    public static List<Node> getVehicleOrigins(Collection<Vehicle> vehicles) {
+    public static List<Node> getVehicleOrigins(Set<Vehicle> vehicles) {
         List<Node> targets = new ArrayList<>();
         if (vehicles != null && !vehicles.isEmpty()) {
             List<Node> hiredOrigins = vehicles.stream().map(Vehicle::getOrigin).collect(Collectors.toList());
@@ -191,8 +191,16 @@ public class Vehicle implements Comparable<Vehicle> {
         return targets;
     }
 
-    public static List<Vehicle> getVehiclesServicing(List<Vehicle> vehicles) {
+    public static List<Vehicle> getVehiclesServicing(Set<Vehicle> vehicles) {
         return vehicles.stream().filter(Vehicle::isServicing).collect(Collectors.toList());
+    }
+
+    public static Set<Vehicle> getIdleVehiclesFrom(Set<Vehicle> vehicles) {
+        return vehicles.stream().filter(Vehicle::isParked).collect(Collectors.toSet());
+    }
+
+    public static Set<Node> getLastVisitedNodeFrom(Set<Vehicle> vehicles) {
+        return vehicles.stream().map(Vehicle::getLastVisitedNode).collect(Collectors.toSet());
     }
 
     public int isValidSequence(LinkedList<Node> sequence) {

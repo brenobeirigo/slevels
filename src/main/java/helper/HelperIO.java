@@ -50,7 +50,7 @@ public class HelperIO {
         return contentFile;
     }
 
-    public static String getVehicleInfo(List<Vehicle> vehicles,
+    public static String getVehicleInfo(Set<Vehicle> vehicles,
                                         int currentTime,
                                         boolean showIdle,
                                         boolean showEnRoute,
@@ -210,7 +210,7 @@ public class HelperIO {
         }
     }
 
-    public static String printJourneys(List<Vehicle> vd) {
+    public static String printJourneys(Set<Vehicle> vd) {
         String str = ("\n######### JOURNEYS #########################################");
         for (Vehicle v : vd) {
             str += v.getJourneyInfo();

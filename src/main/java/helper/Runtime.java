@@ -16,6 +16,9 @@ public class Runtime {
     public static final String TIME_RTV_INIT = "time_rtv_init";
     public static final String TIME_RTV_FEASIBLE_TRIPS = " time_rtv_feasible_trips";
     public static final String TIME_RTV_POPULATE_GRAPH = "time_rtv_populate_graph";
+    public static final String TIME_ILP_BUILDING = "time_ilp_building";
+    public static final String TIME_ILP_SOLVING = "time_ilp_solving";
+
 
     public static final String[] TIME_HEADERS = new String[]{
             TIME_UPDATE_DEMAND,

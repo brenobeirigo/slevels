@@ -30,10 +30,10 @@ public class MatchingOptimal implements RideMatchingStrategy {
     // Model
     protected GRBEnv env;
     protected GRBModel model;
-    protected List<Visit> visits;
-    protected List<User> requests;
+    protected Set<Visit> visits;
+    protected Set<User> requests;
     // Some vehicles cannot access
-    protected List<Vehicle> vehicles;
+    protected Set<Vehicle> vehicles;
     protected Map<Visit, Integer> visitIndex;
     protected Map<User, Integer> requestIndex;
     // Assignment variables: x[r][v] == 1 if request r is assigned to trip v
@@ -86,7 +86,7 @@ public class MatchingOptimal implements RideMatchingStrategy {
     }
 
     @Override
-    public ResultAssignment match(int currentTime, List<User> unassignedRequests, List<Vehicle> listVehicles, Set<Vehicle> hired, Matching configMatching) {
+    public ResultAssignment match(int currentTime, Set<User> unassignedRequests, Set<Vehicle> listVehicles, Set<Vehicle> hired, Matching configMatching) {
         result = new ResultAssignment(currentTime);
         buildGraphRTV(unassignedRequests, listVehicles, this.maxVehicleCapacityRTV, timeoutVehicleRTV, maxEdgesRV, maxEdgesRR);
 
@@ -201,7 +201,7 @@ public class MatchingOptimal implements RideMatchingStrategy {
 
     }
 
-    protected void buildGraphRTV(List<User> unassignedRequests, List<Vehicle> listVehicles, int maxVehicleCapacity, double timeoutVehicle, int maxVehReqEdges, int maxReqReqEdges) {
+    protected void buildGraphRTV(Set<User> unassignedRequests, Set<Vehicle> listVehicles, int maxVehicleCapacity, double timeoutVehicle, int maxVehReqEdges, int maxReqReqEdges) {
 
         // BUILDING GRAPH STRUCTURE ////////////////////////////////////////////////////////////////////////////////////
         this.graphRTV = new GraphRTV(unassignedRequests, listVehicles, maxVehicleCapacity, timeoutVehicle, maxVehReqEdges, maxReqReqEdges);
@@ -448,13 +448,17 @@ public class MatchingOptimal implements RideMatchingStrategy {
 
     protected void initVarsStandardAssignment() throws GRBException {
         visitIndex = new HashMap<>();
-        for (int i = 0; i < visits.size(); i++) {
-            visitIndex.put(visits.get(i), i);
+        int i = 0;
+        for (Visit v: visits) {
+            visitIndex.put(v, i);
+            i++;
         }
 
         requestIndex = new HashMap<>();
-        for (int i = 0; i < requests.size(); i++) {
-            requestIndex.put(requests.get(i), i);
+        int j = 0;
+        for (User request:requests) {
+            requestIndex.put(request, j);
+            j++;
         }
 
         // Assignment variables: x[r][v] == 1 if request r is assigned to trip v
@@ -606,7 +610,7 @@ public class MatchingOptimal implements RideMatchingStrategy {
         return true;
     }
 
-    public List<User> getRequests() {
+    public Set<User> getRequests() {
         return requests;
     }
 

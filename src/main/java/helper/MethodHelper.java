@@ -6,9 +6,7 @@ import model.Vehicle;
 import model.node.Node;
 import simulation.Method;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 public class MethodHelper {
 
@@ -24,10 +22,10 @@ public class MethodHelper {
         return new Vehicle(capacity, randomOrigin, currentTime, true, numberOfContractedRounds);
     }
 
-    public static List<Vehicle> createListVehicles(int n, int size, boolean uniqueSize, int currentTime) {
+    public static Set<Vehicle> createListVehicles(int n, int size, boolean uniqueSize, int currentTime) {
 
         //System.out.println("Creating vehicles...");
-        List<Vehicle> listVehicle = new ArrayList<>();
+        Set<Vehicle> listVehicle = new HashSet<>();
 
         //TODO: initial distribution (vsize = [1,2,3,4,...,n]
 

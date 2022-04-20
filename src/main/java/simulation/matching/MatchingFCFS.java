@@ -120,8 +120,8 @@ public class MatchingFCFS implements RideMatchingStrategy {
     @Override
     public ResultAssignment match(
             int currentTime,
-            List<User> unassignedRequests,
-            List<Vehicle> listVehicles,
+            Set<User> unassignedRequests,
+            Set<Vehicle> listVehicles,
             Set<Vehicle> hired,
             Matching configMatching) {
 

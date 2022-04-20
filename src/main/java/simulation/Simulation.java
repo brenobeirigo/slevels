@@ -64,13 +64,13 @@ public abstract class Simulation {
     protected Set<User> listPooledUsersTW;  // Requests pooled within TW
     protected Set<User> deniedRequests; // Requests with expired pickup time
     protected Set<User> finishedRequests; // Requests whose DP node was visited
-    protected List<Vehicle> listVehicles; // List of vehicles
-    protected List<Vehicle> listHiredVehicles; //List of hired vehicles
+    protected Set<Vehicle> listVehicles; // List of vehicles
+    protected Set<Vehicle> listHiredVehicles; //List of hired vehicles
     protected Set<Vehicle> setDeactivated; // Vehicles to be deactivated in round
     protected Set<Vehicle> setHired; // Current set of hired vehicles
     protected Set<User> roundRejectedUsers;
     protected Set<User> roundUnmetServiceLevel;
-    protected List<Vehicle> roundHiredVehicles;
+    protected Set<Vehicle> roundHiredVehicles;
     protected Runtime runTimes;
 
     public Simulation(int initialFleetSize,
@@ -114,7 +114,7 @@ public abstract class Simulation {
         /* SETS OF VEHICLES AND REQUESTS */
         allRequests = new HashMap<>(); // Dictionary of all users
         unassignedRequests = new HashSet<>(); // Requests whose pickup time is lower than the current time
-        roundHiredVehicles = new ArrayList<>();
+        roundHiredVehicles = new HashSet<>();
         roundUnmetServiceLevel = new HashSet<>();
         deniedRequests = new HashSet<>(); // Requests with expired pickup time
         finishedRequests = new HashSet<>(); // Requests whose DP node was visited
@@ -125,7 +125,7 @@ public abstract class Simulation {
         runTimes = Dao.getInstance().getRunTimes();
 
         listVehicles = MethodHelper.createListVehicles(initialFleetSize, vehicleCapacity, true, leftTW); // List of vehicles
-        listHiredVehicles = new ArrayList<>();
+        listHiredVehicles = new HashSet<>();
         //TODO hot_PK_list
     }
 
@@ -434,14 +434,15 @@ public abstract class Simulation {
 
     public boolean eachUserIsAssignedToSingleVehicle() {
 
-        for (int i = 0; i < listVehicles.size() - 1; i++) {
-            Vehicle v1 = listVehicles.get(i);
+        List<Vehicle> vehicles = new ArrayList<>(listVehicles);
+        for (int i = 0; i < vehicles.size() - 1; i++) {
+            Vehicle v1 = vehicles.get(i);
             if (!v1.isServicing())
                 continue;
 
-            for (int j = i + 1; j < listVehicles.size(); j++) {
+            for (int j = i + 1; j < vehicles.size(); j++) {
 
-                Vehicle v2 = listVehicles.get(j);
+                Vehicle v2 = vehicles.get(j);
 
                 if (!v2.isServicing())
                     continue;
