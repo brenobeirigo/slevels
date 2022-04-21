@@ -49,6 +49,7 @@ public class Dao {
     public final long SEED = 0;
     public Random rand;
     protected DijkstraShortestPath<Integer, Integer> dijkstraShortestPath;
+    protected AStarShortestPath<Integer, DefaultWeightedEdge> aStarShortestPath;
     protected ArrayList<ArrayList<List<Integer>>> shortestPathsNodeIds;
     protected ArrayList<ArrayList<List<Integer>>> shortestPathDistances;
     private String pathDistanceMatrix;
@@ -115,6 +116,14 @@ public class Dao {
             // networkGraph = getWeightedGraphFromAdjacencyMatrix(adjacencyMatrix, distMatrixMeters);
             networkGraph = getWeightedGraphFromAdjacencyMatrix(adjacencyMatrix, distMatrix);
             dijkstraShortestPath = new DijkstraShortestPath(networkGraph);
+            aStarShortestPath = new AStarShortestPath<Integer, DefaultWeightedEdge>(
+                    networkGraph,
+                    new AStarAdmissibleHeuristic<Integer>() {
+                        @Override
+                        public double getCostEstimate(Integer i, Integer j) {
+                            return distMatrix[i][j];
+                        }
+                    });
 
             // Shortest path info (node ids, node arrivals)
             shortestPathsNodeIds = new ArrayList<>();
