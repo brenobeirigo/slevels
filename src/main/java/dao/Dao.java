@@ -555,11 +555,13 @@ public class Dao {
         // Start list of users with buffer from last iteration (users read, but not in time span)
         Set<User> listUser = new HashSet<>();
 
+        int latestTimeRequestBatch = earliestTimeRequestBatch + timeSpanSec;
+        assert latestTimeRequestBatch == Simulation.rightTW;
         if (userBuff != null){
-            if (userBuff.getReqTime() < currentTime + timeSpanSec){
+            if (userBuff.getReqTime() < latestTimeRequestBatch){
                 listUser.add(userBuff);
             }else{
-                currentTime = currentTime + timeSpanSec;
+                earliestTimeRequestBatch = latestTimeRequestBatch;
                 return listUser;
             }
         }
@@ -580,8 +582,8 @@ public class Dao {
             User user = new User(record);
 
             // Stop reading if request is out of time span
-            if (user.getReqTime() >= currentTime + timeSpanSec) {
-                currentTime = currentTime + timeSpanSec;
+            if (user.getReqTime() >= latestTimeRequestBatch) {
+                earliestTimeRequestBatch = latestTimeRequestBatch;
                 // Save user wrongfully read to next iteration
                 userBuff = user;
                 break;
