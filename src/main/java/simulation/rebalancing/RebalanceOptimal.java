@@ -157,8 +157,6 @@ public class RebalanceOptimal implements RebalanceStrategy {
 
         Node currentNode = vehicle.getLastVisitedNode();
         Node middleNode = vehicle.getMiddleNode();
-        NodeTargetRebalancing target = (NodeTargetRebalancing) vehicle.getVisit().getTargetNode();
-
 
         // Vehicle is no longer simulation.rebalancing (User was inserted)
         vehicle.stoppedRebalancingToPickup();
