@@ -7,6 +7,7 @@ import model.node.Node;
 import org.paukov.combinatorics.CombinatoricsVector;
 import org.paukov.combinatorics.Generator;
 import org.paukov.combinatorics.ICombinatoricsVector;
+import util.PDPInsertions;
 import util.PDPermutations;
 
 import java.util.*;
@@ -1355,6 +1356,59 @@ public class Method {
         return visit;
     }
 
+    public static Visit getBestVisitFromInsertion(Vehicle vehicle, User request) {
+        // A single request can be inserted in a vehicle in multiple ways. Only the best (i.e., the lowest delay)
+        // visit is inserted in the RTV graph.
+
+        //System.out.printf("User %s, vehicle=%s, visit=%s\n", request, vehicle, vehicle.getVisit());
+
+        // Do not try inserting request in the same vehicle again
+        if (vehicle.hasAlreadyBeenAssignedToUser(request)){
+            //System.out.printf("User %s already in %s. Visit=%s.\n", request, vehicle, vehicle.getVisit());
+            return vehicle.getVisit();
+        }
+
+        Visit visit = null;
+        Node[] lowestDelaySequence = null;
+        Leg bestDraftVisit = null;
+
+        PDPInsertions perms = new PDPInsertions(request, vehicle);
+
+        while (perms.hasNext()) {
+
+            Node[] PDPermutation = perms.next();
+            //System.out.println(Arrays.asList(PDPermutation));
+            //System.out.println(vehicle.getVisit());
+            Leg draftVisit = Visit.getDraftVisit(vehicle, PDPermutation);
+
+            // Update if delay is valid
+            if (draftVisit != null) {
+                if (draftVisit.compareTo(bestDraftVisit) < 0) {
+                    bestDraftVisit = draftVisit;
+                    lowestDelaySequence = PDPermutation;
+                }
+            }
+        }
+
+        if (lowestDelaySequence != null) {
+
+            // Setup new visit
+            visit = new Visit(lowestDelaySequence, bestDraftVisit.delay, bestDraftVisit.idleness, vehicle);
+
+            // Finish visit configuration
+            visit.setVehicle(vehicle);
+
+            // All passengers in vehicle belong to visit (they need to be dropped off)
+            if (vehicle.isServicing()) {
+                visit.getPassengers().addAll(vehicle.getVisit().getPassengers());
+                visit.getRequests().addAll(vehicle.getVisit().getRequests());
+            }
+
+            visit.getRequests().add(request);
+        }
+
+        return visit;
+    }
 
     public static void reset() {
         return;
