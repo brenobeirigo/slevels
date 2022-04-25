@@ -12,7 +12,7 @@ import java.util.*;
 public class Matching {
     public static final String METHOD_OPTIMAL = "method_optimal";
     public static final String METHOD_GREEDY = "method_greedy";
-    public static final String METHOD_FCFS = "method_fsfc";
+    public static final String METHOD_FCFS = "method_fcfs";
     public static final String METHOD_OPTIMAL_ENFORCE_SL = "method_optimal_enforce_sl";
     public static final String METHOD_OPTIMAL_ENFORCE_SL_HIRE = "method_optimal_enforce_sl_and_hire";
     protected Map<String, Long> runTimes;
@@ -24,10 +24,6 @@ public class Matching {
     private int maxVehicleCapacity;
 
     private boolean allowUserDisplacement;
-
-    public Matching(boolean isAllowedToLowerServiceLevel, int contractDuration, Rebalance rebalanceSettings, boolean isAllowedToHire) {
-
-    }
 
     public Matching(CustomerBaseConfig customerBaseConfig,
                     int contractDuration,
