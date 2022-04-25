@@ -98,12 +98,12 @@ public class Solution {
 
     // Initialize solution
     public Solution(String methodName,
-                    int maxTimeToReachRegionCenter,
-                    int nOfVehicles,
-                    int maxNumberOfTrips,
-                    int vehicleCapacity,
-                    int timeHorizon,
-                    int totalHorizon,
+                    int maxHiringDelaySeconds,
+                    int initialFleetSize,
+                    int maxNumberOfRequests,
+                    int maxVehicleCapacity,
+                    int batchDurationSeconds,
+                    int simulationTimeSeconds,
                     int contractDuration,
                     boolean allowVehicleHiring,
                     boolean allowServiceDeterioration,
@@ -114,12 +114,12 @@ public class Solution {
 
         // Initialize solution
         this(methodName,
-                maxTimeToReachRegionCenter,
-                nOfVehicles,
-                maxNumberOfTrips,
-                vehicleCapacity,
-                timeHorizon,
-                totalHorizon,
+                maxHiringDelaySeconds,
+                initialFleetSize,
+                maxNumberOfRequests,
+                maxVehicleCapacity,
+                batchDurationSeconds,
+                simulationTimeSeconds,
                 contractDuration,
                 allowVehicleHiring,
                 allowServiceDeterioration);
