@@ -312,7 +312,15 @@ public abstract class Simulation {
 
                 }
                 vehicle.updateMiddle(rightTW);
+
+                assert vehicle.getLastVisitedNode().getArrival() >= vehicle.getLastVisitedNode().getEarliest(): String.format("Arr=%s >= Ear=%s (%s) - %s", vehicle.getLastVisitedNode().getArrival(), vehicle.getLastVisitedNode().getEarliest(), vehicle.getVisit(), vehicle.getJourney());
+                if (!vehicle.isParked()) {
+                    assert vehicle.getLastVisitedNode().getDeparture() >= vehicle.getLastVisitedNode().getArrival() : String.format("Dep=%s >= Arr=%s (%s) - %s", vehicle.getLastVisitedNode().getDeparture(), vehicle.getLastVisitedNode().getArrival(), vehicle.getVisit(), vehicle.getJourney());
+                    assert vehicle.getLastVisitedNode().getDeparture() >= vehicle.getLastVisitedNode().getEarliestDeparture() : String.format("Dep=%s >= EarDep=%s (%s) - %s", vehicle.getLastVisitedNode().getDeparture(), vehicle.getLastVisitedNode().getEarliestDeparture(), vehicle.getVisit(), vehicle.getJourney());
+                }
             }
+
+
 
             // Updating vehicle lists
             listVehicles.removeAll(setDeactivated);
@@ -364,6 +372,7 @@ public abstract class Simulation {
 
             assert rejectedUnassignedFinishedSetsAreConsistent() : "Not all requests are processed.";
             assert eachUserIsAssignedToSingleVehicle() : "Users are assigned to two vehicles!";
+            assert rejectedUnassignedFinishedSetsAreConsistent() : "Not all requests are processed.";
 
             ////////////////////////////////////////////////////////////////////////////////////////////////////////////
             //REBALANCING //////////////////////////////////////////////////////////////////////////////////////////////
@@ -452,7 +461,7 @@ public abstract class Simulation {
 
                 if (intersection.size() > 0) {
 
-                    System.out.println(intersection);
+                    System.out.printf("Users=%s are assigned to vehicles %s and %s.", intersection, v1, v2);
                     System.out.println(v1.getVisit());
                     System.out.println(v2.getVisit());
                     return false;
@@ -475,11 +484,15 @@ public abstract class Simulation {
     private void printCurrentStatus(String label) {
         System.out.println("\n######################### " + label + " ###########################");
         List<User> inVehicleRequests = Vehicle.getUsersFrom(listVehicles);
+        assert inVehicleRequests.size() == new HashSet<>(inVehicleRequests).size();
         System.out.println(getCollectionInfo("Denied", deniedRequests));
         System.out.println(getCollectionInfo("Unassigned", unassignedRequests));
         System.out.println(getCollectionInfo("Finished", finishedRequests));
         System.out.println(getCollectionInfo("In-Vehicle", inVehicleRequests));
         System.out.println(getCollectionInfo("All requests", allRequests.values()));
+        List<User> diff = new ArrayList(allRequests.values());
+        diff.removeAll(inVehicleRequests);
+        System.out.println(getCollectionInfo("Diff:", diff));
     }
 
     public String getCollectionInfo(String label, Collection collection) {
