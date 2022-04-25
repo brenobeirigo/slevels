@@ -91,6 +91,11 @@ public class Solution {
         createHeader();
     }
 
+    public String getDigitsFromDate(Date date){
+        String onlyDigits = Config.formatter_date_time.format(date).replace("-", "").replace(":","");
+        return onlyDigits.replace(" ", "");
+    }
+
     // Initialize solution
     public Solution(String methodName,
                     int maxTimeToReachRegionCenter,
@@ -124,15 +129,16 @@ public class Solution {
 
 
         testCaseName = String.format(
-                "IN-%s_HC-%d_BA-%d_ST-%d_MR-%d_IF-%d_MC-%d_CS-%s",
+                "IN-%s_SD-%s_ST-%d_BA-%d_MR-%d_IF-%d_MC-%d_CS-%s_HC-%d",
                 methodName,
-                maxTimeToReachRegionCenter,
-                timeHorizon,
-                totalHorizon,
-                maxNumberOfTrips,
-                nOfVehicles,
-                vehicleCapacity,
-                customerSegmentation);
+                getDigitsFromDate(Config.getInstance().getEarliestTime()),
+                simulationTimeSeconds,
+                batchDurationSeconds,
+                maxNumberOfRequests ,
+                initialFleetSize,
+                maxVehicleCapacity,
+                customerSegmentation,
+                maxHiringDelaySeconds);
         testCaseName += (allowVehicleHiring ? "_CD-" + (contractDuration == Config.DURATION_SINGLE_RIDE ? 0 : contractDuration) : "");
         testCaseName += (allowServiceDeterioration ? "_SR-" + serviceRate : "");
         testCaseName += (allowVehicleHiring ? "_VH" : "");
