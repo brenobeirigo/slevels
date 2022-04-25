@@ -111,7 +111,7 @@ public class Vehicle implements Comparable<Vehicle> {
     public Vehicle(int capacity, int id_network, int currentTime) {
         this(capacity, id_network);
         this.getOrigin().setArrival(currentTime);
-        this.getOrigin().setDeparture(currentTime);
+        this.getOrigin().setEarliestDeparture(currentTime);
     }
 
     public static void reset() {
