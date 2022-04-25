@@ -31,7 +31,6 @@ public class Vehicle implements Comparable<Vehicle> {
     private Integer currentLoad; // Current vehicle currentLoad
     private Visit visit; // Passengers, Node sequence, etc.
     private Node lastVisitedNode; // Node where vehicle is, or from where vehicle left
-    private boolean rebalancing; // Is this vehicle currently rebalancing?
     private boolean hired; // Was this vehicle hired on the fly?
     private int roundsIdle; // How many rounds this vehicle is idle?
     private Node middleNode; // Where vehicle is now?
@@ -281,47 +280,6 @@ public class Vehicle implements Comparable<Vehicle> {
      */
     public Set<User> getServicedUsersUntil(int currentSimulationTime) {
 
-        if (this.isParked()) {
-            return null;
-        }
-
-        if (this.isRebalancing()) {
-            endRebalanceIfTargetReachedAt(currentSimulationTime);
-            /*
-            // Is the current node a stop point? If so, vehicle was recently rebalanced
-            if (lastVisitedNode instanceof NodeTargetRebalancing) {
-                System.out.println("Finished REBALANCING!!!!!!!!!!!!!!!!!");
-
-
-                Node origin = this.journey.get(this.journey.size() - 2);
-
-                double distTraveledKm2 = Dao.getInstance().getDistKm(origin, target);
-
-                int roundsToFindUser = ((target.getDeparture() - origin.getDeparture()) / 30);
-
-                RebalanceEpisode r = new RebalanceEpisode(
-                        origin.getNetworkId(),
-                        target.getNetworkId(),
-                        -1,
-                        -1,
-                        -1,
-                        distTraveledKm2,
-                        roundsToFindUser);
-
-                System.out.println(String.format("AFTER ROUNDS - %s(%s--%s) -> %s(%s--%s) :%s",
-                        origin,
-                        Config.sec2Datetime(origin.getArrival()),
-                        Config.sec2Datetime(origin.getDeparture()),
-                        target,
-                        Config.sec2Datetime(target.getArrival()),
-                        Config.sec2Datetime(target.getDeparture()),
-                        r));
-
-            }
-            */
-            return null;
-        }
-
         // Round [last current time, current time]
         Set<User> servicedUsersInRound = new HashSet<>();
 
@@ -447,32 +405,30 @@ public class Vehicle implements Comparable<Vehicle> {
      *
      * @param currentSimulationTime current execution time of the simulation
      */
-    private void endRebalanceIfTargetReachedAt(int currentSimulationTime) {
+    public void endRebalancing(int currentSimulationTime) {
 
-        // If rebalancing is finished (vehicle arrived at target)
-        if (currentSimulationTime >= this.visit.getArrivalTimeAtNext()) {
+        this.distanceTraveledRebalancing += Dao.getInstance().getDistKm(
+                this.lastVisitedNode,
+                this.visit.getTargetNode());
 
-            this.distanceTraveledRebalancing += Dao.getInstance().getDistKm(
-                    this.lastVisitedNode,
-                    this.visit.getTargetNode());
+        this.roundsIdle = roundsIdle + 1;
 
-            // Vehicle is no longer rebalancing
-            this.setRebalancing(false);
+        this.lastVisitedNode = this.visit.getTargetNode();
+        this.lastVisitedNode.setArrival(this.visit.getTargetNode().getArrival());
+        // Min. departure is arrival time
+        this.lastVisitedNode.setEarliestDeparture(this.visit.getTargetNode().getArrival());
 
-            // Signalize that vehicle is stopped at last visited node in a stop point
-            this.setLastVisitedNode(this.visit.getTargetNode());
+        // Vehicle has been recently rebalanced, worth keeping in the fleet
+        this.setRoundsIdle(0);
 
-            // Vehicle has been recently rebalanced, worth keeping in the fleet
-            this.setRoundsIdle(0);
+        // Node can become a rebalancing target again
+        Node.tabu.remove(lastVisitedNode.getNetworkId());
 
-            // Node can become a rebalancing target again
-            Node.tabu.remove(lastVisitedNode.getNetworkId());
+        journey.add(lastVisitedNode);
+    }
 
-            journey.add(lastVisitedNode);
-
-            createNodeStopAndFinishVisitAt(currentSimulationTime);
-
-        }
+    public boolean hasFinishedRebalancing(int currentSimulationTime) {
+        return currentSimulationTime >= this.visit.getArrivalTimeAtNext();
     }
 
     /**
@@ -549,9 +505,6 @@ public class Vehicle implements Comparable<Vehicle> {
 
         // Visit is comprised of single node
         this.visit = new VisitRelocation(target, this);
-
-        // Vehicle is rebalancing
-        this.rebalancing = true;
 
         // Signalize there are vehicles going to the point
         Node.tabu.add(targetNode.getNetworkId());
@@ -1354,10 +1307,10 @@ public class Vehicle implements Comparable<Vehicle> {
 
         Visit stop = null;
 
-        if (isRebalancing()) {
+        if (isParked()) {
             stop = getVisit();
 
-        } else if (isParked()) {
+        } else if (isRebalancing()) {
             stop = new VisitStop(this);
 
         } else if (!isCarryingPassengers()) {
