@@ -1157,8 +1157,15 @@ public class Vehicle implements Comparable<Vehicle> {
 
     /**
      * Update the intermediate position (middle node) of vehicle given current time.
-     * FROM---> currentTime ---> M1 ----> M2 -------------------> TO - return M1
-     * FROM--------------------> M1 ----> M2 --- currentTime ---> TO - return NULL
+     * If:
+     *  - Vehicle is parked -> return null (no middle)
+     *  - Vehicle has been assigned to a visit, but did not leave origin node -> return origin node
+     *  - Vehicle has been assigned to a visit, but left origin node -> return closest middle, for example:
+     *        Origin--> currentTime --> M1 --------------> M2 -----> Destination --------------- (return M1)
+     *        Origin------------------> M1 --currentTime-> M2 -----> Destination --------------- (return M2)
+     *        Origin------------------> M1 --------------> M2 -----> Destination ----currentTime (return Destination)
+     *        Origin-------------------------currentTime-----------> Destination --------------- (return Destination)
+     *
      *
      * @param currentTime
      */
@@ -1167,32 +1174,28 @@ public class Vehicle implements Comparable<Vehicle> {
         if (this.isParked()) {
             this.setMiddleNode(null);
             this.distMiddleNode = 0;
-            return;
+        } else {
+
+            int elapsedTimeSinceLeftLastNode = currentTime - this.getEarliestDeparture();
+
+            int networkIdWaypointNode = Dao.getInstance().getNodeBetweenAndExtraDelay(
+                    this.getLastVisitedNode(),
+                    this.visit.getTargetNode(),
+                    elapsedTimeSinceLeftLastNode);
+
+            // Distance from current to middle node
+            this.distMiddleNode = Dao.getInstance().getDistSec(
+                    this.getLastVisitedNode().getNetworkId(),
+                    networkIdWaypointNode);
+
+            Node middle = new NodeMiddle(
+                    networkIdWaypointNode,
+                    this.getLastVisitedNode(),
+                    this.visit.getTargetNode(),
+                    this.distMiddleNode);
+
+            this.setMiddleNode(middle);
         }
-
-        // next = rebalancing target (if VisitRelocation) and first node in sequence (if VisitInsertion)
-        Node next = this.visit.getTargetNode();
-
-        // How long since vehicle left last visited node?
-        int elapsedTime = currentTime - this.getDepartureCurrent();
-        int nodeBetweenId = Dao.getInstance()
-                .getNodeBetweenAndExtraDelay(
-                        this.getLastVisitedNode(),
-                        next,
-                        elapsedTime);
-
-        // Can't move to a middle node, closest middle node is next pickup
-        // TODO why having a middle node == next?
-        if (nodeBetweenId < 0) {
-            nodeBetweenId = next.getNetworkId();
-        }
-
-        //CURRENT TO MIDDLE
-        Node middle = new NodeMiddle(nodeBetweenId, this.getLastVisitedNode(), next, elapsedTime);
-        this.setMiddleNode(middle);
-
-        // Distance from current to middle node
-        this.distMiddleNode = Dao.getInstance().getDistSec(this.getLastVisitedNode(), this.getMiddleNode());
     }
 
     public double getDistanceTraveledRebalancing() {

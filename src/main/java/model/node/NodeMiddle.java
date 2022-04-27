@@ -4,16 +4,34 @@ public class NodeMiddle extends Node {
     // Negative to differentiate from trip ids
     public static int nodeMiddleIds = Integer.MIN_VALUE;
     private Node nodeTo;
-    private int elapsed;
+    private int elapsedSinceLeftOriginNode;
     private Node nodeFrom;
 
-    public NodeMiddle(int networkId, Node nodeFrom, Node nodeTo, int elapsed) {
-        super(nodeMiddleIds, networkId);
+    /**
+     * Create waypoint between two points (origin and destination) at current time.
+     * @param networkIdMiddleNode
+     * @param nodeOrigin
+     * @param nodeDestination
+     * @param currentTime
+     */
+    public NodeMiddle(int networkIdMiddleNode, Node nodeOrigin, Node nodeDestination, int distOriginToMiddle) {
+        super(nodeMiddleIds, networkIdMiddleNode);
         nodeMiddleIds++;
         this.tripId = nodeMiddleIds;
-        this.nodeFrom = nodeFrom;
-        this.nodeTo = nodeTo;
-        this.elapsed = elapsed;
+        this.load = 0;
+        this.delay = 0;
+
+        this.nodeFrom = nodeOrigin;
+        this.nodeTo = nodeDestination;
+
+        this.earliest = nodeOrigin.getDeparture() + distOriginToMiddle;
+        this.earliestDeparture = this.earliest;
+        this.arrivalSoFar = this.earliest;
+        this.latest = Integer.MAX_VALUE;
+
+        // Only changes when node is visited
+        this.arrival = null;
+        this.departure = null;
     }
 
     public Node getNodeFrom() {
