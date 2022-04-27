@@ -38,79 +38,83 @@ public class Main {
             // Vary test case parameters
             for (Date earliestTime : instanceSettings.getEarliestTimeArray()) {
                 Config.getInstance().setEarliestTime(earliestTime);
-                for (int timeHorizon : instanceSettings.getTimeHorizonArray()) {
-                    for (int maxRequestsIteration : instanceSettings.getMaxRequestsIterationArray()) {
-                        for (int timeWindow : instanceSettings.getTimeWindowArray()) {
-                            for (int vehicleMaxCapacity : instanceSettings.getVehicleMaxCapacityArray()) {
-                                for (int initialFleet : instanceSettings.getInitialFleetArray()) {
-                                    for (boolean isAllowedToHire : instanceSettings.getAllowVehicleHiringArray()) {
-                                        for (boolean isAllowedToDisplaceRequests : instanceSettings.getAllowRequestDisplacementArray()) {
-                                            for (int contractDuration : instanceSettings.getContractDurationArray()) {
-                                                for (CustomerBaseConfig customerBaseSettings : instanceSettings.getCustomerBaseSettingsArray()) {
+                System.out.println(Config.getInstance().getEarliestTime());
+                for (String spMethod : instanceSettings.getShortestPathAlgorithm()) {
+                    for (int timeHorizon : instanceSettings.getTimeHorizonArray()) {
+                        for (int maxRequestsIteration : instanceSettings.getMaxRequestsIterationArray()) {
+                            for (int timeWindow : instanceSettings.getTimeWindowArray()) {
+                                for (int vehicleMaxCapacity : instanceSettings.getVehicleMaxCapacityArray()) {
+                                    for (int initialFleet : instanceSettings.getInitialFleetArray()) {
+                                        for (boolean isAllowedToHire : instanceSettings.getAllowVehicleHiringArray()) {
+                                            for (boolean isAllowedToDisplaceRequests : instanceSettings.getAllowRequestDisplacementArray()) {
+                                                for (int contractDuration : instanceSettings.getContractDurationArray()) {
+                                                    for (CustomerBaseConfig customerBaseSettings : instanceSettings.getCustomerBaseSettingsArray()) {
 
-                                                    // Update global class configuration to run current test case
-                                                    Config.getInstance().updateQosDic(customerBaseSettings.qosDic);
+                                                        // Update global class configuration to run current test case
+                                                        Config.getInstance().updateQosDic(customerBaseSettings.qosDic);
+                                                        Config.getInstance().setShortestPathAlgorithm(spMethod);
 
-                                                    Rebalance rebalancingSettings = new Rebalance();
+                                                        Rebalance rebalancingSettings = new Rebalance();
 
-                                                    for (RebalanceStrategy rebalanceStrategy : instanceSettings.getRebalancingMethods()) {
+                                                        for (RebalanceStrategy rebalanceStrategy : instanceSettings.getRebalancingMethods()) {
 
-                                                        rebalancingSettings.setStrategy(rebalanceStrategy);
+                                                            rebalancingSettings.setStrategy(rebalanceStrategy);
 
-                                                        for (RideMatchingStrategy matchingMethod : instanceSettings.getMatchingMethods()) {
+                                                            for (RideMatchingStrategy matchingMethod : instanceSettings.getMatchingMethods()) {
 
-                                                            Matching matchingSettings = new Matching(
-                                                                    customerBaseSettings,
-                                                                    contractDuration,
-                                                                    rebalancingSettings,
-                                                                    isAllowedToHire && matchingMethod instanceof MatchingOptimalServiceLevelAndHire,
-                                                                    isAllowedToDisplaceRequests);
+                                                                Matching matchingSettings = new Matching(
+                                                                        customerBaseSettings,
+                                                                        contractDuration,
+                                                                        rebalancingSettings,
+                                                                        isAllowedToHire && matchingMethod instanceof MatchingOptimalServiceLevelAndHire,
+                                                                        isAllowedToDisplaceRequests);
 
 
-                                                            matchingSettings.setStrategy(matchingMethod);
+                                                                matchingSettings.setStrategy(matchingMethod);
 
-                                                            Instant before = Instant.now();
+                                                                Instant before = Instant.now();
 
-                                                            //TODO instance objects generating solution objects
-                                                            // Create FCFS simulation
-                                                            Simulation simulation = new SimulationFCFS(
-                                                                    instanceSettings.getInstanceName(),
-                                                                    instanceSettings.getMaxTimeToReachRegionCenter(),
-                                                                    initialFleet,
-                                                                    vehicleMaxCapacity,
-                                                                    maxRequestsIteration,
-                                                                    timeWindow,
-                                                                    timeHorizon,
-                                                                    contractDuration,
-                                                                    isAllowedToHire,
-                                                                    customerBaseSettings.serviceRateLabel,
-                                                                    customerBaseSettings.customerSegmentationLabel,
-                                                                    rebalancingSettings,
-                                                                    matchingSettings);
+                                                                //TODO instance objects generating solution objects
+                                                                // Create FCFS simulation
+                                                                Simulation simulation = new SimulationFCFS(
+                                                                        instanceSettings.getInstanceName(),
+                                                                        instanceSettings.getMaxTimeToReachRegionCenter(),
+                                                                        initialFleet,
+                                                                        vehicleMaxCapacity,
+                                                                        maxRequestsIteration,
+                                                                        timeWindow,
+                                                                        timeHorizon,
+                                                                        contractDuration,
+                                                                        isAllowedToHire,
+                                                                        customerBaseSettings.serviceRateLabel,
+                                                                        customerBaseSettings.customerSegmentationLabel,
+                                                                        rebalancingSettings,
+                                                                        matchingSettings);
 
-                                                            // Run simulation
-                                                            simulation.run();
+                                                                // Run simulation
+                                                                simulation.run();
 
-                                                            // Reset classes for next iteration
-                                                            Dao.getInstance().resetRecords();
-                                                            User.reset();
-                                                            Vehicle.reset();
-                                                            Node.reset();
-                                                            NodeMiddle.reset();
-                                                            Visit.reset();
-                                                            Simulation.reset();
-                                                            Solution.reset();
+                                                                // Reset classes for next iteration
+                                                                Dao.getInstance().resetRecords();
+                                                                User.reset();
+                                                                Vehicle.reset();
+                                                                Node.reset();
+                                                                NodeMiddle.reset();
+                                                                Visit.reset();
+                                                                Simulation.reset();
+                                                                Solution.reset();
 
-                                                            Instant after = Instant.now();
-                                                            Duration duration = Duration.between(before, after);
-                                                            System.out.println("Duration:" + duration.toMillis());
+                                                                Instant after = Instant.now();
+                                                                Duration duration = Duration.between(before, after);
+                                                                System.out.println("Duration:" + duration.toMinutes());
+                                                            }
                                                         }
                                                     }
+                                                    Config.reset();
                                                 }
-                                                Config.reset();
                                             }
-                                        }
 
+                                        }
                                     }
                                 }
 
