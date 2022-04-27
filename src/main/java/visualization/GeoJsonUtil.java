@@ -49,7 +49,7 @@ public class GeoJsonUtil {
 
         User u = User.mapOfUsers.getOrDefault(n.getTripId(), null);
         String nodeInfo = String.format(
-                "        \"type\": \"%s\"," +
+                "        \"type\": \"%s\",\n" +
                         "        \"arrival\": \"%s\",\n" +
                         "        \"departure\": \"%s\",\n" +
                         "        \"duration\": %s,\n" +
@@ -62,8 +62,8 @@ public class GeoJsonUtil {
                         "        \"id\": \"%s\"\n",
                 n.getType(),
                 Config.sec2Datetime(n.getArrival()),
-                n.getDeparture() == null ? "-" : Config.sec2Datetime(n.getDeparture()),
-                n.getDeparture() == null ? "-" : n.getDeparture() - n.getArrival(),
+                n.getDeparture() == null ? "null" : Config.sec2Datetime(n.getDeparture()),
+                n.getDeparture() == null ? "null" : n.getDeparture() - n.getArrival(),
                 Config.sec2Datetime(n.getEarliest()),
                 Config.sec2Datetime(n.getLatest()),
                 u != null ? u.toString().trim() : "-",
