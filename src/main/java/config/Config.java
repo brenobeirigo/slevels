@@ -38,6 +38,7 @@ public class Config {
     public Map<String, Qos> qosDic;
     private Date earliestTime;
     private List<Qos> qosListPriority;
+    private String spAlgorithm;
 
     private Config() {
         qosDic = new HashMap<>();
@@ -137,5 +138,13 @@ public class Config {
 
     public void setEarliestTime(Date earliestTime) {
         this.earliestTime = earliestTime;
+    }
+
+    public void setShortestPathAlgorithm(String spMethod) {
+        this.spAlgorithm = spMethod;
+    }
+
+    public String getSpAlgorithm() {
+        return spAlgorithm;
     }
 }

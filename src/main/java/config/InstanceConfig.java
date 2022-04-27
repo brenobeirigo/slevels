@@ -29,6 +29,7 @@ public class InstanceConfig {
     public static final String GEOJSON_TRACK_FOLDER = "geojson_track";
     // Singleton
     private static InstanceConfig instance;
+    private List<String> spMethodArray;
     private ArrayList<Date> earliestTimeArray;
     private Date firstDate;
     private String instanceFilePath; // File path of the instance
@@ -132,6 +133,7 @@ public class InstanceConfig {
             this.allowVehicleHiringArray = gson.fromJson(scenarioConfig.get("allow_vehicle_hiring").getAsJsonArray(), boolean[].class);
             this.allowRequestDisplacementArray = gson.fromJson(scenarioConfig.get("allow_request_displacement").getAsJsonArray(), boolean[].class);
             this.maxTimeToReachRegionCenter = gson.fromJson(scenarioConfig.get("max_time_to_reach_region_center"), int.class);
+            this.spMethodArray = gson.fromJson(scenarioConfig.get("shortest_path_method").getAsJsonArray(), new TypeToken<List<String>>() {}.getType());
 
             // Customer base settings
             Type segmentationScenarioType = new TypeToken<HashMap<String, HashMap<String, Double>>>() {
@@ -443,6 +445,10 @@ public class InstanceConfig {
 
     public int[] getMaxRequestsIterationArray() {
         return maxRequestsIterationArray;
+    }
+
+    public List<String> getShortestPathAlgorithm() {
+        return spMethodArray;
     }
 
     public int[] getInitialFleetArray() {

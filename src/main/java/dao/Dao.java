@@ -12,6 +12,9 @@ import model.node.NodeNetwork;
 import org.apache.commons.csv.CSVFormat;
 import org.apache.commons.csv.CSVParser;
 import org.apache.commons.csv.CSVRecord;
+import org.jgrapht.alg.interfaces.AStarAdmissibleHeuristic;
+import org.jgrapht.alg.interfaces.ShortestPathAlgorithm;
+import org.jgrapht.alg.shortestpath.AStarShortestPath;
 import org.jgrapht.alg.shortestpath.DijkstraShortestPath;
 import org.jgrapht.graph.DefaultWeightedEdge;
 import org.jgrapht.graph.SimpleDirectedWeightedGraph;
@@ -44,12 +47,36 @@ public class Dao {
     public static final String PICKUP_LONGITUDE = "pickup_longitude";
     public static final String DROPOFF_LATITUDE = "dropoff_latitude";
     public static final String DROPOFF_LONGITUDE = "dropoff_longitude";
+    // Vehicle can only execute new plan after a solution has been generated and broadcasted
+    // Hence the earliest departure time from a pickup point IS NOT the time request was placed but:
+    // Earliest departure time =
+    //  Latest time window of request batch
+    //  + solution generation delay (SGD)
+    //  + solution broadcasting delay (SBD)
+    // Hence, assuming SGD=5s and SBD=5, if users can handle a 600-second pickup delay and entail a 60-second service time:
+    // Consider user A has made a request at t=15s in batch 0-30s, then:
+    // A) Earliest time = 15s
+    // A) Latest pickup = 600 - 15 = 585s
+    // A) Earliest departure = 30 + 5 + 5 + 60 = 100s
+    //
+
+    // Consider user B has made a request at t=20s in batch 0-30s, then:
+    // B) Earliest time = 20s
+    // B) Latest pickup = 600 - 20 = 580s
+    // B) Earliest departure = 30 + 5 + 5 + 60 = 45s
+
+    // If:
+    // A ------- 500s -------- B, then a vehicle cannot pool A and B.
+    // (A,B) = 100 + 500 = 600 (earliest arrival at B) > 580 (latest pickup)
+    private static final int AVG_DELAY_GENERATE_SOLUTION = 0;
+    private static final int AVG_DELAY_BROADCAST_SOLUTION = 0;
+    private static final String SHORTEST_PATH_DIJKSTRA = "shortest_path_dijkstra";
+    private static final String SHORTEST_PATH_ASTAR = "shortest_path_astar";
     public static int numberOfNodes;
     private static Dao ourInstance = new Dao();
     public final long SEED = 0;
     public Random rand;
-    protected DijkstraShortestPath<Integer, Integer> dijkstraShortestPath;
-    protected AStarShortestPath<Integer, DefaultWeightedEdge> aStarShortestPath;
+    protected ShortestPathAlgorithm<Integer, DefaultWeightedEdge> shortestPath;
     protected ArrayList<ArrayList<List<Integer>>> shortestPathsNodeIds;
     protected ArrayList<ArrayList<List<Integer>>> shortestPathDistances;
     private String pathDistanceMatrix;
@@ -115,15 +142,19 @@ public class Dao {
 
             // networkGraph = getWeightedGraphFromAdjacencyMatrix(adjacencyMatrix, distMatrixMeters);
             networkGraph = getWeightedGraphFromAdjacencyMatrix(adjacencyMatrix, distMatrix);
-            dijkstraShortestPath = new DijkstraShortestPath(networkGraph);
-            aStarShortestPath = new AStarShortestPath<Integer, DefaultWeightedEdge>(
-                    networkGraph,
-                    new AStarAdmissibleHeuristic<Integer>() {
-                        @Override
-                        public double getCostEstimate(Integer i, Integer j) {
-                            return distMatrix[i][j];
-                        }
-                    });
+
+            if (Config.getInstance().getSpAlgorithm().equals(SHORTEST_PATH_DIJKSTRA)) {
+                this.shortestPath = new DijkstraShortestPath(networkGraph);
+            } else if (Config.getInstance().getSpAlgorithm().equals(SHORTEST_PATH_ASTAR)) {
+                this.shortestPath = new AStarShortestPath<Integer, DefaultWeightedEdge>(
+                        networkGraph,
+                        new AStarAdmissibleHeuristic<Integer>() {
+                            @Override
+                            public double getCostEstimate(Integer i, Integer j) {
+                                return distMatrix[i][j];
+                            }
+                        });
+            }
 
             // Shortest path info (node ids, node arrivals)
             shortestPathsNodeIds = new ArrayList<>();
@@ -352,11 +383,26 @@ public class Dao {
         return b.toString();
     }
 
-
+    /**
+     * Get shortest path (node id list) between origin o and destination d (including)
+     * @param o Shortest path origin
+     * @param d Shortest path destination
+     * @return List of node ids
+     */
     public List<Integer> getShortestPathBetween(int o, int d) {
 
         if (shortestPathsNodeIds.get(o).get(d) == null) {
-            List<Integer> sp = dijkstraShortestPath.getPath(o, d).getVertexList();
+            //Instant a = Instant.now();
+            List<Integer> sp = shortestPath.getPath(o, d).getVertexList();
+//            Instant b = Instant.now();
+//            List<Integer> sp2 = aStarShortestPath.getPath(o, d).getVertexList();
+//            Instant c = Instant.now();
+//            Duration d1 = Duration.between(a, b);
+//            Duration d2 = Duration.between(b, c);
+
+//            System.out.println(sp + "-" + d1.toMillis());
+//            System.out.println(sp2 + "-" + d2.toMinutes());
+            //System.out.printf("%d -> %d\n s%\n %s \n\n", o, d, String.valueOf(sp), String.valueOf(sp2));
             shortestPathsNodeIds.get(o).set(d, sp);
         }
         return shortestPathsNodeIds.get(o).get(d);
