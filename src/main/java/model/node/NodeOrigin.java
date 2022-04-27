@@ -4,14 +4,24 @@ package model.node;
 public class NodeOrigin extends Node {
 
 
-    public NodeOrigin(int id, int id_network, double lat, double lon, int load) {
-        super(id, id_network, lat, lon, 0, Integer.MAX_VALUE, load);
-        this.tripId = id;
+    public NodeOrigin(int vehicleId, int networkId, double lat, double lon) {
+        super(vehicleId, networkId, lat, lon, 0, Integer.MAX_VALUE);
+        this.load = 0;
+        this.tripId = vehicleId;
+        this.delay = 0;
+        this.departure = null;
+        this.arrival = this.earliest;
+        this.arrivalSoFar = this.earliest;
     }
 
-    public NodeOrigin(int id, int id_network, int load) {
-        super(id, id_network, 0, Integer.MAX_VALUE, load);
+    public NodeOrigin(int id, int id_network) {
+        super(id, id_network, 0, Integer.MAX_VALUE);
+        this.load = 0;
         this.tripId = id;
+        this.delay = 0;
+        this.departure = null;
+        this.arrival = this.earliest;
+        this.arrivalSoFar = this.earliest;
     }
 
     @Override

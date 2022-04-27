@@ -5,14 +5,27 @@ public class NodeStop extends Node {
     // Vehicle that generated node Stop
     private int vehicleId;
 
-    public NodeStop(Node stop, int vehicleId, int minDeparture) {
+    /**
+     * Created when vehicle parks somewhere.
+     * @param stop Node where vehicle stopped.
+     * @param vehicleId Vehicle that created stop.
+     * @param earliestDeparture Time when vehicle reaches stop node.
+     */
+    public NodeStop(Node stop, int vehicleId, int earliestDeparture) {
         super(stop.getId(), stop.getNetworkId());
-
-
-        this.arrival = stop.getArrival();
-        this.tripId = stop.getTripId();
         this.vehicleId = vehicleId;
-        this.departure = minDeparture;
+        this.tripId = stop.getTripId();
+
+        this.load = 0;
+        this.arrival = stop.getArrival();
+        this.arrivalSoFar = stop.getArrival();
+        this.earliest = stop.getArrival();
+        this.latest = Integer.MAX_VALUE;
+
+        this.earliestDeparture = earliestDeparture;
+        this.departure = null;
+
+        this.delay = 0;
     }
 
     public int getVehicleId() {

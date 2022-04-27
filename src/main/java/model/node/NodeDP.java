@@ -1,10 +1,18 @@
 package model.node;
 
+import simulation.Simulation;
+
 public class NodeDP extends Node {
 
-    public NodeDP(int id_network, double lat, double lon, int tripId, int earliest, int latest, int load) {
-        super(tripId + Node.MAX_NUMBER_NODES, id_network, lat, lon, earliest, latest, load);
+    public NodeDP(int networkId, double lat, double lon, int tripId, int earliest, int latest, int load) {
+        super(tripId + Node.MAX_NUMBER_NODES, networkId, lat, lon, earliest, latest);
+        this.load = load;
         this.tripId = tripId;
+        this.delay = null;
+        this.departure = null;
+        this.arrival = null;
+        this.arrivalSoFar = null;
+        this.earliestDeparture = Math.max(earliest, Simulation.rightTW);
     }
 
     @Override

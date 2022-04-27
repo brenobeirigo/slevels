@@ -1,37 +1,34 @@
 package model.node;
 
+import dao.Dao;
+import model.Vehicle;
+
 public class NodeTargetRebalancing extends Node {
 
     private int vehicleId;
     private Node genNode;
 
-    public NodeTargetRebalancing(Node stop, int vehicleId) {
-        super(stop.getId(),
-                stop.getNetworkId());
 
-        this.arrival = stop.getArrival();
-        this.tripId = stop.getTripId();
-        this.vehicleId = vehicleId;
-    }
+    public NodeTargetRebalancing(Vehicle vehicle, Node target) {
+        super(target.getId(), target.getNetworkId());
+        this.tripId = target.getTripId();
 
+        this.load = 0;
 
-    public NodeTargetRebalancing(Node stop) {
+        int distToTarget = Dao.getInstance().getDistSec(vehicle.getLastVisitedNode(), target);
+        this.earliest = vehicle.getEarliestDeparture() + distToTarget;
+        this.latest = Integer.MAX_VALUE;
+        this.earliestDeparture = earliest;
+        this.arrivalSoFar = earliest;
 
-        super(stop.getId(), stop.getNetworkId());
+        this.arrival = null;
+        this.departure = null;
 
-        // What if a target re-enters? A new node target have to be formed, but the original node must be passed over.
-        if (stop instanceof NodeTargetRebalancing) {
-            this.setGenNode(((NodeTargetRebalancing) stop).getGenNode());
-        } else {
+        this.urgent = target.urgent;
+        this.hotness = target.hotness;
 
-            this.setGenNode(stop);
-
-        }
-        this.arrival = stop.getArrival();
-        this.departure = stop.getDeparture();
-        this.tripId = stop.getTripId();
-        this.urgent = stop.urgent;
-        this.hotness = stop.hotness;
+        this.setGenNode(target);
+        this.delay = 0;
     }
 
     @Override
@@ -73,6 +70,13 @@ public class NodeTargetRebalancing extends Node {
     }
 
     public void setGenNode(Node genNode) {
-        this.genNode = genNode;
+        // What if a target re-enters? A new node target have to be formed, but the original node must be passed over.
+        //TODO check if this holds
+        if (genNode instanceof NodeTargetRebalancing) {
+            this.genNode = ((NodeTargetRebalancing) genNode).getGenNode();
+        } else {
+            this.genNode = genNode;
+
+        };
     }
 }

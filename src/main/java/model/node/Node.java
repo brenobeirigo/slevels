@@ -1,6 +1,8 @@
 package model.node;
 
 import dao.Dao;
+import model.User;
+import simulation.Simulation;
 
 import java.awt.geom.Point2D;
 import java.util.HashMap;
@@ -20,14 +22,15 @@ public abstract class Node implements Comparable<Node> {
     public static Map<Integer, Double[]> nodeDic = new HashMap<>();
 
     protected int networkId, id;
-    protected int earliest;
-    protected int arrival; // Updated when picked up (User is a passenger)
-    protected int departure;
-    protected int latest;
-    protected int arrivalSoFar; // Updated on the first match (User is a request)
-    protected int load;
-    protected int delay;
-    protected int tripId;
+    protected Integer earliest;
+    protected Integer earliestDeparture; // Node is only accounted by the system at decision points at the end of batch TWs
+    protected Integer arrival; // Updated when picked up (User is a passenger)
+    protected Integer departure;
+    protected Integer latest;
+    protected Integer arrivalSoFar; // Updated on the first match (User is a request)
+    protected Integer load;
+    protected Integer delay;
+    protected Integer tripId;
 
     //TODO: Place this in pk
     protected int urgent;
@@ -36,9 +39,6 @@ public abstract class Node implements Comparable<Node> {
     public Node(int id, int networkId) {
         this.id = id;
         this.networkId = networkId;
-        this.latest = Integer.MAX_VALUE;
-        this.earliest = 0;
-        this.arrivalSoFar = Integer.MAX_VALUE;
     }
 
 
@@ -47,16 +47,25 @@ public abstract class Node implements Comparable<Node> {
         this.load = n.load;
         this.networkId = n.networkId;
         this.earliest = n.earliest;
+        this.earliestDeparture = n.earliestDeparture;
         this.latest = n.latest;
         this.arrival = n.arrival;
         this.arrivalSoFar = n.arrivalSoFar;
         this.tripId = n.tripId;
+        this.delay = n.delay;
+        this.departure = n.departure;
+        this.urgent = n.urgent;
+        this.hotness = n.hotness;
 
         //Node.hotSpot.compute(this.networkId, (tokenKey, oldValue) -> oldValue == null ? 1 : oldValue + 1);
     }
 
+    public static boolean nodesAreAtSameNetworkLocations(Node lastVisitedNode, Node middle) {
+        return lastVisitedNode.getNetworkId() == middle.getNetworkId();
+    }
 
-    public int getDeparture() {
+
+    public Integer getDeparture() {
         return departure;
     }
 
@@ -64,26 +73,20 @@ public abstract class Node implements Comparable<Node> {
         this.departure = departure;
     }
 
-    public Node(int id, int networkId, double lat, double lon, int earliest, int latest, int load) {
+    public Node(int id, int networkId, double lat, double lon, int earliest, int latest) {
         this.id = id;
-        this.load = load;
         this.networkId = networkId;
         this.earliest = earliest;
         this.latest = latest;
         Node.nodeDic.put(networkId, new Double[]{lat, lon});
-        this.arrivalSoFar = Integer.MAX_VALUE;
-        //Node.hotSpot.compute(this.networkId, (tokenKey, oldValue) -> oldValue == null ? 1 : oldValue + 1);
     }
 
-    public Node(int id, int networkId, int earliest, int latest, int load) {
+    public Node(int id, int networkId, int earliest, int latest) {
         this.id = id;
-        this.load = load;
         this.networkId = networkId;
         this.earliest = earliest;
         this.latest = latest;
         Node.nodeDic.put(networkId, new Double[]{0.0, 0.0});
-        this.arrivalSoFar = Integer.MAX_VALUE;
-        //Node.hotSpot.compute(this.networkId, (tokenKey, oldValue) -> oldValue == null ? 1 : oldValue + 1);
     }
 
     public static void reset() {
@@ -125,25 +128,25 @@ public abstract class Node implements Comparable<Node> {
                 "[timestep=%4d] %7s (earliest=%4s, ear. dep=%4s, departure=%4s, arrival=%4s, latest=%4s) [delay=%4s] %s",
                 Simulation.rightTW,
                 this,
-                String.valueOf(this instanceof NodePK || this instanceof NodeDP ? this.getEarliest() : "----"),
-                String.valueOf(this instanceof NodePK || this instanceof NodeDP ? this.getEarliestDeparture() : "----"),
+                String.valueOf(this.getEarliest()),
+                String.valueOf(this.getEarliestDeparture()),
                 String.valueOf(this.getDeparture()),
                 String.valueOf(this.getArrival()),
                 String.valueOf(this instanceof NodePK || this instanceof NodeDP ? this.getLatest() : "----"),
-                String.valueOf(this instanceof NodePK || this instanceof NodeDP ? this.getArrival() - getEarliest() : "----"),
+                String.valueOf(this.getArrival()!=null? this.getArrival() - getEarliest() : "----"),
                 String.valueOf(this instanceof NodePK? String.format("(dist. DP=%4d)", Dao.getInstance().getDistSec(this, User.mapOfUsers.get(this.tripId).getNodeDp())): ""));
     }
 
-    public int getDelay() {
+    public Integer getDelay() {
         return delay;
     }
 
-    public int getDelaySoFar(){
+    public Integer getDelaySoFar(){
         // Arrival so far is Integer.MAX_VALUE, hence delaySoFar is a large number when node was not visited.
         return this.arrivalSoFar - this.earliest;
     }
 
-    public int getTripId() {
+    public Integer getTripId() {
         return tripId;
     }
 
@@ -151,7 +154,7 @@ public abstract class Node implements Comparable<Node> {
         return id;
     }
 
-    public int getLoad() {
+    public Integer getLoad() {
         return load;
     }
 
@@ -169,7 +172,7 @@ public abstract class Node implements Comparable<Node> {
         return this.networkId;
     }
 
-    public int getEarliest() {
+    public Integer getEarliest() {
         return earliest;
     }
 
@@ -177,7 +180,7 @@ public abstract class Node implements Comparable<Node> {
         this.earliest = earliest;
     }
 
-    public int getArrival() {
+    public Integer getArrival() {
         return arrival;
     }
 
@@ -186,7 +189,7 @@ public abstract class Node implements Comparable<Node> {
         this.delay = arrival - earliest;
     }
 
-    public int getLatest() {
+    public Integer getLatest() {
         return latest;
     }
 
@@ -244,11 +247,26 @@ public abstract class Node implements Comparable<Node> {
         this.urgent++;
     }
 
-    public int getArrivalSoFar() {
+    public Integer getArrivalSoFar() {
         return arrivalSoFar;
     }
 
     public void setArrivalSoFar(int arrivalSoFar) {
         this.arrivalSoFar = arrivalSoFar;
+    }
+
+    /**
+     * IF node = DP -> Departure can be greater than rightTW
+     * IF node = PK && on-demand-based system -> Departure always <= rightTW
+     * If node = PK && reservation-based system -> Departure can be greater than right TW
+     *
+     * @return Earliest time Node ca be serviced
+     */
+    public Integer getEarliestDeparture() {
+        return earliestDeparture;
+    }
+
+    public void setEarliestDeparture(int earliestDeparture) {
+        this.earliestDeparture = earliestDeparture;
     }
 }
