@@ -363,41 +363,94 @@ public class Visit implements Comparable<Visit> {
         return secondTierUsers;
     }
 
-    public static void realize(Visit visit, Rebalance rebalanceUtil, int timeWindow) {
+    public static void realize(Visit visit) {
 
         // Does nothing if same visit chosen (e.g., continue rebalancing)
         if (visit.getVehicle().getVisit() == visit)
             return;
 
-        // Dummy visit for parked vehicle does not alter setup
+        // Dummy visit for parked or rebalancing vehicle
         if (visit instanceof VisitStop) {
             return;
         }
 
-        // Relocation visit -> Vehicle drop scheduled requests and stop at the closest node
+        // Vehicle drop scheduled requests and stop at the closest node
         if (visit instanceof VisitRelocation) {
-            visit.getVehicle().rebalanceToClosestNode();
+            visit.vehicle.setVisit(visit);
             return;
         }
 
-        // If vehicle was rebalancing, interrupt first
+        // If vehicle was rebalancing, compute the rebalancing distance until middle
         if (visit.getVehicle().isRebalancing()) {
-            rebalanceUtil.interruptRebalancing(visit, timeWindow);
+            visit.getVehicle().computeDistanceTraveledRebalancingUntilMiddle();
+            visit.getVehicle().setStoppedRebalanceToPickup(true);
         }
 
         // Add visit to vehicle (circular)
         visit.getVehicle().setVisit(visit);
 
-        for (User request : visit.getRequests()) {
+        // Update visit for users in vehicle
+        for (User request : Iterables.concat(visit.getRequests(), visit.getPassengers())) {
             request.setCurrentVisit(visit);
         }
 
         // Go through nodes and update arrival so far
-        visit.updateArrivalSoFar();
+        visit.updateArrivalSoFarAtVisitNodes();
 
         // Vehicle is not idle
         visit.getVehicle().setRoundsIdle(0);
 
+    }
+
+
+    public static void realize2(Visit visit) {
+
+        // Does nothing if same visit chosen (e.g., continue rebalancing)
+        if (visit.getVehicle().getVisit() == visit)
+            return;
+
+
+        // If vehicle was rebalancing, compute the rebalancing distance until middle
+        if (visit.getVehicle().isRebalancing()) {
+            visit.getVehicle().computeDistanceTraveledRebalancingUntilMiddle();
+            visit.getVehicle().setStoppedRebalanceToPickup(true);
+        }
+
+        // Add visit to vehicle (circular)
+        visit.getVehicle().setVisit(visit);
+
+        // If visit being realized contain users assigned to other vehicles, remove them from these vehicles.
+        for (User request : visit.getRequests()) {
+            request.setCurrentVisit(visit);
+            // If request was assigned to another vehicle
+            if (request.getCurrentVehicle() != null && request.getCurrentVehicle() != visit.getVehicle()) {
+                Vehicle vehiclePreviouslyAssignedToRequest = request.getCurrentVehicle();
+                Visit visitWithoutRequest = vehiclePreviouslyAssignedToRequest.getVisitWithoutRequest(request);
+                vehiclePreviouslyAssignedToRequest.setVisit(visitWithoutRequest);
+
+                for (User u : visitWithoutRequest.getRequests()) {
+                    u.setCurrentVisit(visitWithoutRequest);
+                }
+
+                for (User u : visitWithoutRequest.getPassengers()) {
+                    u.setCurrentVisit(visit);
+                }
+
+            }
+        }
+
+        // Go through nodes and update arrival so far
+        visit.updateArrivalSoFarAtVisitNodes();
+
+        // Vehicle is not idle
+        visit.getVehicle().setRoundsIdle(0);
+
+        visit.getVehicle().updateMiddle(Simulation.rightTW);
+
+    }
+
+    public Integer getDeparture() {
+        return this.departure;
     }
 
     public int getArrival() {
