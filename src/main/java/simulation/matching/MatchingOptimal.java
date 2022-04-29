@@ -1,5 +1,6 @@
 package simulation.matching;
 
+import com.google.common.collect.Iterables;
 import config.Config;
 import config.Qos;
 import dao.Dao;
@@ -57,6 +58,46 @@ public class MatchingOptimal implements RideMatchingStrategy {
         this.rejectionPenalty = rejectionPenalty;
         this.orderedListOfObjectiveLabels = orderedListOfObjectiveLabels;
         this.penObjectives = new LinkedHashMap<>();
+    }
+
+    @Override
+    public void realizeVisit(Visit visit) {
+
+        // Does nothing if same visit chosen (e.g., continue rebalancing)
+        if (visit.getVehicle().getVisit() == visit)
+            return;
+
+        // Dummy visit for parked or rebalancing vehicle
+        if (visit instanceof VisitStop) {
+            return;
+        }
+
+        // Vehicle drop scheduled requests and stop at the closest node
+        if (visit instanceof VisitRelocation) {
+            visit.getVehicle().setVisit(visit);
+            return;
+        }
+
+        // If vehicle was rebalancing, compute the rebalancing distance until middle
+        if (visit.getVehicle().isRebalancing()) {
+            visit.getVehicle().computeDistanceTraveledRebalancingUntilMiddle();
+            visit.getVehicle().setStoppedRebalanceToPickup(true);
+        }
+
+        // Add visit to vehicle (circular)
+        visit.getVehicle().setVisit(visit);
+
+        // Update visit for users in vehicle
+        for (User request : Iterables.concat(visit.getRequests(), visit.getPassengers())) {
+            request.setCurrentVisit(visit);
+        }
+
+        // Go through nodes and update arrival so far
+        visit.updateArrivalSoFarAtVisitNodes();
+
+        // Vehicle is not idle
+        visit.getVehicle().setRoundsIdle(0);
+
     }
 
     public String getVarUser(User user) {
@@ -189,8 +230,8 @@ public class MatchingOptimal implements RideMatchingStrategy {
     }
 
     @Override
-    public void realize(Set<Visit> visits, Rebalance rebalanceUtil, int currentTime) {
-        visits.forEach(visit -> Visit.realize(visit, rebalanceUtil, currentTime));
+    public void realize(Set<Visit> visits) {
+        visits.forEach(visit -> realizeVisit(visit));
     }
 
     protected void keepPreviousAssignment() {

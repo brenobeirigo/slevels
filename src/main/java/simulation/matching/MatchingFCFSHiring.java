@@ -171,7 +171,7 @@ public class MatchingFCFSHiring implements RideMatchingStrategy {
             // If best visit is found, update vehicle with visit data
             if (bestVisit != null) {
 
-                Visit.realize(bestVisit, configMatching.rebalanceUtil, currentTime);
+                realizeVisit(bestVisit);
                 result.addVisit(bestVisit);
                 // Save old vehicle configuration
                 /*Visit clone = new Visit(bestVisit);
@@ -205,7 +205,12 @@ public class MatchingFCFSHiring implements RideMatchingStrategy {
     }
 
     @Override
-    public void realize(Set<Visit> visits, Rebalance rebalanceUtil, int currentTime) {
+    public void realize(Set<Visit> visits) {
+
+    }
+
+    @Override
+    public void realizeVisit(Visit visit) {
 
     }
 

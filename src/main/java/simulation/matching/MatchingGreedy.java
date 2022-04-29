@@ -347,8 +347,13 @@ public class MatchingGreedy implements RideMatchingStrategy {
     }
 
     @Override
-    public void realize(Set<Visit> visits, Rebalance rebalanceUtil, int currentTime) {
-        visits.forEach(visit -> Visit.realize(visit, rebalanceUtil, currentTime));
+    public void realize(Set<Visit> visits) {
+        visits.forEach(visit -> realizeVisit(visit));
+    }
+
+    @Override
+    public void realizeVisit(Visit visit) {
+
     }
 
     @Override

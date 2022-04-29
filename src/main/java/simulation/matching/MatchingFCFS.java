@@ -1,5 +1,6 @@
 package simulation.matching;
 
+import com.google.common.collect.Iterables;
 import config.Config;
 import dao.Dao;
 import model.User;
@@ -26,6 +27,55 @@ public class MatchingFCFS implements RideMatchingStrategy {
         this.allPermutations = allPermutations;
         this.stopAtFirstBest = stopAtFirstBest;
         this.checkInParallel = checkInParallel;
+    }
+
+    @Override
+    public void realizeVisit(Visit visit) {
+
+        // Does nothing if same visit chosen (e.g., continue rebalancing)
+        if (visit.getVehicle().getVisit() == visit)
+            return;
+
+
+        // If vehicle was rebalancing, compute the rebalancing distance until middle
+        if (visit.getVehicle().isRebalancing()) {
+            visit.getVehicle().computeDistanceTraveledRebalancingUntilMiddle();
+            visit.getVehicle().setStoppedRebalanceToPickup(true);
+        }
+
+        // Add visit to vehicle (circular)
+        visit.getVehicle().setVisit(visit);
+
+        // Assign visit to requests
+        for (User request : visit.getRequests()) {
+            request.setCurrentVisit(visit);
+
+            // If request was assigned to another vehicle
+            if (request.getCurrentVehicle() != null && request.getCurrentVehicle() != visit.getVehicle()) {
+                Vehicle vehiclePreviouslyAssignedToRequest = request.getCurrentVehicle();
+                Visit visitWithoutRequest = vehiclePreviouslyAssignedToRequest.getVisitWithoutRequest(request);
+                vehiclePreviouslyAssignedToRequest.setVisit(visitWithoutRequest);
+
+                // Assign visit without requests to its users
+                for (User u : Iterables.concat(visitWithoutRequest.getRequests(), visitWithoutRequest.getPassengers())) {
+                    u.setCurrentVisit(visitWithoutRequest);
+                }
+            }
+        }
+
+        // Assign visit to passengers
+        for (User passenger : visit.getPassengers()) {
+            passenger.setCurrentVisit(visit);
+        }
+
+        // Go through nodes and update arrival so far
+        visit.updateArrivalSoFarAtVisitNodes();
+
+        // Vehicle is not idle
+        visit.getVehicle().setRoundsIdle(0);
+
+        visit.getVehicle().updateMiddle(Simulation.rightTW);
+
     }
 
     /**
