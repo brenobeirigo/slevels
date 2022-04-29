@@ -28,9 +28,10 @@ public class PDPInsertions implements Iterator<Node[]> {
     }
 
     public PDPInsertions(User request, Vehicle vehicle) {
-        //System.out.printf("Vehicle=%s, User=%s\n", vehicle, request);
-        this.sequence = vehicle.isServicing()? new ArrayList<>(vehicle.getVisit().getSequenceVisits()):new ArrayList<>();
-        if (!this.sequence.isEmpty() && this.sequence.get(0) instanceof NodeMiddle){
+        this.sequence = vehicle.isServicing() ? new ArrayList<>(vehicle.getVisit().getSequenceVisits()) : new ArrayList<>();
+
+        // Remove middle node from insertion sequence
+        if (!this.sequence.isEmpty() && this.sequence.get(0) instanceof NodeMiddle) {
             this.sequence.remove(0);
         }
         this.user = request;
@@ -58,7 +59,7 @@ public class PDPInsertions implements Iterator<Node[]> {
             jIndex++;
             if (jIndex >= insertedP.size()) {
                 iIndex++;
-                jIndex = iIndex+1;
+                jIndex = iIndex + 1;
             }
 
             return insertedP.toArray(new Node[insertedP.size()]);
