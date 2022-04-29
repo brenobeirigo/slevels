@@ -1,10 +1,13 @@
 package util;
 
+import com.google.common.collect.Lists;
 import model.User;
 import model.Vehicle;
+import model.Visit;
 import model.node.Node;
 import model.node.NodeMiddle;
 
+import java.lang.reflect.Array;
 import java.util.*;
 
 public class PDPInsertions implements Iterator<Node[]> {
@@ -19,12 +22,6 @@ public class PDPInsertions implements Iterator<Node[]> {
     public PDPInsertions(User request, List<Node> sequence) {
         this.user = request;
         this.sequence = new ArrayList<>(sequence);
-        this.sequence2 = new Node[sequence.size()+2];
-        this.sequence2[0] = request.getNodePk();
-        this.sequence2[1] = request.getNodeDp();
-        for (int i = 0; i <sequence.size(); i++) {
-           this.sequence2[i+2] = sequence.get(i);
-        }
     }
 
     public PDPInsertions(User request, Vehicle vehicle) {
@@ -67,35 +64,11 @@ public class PDPInsertions implements Iterator<Node[]> {
         return null;
     }
 
-
-    public Node[] next2() {
-
-        if (hasNext()) {
-
-            jIndex2++;
-            if (jIndex2 == 1){
-                jIndex2++;
-                return sequence2;
-            }
-
-
-            if (jIndex2 > sequence.size()) {
-                iIndex2++;
-                // 1 1' 2 2'
-                // 1 2 1' 2'
-                // 1 2 2' 1'
-                // 1 2 2' 1'
-                // 1 1 2' 1'
-
-                // 1 1' 2 2'
-                // 1 1' 2 2' 3 3'
-                // 1 2 1'
-                jIndex2 = iIndex2+1;
-            }
-            swap(sequence2, jIndex-1, jIndex);
-
-            return sequence2;
-        }
-        return null;
+    @Override
+    public String toString() {
+        return "PDPInsertions{" +
+                "user=" + user +
+                ", sequence=" + Arrays.asList(sequence) +
+                '}';
     }
 }
