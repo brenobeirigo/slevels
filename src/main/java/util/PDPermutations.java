@@ -16,7 +16,7 @@ import java.util.*;
 
 import model.User;
 
-public class PDPermutations implements Iterator<Node[]> {
+public class PDPermutations implements PDGenerator {
 
     private Iterator<int[]> configIndexPermutationIterator;
     private Node[] basePUDOVector;
@@ -105,7 +105,7 @@ public class PDPermutations implements Iterator<Node[]> {
     }
 
     public PDPermutations(Set<User> requests, Vehicle vehicle) {
-        loadAllPUDOPermutationsFrom(requests, vehicle);
+        start(requests, vehicle);
     }
 
     private static Node[] loadNextPUDOPermutation(int[] configIndexPermutation, Node[] basePUDOVector) {
@@ -156,55 +156,18 @@ public class PDPermutations implements Iterator<Node[]> {
         return sequence;
     }
 
-    public static void main(String[] str) {
+    @Override
+    public void start(User request, Vehicle vehicle) {
 
+    }
 
-        String s = "D:\\projects\\dev\\slevels\\config.json";
-        InstanceConfig instanceSettings;
-        try {
-            instanceSettings = Config.createInstanceFrom(s);
+    @Override
+    public void start(User request, Node[] sequence) {
 
-            Date earliestTime = Config.formatter_date_time.parse("2011-02-12 00:00:00");
-            Config.getInstance().setEarliestTime(earliestTime);
-            CustomerBaseConfig customerBaseSettings = instanceSettings.getCustomerBaseSettingsArray().get(0);
-            Config.getInstance().updateQosDic(customerBaseSettings.qosDic);
+    }
 
-
-            System.out.println(earliestTime);
-            //Load requests 5 minutes apart
-            User u1 = new User("2011-02-12 00:00:00", 1, 0, 1, 3, 2, 3, 2);
-            User u5 = new User("2011-02-12 00:00:00", 1, 0, 1, 3, 2, 3, 2);
-            User u2 = new User("2011-02-12 00:05:00", 1, 2, 3, 3, 2, 3, 2);
-            User u3 = new User("2011-02-12 00:10:00", 1, 3, 4, 3, 2, 3, 2);
-            User u4 = new User("2011-02-12 00:15:00", 1, 4, 5, 3, 2, 3, 2);
-
-            Set<User> requests = new HashSet<>();
-            //requests.add(u1);
-            //requests.add(u2);
-            //requests.add(u5);
-
-
-
-
-            Set<User> passengers = new HashSet<>();
-            passengers.add(u3);
-            passengers.add(u4);
-
-            Vehicle v = new Vehicle(4,0,0,false, 4000);
-            Visit v1 = new Visit();
-            v1.setPassengers(passengers);
-            // v1.setRequests(requests);
-
-            v.setVisit(v1);
-
-            PDPermutations perms = new PDPermutations(requests, v);
-            while (perms.hasNext()) {
-                System.out.println(Arrays.toString(perms.next()));
-            }
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-
-
+    @Override
+    public void start(Set<User> requests, Vehicle vehicle) {
+        this.loadAllPUDOPermutationsFrom(requests, vehicle);
     }
 }

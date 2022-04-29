@@ -1,30 +1,42 @@
 package util;
 
-import com.google.common.collect.Lists;
 import model.User;
 import model.Vehicle;
-import model.Visit;
 import model.node.Node;
 import model.node.NodeMiddle;
 
-import java.lang.reflect.Array;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Iterator;
+import java.util.List;
 
-public class PDPInsertions implements Iterator<Node[]> {
-    public int iIndex = 0;
-    public int jIndex = 1;
-    public int jIndex2 = 0;
-    public int iIndex2 = 0;
+public class PDGeneratorSingleInsertion implements Iterator<Node[]> {
+    public int iIndex;
+    public int jIndex;
     public User user;
     public ArrayList<Node> sequence;
-    public Node[] sequence2;
 
-    public PDPInsertions(User request, List<Node> sequence) {
+    public PDGeneratorSingleInsertion() {
+        this.iIndex = 0;
+        this.jIndex = 1;
+    }
+
+    public PDGeneratorSingleInsertion(User request, List<Node> sequence) {
+        this();
+        this.start(request, sequence);
+    }
+
+    public void start(User request, List<Node> sequence) {
         this.user = request;
         this.sequence = new ArrayList<>(sequence);
     }
 
-    public PDPInsertions(User request, Vehicle vehicle) {
+    public PDGeneratorSingleInsertion(User request, Vehicle vehicle) {
+        this();
+        this.start(request, vehicle);
+    }
+
+    public void start(User request, Vehicle vehicle) {
         this.sequence = vehicle.isServicing() ? new ArrayList<>(vehicle.getVisit().getSequenceVisits()) : new ArrayList<>();
 
         // Remove middle node from insertion sequence
@@ -37,12 +49,6 @@ public class PDPInsertions implements Iterator<Node[]> {
     @Override
     public boolean hasNext() {
         return !(iIndex > this.sequence.size() && jIndex > this.sequence.size());
-    }
-
-    public void swap(Node[] sequence, int i, int j){
-    Node aux = sequence[i];
-    sequence[i] = sequence[j];
-    sequence[j] = aux;
     }
 
     @Override
