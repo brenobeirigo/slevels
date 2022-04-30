@@ -1,10 +1,6 @@
-package util;
+package util.pdcombinatorics;
 
-import config.Config;
-import config.CustomerBaseConfig;
-import config.InstanceConfig;
 import model.Vehicle;
-import model.Visit;
 import model.node.Node;
 
 import java.io.BufferedReader;
@@ -18,6 +14,9 @@ import model.User;
 
 public class PDPermutations implements PDGenerator {
 
+    public PDPermutations(){
+
+    }
     private Iterator<int[]> configIndexPermutationIterator;
     private Node[] basePUDOVector;
     private static Map<Integer, Map<Integer, int[][]>>  mapPUDO;

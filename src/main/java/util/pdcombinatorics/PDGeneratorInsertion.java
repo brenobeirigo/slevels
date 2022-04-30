@@ -1,4 +1,4 @@
-package util;
+package util.pdcombinatorics;
 
 import model.User;
 import model.Vehicle;
@@ -7,6 +7,13 @@ import model.node.Node;
 import java.util.*;
 
 public class PDGeneratorInsertion implements PDGenerator {
+
+    public static Comparator<User> userComparatorDescendingEarliestTime = new Comparator<User>() {
+        @Override
+        public int compare(User user1, User user2) {
+            return user2.getNodePk().getEarliest().compareTo(user1.getNodePk().getEarliest());
+        }
+    };
 
     LinkedList<PDGeneratorSingleInsertion> pdPartialInsertionList;
     private LinkedList<User> sortedRequests;
@@ -22,12 +29,7 @@ public class PDGeneratorInsertion implements PDGenerator {
 
     public LinkedList<User> getRequestListSortedByReversedEarliestTime(Set<User> requests) {
         LinkedList<User> requestList = new LinkedList<>(requests);
-        Collections.sort(requestList, new Comparator<User>() {
-            @Override
-            public int compare(User o1, User o2) {
-                return o2.getNodePk().getEarliest().compareTo(o1.getNodePk().getEarliest());
-            }
-        });
+        Collections.sort(requestList, userComparatorDescendingEarliestTime);
         return requestList;
     }
 
@@ -59,7 +61,7 @@ public class PDGeneratorInsertion implements PDGenerator {
     public Node[] next() {
         Node[] PDSequence = null;
 
-        buildPartialInsertionList();
+        pushInsertionGenerators();
 
         if (pdPartialInsertionList.getLast().hasNext()) {
 
@@ -67,24 +69,57 @@ public class PDGeneratorInsertion implements PDGenerator {
 
             // If last sequence has been exhausted, prepare sequences for next iteration
             if (!pdPartialInsertionList.getLast().hasNext()) {
-                popPartialInsertionList();
+                popExhaustedInsertionGenerators();
             }
         }
         return PDSequence;
     }
 
-    private void popPartialInsertionList() {
+    private void popExhaustedInsertionGenerators() {
         while (!pdPartialInsertionList.isEmpty() && !pdPartialInsertionList.getLast().hasNext()) {
             PDGeneratorSingleInsertion exhaustedPUDOGenerator = pdPartialInsertionList.removeLast();
+            System.out.println(pdPartialInsertionList.getLast().user +" - "+pdPartialInsertionList.getLast().sequence);
             sortedRequests.add(exhaustedPUDOGenerator.user);
         }
     }
 
-    private void buildPartialInsertionList() {
+    /*
+    Build partial list of generators. Example:
+    u1 - e=1
+    u2 - e=2
+    u3 - e=3
+    # Sorted requests
+    3(2B)-3
+    2(3B)-2
+    1(1B)-1
+    2(3B) - [       PK3,        DP3]
+    1(1B) - [       PK2,        DP2,        PK3,        DP3]
+    ... All permutations with 1(1B)
+    2(3B) - [       PK3,        DP3] --------------------> dropped [       PK2,        DP2,        PK3,        DP3]
+    1(1B) - [       PK2,        PK3,        DP2,        DP3]
+    ... All permutations with 1(1B)
+    2(3B) - [       PK3,        DP3] --------------------> dropped [       PK2,        PK3,        DP2,        DP3]
+    1(1B) - [       PK2,        PK3,        DP3,        DP2]
+    ... All permutations with 1(1B)
+    2(3B) - [       PK3,        DP3]
+    1(1B) - [       PK3,        PK2,        DP2,        DP3]
+    ... All permutations with 1(1B)
+    2(3B) - [       PK3,        DP3]
+    1(1B) - [       PK3,        PK2,        DP3,        DP2]
+    ... All permutations with 1(1B)
+    2(3B) - [       PK3,        DP3]
+    1(1B) - [       PK3,        DP3,        PK2,        DP2]
+    ... All permutations with 1(1B)
+    2(3B) - [       PK3,        DP3]
+    3(2B) - []
+
+     */
+    private void pushInsertionGenerators() {
 
         while (!sortedRequests.isEmpty()) {
             ArrayList<Node> sequence = new ArrayList<>(List.of(pdPartialInsertionList.getLast().next()));
-            PDGeneratorSingleInsertion PDSingleInsertion = new PDGeneratorSingleInsertion(sortedRequests.removeLast(), sequence);
+            PDGeneratorSingleInsertion PDSingleInsertion = new PDGeneratorSingleInsertion(sortedRequests.removeFirst(), sequence);
+            System.out.println(PDSingleInsertion.user +" - "+PDSingleInsertion.sequence);
             pdPartialInsertionList.add(PDSingleInsertion);
         }
     }

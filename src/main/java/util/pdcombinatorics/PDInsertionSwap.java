@@ -1,13 +1,10 @@
-package util;
+package util.pdcombinatorics;
 
-        import com.google.common.collect.Lists;
         import model.User;
         import model.Vehicle;
-        import model.Visit;
         import model.node.Node;
         import model.node.NodeMiddle;
 
-        import java.lang.reflect.Array;
         import java.util.*;
 
 public class PDInsertionSwap implements Iterator<Node[]> {
