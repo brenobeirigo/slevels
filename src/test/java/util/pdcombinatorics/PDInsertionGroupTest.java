@@ -1,11 +1,12 @@
-package util;
+package util.pdcombinatorics;
 
 import model.User;
 import model.Vehicle;
 import org.testng.annotations.Test;
-import util.pdcombinatorics.PDGeneratorInsertion;
 
-import java.util.*;
+import java.util.Arrays;
+import java.util.HashSet;
+import java.util.List;
 
 public class PDInsertionGroupTest {
 
