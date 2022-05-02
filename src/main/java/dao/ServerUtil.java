@@ -8,10 +8,7 @@ import java.io.BufferedReader;
 import java.io.InputStreamReader;
 import java.net.HttpURLConnection;
 import java.net.URL;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.Map;
+import java.util.*;
 import java.util.stream.Collectors;
 
 public class ServerUtil {
@@ -252,10 +249,18 @@ public class ServerUtil {
      * @param d Destination node id
      * @return list of ids
      */
-    public static ArrayList<String> getShortestPathCoordsBetween(int o, int d) {
+    public static ArrayList<String> getRESTShortestPathCoordsBetween(int o, int d) {
         String rest = String.format(restShortestPathCoords, o, d);
         ArrayList<String> listCoords = null;
         listCoords = (ArrayList) Arrays.asList(requestTo(rest).split(";")).stream().collect(Collectors.toList());
+        return listCoords;
+    }
+
+    public static List<String> getShortestPathCoordsBetween(int o, int d) {
+        String rest = String.format(restShortestPathCoords, o, d);
+        List<String> listCoords = null;
+        listCoords = Dao.getInstance().getLonLatList(Dao.getInstance().getShortestPathBetween(o,d));
+
         return listCoords;
     }
 
