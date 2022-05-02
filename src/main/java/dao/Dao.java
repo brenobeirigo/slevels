@@ -98,7 +98,6 @@ public class Dao {
 
     private Map<Integer, Set<Integer>> mapReachableNetworkIdsWithinTimeLimit;
     private short[][] distMatrix;
-    private short[][] distMatrixDerivedFromSP;
     private double[][] distMatrixMeters;
     private int[][] adjacencyMatrix;
     private SimpleDirectedWeightedGraph<Integer, DefaultWeightedEdge> networkGraph;
@@ -107,7 +106,7 @@ public class Dao {
     private User userBuff;
     private List<User> allUsers;
     private Iterable<CSVRecord> records;
-    private int currentTime = 0;
+    private int earliestTimeRequestBatch = 0;
     private Runtime runTimes;
 
     public Runtime getRunTimes() {
@@ -144,9 +143,9 @@ public class Dao {
 
             //distMatrix = getDistanceMatrixFrom(pathDistanceMatrix);
             distMatrix = getDistanceMatrixFrom(pathDurationsMatrix, false);
-            loadPrecalculatedPermutationsPUDO(pathPrecalculatedPermutations);
 
-            distMatrixDerivedFromSP = new short[numberOfNodes][numberOfNodes];
+            System.out.printf("# Reading precalculated PUDO data from \"%s\"...%n", pathPrecalculatedPermutations);
+            loadPrecalculatedPermutationsPUDO(pathPrecalculatedPermutations);
 
             adjacencyMatrix = getAdjacencyMatrix(pathadjacencyMatrix);
 
@@ -431,7 +430,7 @@ public class Dao {
             runTimes = new Runtime();
 
             // Reset system current for next test set
-            currentTime = 0;
+            earliestTimeRequestBatch = 0;
 
             // Read the requests from the beginning
             records = CSVFormat.RFC4180.withFirstRecordAsHeader().parse(new FileReader(pathRequestList));
@@ -975,12 +974,13 @@ public class Dao {
      */
     public int getIntermediateNodeNetworkId(int o, int d, int elapsedTime) {
 
-        //TODO Decide what to do when  elapsed time is zero
-        List<Integer> sp = getShortestPathBetween(o, d);
-
-        if (sp == null) {
-            System.out.println("NULL" + o + " - " + d);
+        // Vehicle did not leave the origin
+        if (elapsedTime == 0) {
+            return o;
         }
+
+        List<Integer> sp = getShortestPathBetween(o, d);
+        assert sp != null && !sp.isEmpty() : String.format("NULL" + o + " - " + d);
 
         if (shortestPathDistances.get(o).get(d) == null) {
             List<Integer> spArrivals = getSpNodeArrivals(sp);
@@ -988,51 +988,20 @@ public class Dao {
         }
 
         List<Integer> intermediateArrivalsList = shortestPathDistances.get(o).get(d);
-
-
-        //System.out.println(intermediateArrivalsList.stream().map(p -> String.format("%5s", String.valueOf(p))).collect(Collectors.joining()));
-        //System.out.println(getShortestPathBetween(networkIdFrom, networkIdTo).stream().map(p -> String.format("%5s", String.valueOf(p))).collect(Collectors.joining()));
-
-        // No path between nodes
-        if (intermediateArrivalsList.isEmpty())
-            return -1;
-
-        if (elapsedTime <= 0)
-            return -1;
-
-        //Elapsed time higher than last node
-        if (elapsedTime >= intermediateArrivalsList.get(intermediateArrivalsList.size() - 1))
-            return -1;
+        assert !intermediateArrivalsList.isEmpty();
 
         // Find position of first higher arrival
-        int pos = Collections.binarySearch(intermediateArrivalsList, elapsedTime);
-
+        int insertionPoint = Collections.binarySearch(intermediateArrivalsList, elapsedTime);
 
         // Correct for elapsedTime not in shortest path (<0)
-        pos = pos >= 0 ? pos : -1 - pos;
+        // Position that element would be inserted into the list = (-(insertion point) - 1).
+        insertionPoint = insertionPoint >= 0 ? insertionPoint : -1 - insertionPoint;
 
-        if (sp.get(pos) == d) {
-            return -1;
+        if (insertionPoint == sp.size()) {
+            return d;
         }
 
-        /*
-        if (getDistSec(networkIdFrom, sp.get(pos)) == 0 || getDistSec(sp.get(pos), networkIdTo) == 0) {
-            System.out.println(sp);
-            System.out.println(intermediateArrivalsList);
-            System.out.println("DIST FROM:" + getDistSec(sp.get(pos), networkIdFrom));
-            System.out.println("DIST TO:" + getDistSec(sp.get(pos), networkIdTo));
-            System.out.println("ELAPSED:" + elapsedTime + " - POS:" + pos + " - POSNODE:" + sp.get(pos) + " -- FROM:" + networkIdFrom + " -- TO:" + networkIdTo);
-            System.out.println("ZERO DISTANCE !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
-        }
-        */
-
-        //System.out.println(intermediateArrivalsList);
-
-        // Decide which node is closer (before or after first higher)
-
-        return sp.get(pos);
-
-
+        return sp.get(insertionPoint);
     }
 
     /**
