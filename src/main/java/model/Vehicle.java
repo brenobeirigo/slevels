@@ -568,6 +568,10 @@ public class Vehicle implements Comparable<Vehicle> {
         return first;
     }
 
+    public Visit getValidVisitForUser(User candidateRequest) {
+        return Method.getBestVisitFromInsertion(this, candidateRequest);
+    }
+
     /**
      * Get best insertion of candidate user in vehicle at current time.
      */

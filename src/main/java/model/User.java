@@ -512,7 +512,7 @@ public class User implements Comparable<User> {
         // Try to insert user in each vehicle
         for (Vehicle v : listVehicles) {
 
-            Visit candidateVisit = v.getVisitWithInsertedUser(this, currentTime);
+            Visit candidateVisit = v.getValidVisitForUser(this);
 
             // Update best visit if delay of candidate visit is shorter
             if (candidateVisit != null && candidateVisit.compareTo(bestVisit) < 0) {
