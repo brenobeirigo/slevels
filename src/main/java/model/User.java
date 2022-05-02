@@ -76,6 +76,49 @@ public class User implements Comparable<User> {
         this.servedBy = User.WAITING;
     }
 
+    public User(int pkEarliest,
+                int pkLatest,
+                int dpEarliest,
+                int dpLatest,
+                int numPassengers,
+                int originId,
+                int destinationId,
+                double originLat,
+                double originLon,
+                double destinationLat,
+                double destinationLon) {
+
+        this.servedBy = User.WAITING;
+
+        this.reqTime = pkEarliest;
+        this.setNumPassengers(numPassengers);
+        this.id = ++nTrips;
+
+        this.performanceClass = "B";
+
+
+        this.nodePk = new NodePK(
+                originId,
+                originLat,
+                originLon,
+                this.id,
+                this.reqTime,
+                pkLatest,
+                numPassengers);
+
+        this.nodeDp = new NodeDP(
+                destinationId,
+                destinationLat,
+                destinationLon,
+                this.id,
+                dpEarliest,
+                dpLatest,
+                -numPassengers);
+
+        // Save all users
+        mapOfUsers.put(this.id, this);
+    }
+
     public User(String reqTime,
                 int numPassengers,
                 int originId,
