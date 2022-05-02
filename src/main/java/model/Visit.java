@@ -6,16 +6,15 @@ import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import dao.Dao;
 import model.node.*;
-import simulation.rebalancing.Rebalance;
+import simulation.Simulation;
 
 import java.util.*;
 import java.util.stream.Collectors;
 
-import static config.Config.*;
-
 public class Visit implements Comparable<Visit> {
     // TODO use visit count to index visits
     private static int visitCount;
+    protected Integer departure; // When vehicle departs
     protected LinkedList<Node> sequenceVisits; // Sequence of pickup and delivery nodes
     protected Vehicle vehicle;
     protected double avgLoadPerVisitLeg; // Load divided by visit's legs
@@ -26,7 +25,7 @@ public class Visit implements Comparable<Visit> {
     private Set<User> requests; // Users that can still be moved (not picked up)
     public Map<User, Integer> userDelayMap;
 
-    public static Comparator<Visit> visitComparator = Comparator.comparing(Visit::getDelay).thenComparing(Visit::getVisitSequenceSize);
+    public static Comparator<Visit> visitComparator = Comparator.nullsLast(Comparator.comparing(Visit::getDelay).thenComparing(Visit::getVisitSequenceSize));
     private List<Integer> draftArrivalTimes;
 
     public Visit(Visit v) {
@@ -101,19 +100,33 @@ public class Visit implements Comparable<Visit> {
         this.requests = new HashSet<>();
     }
 
-    public Visit(Node[] sequencePD, int delay, int idleness, Vehicle vehicle) {
+    public Visit(Node[] sequencePD, int delay, int idleness, Vehicle vehicle, Set<User> requests) {
+        this.avgLoadPerVisitLeg = Double.MIN_VALUE;
+        this.delay = delay;
+        this.idle = idleness;
+        this.departure = vehicle.getEarliestDeparture();
+        this.requests = new HashSet<>(requests);
+        this.vehicle = vehicle;
 
         this.sequenceVisits = new LinkedList<>(Arrays.asList(sequencePD));
 
-        if (vehicle.getMiddleNode() != null){
-            if(vehicle.getVisit().getTargetNode() != sequencePD[0])
-                this.sequenceVisits.push(vehicle.getMiddleNode());
-        }
+        // Vehicle is already realizing another visit
+        if (this.vehicle.getMiddleNode() != null) {
 
-        this.delay = delay;
-        this.idle = idleness;
-        this.requests = new HashSet<>();
+            // When the new sequence has parts of the old sequence, the first node may coincide. Example:
+            // OLD: 0---M,1,1'
+            // NEW: 0---M,1,1',2,2'
+            // Therefore, middle node does not need to be inserted again.
+            if (this.vehicle.getTargetNode() != sequencePD[0]) {
+                // Middle node must be added to realize new trip if vehicle changes plan
+                this.sequenceVisits.push(vehicle.getMiddleNode());
+            }
+        }
+        // All passengers in vehicle belong to visit (they need to be dropped off)
         this.passengers = new HashSet<>();
+        if (vehicle.isServicing()) {
+            this.passengers.addAll(vehicle.getVisit().getPassengers());
+        }
     }
 
 
@@ -179,6 +192,80 @@ public class Visit implements Comparable<Visit> {
             // TODO add service time to arrival
         }
         return cumulativeLegPK[Vehicle.DELAY];
+    }
+
+    /**
+     * Construct visit sequence node by node.
+     * @param vehicle Vehicle carrying out visit
+     * @param validPDSequence Valid pickup and delivery sequence
+     * @return Last leg of visit.
+     */
+    public static Leg getDraftVisit(Vehicle vehicle, Node[] validPDSequence) {
+        //System.out.println("# Vehicle="+vehicle.getInfo());
+        //System.out.println(Arrays.toString(validPDSequence));
+
+        Leg currentLeg = new Leg(vehicle);
+
+        //                 t
+        // ----------528--600---628
+        //           PK1        DP2
+        // Vehicle is moving
+        // - Going to a stop point (i.e., closest middle node) upon having its customers displaced (has left last node, but there is no middle node)
+        // - Servicing a passenger (has left the last node, and there is a middle node)
+        // - Rebalancing (has left the last node, and there is a middle node)
+
+
+        // Should a middle node be added to the sequence?
+        if (vehicle.hasLeftLastNode() && (vehicle.isServicing() || vehicle.isRebalancing())) {
+
+            Node middle = vehicle.getMiddleNode();
+            assert middle != null : String.format("vehicle=%s, visit=%s, node=%s", vehicle, vehicle.getVisit(), vehicle.getLastVisitedNode().getInfo());
+            // Only add middle if vehicle is moving to different node. Example:
+            // O -------- PK1-----DP1 (current route)
+            // O -------- PK1 --- PK2 --- DP1 --- DP2 (new sequence)
+            // No need to add middle node since vehicle is already moving to PK1.
+            if (!vehicle.isMovingToNode(validPDSequence[0])) {
+
+                currentLeg.updateNextNode(middle);
+                // When middle is updated, vehicle is changing plans
+                //assert currentLeg.arrivalNext >= Simulation.rightTW: String.format("arrival next=%d, simulation=%d, departure=%d",currentLeg.arrivalNext, Simulation.rightTW, vehicle.getDepartureCurrent());
+            }
+        }
+        // Valid sequence = [1,1']
+        // Vehicle sequence = [0,1,1']
+        //System.out.println(vehicle.getVisit());
+        for (Node node : validPDSequence) {
+
+            //System.out.printf("from= %s ### Arrival=%4d ### Delay=%4d\n", currentLeg.fromNode.getInfo(), currentLeg.arrivalNext, currentLeg.delay);
+            if (!currentLeg.updateNextNode(node)) {
+                return null;
+            }
+            assert currentLeg.arrivalNext >= Simulation.rightTW;
+        }
+        return currentLeg;
+    }
+
+    /**
+     * Construct visit sequence node by node.
+     * @param validPDSequence Valid pickup and delivery sequence
+     * @return Last leg of visit.
+     */
+    public static Leg getDraftVisit(Node[] validPDSequence) {
+        //System.out.println("RR"+ Arrays.toString(validPDSequence));
+        Leg currentLeg = new Leg(validPDSequence[0]);
+
+        assert validPDSequence[0].getLatest() >= Simulation.rightTW;
+
+        for (int i = 1; i < validPDSequence.length; i++) {
+            assert validPDSequence[0].getLatest() >= Simulation.rightTW;
+            //System.out.printf("from= %s ### Arrival=%4d ### Delay=%4d\n", currentLeg.fromNode.getInfo(), currentLeg.arrivalNext, currentLeg.delay);
+            if (!currentLeg.updateNextNode(validPDSequence[i])) {
+                return null;
+            }
+
+        }
+        //System.out.printf("%s %d %d\n", currentLeg.fromNode.getInfo(), currentLeg.arrivalNext, currentLeg.delay);
+        return currentLeg;
     }
 
     /** Check if pickup-and-delivery sequence is valid regarding:
@@ -363,91 +450,6 @@ public class Visit implements Comparable<Visit> {
         return secondTierUsers;
     }
 
-    public static void realize(Visit visit) {
-
-        // Does nothing if same visit chosen (e.g., continue rebalancing)
-        if (visit.getVehicle().getVisit() == visit)
-            return;
-
-        // Dummy visit for parked or rebalancing vehicle
-        if (visit instanceof VisitStop) {
-            return;
-        }
-
-        // Vehicle drop scheduled requests and stop at the closest node
-        if (visit instanceof VisitRelocation) {
-            visit.vehicle.setVisit(visit);
-            return;
-        }
-
-        // If vehicle was rebalancing, compute the rebalancing distance until middle
-        if (visit.getVehicle().isRebalancing()) {
-            visit.getVehicle().computeDistanceTraveledRebalancingUntilMiddle();
-            visit.getVehicle().setStoppedRebalanceToPickup(true);
-        }
-
-        // Add visit to vehicle (circular)
-        visit.getVehicle().setVisit(visit);
-
-        // Update visit for users in vehicle
-        for (User request : Iterables.concat(visit.getRequests(), visit.getPassengers())) {
-            request.setCurrentVisit(visit);
-        }
-
-        // Go through nodes and update arrival so far
-        visit.updateArrivalSoFarAtVisitNodes();
-
-        // Vehicle is not idle
-        visit.getVehicle().setRoundsIdle(0);
-
-    }
-
-
-    public static void realize2(Visit visit) {
-
-        // Does nothing if same visit chosen (e.g., continue rebalancing)
-        if (visit.getVehicle().getVisit() == visit)
-            return;
-
-
-        // If vehicle was rebalancing, compute the rebalancing distance until middle
-        if (visit.getVehicle().isRebalancing()) {
-            visit.getVehicle().computeDistanceTraveledRebalancingUntilMiddle();
-            visit.getVehicle().setStoppedRebalanceToPickup(true);
-        }
-
-        // Add visit to vehicle (circular)
-        visit.getVehicle().setVisit(visit);
-
-        // If visit being realized contain users assigned to other vehicles, remove them from these vehicles.
-        for (User request : visit.getRequests()) {
-            request.setCurrentVisit(visit);
-            // If request was assigned to another vehicle
-            if (request.getCurrentVehicle() != null && request.getCurrentVehicle() != visit.getVehicle()) {
-                Vehicle vehiclePreviouslyAssignedToRequest = request.getCurrentVehicle();
-                Visit visitWithoutRequest = vehiclePreviouslyAssignedToRequest.getVisitWithoutRequest(request);
-                vehiclePreviouslyAssignedToRequest.setVisit(visitWithoutRequest);
-
-                for (User u : visitWithoutRequest.getRequests()) {
-                    u.setCurrentVisit(visitWithoutRequest);
-                }
-
-                for (User u : visitWithoutRequest.getPassengers()) {
-                    u.setCurrentVisit(visit);
-                }
-
-            }
-        }
-
-        // Go through nodes and update arrival so far
-        visit.updateArrivalSoFarAtVisitNodes();
-
-        // Vehicle is not idle
-        visit.getVehicle().setRoundsIdle(0);
-
-        visit.getVehicle().updateMiddle(Simulation.rightTW);
-
-    }
 
     public Integer getDeparture() {
         return this.departure;
@@ -507,7 +509,7 @@ public class Visit implements Comparable<Visit> {
         if (o == null || getClass() != o.getClass()) return false;
         Visit visit = (Visit) o;
         return Objects.equal(getVehicle(), visit.getVehicle()) &&
-        getSequenceVisits().containsAll(visit.getSequenceVisits());
+                getSequenceVisits().containsAll(visit.getSequenceVisits());
     }
 
     @Override
@@ -523,30 +525,9 @@ public class Visit implements Comparable<Visit> {
         return visitComparator.compare(this, v);
     }
 
-        String vehicleData = String.format(
-                "%s[%2d] [P=%2d(%2d), R=%2d(%2d)]",
-                vehicle,
-                this.vehicle.getCurrentLoad(),
-                passengers.size(),
-                passengers.stream().mapToInt(User::getNumPassengers).sum(),
-                requests.size(),
-                requests.stream().mapToInt(User::getNumPassengers).sum()
-        );
-
-        // When visit was not yet setup to vehicle, shows that it refers to a draft visit
-        String draftVisit = this.isSetup() ? "[SETUP]" : "[DRAFT]";
-
-        // If rebalancing, create sequence with rebalancing node
-        List<Node> sequenceNodesToVisit;
-        //if (this.vehicle.isRebalancing() && this.vehicle.getVisit().getSequenceVisits() == null) {
-        if (this instanceof VisitRelocation) {
-            sequenceNodesToVisit = new LinkedList<>();
-
-            // Add rebalancing target to list
-            sequenceNodesToVisit.add(getTargetNode());
-        } else {
-            sequenceNodesToVisit = this.getSequenceVisits();
-        }
+    public int getVisitSequenceSize() {
+        return this.sequenceVisits.size();
+    }
 
     /**
      * Check if vehicle is carrying out this visit
@@ -554,19 +535,6 @@ public class Visit implements Comparable<Visit> {
      */
     public boolean isSetup() {
         return this.vehicle.getVisit() == this;
-    }
-
-    private String legInfo(Node lastVisitedNode, int loadUntilLastVisited, int departureLastVisited, int dist) {
-        return String.format(
-                "%s%s[%2d] (%3s, %7s, %3s, %3s)",
-                dist > 0 ? String.format("--> {%4s} -->", dist) : "",
-                lastVisitedNode,
-                loadUntilLastVisited,
-                lastVisitedNode.getEarliest() == 0 ? "-" : departureLastVisited - lastVisitedNode.getEarliest(),
-                departureLastVisited,
-                lastVisitedNode.getArrivalSoFar() == Integer.MAX_VALUE ? "INF" : lastVisitedNode.getArrivalSoFar() - departureLastVisited,
-                lastVisitedNode.getLatest() == Integer.MAX_VALUE ? "INF" : lastVisitedNode.getLatest() - departureLastVisited
-        );
     }
 
     public int isValidSequence() {
@@ -677,34 +645,32 @@ public class Visit implements Comparable<Visit> {
         return true;
     }
 
-    public String getUserInfo() {
-        return String.format("P: %s - R: %s", this.getPassengers(), this.getRequests());
-    }
-
     /**
-     * When visits are setup, define for each node the expected arrival time. This can be used to invalidate routes:
-     * visit is valid only when pickup times decrease.
+     * When visits are set up, define for each node the expected arrival time.
+     * This can be used to invalidate routes: visit is valid only when pickup times decrease.
      */
-    public void updateArrivalSoFar() {
-
-        int arrival = this.getVehicle().getLastVisitedNode().getDeparture();
-        Node first = this.getVehicle().getLastVisitedNode();
-        for (Node next : this.getSequenceVisits()) {
-            arrival += Dao.getInstance().getDistSec(first, next);
-            // TODO add service time
-            next.setArrivalSoFar(arrival);
-            first = next;
+    public void updateArrivalSoFarAtVisitNodes() {
+        if (!this.vehicle.isParked()) {
+            Node first = this.getVehicle().getLastVisitedNode();
+            int arrival = this.getVehicle().getEarliestDeparture();
+            for (Node next : this.getSequenceVisits()) {
+                arrival += Dao.getInstance().getDistSec(first, next);
+                // TODO add service time
+                next.setArrivalSoFar(arrival);
+                first = next;
+            }
         }
     }
 
-    public void setUserDelayPairs(){
-        this.userDelayMap = this.getUserDelayPairs();
+    public void genUserPickupDelayMap() {
+        this.userDelayMap = this.getUserPickupDelayMap();
     }
+
     /**
      * Get the pickup delays of each user for the current visit
      * @return (User, Pickup delay) pairs.
      */
-    public Map<User, Integer> getUserDelayPairs() {
+    public Map<User, Integer> getUserPickupDelayMap() {
 
         // Stop and rebalancing visits have no users
         if (this.getSequenceVisits() == null)
@@ -712,7 +678,7 @@ public class Visit implements Comparable<Visit> {
 
         Map<User, Integer> userDelayPair = new HashMap<>();
         Node first = this.getVehicle().getLastVisitedNode();
-        int arrival = first.getDeparture();
+        int arrival = first.getEarliestDeparture();
 
         for (Node next : this.getSequenceVisits()) {
 
@@ -804,7 +770,7 @@ public class Visit implements Comparable<Visit> {
      * Transform visit to json object.
      * @return String with json representation of object.
      */
-    public String toJson(){
+    public String toJson() {
         Gson gson = new GsonBuilder().setPrettyPrinting().serializeNulls().create();
         // deserialize with gson.fromJson(this.getClass());
         return gson.toJson(this);
@@ -845,7 +811,7 @@ public class Visit implements Comparable<Visit> {
 
         Node lastVisitedNode = this.vehicle.getLastVisitedNode();
         int loadUntilLastVisited = this.vehicle.getCurrentLoad();
-        int departureLastVisited = this.vehicle.getLastVisitedNode().getDeparture();
+        Integer departureLastVisited = this.vehicle.getLastVisitedNode().getDeparture() != null ? this.vehicle.getLastVisitedNode().getDeparture() : this.vehicle.getLastVisitedNode().getEarliestDeparture();
 
         //Current node info
         String lastVisitedNodeInfo = getVehicleDepartureNodeInfo(sequenceNodesToVisit);
@@ -867,10 +833,12 @@ public class Visit implements Comparable<Visit> {
 
         }
 
-        pkDpNodeInfo.add(String.format("<%d, %d>", departureLastVisited, vehicle.getContractDeadline()));
+        if (vehicle.isHired())
+            pkDpNodeInfo.add(String.format("contract=<%s/%s>", departureLastVisited, vehicle.getContractDeadline()));
         String delayInfo = String.format("(delay: %5d - occ.: %5.2f)", delay, avgLoadPerVisitLeg);
         return String.format(
-                "%s %s %s %s %s --- %s",
+                "[timestep=%5d] %s %s %s %s %s --- %s",
+                Simulation.leftTW,
                 draftVisit,
                 delayInfo,
                 vehicleData,
@@ -878,26 +846,33 @@ public class Visit implements Comparable<Visit> {
                 String.join(" ", pkDpNodeInfo),
                 this.getUserInfo());
     }
-    private String getDistanceLegInfoFromNodes(Node from, Node to){
-        String distLegInfo = from == null || to == null? "--------------" : String.format(
+
+    private String getDistanceLegInfoFromNodes(Node from, Node to) {
+        String distLegInfo = from == null || to == null ? "--------------" : String.format(
                 "--> {%4s} -->", Dao.getInstance().getDistSec(from, to));
         return distLegInfo;
     }
+
     private String getVehicleDepartureNodeInfo(List<Node> sequenceNodesToVisit) {
 
         //
         return String.format(
-                "%s (target=%10s) :::%s%s%s%s:::",
+                "%s (departure=%7d, target=%10s) :::%s%s%s%s:::",
                 (this.vehicle.isRebalancing() ? "--RE--" : "--ST--"),
+                this.vehicle.getLastVisitedNode().getDeparture(),
                 this.getTargetNode(),
                 legInfo(
                         this.vehicle.getLastVisitedNode(),
                         this.vehicle.getCurrentLoad(),
                         this.vehicle.getLastVisitedNode().getDeparture(),
                         Integer.MIN_VALUE),
-                getDistanceLegInfoFromNodes(this.vehicle.getLastVisitedNode(), this.vehicle.getMiddleNode()),
+                getDistanceLegInfoFromNodes(
+                        this.vehicle.getLastVisitedNode(),
+                        this.vehicle.getMiddleNode()),
                 this.vehicle.getMiddleNode() == null ? "-------" : this.vehicle.getMiddleNode(),
-                getDistanceLegInfoFromNodes(this.vehicle.getMiddleNode(), sequenceNodesToVisit.get(0))
+                getDistanceLegInfoFromNodes(
+                        this.vehicle.getMiddleNode(),
+                        sequenceNodesToVisit.get(0))
         );
     }
 
@@ -927,10 +902,10 @@ public class Visit implements Comparable<Visit> {
      * @param distBetweenPreviousAndCurrentNodes
      * @return
      */
-    private String legInfo(Node currentNode, int loadVehicleAtCurrentNode, int arrivalAtCurrentNode, int distBetweenPreviousAndCurrentNodes) {
+    private String legInfo(Node currentNode, int loadVehicleAtCurrentNode, Integer arrivalAtCurrentNode, int distBetweenPreviousAndCurrentNodes) {
         return String.format(
                 "%s%s[%2d/%2d] (e=%7s, a=%7s, l=%7s / Δe=%3s, Δa=%3s, Δl=%3s)",
-                distBetweenPreviousAndCurrentNodes == Integer.MIN_VALUE? "": String.format("--> {%4s} -->", distBetweenPreviousAndCurrentNodes),
+                distBetweenPreviousAndCurrentNodes == Integer.MIN_VALUE ? "" : String.format("--> {%4s} -->", distBetweenPreviousAndCurrentNodes),
                 currentNode,
                 loadVehicleAtCurrentNode,
                 vehicle.getCapacity(),
@@ -938,7 +913,7 @@ public class Visit implements Comparable<Visit> {
                 arrivalAtCurrentNode,
                 currentNode.getLatest() == Integer.MAX_VALUE ? "INF" : currentNode.getLatest(),
                 currentNode.getEarliest() == 0 ? "-" : arrivalAtCurrentNode - currentNode.getEarliest(),
-                currentNode.getArrivalSoFar() == Integer.MAX_VALUE ? "INF" : currentNode.getArrivalSoFar() - arrivalAtCurrentNode,
+                currentNode.getArrivalSoFar() == null || arrivalAtCurrentNode == null ? "INF" : currentNode.getArrivalSoFar() - arrivalAtCurrentNode,
                 currentNode.getLatest() == Integer.MAX_VALUE ? "INF" : currentNode.getLatest() - arrivalAtCurrentNode
         );
     }
