@@ -91,8 +91,8 @@ public class Solution {
         createHeader();
     }
 
-    public String getDigitsFromDate(Date date){
-        String onlyDigits = Config.formatter_date_time.format(date).replace("-", "").replace(":","");
+    public String getDigitsFromDate(Date date) {
+        String onlyDigits = Config.formatter_date_time.format(date).replace("-", "").replace(":", "");
         return onlyDigits.replace(" ", "");
     }
 
