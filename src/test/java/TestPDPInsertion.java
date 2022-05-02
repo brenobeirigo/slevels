@@ -38,7 +38,7 @@ public class TestPDPInsertion {
             Vehicle v2 = new Vehicle(4, 1, 0, false, 4000);
             Vehicle v3 = new Vehicle(4, 2, 0, false, 4000);
 
-            PDPInsertions insert = new PDPInsertions(u1, new ArrayList<>(Arrays.asList(u5.getNodePk(), u5.getNodeDp())));
+            PDGeneratorSingleInsertion insert = new PDGeneratorSingleInsertion(u1, new ArrayList<>(Arrays.asList(u5.getNodePk(), u5.getNodeDp())));
 
             while (insert.hasNext()){
                 System.out.println(insert.next());
