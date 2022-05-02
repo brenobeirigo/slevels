@@ -5,6 +5,8 @@ import config.Qos;
 import model.User;
 import model.Vehicle;
 import model.Visit;
+import model.VisitRelocation;
+import model.node.Node;
 
 import java.util.*;
 import java.util.stream.Collectors;
