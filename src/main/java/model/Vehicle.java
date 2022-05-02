@@ -89,7 +89,7 @@ public class Vehicle implements Comparable<Vehicle> {
         this(capacity);
 
         // Vehicle current node is its origin
-        this.lastVisitedNode = this.origin = new NodeOrigin(count, id_network, 0);
+        this.lastVisitedNode = this.origin = new NodeOrigin(count, id_network);
 
         // Vehicle journey (i.e., list of nodes) always start with origin
         this.journey.add(this.origin);
@@ -101,7 +101,7 @@ public class Vehicle implements Comparable<Vehicle> {
         this(capacity);
 
         // Vehicle current node is its origin
-        this.lastVisitedNode = this.origin = new NodeOrigin(count, id_network, lat, lon, 0);
+        this.lastVisitedNode = this.origin = new NodeOrigin(count, id_network, lat, lon);
 
         // Vehicle journey (i.e., list of nodes) always start with origin
         this.journey.add(this.origin);
