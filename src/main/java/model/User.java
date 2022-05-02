@@ -207,7 +207,7 @@ public class User implements Comparable<User> {
     }
 
     public static Set<User> filterDisplaced(List<User> requests) {
-        return requests.stream().filter(user -> user.getNodePk().getArrivalSoFar() != Integer.MAX_VALUE && user.getCurrentVisit() == null).collect(Collectors.toSet());
+        return requests.stream().filter(user -> user.getNodePk().getArrivalSoFar() != null && user.getCurrentVisit() == null).collect(Collectors.toSet());
     }
 
     public String getPickupDatetime() {
@@ -483,7 +483,7 @@ public class User implements Comparable<User> {
     }
 
     public Vehicle getCurrentVehicle() {
-        return currentVisit.vehicle;
+        return currentVisit != null? currentVisit.vehicle: null;
     }
 
     public void setCurrentVisit(Visit currentVisit) {
@@ -650,7 +650,7 @@ public class User implements Comparable<User> {
     }
 
     public boolean isPreviouslyAssigned() {
-        return this.nodePk.getArrivalSoFar() < Integer.MAX_VALUE;
+        return this.nodePk.getArrivalSoFar() != null;
     }
 
     public String getCurrentAssigmentInfo() {
