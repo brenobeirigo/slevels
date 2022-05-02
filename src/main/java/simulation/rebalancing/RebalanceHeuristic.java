@@ -221,10 +221,7 @@ public class RebalanceHeuristic implements RebalanceStrategy {
     }
 
     @Override
-    public void interruptRebalancing(Visit visit, int timeWindow, boolean showInfo, boolean createEpisode) {
-
-        //System.out.println("STOPPED REBALANCING!" + this);
-        Vehicle vehicle = visit.getVehicle();
+    public void interruptRebalancing(Vehicle vehicle, int timeWindow, boolean showInfo, boolean createEpisode) {
 
         Node currentNode = vehicle.getLastVisitedNode();
         Node middleNode = vehicle.getMiddleNode();

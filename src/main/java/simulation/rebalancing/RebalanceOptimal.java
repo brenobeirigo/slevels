@@ -150,10 +150,7 @@ public class RebalanceOptimal implements RebalanceStrategy {
         }
     }
 
-    public void interruptRebalancing(Visit visit, int timeWindow, boolean episode, boolean createEpisode) {
-
-        //System.out.println("STOPPED REBALANCING!" + this);
-        Vehicle vehicle = visit.getVehicle();
+    public void interruptRebalancing(Vehicle vehicle, int timeWindow, boolean episode, boolean createEpisode) {
 
         Node currentNode = vehicle.getLastVisitedNode();
         Node middleNode = vehicle.getMiddleNode();

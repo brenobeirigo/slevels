@@ -9,6 +9,6 @@ import java.util.Set;
 
 public interface RebalanceStrategy {
     void rebalance(Set<Vehicle> idleVehicles, List<Node> targets, Rebalance config);
-    void interruptRebalancing(Visit visit, int timeWindow, boolean episode, boolean createEpisode);
+    void interruptRebalancing(Vehicle vehicle, int timeWindow, boolean episode, boolean createEpisode);
 }
 

@@ -25,16 +25,17 @@ public class Rebalance {
         this.totalExecutionTimeNanoTime = 0;
     }
 
-    public Rebalance() {
+    public Rebalance(RebalanceStrategy strategy) {
         this.showInfo = false;
         this.createEpisode = false;
         this.totalExecutionTimeNanoTime = 0;
+        this.strategy = strategy;
     }
 
-    public void interruptRebalancing(Visit visit, int timeWindow) {
+    public void interruptRebalancing(Vehicle vehicle, int timeWindow) {
         // null = No strategy
         if (this.strategy != null)
-            this.strategy.interruptRebalancing(visit, timeWindow, this.createEpisode, this.showInfo);
+            this.strategy.interruptRebalancing(vehicle, timeWindow, this.createEpisode, this.showInfo);
     }
 
     public void executeStrategy(Set<Vehicle> idleVehicles, List<Node> targets) {
