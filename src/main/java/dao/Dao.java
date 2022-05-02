@@ -87,6 +87,16 @@ public class Dao {
     private String pathNetworkNodeInfo;
     // Geographical data
     private Map<Integer, NodeNetwork> nodeNetworkInfo; // Map of node ids and respective coordinates
+
+    public Map<Integer, Set<Integer>> getMapReachableNetworkIdsWithinTimeLimit() {
+        return mapReachableNetworkIdsWithinTimeLimit;
+    }
+
+    public void setMapReachableNetworkIdsWithinTimeLimit(Map<Integer, Set<Integer>> mapReachableNetworkIdsWithinTimeLimit) {
+        this.mapReachableNetworkIdsWithinTimeLimit = mapReachableNetworkIdsWithinTimeLimit;
+    }
+
+    private Map<Integer, Set<Integer>> mapReachableNetworkIdsWithinTimeLimit;
     private short[][] distMatrix;
     private short[][] distMatrixDerivedFromSP;
     private double[][] distMatrixMeters;
@@ -533,6 +543,8 @@ public class Dao {
      */
     private short[][] getDistanceMatrixFrom(String filePath, boolean useSpeed) {
         distMatrixMeters = new double[numberOfNodes][numberOfNodes];
+        mapReachableNetworkIdsWithinTimeLimit = new HashMap<>();
+
         short[][] dist_matrix = new short[numberOfNodes][numberOfNodes];
 
         try {
@@ -543,6 +555,9 @@ public class Dao {
 
             Iterable<CSVRecord> records = CSVFormat.DEFAULT.parse(in);
             for (CSVRecord record : records) {
+
+                mapReachableNetworkIdsWithinTimeLimit.put(row, new HashSet<>());
+
                 int col = 0;
 
                 for (String r : record) {
@@ -553,6 +568,11 @@ public class Dao {
                         distMatrixMeters[row][col] = meters;
                     } else {
                         dist_matrix[row][col] = Short.valueOf(r);
+                    }
+                    // TODO Reachable within 300s
+                    int maxPickupDelay = 300;
+                    if (dist_matrix[row][col] < maxPickupDelay) { //Config.getInstance().qosDic.get("B").pkDelay
+                        mapReachableNetworkIdsWithinTimeLimit.get(row).add(col);
                     }
 
 

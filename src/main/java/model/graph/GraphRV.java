@@ -196,10 +196,19 @@ public class GraphRV {
 
             if (edge != null){
                 edges.add(edge);
+                assertR1AndR2AreReachable(r1, r2);
             }
         }
 
         return edges;
+    }
+
+    private void assertR1AndR2AreReachable(User r1, User r2) {
+        assert Dao.getInstance().getMapReachableNetworkIdsWithinTimeLimit().get(r1.getNodePk().getNetworkId()).contains(r2.getNodePk().getNetworkId()) ||
+                Dao.getInstance().getMapReachableNetworkIdsWithinTimeLimit().get(r2.getNodePk().getNetworkId()).contains(r1.getNodePk().getNetworkId()) :
+                String.format("%s %s\n",
+                        Dao.getInstance().getDistSec(r1.getNodePk(), r2.getNodePk()),
+                        Dao.getInstance().getDistSec(r2.getNodePk(), r1.getNodePk())); // PK1 - PK2
     }
 
     /**
