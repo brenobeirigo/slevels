@@ -265,7 +265,7 @@ public class MatchingOptimal implements RideMatchingStrategy {
         }
 
         // Save problem
-        model.write(String.format("round_mip_model/IIS_assignment_5%s.lp", this.toString()));
+        model.write(String.format("IIS_assignment_%s.lp", this.toString()));
 
         //graphRTV.printDetailedVisitsLevel();
     }
@@ -278,6 +278,7 @@ public class MatchingOptimal implements RideMatchingStrategy {
         int count = 0;
         // Loop until we reduce to a model that can be solved
         while (true) {
+            count++;
             model.computeIIS();
             System.out.println("\nThe following constraint cannot be satisfied:");
             for (GRBConstr c : model.getConstrs()) {
@@ -292,7 +293,7 @@ public class MatchingOptimal implements RideMatchingStrategy {
 
             System.out.println();
 
-            model.write(String.format("round_mip_model/IIS_assignment_%s_count_%d.lp", this.toString(), count));
+            model.write(String.format("IIS_assignment_%s_count_%d.lp", this.toString(), count));
 
             model.optimize();
             status = model.get(GRB.IntAttr.Status);
