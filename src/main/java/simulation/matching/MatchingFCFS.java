@@ -7,11 +7,14 @@ import model.User;
 import model.Vehicle;
 import model.Visit;
 import model.node.Node;
+import simulation.Simulation;
 import simulation.hiring.HiringFromCenters;
 import simulation.rebalancing.Rebalance;
 
 import java.nio.file.Path;
-import java.util.*;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Set;
 
 public class MatchingFCFS implements RideMatchingStrategy {
 
@@ -183,67 +186,20 @@ public class MatchingFCFS implements RideMatchingStrategy {
         // Loop users
         for (User u : unassignedRequests) {
 
-
             // Aux. best visit for comparison
             Visit bestVisit = u.getBestVisitByInsertion(
                     listVehicles,
                     currentTime,
                     stopAtFirstBest);
 
-            // Depending on user class, decide if new vehicle will be created.
-            if (bestVisit == null) {
-
-                // Try to hire new vehicle to user according to user SQ class
-                if (hireNewVehicleToUser(u, configMatching)) {
-
-                    result.roundPrivateRides.add(u);
-
-                    bestVisit = getVisitHiredVehicleUser(u, currentTime, configMatching);
-
-                    result.addHiredVehicle(bestVisit.getVehicle());
-
-                } else {
-
-                    if (configMatching.rebalanceUtil.showInfo)
-                        System.out.println("CAN'T SERVICE - User:" +
-                                u + " - Node PK: " +
-                                u.getNodePk() +
-                                " - Node PK network id:" +
-                                u.getNodePk().getNetworkId() +
-                                " - Increasing");
-                    // User is rejected if no vehicle could be hired and service level could not be met
-                }
-            }
-
-            // If best visit is found, update vehicle with visit data
             if (bestVisit != null) {
-
-                Visit.realize(bestVisit, configMatching.rebalanceUtil, currentTime);
+                realizeVisit(bestVisit);
+                assertRequestsAndPassengersAreInVehicleCarryingOutVisit(bestVisit);
                 result.addVisit(bestVisit);
-                // Save old vehicle configuration
-                /*Visit clone = new Visit(bestVisit);
-                vehicleOriginalVisit.putIfAbsent(new Vehicle(bestVisit.getVehicle(), clone), clone);
-
-                System.out.println(String.format("# User: %s \n# OLD (%s): %s \n# NEW (%s): %s", u, bestVisit.getVehicle().getVisit().hashCode(), bestVisit.getVehicle().getVisit(), clone.hashCode(), clone));
-
-
-                bestVisit.getVehicle().setVisit(bestVisit);
-                System.out.println(" VEH: " + bestVisit.getVehicle().getVisit() + " - " + bestVisit.getClass());
-                for (User visitUser: bestVisit.getRequests())
-                    userVisitMap.put(visitUser, bestVisit);
-
-                System.out.println(userVisitMap);*/
             } else {
-                result.getRequestsUnassigned().add(u);
+                result.accountRejected(u);
             }
         }
-
-        /*for (Visit visit : new HashSet<>(userVisitMap.values())) {
-            result.addVisit(visit);
-        }
-
-        vehicleOriginalVisit.forEach(Vehicle::setVisit);
-*/
 
         // Return all serviced users
         return result;
@@ -252,12 +208,21 @@ public class MatchingFCFS implements RideMatchingStrategy {
     }
 
     @Override
-    public void realize(Set<Visit> visits, Rebalance rebalanceUtil, int currentTime) {
+    public void realize(Set<Visit> visits) {
 
     }
 
     @Override
     public String toString() {
-        return "_FCFS";
+        return "_OPT-FCFS";
+    }
+
+    private void assertRequestsAndPassengersAreInVehicleCarryingOutVisit(Visit visit) {
+        for (User requests : visit.getRequests()) {
+            assert requests.getCurrentVehicle() == visit.getVehicle() : String.format("Request current vehicle = %s, Best visit vehicle=%s", requests.getCurrentVehicle(), visit.getVehicle());
+        }
+        for (User passengers : visit.getPassengers()) {
+            assert passengers.getCurrentVehicle() == visit.getVehicle() : String.format("Passenger current vehicle = %s, Best visit vehicle=%s", passengers.getCurrentVehicle(), visit.getVehicle());
+        }
     }
 }
