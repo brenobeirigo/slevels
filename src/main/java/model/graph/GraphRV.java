@@ -8,8 +8,7 @@ import model.Visit;
 import model.node.Node;
 import org.jgrapht.graph.DefaultWeightedEdge;
 import org.jgrapht.graph.SimpleWeightedGraph;
-import simulation.Method;
-import util.PDPermutations;
+import util.pdcombinatorics.PDPermutations;
 
 import java.util.*;
 import java.util.stream.Collectors;
@@ -192,9 +191,9 @@ public class GraphRV {
             // Request r2 data
             User r2 = listWaitingUsers.get(j);
 
-            EdgeRV edge = getRREdgesFromRequests(r1,r2);
+            EdgeRV edge = getRREdgesFromRequests(r1, r2);
 
-            if (edge != null){
+            if (edge != null) {
                 edges.add(edge);
                 assertR1AndR2AreReachable(r1, r2);
             }
