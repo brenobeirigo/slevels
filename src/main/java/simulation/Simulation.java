@@ -375,9 +375,7 @@ public abstract class Simulation {
             ///// 5 - UPDATE WAITING LIST //////////////////////////////////////////////////////////////////////////////
             unassignedRequests = resultAssignment.getRequestsUnassigned();
             roundUnmetServiceLevel = resultAssignment.requestsServicedLevelNotAchieved;
-            System.out.println("N. of second tier:" + roundUnmetServiceLevel.size());
 
-            assert rejectedUnassignedFinishedSetsAreConsistent() : "Not all requests are processed.";
             assert eachUserIsAssignedToSingleVehicle() : "Users are assigned to two vehicles!";
             assert rejectedUnassignedFinishedSetsAreConsistent() : "Not all requests are processed.";
 
