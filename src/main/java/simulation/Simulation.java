@@ -133,10 +133,6 @@ public abstract class Simulation {
         return;
     }
 
-    public boolean canEndContract(Vehicle v, int currentTime) {
-        return v.isHired() && currentTime >= v.getContractDeadline();
-    }
-
     /**
      * Pull new requests (within TW) from database. Stop pulling if number of simulation rounds has reached set limit.
      */
@@ -276,7 +272,7 @@ public abstract class Simulation {
                 vehicle.increaseActiveRounds();
 
                 // If vehicle is hired, it has to be deactivated as soon as it delivers its last customer
-                if (canEndContract(vehicle, rightTW)) {
+                if (vehicle.canEndContract(rightTW)) {
                     setDeactivated.add(vehicle);
                 }
 

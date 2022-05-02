@@ -72,6 +72,11 @@ public class Vehicle implements Comparable<Vehicle> {
         this.contractDeadline = Integer.MAX_VALUE;
     }
 
+
+    public boolean canEndContract(int currentTime) {
+        return this.isHired() && currentTime >= this.getContractDeadline();
+    }
+
     public Vehicle(Vehicle vehicle, Visit visit) {
         this.id = vehicle.id;
         this.visit = visit;
