@@ -88,33 +88,6 @@ public class ParallelGraphRTV implements GraphRTV {
         this.feasibleTrips = feasibleTrips;
     }
 
-    /**
-     * Vehicles stopped (i.e., current node is of type NodeST and visit is null) have to be added to the RTV graph
-     * to assure every vehicle is assigned to a trip. We create a dummy trip (VisitStop), to allow this to happen.
-     * <p>
-     * Notice that some rebalancing vehicles CANNOT be associated to any trip (infeasible visits).
-     */
-    public void addStopVisits() {
-
-        // Add current visits
-        for (Vehicle vehicle : listVehicles) {
-            addStopVisit(vehicle);
-        }
-    }
-
-    /**
-     * Add stop visit to RTV for vehicle moving (rebalancing, cruising)
-     * @param vehicle Vehicle to create stop visit
-     */
-    public void addStopVisit(Vehicle vehicle) {
-        Visit stop = vehicle.getStopVisit();
-
-        // Vehicles carrying passengers don't stop
-        if (stop != null) {
-            feasibleTrips.get(0).add(stop);
-            computeVisit(stop);
-        }
-    }
 
     /**
      * Populate RTV graph with the setup visits.
