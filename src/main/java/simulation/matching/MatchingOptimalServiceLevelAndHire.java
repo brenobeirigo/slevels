@@ -21,8 +21,8 @@ public class MatchingOptimalServiceLevelAndHire extends MatchingOptimalServiceLe
     private int hiringPenalty;
 
 
-    public MatchingOptimalServiceLevelAndHire(int maxVehicleCapacityRTV, int badServicePenalty, int hiringPenalty, double mipTimeLimit, double timeoutVehicleRTV, double mipGap, int maxEdgesRV, int maxEdgesRR, int rejectionPenalty, boolean allowHiring, String[] objectives) {
-        super(maxVehicleCapacityRTV, badServicePenalty, mipTimeLimit, timeoutVehicleRTV, mipGap, maxEdgesRV, maxEdgesRR, rejectionPenalty, objectives);
+    public MatchingOptimalServiceLevelAndHire(int maxVehicleCapacityRTV, int badServicePenalty, int hiringPenalty, double mipTimeLimit, double timeoutVehicleRTV, double mipGap, int maxEdgesRV, int maxEdgesRR, int rejectionPenalty, boolean allowHiring, String[] objectives, String PDVisitGenerator) {
+        super(maxVehicleCapacityRTV, badServicePenalty, mipTimeLimit, timeoutVehicleRTV, mipGap, maxEdgesRV, maxEdgesRR, rejectionPenalty, objectives, PDVisitGenerator);
         this.hiringPenalty = hiringPenalty;
     }
 

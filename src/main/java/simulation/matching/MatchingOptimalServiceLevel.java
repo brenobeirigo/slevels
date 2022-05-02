@@ -22,8 +22,8 @@ public class MatchingOptimalServiceLevel extends MatchingOptimal {
     protected int[] nOfRequestsPerClass;
 
 
-    public MatchingOptimalServiceLevel(int maxVehicleCapacityRTV, int badServicePenalty, double mipTimeLimit, double timeoutVehicleRTV, double mipGap, int maxEdgesRV, int maxEdgesRR, int rejectionPenalty, String[] objectives) {
-        super(maxVehicleCapacityRTV, mipTimeLimit, timeoutVehicleRTV, mipGap, maxEdgesRV, maxEdgesRR, rejectionPenalty, objectives);
+    public MatchingOptimalServiceLevel(int maxVehicleCapacityRTV, int badServicePenalty, double mipTimeLimit, double timeoutVehicleRTV, double mipGap, int maxEdgesRV, int maxEdgesRR, int rejectionPenalty, String[] objectives, String PDVisitGenerator) {
+        super(maxVehicleCapacityRTV, mipTimeLimit, timeoutVehicleRTV, mipGap, maxEdgesRV, maxEdgesRR, rejectionPenalty, objectives, PDVisitGenerator);
         this.badServicePenalty = badServicePenalty;
     }
 
@@ -91,15 +91,9 @@ public class MatchingOptimalServiceLevel extends MatchingOptimal {
     protected void addObjective(String objective) {
         super.addObjective(objective);
         switch (objective) {
-            case Objective.HIERARCHICAL_REJECTION_SERVICE_LEVEL:
-                objHierarchicalRejectionServiceLevel();
-                break;
-            case Objective.HIERARCHICAL_SERVICE_LEVEL:
-                objHierarchicalServiceLevel();
-                break;
-            case Objective.HIERARCHICAL_SLACK:
-                objHierarchicalSlack();
-                break;
+            case Objective.HIERARCHICAL_REJECTION_SERVICE_LEVEL -> objHierarchicalRejectionServiceLevel();
+            case Objective.HIERARCHICAL_SERVICE_LEVEL -> objHierarchicalServiceLevel();
+            case Objective.HIERARCHICAL_SLACK -> objHierarchicalSlack();
         }
     }
 

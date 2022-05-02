@@ -8,12 +8,9 @@ import gurobi.*;
 import helper.Runtime;
 import model.*;
 import model.graph.GraphRTV;
-import model.graph.StandardGraphRTV;
 import model.graph.ParallelGraphRTV;
 import model.node.Node;
-import org.jgrapht.graph.DefaultWeightedEdge;
 import simulation.Method;
-import simulation.rebalancing.Rebalance;
 
 import java.util.*;
 import java.util.stream.Collectors;
@@ -23,6 +20,7 @@ public class MatchingOptimal implements RideMatchingStrategy {
 
     // There might have relocation trips to the same node, this variable helps creating unique labels
     private static int varVisitId = 0;
+    protected String PDVisitGenerator;
     protected int maxVehicleCapacityRTV;
     protected double timeoutVehicleRTV;
     protected double mipTimeLimit;
@@ -48,7 +46,7 @@ public class MatchingOptimal implements RideMatchingStrategy {
     GraphRTV graphRTV;
     ResultAssignment result;
 
-    public MatchingOptimal(int maxVehicleCapacityRTV, double mipTimeLimit, double timeoutVehicleRTV, double mipGap, int maxEdgesRV, int maxEdgesRR, int rejectionPenalty, String[] orderedListOfObjectiveLabels) {
+    public MatchingOptimal(int maxVehicleCapacityRTV, double mipTimeLimit, double timeoutVehicleRTV, double mipGap, int maxEdgesRV, int maxEdgesRR, int rejectionPenalty, String[] orderedListOfObjectiveLabels, String PDVisitGenerator) {
         this.maxVehicleCapacityRTV = maxVehicleCapacityRTV;
         this.mipTimeLimit = mipTimeLimit;
         this.timeoutVehicleRTV = timeoutVehicleRTV;
@@ -58,6 +56,7 @@ public class MatchingOptimal implements RideMatchingStrategy {
         this.rejectionPenalty = rejectionPenalty;
         this.orderedListOfObjectiveLabels = orderedListOfObjectiveLabels;
         this.penObjectives = new LinkedHashMap<>();
+        this.PDVisitGenerator = PDVisitGenerator;
     }
 
     @Override
