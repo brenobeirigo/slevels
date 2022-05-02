@@ -125,78 +125,78 @@ public class MatchingFCFSHiring implements RideMatchingStrategy {
             Set<Vehicle> hired) {
 
         ResultAssignment result = new ResultAssignment(currentTime);
-
-
-        Map<User, Visit> userVisitMap = new HashMap<>();
-        Map<Vehicle, Visit> vehicleOriginalVisit = new HashMap<>();
-
-        // Loop users
-        for (User u : unassignedRequests) {
-
-
-            // Aux. best visit for comparison
-            Visit bestVisit = u.getBestVisitByInsertion(
-                    listVehicles,
-                    currentTime,
-                    stopAtFirstBest);
-            System.out.printf("%s - %s\n", u, bestVisit);
-            // Depending on user class, decide if new vehicle will be created.
-            if (bestVisit == null) {
-
-                // Try to hire new vehicle to user according to user SQ class
-                if (hireNewVehicleToUser(u, configMatching)) {
-
-                    result.roundPrivateRides.add(u);
-
-                    bestVisit = getVisitHiredVehicleUser(u, currentTime, configMatching);
-
-                    result.addHiredVehicle(bestVisit.getVehicle());
-
-                } else {
-
-                    if (configMatching.rebalanceUtil.showInfo)
-                        System.out.println("CAN'T SERVICE - User:" +
-                                u + " - Node PK: " +
-                                u.getNodePk() +
-                                " - Node PK network id:" +
-                                u.getNodePk().getNetworkId() +
-                                " - Increasing");
-                    // User is rejected if no vehicle could be hired and service level could not be met
-
-                    System.out.println("Cant match user");
-                }
-            }
-
-            // If best visit is found, update vehicle with visit data
-            if (bestVisit != null) {
-
-                realizeVisit(bestVisit);
-                result.addVisit(bestVisit);
-                // Save old vehicle configuration
-                /*Visit clone = new Visit(bestVisit);
-                vehicleOriginalVisit.putIfAbsent(new Vehicle(bestVisit.getVehicle(), clone), clone);
-
-                System.out.println(String.format("# User: %s \n# OLD (%s): %s \n# NEW (%s): %s", u, bestVisit.getVehicle().getVisit().hashCode(), bestVisit.getVehicle().getVisit(), clone.hashCode(), clone));
-
-
-                bestVisit.getVehicle().setVisit(bestVisit);
-                System.out.println(" VEH: " + bestVisit.getVehicle().getVisit() + " - " + bestVisit.getClass());
-                for (User visitUser: bestVisit.getRequests())
-                    userVisitMap.put(visitUser, bestVisit);
-
-                System.out.println(userVisitMap);*/
-            } else {
-                result.accountRejected(u);
-            }
-        }
-
-        /*for (Visit visit : new HashSet<>(userVisitMap.values())) {
-            result.addVisit(visit);
-        }
-
-        vehicleOriginalVisit.forEach(Vehicle::setVisit);
-*/
-
+//
+//
+//        Map<User, Visit> userVisitMap = new HashMap<>();
+//        Map<Vehicle, Visit> vehicleOriginalVisit = new HashMap<>();
+//
+//        // Loop users
+//        for (User u : unassignedRequests) {
+//
+//
+//            // Aux. best visit for comparison
+//            Visit bestVisit = u.getBestVisitByInsertion(
+//                    listVehicles,
+//                    currentTime,
+//                    stopAtFirstBest);
+//            System.out.printf("%s - %s\n", u, bestVisit);
+//            // Depending on user class, decide if new vehicle will be created.
+//            if (bestVisit == null) {
+//
+//                // Try to hire new vehicle to user according to user SQ class
+//                if (hireNewVehicleToUser(u, configMatching)) {
+//
+//                    result.roundPrivateRides.add(u);
+//
+//                    bestVisit = getVisitHiredVehicleUser(u, currentTime, configMatching);
+//
+//                    result.addHiredVehicle(bestVisit.getVehicle());
+//
+//                } else {
+//
+//                    if (configMatching.rebalanceUtil.showInfo)
+//                        System.out.println("CAN'T SERVICE - User:" +
+//                                u + " - Node PK: " +
+//                                u.getNodePk() +
+//                                " - Node PK network id:" +
+//                                u.getNodePk().getNetworkId() +
+//                                " - Increasing");
+//                    // User is rejected if no vehicle could be hired and service level could not be met
+//
+//                    System.out.println("Cant match user");
+//                }
+//            }
+//
+//            // If best visit is found, update vehicle with visit data
+//            if (bestVisit != null) {
+//
+//                realizeVisit(bestVisit);
+//                result.addVisit(bestVisit);
+//                // Save old vehicle configuration
+//                /*Visit clone = new Visit(bestVisit);
+//                vehicleOriginalVisit.putIfAbsent(new Vehicle(bestVisit.getVehicle(), clone), clone);
+//
+//                System.out.println(String.format("# User: %s \n# OLD (%s): %s \n# NEW (%s): %s", u, bestVisit.getVehicle().getVisit().hashCode(), bestVisit.getVehicle().getVisit(), clone.hashCode(), clone));
+//
+//
+//                bestVisit.getVehicle().setVisit(bestVisit);
+//                System.out.println(" VEH: " + bestVisit.getVehicle().getVisit() + " - " + bestVisit.getClass());
+//                for (User visitUser: bestVisit.getRequests())
+//                    userVisitMap.put(visitUser, bestVisit);
+//
+//                System.out.println(userVisitMap);*/
+//            } else {
+//                result.accountRejected(u);
+//            }
+//        }
+//
+//        /*for (Visit visit : new HashSet<>(userVisitMap.values())) {
+//            result.addVisit(visit);
+//        }
+//
+//        vehicleOriginalVisit.forEach(Vehicle::setVisit);
+//*/
+//
         // Return all serviced users
         return result;
 
