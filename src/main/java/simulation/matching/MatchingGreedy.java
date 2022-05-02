@@ -4,7 +4,6 @@ import model.User;
 import model.Vehicle;
 import model.Visit;
 import model.graph.StandardGraphRTV;
-import simulation.rebalancing.Rebalance;
 
 import java.util.*;
 import java.util.stream.Collectors;
@@ -300,8 +299,6 @@ public class MatchingGreedy implements RideMatchingStrategy {
         // BUILDING GRAPH STRUCTURE ////////////////////////////////////////////////////////////////////////////////////
 
         StandardGraphRTV graphRTV = new StandardGraphRTV(unassignedRequests, vehicles, maxVehicleCapacityRTV, timeoutVehicleRTV, maxEdgesRV, maxEdgesRR);
-        // To assure every vehicle is assigned to a visit, create dummy stop visits.
-        // graphRTV.addStopVisits();
 
         ResultAssignment result = new ResultAssignment(currentTime);
 
