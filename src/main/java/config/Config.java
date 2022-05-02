@@ -32,6 +32,7 @@ public class Config {
     public static InstanceConfig instanceSettings;
     public static DateFormat formatter_t = new SimpleDateFormat("HH:mm:ss");
     public static DateFormat formatter_date_time = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+    public static DateFormat formatter_date = new SimpleDateFormat("yyyy-MM-dd");
     public static Map<String, Boolean> infoHandling;
     private static Config ourInstance = new Config();
     private static ConfigInstance configInstance;

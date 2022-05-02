@@ -18,6 +18,7 @@ import org.jgrapht.alg.shortestpath.AStarShortestPath;
 import org.jgrapht.alg.shortestpath.DijkstraShortestPath;
 import org.jgrapht.graph.DefaultWeightedEdge;
 import org.jgrapht.graph.SimpleDirectedWeightedGraph;
+import simulation.Simulation;
 
 import java.awt.geom.Point2D;
 import java.io.FileNotFoundException;
@@ -522,8 +523,8 @@ public class Dao {
                     Double.parseDouble(record.get(DROPOFF_LATITUDE)),
                     Double.parseDouble(record.get(DROPOFF_LONGITUDE)));
 
-            if (user.getReqTime() >= currentTime + timeSpanSec) {
-                currentTime = currentTime + timeSpanSec;
+            if (user.getReqTime() >= earliestTimeRequestBatch + timeSpanSec) {
+                earliestTimeRequestBatch = earliestTimeRequestBatch + timeSpanSec;
                 userBuff = user;
                 break;
             }
@@ -631,10 +632,10 @@ public class Dao {
 
         int latestTimeRequestBatch = earliestTimeRequestBatch + timeSpanSec;
         assert latestTimeRequestBatch == Simulation.rightTW;
-        if (userBuff != null){
-            if (userBuff.getReqTime() < latestTimeRequestBatch){
+        if (userBuff != null) {
+            if (userBuff.getReqTime() < latestTimeRequestBatch) {
                 listUser.add(userBuff);
-            }else{
+            } else {
                 earliestTimeRequestBatch = latestTimeRequestBatch;
                 return listUser;
             }
@@ -644,11 +645,11 @@ public class Dao {
         for (CSVRecord record : records) {
 
             // Filter requests before earliest configured time
-            if (getPickupDateTime(record).before(Config.getInstance().getEarliestTime())){
+            if (getPickupDateTime(record).before(Config.getInstance().getEarliestTime())) {
                 continue;
             }
             // Skip passenger record with high passenger count
-                if (Integer.parseInt(record.get(PASSENGER_COUNT)) > maxPassengerCount) {
+            if (Integer.parseInt(record.get(PASSENGER_COUNT)) > maxPassengerCount) {
                 continue;
             }
 
@@ -734,8 +735,8 @@ public class Dao {
                 continue;
             }
             // Stop reading if request is out of time span
-            if (user.getReqTime() >= currentTime + timeSpanSec) {
-                currentTime = currentTime + timeSpanSec;
+            if (user.getReqTime() >= earliestTimeRequestBatch + timeSpanSec) {
+                earliestTimeRequestBatch = earliestTimeRequestBatch + timeSpanSec;
                 iUserNextRound = i;
                 break;
             }
@@ -1044,8 +1045,7 @@ public class Dao {
         int maxTimeToReach;
         if (InstanceConfig.getInstance().getMaxTimeToReachRegionCenter() == 0) {
             maxTimeToReach = InstanceConfig.getInstance().getMaxTimeHiringList().get(performanceClass);
-        }
-        else{
+        } else {
             maxTimeToReach = InstanceConfig.getInstance().getMaxTimeToReachRegionCenter();
         }
 
