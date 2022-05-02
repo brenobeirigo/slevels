@@ -137,8 +137,6 @@ public abstract class Simulation {
         return v.isHired() && currentTime >= v.getContractDeadline();
     }
 
-    public abstract Set<User> getUsersAssigned(int currentTime);
-
     /**
      * Pull new requests (within TW) from database. Stop pulling if number of simulation rounds has reached set limit.
      */
@@ -250,7 +248,7 @@ public abstract class Simulation {
 
     public void run() {
 
-        if (Files.exists(this.sol.getOutputFile())) {
+        if (instanceAlreadyProcessed()) {
             System.out.println(this.sol.getOutputFile() + " already exists.");
             return;
         } else {
@@ -277,26 +275,34 @@ public abstract class Simulation {
                 // Limits the hiring contract
                 vehicle.increaseActiveRounds();
 
-                // Return set of users and update rebalancing vehicles
-                Set<User> serviced = vehicle.getServicedUsersUntil(rightTW);
-
-                if (serviced != null) {
-                    finishedRequests.addAll(serviced);
-                }
-
                 // If vehicle is hired, it has to be deactivated as soon as it delivers its last customer
                 if (canEndContract(vehicle, rightTW)) {
                     setDeactivated.add(vehicle);
                 }
 
-                // If vehicle is not parked, it is either cruising, servicing or rebalancing
-                if (!vehicle.isParked()) {
-                    activeFleet = true;
+                if (vehicle.isRebalancing()) {
+                    // If rebalancing is finished (vehicle arrived at target)
+                    if (vehicle.hasFinishedRebalancing(rightTW)) {
+                        vehicle.endRebalancing(rightTW);
+                        vehicle.createNodeStopAndFinishVisitAt(rightTW);
+                    } else {
+                        activeFleet = true;
+                    }
+                } else if (vehicle.isServicing()) {
+
+                    // Update finished requests
+                    finishedRequests.addAll(vehicle.getServicedUsersUntil(rightTW));
+
+                    if (vehicle.hasServicedAllRequests()) {
+                        vehicle.createNodeStopAndFinishVisitAt(rightTW);
+                    } else {
+                        activeFleet = true;
+                    }
                 } else {
 
                     /* Update vehicle's current nodes (if they are of types NodeOrigin and NodeStop)
-                     * with the rightmost time window value. This is the time a vehicle is allowed to
-                     * depart to get the customers.
+                     * with the rightmost time window value (current time step).
+                     * This is the time a vehicle is allowed to depart to get the customers.
                      * E.g.:
                      * [00:00:00 - 00:00:30] -> Pool requests
                      * [00:00:30 :] -> Route vehicles
@@ -305,19 +311,20 @@ public abstract class Simulation {
                     //  - Current node is origin or NodeStop
                     //  - Model.Vehicle is idle
 
-                    vehicle.updateDeparture(rightTW);
+                    vehicle.updateEarliestDeparture(rightTW);
+
 
                     // Vehicle is not servicing customers
                     vehicle.increaseRoundsIdle();
 
                 }
+                // Where is the vehicle in the network map at the current time step?
+                // 1. Vehicle is parked => Middle is NULL
+                // 2. Vehicle is moving => Middle is between [last visited node, target node]
+                // 2.1. Elapsed time since departure at last visited node is zero = Middle is NULL
+                // 2.2. Middle is target node (there are no middle points) = Middle is target node
                 vehicle.updateMiddle(rightTW);
-
-                assert vehicle.getLastVisitedNode().getArrival() >= vehicle.getLastVisitedNode().getEarliest(): String.format("Arr=%s >= Ear=%s (%s) - %s", vehicle.getLastVisitedNode().getArrival(), vehicle.getLastVisitedNode().getEarliest(), vehicle.getVisit(), vehicle.getJourney());
-                if (!vehicle.isParked()) {
-                    assert vehicle.getLastVisitedNode().getDeparture() >= vehicle.getLastVisitedNode().getArrival() : String.format("Dep=%s >= Arr=%s (%s) - %s", vehicle.getLastVisitedNode().getDeparture(), vehicle.getLastVisitedNode().getArrival(), vehicle.getVisit(), vehicle.getJourney());
-                    assert vehicle.getLastVisitedNode().getDeparture() >= vehicle.getLastVisitedNode().getEarliestDeparture() : String.format("Dep=%s >= EarDep=%s (%s) - %s", vehicle.getLastVisitedNode().getDeparture(), vehicle.getLastVisitedNode().getEarliestDeparture(), vehicle.getVisit(), vehicle.getJourney());
-                }
+                assertConsistentArrivalDepartureTimesForVehicle(vehicle);
             }
 
 
@@ -416,6 +423,18 @@ public abstract class Simulation {
         // Saving user info (how user was serviced, for example, pickup, dropoff, hired vehicle, delay, etc.)
         if (Config.infoHandling.get(Config.SAVE_REQUEST_INFO_CSV))
             sol.saveUserInfo(allRequests);
+    }
+
+    private void assertConsistentArrivalDepartureTimesForVehicle(Vehicle vehicle) {
+        assert vehicle.getLastVisitedNode().getArrival() >= vehicle.getLastVisitedNode().getEarliest(): String.format("Node=%s (%s) - %s - %s", vehicle.getLastVisitedNode().getInfo(), vehicle.getVisit(), vehicle.getJourney(), String.valueOf(vehicle.getVisitTrack()));
+        if (!vehicle.isParked()) {
+            assert vehicle.getLastVisitedNode().getDeparture() >= vehicle.getLastVisitedNode().getArrival() : String.format("Dep=%s >= Arr=%s (%s) - %s", vehicle.getLastVisitedNode().getDeparture(), vehicle.getLastVisitedNode().getArrival(), vehicle.getVisit(), vehicle.getJourney());
+            assert vehicle.getLastVisitedNode().getDeparture() >= vehicle.getLastVisitedNode().getEarliestDeparture() : String.format("Dep=%s >= EarDep=%s (%s) - %s", vehicle.getLastVisitedNode().getDeparture(), vehicle.getLastVisitedNode().getEarliestDeparture(), vehicle.getVisit(), vehicle.getJourney());
+        }
+    }
+
+    private boolean instanceAlreadyProcessed() {
+        return Files.exists(this.sol.getOutputFile());
     }
 
 
