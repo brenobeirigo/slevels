@@ -54,23 +54,18 @@ public class Main {
                                                         Config.getInstance().updateQosDic(customerBaseSettings.qosDic);
                                                         Config.getInstance().setShortestPathAlgorithm(spMethod);
 
-                                                        Rebalance rebalancingSettings = new Rebalance();
-
                                                         for (RebalanceStrategy rebalanceStrategy : instanceSettings.getRebalancingMethods()) {
-
-                                                            rebalancingSettings.setStrategy(rebalanceStrategy);
-
                                                             for (RideMatchingStrategy matchingMethod : instanceSettings.getMatchingMethods()) {
+
+                                                                Rebalance rebalancingSettings = new Rebalance(rebalanceStrategy);
 
                                                                 Matching matchingSettings = new Matching(
                                                                         customerBaseSettings,
                                                                         contractDuration,
                                                                         rebalancingSettings,
                                                                         isAllowedToHire && matchingMethod instanceof MatchingOptimalServiceLevelAndHire,
-                                                                        isAllowedToDisplaceRequests);
-
-
-                                                                matchingSettings.setStrategy(matchingMethod);
+                                                                        isAllowedToDisplaceRequests,
+                                                                        matchingMethod);
 
                                                                 Instant before = Instant.now();
 

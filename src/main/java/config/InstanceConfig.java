@@ -74,6 +74,7 @@ public class InstanceConfig {
     private String requestTrackFolder;
     private String geojsonTrackFolder;
     private int maxTimeToReachRegionCenter;
+    private PDGeneratorFactory PDFactory;
 
     private InstanceConfig(String jsonFilePath) {
 
@@ -325,7 +326,13 @@ public class InstanceConfig {
         double mipGap = gson.fromJson(element.get("mip_gap"), double.class);
         int rejectionPenalty = gson.fromJson(element.get("rejection_penalty"), int.class);
         String[] objectives = gson.fromJson(element.get("objectives"), String[].class);
-        return new MatchingOptimal(maxVehicleCapacityRTV, timeLimit, timeoutVehicle, mipGap, maxEdgesRV, maxEdgesRR, rejectionPenalty, objectives);
+
+        // TODO implement matching factory
+        JsonObject elementPDGeneration = gson.fromJson(element.get("pd_generation_strategy"), JsonObject.class);
+        String pdGeneratorMethodStrategyName = gson.fromJson(elementPDGeneration.get("name"), String.class);
+        int pdGeneratorMaxSequences = gson.fromJson(elementPDGeneration.get("max_sequences"), int.class);
+
+        return new MatchingOptimal(maxVehicleCapacityRTV, timeLimit, timeoutVehicle, mipGap, maxEdgesRV, maxEdgesRR, rejectionPenalty, objectives, pdGeneratorMethodStrategyName);
     }
 
     private MatchingGreedy readMatchingGreedyParams(Gson gson, JsonObject element) {
@@ -358,7 +365,8 @@ public class InstanceConfig {
         int rejectionPenalty = gson.fromJson(element.get("rejection_penalty"), int.class);
         int badServicePenalty = gson.fromJson(element.get("bad_service_penalty"), int.class);
         String[] objectives = gson.fromJson(element.get("objectives"), String[].class);
-        return new MatchingOptimalServiceLevel(maxVehicleCapacityRTV, badServicePenalty, timeLimit, timeoutVehicleRTV, mipGap, maxEdgesRV, maxEdgesRR, rejectionPenalty, objectives);
+        String pdGenerationStrategy = gson.fromJson(element.get("pd_generation_strategy"), String.class);
+        return new MatchingOptimalServiceLevel(maxVehicleCapacityRTV, badServicePenalty, timeLimit, timeoutVehicleRTV, mipGap, maxEdgesRV, maxEdgesRR, rejectionPenalty, objectives, pdGenerationStrategy);
     }
 
     private MatchingOptimalServiceLevelAndHire readMatchingOptimalServiceLevelAndHireParams(Gson gson, JsonObject element) {
@@ -368,6 +376,7 @@ public class InstanceConfig {
         int maxEdgesRR = gson.fromJson(element.get("max_edges_rr"), int.class);
         double timeLimit = gson.fromJson(element.get("mip_time_limit"), double.class);
         double mipGap = gson.fromJson(element.get("mip_gap"), double.class);
+        String pdGenerationStrategy = gson.fromJson(element.get("pd_generation_strategy"), String.class);
 
         // SERVICE LEVEL PENALTIES
         int rejectionPenalty = gson.fromJson(element.get("rejection_penalty"), int.class);
@@ -375,7 +384,7 @@ public class InstanceConfig {
         int hiringPenalty = gson.fromJson(element.get("hiring_penalty"), int.class);
         boolean allowHiring = gson.fromJson(element.get("allow_hiring"), boolean.class);
         String[] objectives = gson.fromJson(element.get("objectives"), String[].class);
-        return new MatchingOptimalServiceLevelAndHire(maxVehicleCapacityRTV, badServicePenalty, hiringPenalty, timeLimit, timeoutVehicleRTV, mipGap, maxEdgesRV, maxEdgesRR, rejectionPenalty, allowHiring, objectives);
+        return new MatchingOptimalServiceLevelAndHire(maxVehicleCapacityRTV, badServicePenalty, hiringPenalty, timeLimit, timeoutVehicleRTV, mipGap, maxEdgesRV, maxEdgesRR, rejectionPenalty, allowHiring, objectives, pdGenerationStrategy);
     }
 
     public boolean[] getSortWaitingUsersByClassArray() {
