@@ -122,8 +122,7 @@ public class MatchingFCFSHiring implements RideMatchingStrategy {
             int currentTime,
             Set<User> unassignedRequests,
             Set<Vehicle> listVehicles,
-            Set<Vehicle> hired,
-            Matching configMatching) {
+            Set<Vehicle> hired) {
 
         ResultAssignment result = new ResultAssignment(currentTime);
 

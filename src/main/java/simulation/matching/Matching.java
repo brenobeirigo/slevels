@@ -20,7 +20,7 @@ public class Matching {
     protected Rebalance rebalanceUtil;
     protected boolean isAllowedToHire;
     protected CustomerBaseConfig customerBaseSettings;
-    protected RideMatchingStrategy strategy;
+    protected RideMatchingStrategy rideMatchingStrategy;
     private int maxVehicleCapacity;
 
     private boolean allowUserDisplacement;
@@ -29,12 +29,14 @@ public class Matching {
                     int contractDuration,
                     Rebalance rebalanceUtil,
                     boolean isAllowedToHire,
-                    boolean allowUserDisplacement) {
+                    boolean allowUserDisplacement,
+                    RideMatchingStrategy rideMatchingStrategy) {
         this.customerBaseSettings = customerBaseConfig;
         this.contractDuration = contractDuration;
         this.rebalanceUtil = rebalanceUtil;
         this.isAllowedToHire = isAllowedToHire;
         this.allowUserDisplacement = allowUserDisplacement;
+        this.rideMatchingStrategy = rideMatchingStrategy;
     }
 
 
@@ -46,7 +48,7 @@ public class Matching {
         if (allowUserDisplacement) {
             List<User> assignedUsers = Vehicle.getRequestsFrom(listVehicles);
             allRequestsInOutVehicles.addAll(assignedUsers);
-            System.out.println(String.format("# Matching - %4d assigned users.", assignedUsers.size()));
+            System.out.println(String.format("# Matching - %4d displaced users.", assignedUsers.size()));
         }
         System.out.println(String.format("# Matching - %4d users to be matched.", allRequestsInOutVehicles.size()));
 
@@ -56,16 +58,16 @@ public class Matching {
             hired = hiring.hire(setUnassignedRequests, currentTime);
         }
 
-        ResultAssignment result = strategy.match(currentTime, allRequestsInOutVehicles, listVehicles, hired, this);
+        ResultAssignment result = rideMatchingStrategy.match(currentTime, allRequestsInOutVehicles, listVehicles, hired);
         System.out.println(String.format("# Matching - Time step=%4d, #Requests=%4d, #Vehicles=%4d, #Hired(current period)=%4d, #Hired(kept)=%4d", currentTime, setUnassignedRequests.size(), listVehicles.size(), hired.size(), result.getVehiclesHired().size()));
 
-        strategy.realize(result.visitsOK, this.rebalanceUtil, currentTime);
+        rideMatchingStrategy.realize(result.visitsOK);
 
         return result;
     }
 
-    public void setStrategy(RideMatchingStrategy matchingMethod) {
-        this.strategy = matchingMethod;
+    public void setRideMatchingStrategy(RideMatchingStrategy matchingMethod) {
+        this.rideMatchingStrategy = matchingMethod;
     }
 
     public int getMaxVehicleCapacity() {

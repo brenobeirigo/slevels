@@ -289,7 +289,7 @@ public class MatchingGreedy implements RideMatchingStrategy {
      */
 
     @Override
-    public ResultAssignment match(int currentTime, Set<User> unassignedRequests, Set<Vehicle> vehicles, Set<Vehicle> hired, Matching configMatching) {
+    public ResultAssignment match(int currentTime, Set<User> unassignedRequests, Set<Vehicle> vehicles, Set<Vehicle> hired) {
 
 
         //assert thereAreNoRepeatedRequests(requests) : "There are repeated elements in request list!";

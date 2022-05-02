@@ -28,7 +28,7 @@ public class MatchingOptimalServiceLevel extends MatchingOptimal {
     }
 
     @Override
-    public ResultAssignment match(int currentTime, Set<User> unassignedRequests, Set<Vehicle> currentVehicleList, Set<Vehicle> hired, Matching configMatching) {
+    public ResultAssignment match(int currentTime, Set<User> unassignedRequests, Set<Vehicle> currentVehicleList, Set<Vehicle> hired) {
         this.currentTime = currentTime;
         this.result = new ResultAssignment(currentTime);
 

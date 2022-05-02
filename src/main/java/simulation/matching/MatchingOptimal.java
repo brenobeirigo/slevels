@@ -129,7 +129,7 @@ public class MatchingOptimal implements RideMatchingStrategy {
     }
 
     @Override
-    public ResultAssignment match(int currentTime, Set<User> unassignedRequests, Set<Vehicle> listVehicles, Set<Vehicle> hired, Matching configMatching) {
+    public ResultAssignment match(int currentTime, Set<User> unassignedRequests, Set<Vehicle> listVehicles, Set<Vehicle> hired) {
         result = new ResultAssignment(currentTime);
         buildGraphRTV(unassignedRequests, listVehicles, this.maxVehicleCapacityRTV, timeoutVehicleRTV, maxEdgesRV, maxEdgesRR);
 
