@@ -72,7 +72,7 @@ public class SimulationFCFS extends Simulation {
                 serviceRateScenarioLabel,
                 segmentationScenarioLabel,
                 rebalance.strategy,
-                matchingSettings.strategy);
+                matchingSettings.rideMatchingStrategy);
     }
 
     /**
