@@ -194,19 +194,32 @@ public class ParallelGraphRTV implements GraphRTV{
         allFeasibleTrips.forEach((vehicle, levelVisits) -> {
 
             //**********************************************************************************************************
-            // Add visit with no requests ******************************************************************************
+            // Add visit where there are no requests *******************************************************************
             //**********************************************************************************************************
-            addOnlyPassengerVisitOfOnDutyVehicle(vehicle, levelVisits);
+
+            Visit noRequestsVisit = null;
+            if (vehicle.isParked() || vehicle.isRebalancing()) {
+                // Vehicle continues its path (dummy "do nothing" visit i.e., visit is null)
+                // TODO passthrough visit (keep current visit)
+                noRequestsVisit = vehicle.getVisitStop();
+
+            } else if (vehicle.isCruisingToPickup()) {
+                // Interrupt cruising, drop requests, and rebalance to closest middle
+                noRequestsVisit = vehicle.getVisitRelocationToMiddle();
+
+            } else if (vehicle.isCarryingPassengers()) {
+                // Only passengers are kept
+                noRequestsVisit = Method.getBestVisitFromPDPermutationsSummarized(vehicle, new HashSet<>());
+            }
+
+            this.feasibleTrips.get(0).add(noRequestsVisit);
+            this.computeVisit(noRequestsVisit);
 
 
-            //**********************************************************************************************************
-            // Add dummy stop visit to assure every vehicle can be assigned to a visit *********************************
-            //**********************************************************************************************************
-            addStopVisit(vehicle);
-
-                    for (int i = 0; i < levelVisits.size(); i++) {
-                        this.feasibleTrips.get(i).addAll(levelVisits.get(i));
-                    }});
+            for (int i = 0; i < levelVisits.size(); i++) {
+                this.feasibleTrips.get(i).addAll(levelVisits.get(i));
+            }
+        });
         Dao.getInstance().getRunTimes().endTimerFor(Runtime.TIME_RTV_POPULATE_GRAPH);
 
         System.out.printf("    - %6.2f s - Finding feasible trips\n    - %6.2f s - Populating graph\n",
