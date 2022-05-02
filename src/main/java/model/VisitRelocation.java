@@ -21,9 +21,6 @@ public class VisitRelocation extends Visit {
 
         // Arrival at target node (latest time at vehicle current node + distance to target)
         this.targetArrival = vehicle.getEarliestDeparture() + Dao.getInstance().getDistSec(vehicle.getLastVisitedNode(), target);
-
-        // Arrival at target node
-        target.setArrival(this.targetArrival);
     }
 
     public int getArrivalTimeAtNext() {
