@@ -134,7 +134,7 @@ public class Solution {
                 getDigitsFromDate(Config.getInstance().getEarliestTime()),
                 simulationTimeSeconds,
                 batchDurationSeconds,
-                maxNumberOfRequests ,
+                maxNumberOfRequests,
                 initialFleetSize,
                 maxVehicleCapacity,
                 customerSegmentation,
@@ -356,19 +356,19 @@ public class Solution {
                 int minDistSec = Dao.getInstance().getDistSec(u.getNodePk(), u.getNodeDp());
                 List<String> entry = new ArrayList<>();
                 entry.add(Config.sec2Datetime(u.getNodePk().getEarliest()));
-                entry.add(Config.sec2Datetime(u.getDropoutTime()));
+                entry.add(u.isRejected() ? Config.sec2Datetime(u.getDropoutTime()) : "na");
                 entry.add(String.valueOf(u.getId()));
                 entry.add(String.valueOf(u.getPerformanceClass()));
-                entry.add(String.valueOf(u.getNodePk().getDelay()));
-                entry.add(String.valueOf(u.inVehicleDelay()));
-                entry.add(String.valueOf(u.getNodeDp().getDelay()));
-                entry.add(Config.sec2Datetime(u.getNodePk().getArrival()));
-                entry.add(Config.sec2Datetime(u.getNodeDp().getArrival()));
+                entry.add(u.isRejected() ? "na" : String.valueOf(u.getNodePk().getDelay()));
+                entry.add(u.isRejected() ? "na" : String.valueOf(u.inVehicleDelay()));
+                entry.add(u.isRejected() ? "na" : String.valueOf(u.getNodeDp().getDelay()));
+                entry.add(u.isRejected() ? "na" : Config.sec2Datetime(u.getNodePk().getArrival()));
+                entry.add(u.isRejected() ? "na" : Config.sec2Datetime(u.getNodeDp().getArrival()));
                 entry.add(String.valueOf(u.getNodePk().getNetworkId()));
                 entry.add(String.valueOf(u.getNodeDp().getNetworkId()));
                 entry.add(String.valueOf(minDistSec));
-                entry.add(u.isRejected() ? "DENIED" : u.isServicedByDedicated() ? "FLEET" : "FREELANCE");
-                entry.add(u.isFirstTier() ? "FIRST" : "SECOND");
+                entry.add(u.isRejected() ? "na" : u.isServicedByDedicated() ? "FLEET" : "FREELANCE");
+                entry.add(u.isRejected() ? "na" : u.isFirstTier() ? "FIRST" : "SECOND");
 
                 csvPrinter.printRecord(entry);
                 csvPrinter.flush();
