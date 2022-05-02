@@ -51,7 +51,7 @@ public class GeoJsonUtil {
         String nodeInfo = String.format(
                 "        \"type\": \"%s\",\n" +
                         "        \"arrival\": \"%s\",\n" +
-                        "        \"departure\": \"%s\",\n" +
+                        "        \"departure\": %s,\n" +
                         "        \"duration\": %s,\n" +
                         "        \"earliest\": \"%s\",\n" +
                         "        \"latest\": \"%s\",\n" +
@@ -62,8 +62,8 @@ public class GeoJsonUtil {
                         "        \"id\": \"%s\"\n",
                 n.getType(),
                 Config.sec2Datetime(n.getArrival()),
-                n.getDeparture() == null ? "null" : Config.sec2Datetime(n.getDeparture()),
-                n.getDeparture() == null ? "null" : n.getDeparture() - n.getArrival(),
+                n.getDeparture() == null ? null : String.format("\"%s\"" ,Config.sec2Datetime(n.getDeparture())),
+                n.getDeparture() == null ? null : n.getDeparture() - n.getArrival(),
                 Config.sec2Datetime(n.getEarliest()),
                 Config.sec2Datetime(n.getLatest()),
                 u != null ? u.toString().trim() : "-",
