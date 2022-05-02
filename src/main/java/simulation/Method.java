@@ -7,8 +7,8 @@ import model.node.Node;
 import org.paukov.combinatorics.CombinatoricsVector;
 import org.paukov.combinatorics.Generator;
 import org.paukov.combinatorics.ICombinatoricsVector;
-import util.PDPInsertions;
-import util.PDPermutations;
+import util.pdcombinatorics.PDGeneratorSingleInsertion;
+import util.pdcombinatorics.PDPermutations;
 
 import java.util.*;
 import java.util.concurrent.ExecutorService;

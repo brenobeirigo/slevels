@@ -30,7 +30,7 @@ import java.util.Map.Entry;
 import java.util.stream.Collectors;
 
 import static java.util.stream.Collectors.toSet;
-import static util.PDPermutations.loadPrecalculatedPermutationsPUDO;
+import static util.pdcombinatorics.PDPermutations.loadPrecalculatedPermutationsPUDO;
 
 
 public class Dao {

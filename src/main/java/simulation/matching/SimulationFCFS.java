@@ -10,7 +10,6 @@ import model.Vehicle;
 import model.Visit;
 
 import java.nio.file.Path;
-import java.util.*;
 
 public class SimulationFCFS extends Simulation {
 

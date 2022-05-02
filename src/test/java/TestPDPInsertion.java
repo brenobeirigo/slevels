@@ -3,9 +3,8 @@ import config.CustomerBaseConfig;
 import config.InstanceConfig;
 import model.User;
 import model.Vehicle;
-import model.node.Node;
 import org.testng.annotations.Test;
-import util.PDPInsertions;
+import util.pdcombinatorics.PDGeneratorSingleInsertion;
 
 import java.io.IOException;
 import java.text.ParseException;
