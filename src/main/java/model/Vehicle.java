@@ -67,7 +67,6 @@ public class Vehicle implements Comparable<Vehicle> {
         this.journey = new ArrayList<>();
         this.currentLoad = 0;
         this.hired = false;
-        this.rebalancing = false;
         // Vehicle stays until the end
         this.contractDeadline = Integer.MAX_VALUE;
     }
@@ -777,12 +776,7 @@ public class Vehicle implements Comparable<Vehicle> {
     }
 
     public boolean isRebalancing() {
-        return rebalancing;
-    }
-
-    public void setRebalancing(boolean rebalancing) {
-        this.rebalancing = rebalancing;
-        this.roundsIdle = roundsIdle + 1;
+        return this.visit != null && (this.visit instanceof VisitRelocation);
     }
 
     public int getDepartureCurrent() {
