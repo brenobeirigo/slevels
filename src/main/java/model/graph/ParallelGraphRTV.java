@@ -428,13 +428,13 @@ public class ParallelGraphRTV implements GraphRTV{
         return false;
     }
 
-    private void computeVisit(Visit bestVisit) {
-        allVisits.add(bestVisit);
-        mapVehicleVisits.get(bestVisit.getVehicle()).add(bestVisit);
-        bestVisit.setUserDelayPairs();
-        bestVisit.getRequests().stream().forEach(user -> {
-            mapUserVisits.get(user).add(bestVisit);
-            mapUserVehicles.get(user).add(bestVisit.getVehicle());
+    private void computeVisit(Visit visit) {
+        allVisits.add(visit);
+        mapVehicleVisits.get(visit.getVehicle()).add(visit);
+        visit.genUserPickupDelayMap();
+        visit.getRequests().stream().forEach(user -> {
+            mapUserVisits.get(user).add(visit);
+            mapUserVehicles.get(user).add(visit.getVehicle());
         });
     }
 
