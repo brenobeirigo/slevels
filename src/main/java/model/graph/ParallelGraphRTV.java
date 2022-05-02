@@ -7,9 +7,7 @@ import model.User;
 import model.Vehicle;
 import model.Visit;
 import org.jgrapht.graph.DefaultWeightedEdge;
-import org.jgrapht.graph.SimpleWeightedGraph;
 import simulation.Method;
-import simulation.matching.ResultAssignment;
 
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
