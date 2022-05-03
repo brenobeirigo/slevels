@@ -134,7 +134,7 @@ public class User implements Comparable<User> {
         this.setNumPassengers(numPassengers);
         this.id = ++nTrips;
 
-        String performanceClass = "C";
+        String performanceClass = "B";
         int pk_latest = Method.getLatestPK(this.reqTime, performanceClass);
         int dp_earliest = Method.getEarliestDp(this.reqTime, originId, destinationId, performanceClass);
         int dp_latest = Method.getLatestDp(this.reqTime, originId, destinationId, performanceClass);
