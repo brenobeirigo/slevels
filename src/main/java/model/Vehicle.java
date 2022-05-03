@@ -2,6 +2,7 @@ package model;
 
 import dao.Dao;
 import model.node.*;
+import simulation.Method;
 
 import java.util.*;
 import java.util.stream.Collectors;
@@ -27,6 +28,8 @@ public class Vehicle implements Comparable<Vehicle> {
 
     private int contractedDuration; // How many rounds vehicle is allowed to work?
 
+    //TODO Stop tracking for speed
+    List<Visit> visitTrack;
     /* Vehicle status */
     private Integer currentLoad; // Current vehicle currentLoad
     private Visit visit; // Passengers, Node sequence, etc.
@@ -61,6 +64,7 @@ public class Vehicle implements Comparable<Vehicle> {
 
     public Vehicle(int capacity) {
         ++count;
+        visitTrack = new ArrayList<>();
         this.id = count;
         this.capacity = capacity;
         this.servicedUsers = new ArrayList<>();
@@ -798,6 +802,11 @@ public class Vehicle implements Comparable<Vehicle> {
 
     public void setVisit(Visit visit) {
         this.visit = visit;
+        if (visit != null) {
+            assert this.getLastVisitedNode().getDeparture() == visit.getDeparture(): String.format("Last node: %s --- Visit: %s", this.getLastVisitedNode().getInfo(), visit);
+            this.getLastVisitedNode().setDeparture(visit.getDeparture());
+        }
+        visitTrack.add(visit);
     }
 
     public Node getLastVisitedNode() {
@@ -808,8 +817,15 @@ public class Vehicle implements Comparable<Vehicle> {
     ///// Logging, info ////////////////////////////////////////////////////////////////////////////////////////////////
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-    public void setLastVisitedNode(Node lastVisitedNode) {
-        this.lastVisitedNode = lastVisitedNode;
+    public void printVisitTrack() {
+        System.out.println("# VISIT TRACK " + this);
+        for (Visit v : visitTrack) {
+            if (v != null) {
+                System.out.println("  - " + v.getClass() + "=" + v);
+            } else {
+                System.out.println("  - Parked");
+            }
+        }
     }
 
     public int getCapacity() {
