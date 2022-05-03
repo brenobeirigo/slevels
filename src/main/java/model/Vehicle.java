@@ -352,6 +352,10 @@ public class Vehicle implements Comparable<Vehicle> {
         return servicedUsersInRound;
     }
 
+    public boolean hasServicedAllRequests() {
+        return this.visit.getSequenceVisits().isEmpty();
+    }
+
     private void dropoff(User passenger) {
 
         // Eliminate serviced user from visit
