@@ -343,11 +343,6 @@ public class Vehicle implements Comparable<Vehicle> {
             this.visit.getSequenceVisits().removeFirst();
         }
 
-        // If all nodes were visited
-        if (this.visit.getSequenceVisits().isEmpty()) {
-            this.createNodeStopAndFinishVisitAt(currentSimulationTime);
-        }
-
         // Serviced users in an execution round
         return servicedUsersInRound;
     }
@@ -422,9 +417,9 @@ public class Vehicle implements Comparable<Vehicle> {
         this.roundsIdle = roundsIdle + 1;
 
         this.lastVisitedNode = this.visit.getTargetNode();
-        this.lastVisitedNode.setArrival(this.visit.getTargetNode().getArrival());
+        this.lastVisitedNode.setArrival(this.visit.getArrivalTimeAtNext());
         // Min. departure is arrival time
-        this.lastVisitedNode.setEarliestDeparture(this.visit.getTargetNode().getArrival());
+        this.lastVisitedNode.setEarliestDeparture(this.visit.getArrivalTimeAtNext());
 
         // Vehicle has been recently rebalanced, worth keeping in the fleet
         this.setRoundsIdle(0);
@@ -444,9 +439,7 @@ public class Vehicle implements Comparable<Vehicle> {
      *
      * @param currentTime
      */
-    private void createNodeStopAndFinishVisitAt(int currentTime) {
-
-        assert this.rebalancing == false : "Rebalancing is false";
+    public void createNodeStopAndFinishVisitAt(int currentTime) {
 
         // Vehicle is stopped at last visited node and can depart at current time
         this.lastVisitedNode = new NodeStop(this.lastVisitedNode, this.id, currentTime);
@@ -456,15 +449,7 @@ public class Vehicle implements Comparable<Vehicle> {
 
         // Previous routing plan is discarded
         this.setVisit(null);
-    }
 
-    private Node getStop() {
-        assert this.getLastVisitedNode() instanceof NodePK : "Stop cant be pickup " + this.lastVisitedNode;
-        if (this.lastVisitedNode instanceof NodeDP)
-            return new NodeStop(this.lastVisitedNode, this.id, this.lastVisitedNode.getDeparture());
-        else {
-            return this.lastVisitedNode;
-        }
     }
 
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -508,11 +493,11 @@ public class Vehicle implements Comparable<Vehicle> {
      */
     public void rebalanceTo(Node targetNode) {
 
-        // Create a target node for rebalancing
-        NodeTargetRebalancing target = new NodeTargetRebalancing(targetNode);
-
         // Visit is comprised of single node
-        this.visit = new VisitRelocation(target, this);
+        Visit visitRelocation = new VisitRelocation(targetNode, this);
+
+        this.setVisit(visitRelocation);
+
 
         // Signalize there are vehicles going to the point
         Node.tabu.add(targetNode.getNetworkId());
@@ -766,7 +751,7 @@ public class Vehicle implements Comparable<Vehicle> {
         bestVisit.setRequests(requests);
 
         // New visit contains the vehicle passengers
-        bestVisit.setPassengers(this.visit.getPassengers());
+        bestVisit.setPassengers(new HashSet<>(this.visit.getPassengers()));
 
         return bestVisit;
     }
@@ -787,7 +772,11 @@ public class Vehicle implements Comparable<Vehicle> {
         return this.visit != null && (this.visit instanceof VisitRelocation);
     }
 
-    public int getDepartureCurrent() {
+    /**
+     * Departure time of last visited node.
+     * @return Time vehicle left previous node
+     */
+    public Integer getDepartureCurrent() {
         return this.lastVisitedNode.getDeparture();
     }
 
@@ -942,7 +931,7 @@ public class Vehicle implements Comparable<Vehicle> {
                 (this.visit != null ? this.visit.getPassengers() : "---"),
                 (this.visit != null ? this.visit.getRequests() : "---"),
                 servicedUsers,
-                ((this.rebalancing) ? "(Rebalancing)" : ""));
+                ((this.isRebalancing()) ? "(Rebalancing)" : ""));
     }
 
     /**
@@ -1157,9 +1146,8 @@ public class Vehicle implements Comparable<Vehicle> {
         return Visit.isLegInvalid(fromNode, nextNode, cumulativeLeg, this.capacity);
     }
 
-    public void updateDeparture(int currentTime) {
-        int dep = Math.max(currentTime, this.getDepartureCurrent());
-        this.getLastVisitedNode().setDeparture(dep);
+    public void updateEarliestDeparture(int currentTime) {
+        this.lastVisitedNode.setEarliestDeparture(Math.max(this.getEarliestDeparture(), currentTime));
     }
 
     /**
@@ -1243,7 +1231,6 @@ public class Vehicle implements Comparable<Vehicle> {
 
     public void stoppedRebalancingToPickup() {
         this.stoppedRebalanceToPickup = true;
-        this.rebalancing = false;
     }
 
     public boolean isCarryingPassengers() {
@@ -1277,23 +1264,8 @@ public class Vehicle implements Comparable<Vehicle> {
 
         // Middle node between last visited and target (if null, middle = target)
         Node middle = this.getMiddleNode();
+        System.out.println(this + " rebalance to closest node " + middle + ". Visit=" + this.getVisit());
         this.rebalanceTo(middle);
-    }
-
-    public Visit getRebalanceVisitToClosestNodeInCurrentLeg() {
-
-        Node middle = this.getMiddleNode();
-
-        // Create a target node for rebalancing
-        NodeTargetRebalancing target = new NodeTargetRebalancing(middle);
-
-        // Visit is comprised of single node
-        Visit visit = new VisitRelocation(target, this);
-
-        visit.delay = 0;
-        visit.idle = 0;
-
-        return visit;
     }
 
     public int getContractDeadline() {
@@ -1318,15 +1290,37 @@ public class Vehicle implements Comparable<Vehicle> {
         Visit stop = null;
 
         if (isParked()) {
-            stop = getVisit();
+            // Vehicle stays parked
+            stop = getVisitStop();
 
         } else if (isRebalancing()) {
-            stop = new VisitStop(this);
+            // Vehicle can rebalance to:
+            // - Middle node (all requests are displaced)
+            // - Hotspot (a denied location)
+            stop = getVisitStop();
 
-        } else if (!isCarryingPassengers()) {
-            stop = getRebalanceVisitToClosestNodeInCurrentLeg();
+        } else if (isCruisingToPickup()) {
+            // Interrupt cruising, drop requests, and rebalance to closest middle
+            stop = this.getVisitRelocationToMiddle();
         }
         return stop;
+    }
+
+    /**
+     * Indicates when an empty vehicle is moving to pickup up passengers.
+     * @return True, if vehicle has no passengers and has been assigned to users.
+     */
+    public boolean isCruisingToPickup() {
+        return !isCarryingPassengers() && !this.getVisit().getRequests().isEmpty();
+    }
+
+    public VisitStop getVisitStop() {
+        return new VisitStop(this);
+    }
+
+    public VisitRelocation getVisitRelocationToMiddle() {
+        Node middle = this.getMiddleNode();
+        return new VisitRelocation(middle, this);
     }
 
     public void addUserHiredMustPickup(User user) {
@@ -1338,7 +1332,93 @@ public class Vehicle implements Comparable<Vehicle> {
     }
 
     public boolean isMoving() {
-        return this.isRebalancing() || this.isServicing();
+        return this.visit != null;
+    }
+
+    public boolean hasLeftLastNode() {
+        return this.lastVisitedNode.getDeparture() != null;
+    }
+
+    public boolean isMovingToNode(Node node) {
+        return this.getVisit().getTargetNode() == node;
+    }
+
+    public Node getTargetNode() {
+        return this.getVisit().getTargetNode();
+    }
+
+    public boolean isMovingToSameLocationOfNode(Node node) {
+        return this.getTargetNode().getNetworkId() == node.getNetworkId();
+    }
+
+    public void removeRequests(Collection<User> request) {
+        Set<User> requests = new HashSet<>(this.getVisit().getRequests());
+        requests.removeAll(request);
+        Visit bestVisit = Method.getBestVisitFromPDPermutationsSummarized(this, requests);
+
+    }
+
+    public Visit getVisitWithoutRequest(User request) {
+
+        // Create request set out of one request
+        Set<User> requestsWithoutUser = new HashSet<>(this.visit.getRequests());
+        requestsWithoutUser.remove(request);
+
+        // Remove request from current sequence
+        List<Node> sequenceWithoutRequest = new LinkedList<Node>(this.visit.sequenceVisits);
+        sequenceWithoutRequest.remove(request.getNodePk());
+        sequenceWithoutRequest.remove(request.getNodeDp());
+
+        Visit visit;
+
+        // Vehicle only had this request. Therefore, removing it means rebalancing vehicle to closest middle node
+        // in the path to picking up this request.
+        if (sequenceWithoutRequest.isEmpty()) {
+            visit = this.getVisitRelocationToMiddle();
+        } else {
+            // There is a visit where vehicle's remaining requests and passengers will be picked up
+            Node[] sequence = sequenceWithoutRequest.toArray(new Node[sequenceWithoutRequest.size()]);
+            Leg draftVisit = Visit.getDraftVisit(this, sequence);
+            visit = new Visit(sequence, draftVisit.delay, draftVisit.idleness, this, requestsWithoutUser);
+        }
+
+        visit.setVehicle(this);
+        return visit;
+    }
+
+    public Visit getBestVisitWithoutRequest(User request) {
+        Set<User> requests = new HashSet<>(this.getVisit().getRequests());
+        requests.remove(request);
+        // Find best visit without removed request
+        Visit bestVisit = Method.getBestVisitFromPDPermutationsSummarized(this, requests);
+
+        // When bestVisit is null, it means there are no requests or passengers
+        if (bestVisit == null) {
+            bestVisit = this.getVisitRelocationToMiddle();
+        }
+
+        return bestVisit;
+    }
+
+    public boolean hasAlreadyBeenAssignedToUser(User user) {
+        return this.isServicing() && this.visit.getRequests().contains(user);
+    }
+
+    /**
+     * If vehicle is parked, then return earliest departure.
+     * If vehicle is moving, then return departure.
+     * @return Earliest time vehicle can departure from last visited node.
+     */
+    public Integer getEarliestDeparture() {
+        return this.lastVisitedNode.getDeparture() != null ? this.lastVisitedNode.getDeparture() : this.lastVisitedNode.getEarliestDeparture();
+    }
+
+    public List<Visit> getVisitTrack() {
+        return visitTrack;
+    }
+
+    public void computeDistanceTraveledRebalancingUntilMiddle() {
+        this.increaseDistanceTraveledRebalancing(this.distMiddleNode);
     }
 }
 
