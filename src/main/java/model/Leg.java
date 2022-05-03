@@ -4,6 +4,7 @@ import dao.Dao;
 import model.node.Node;
 import model.node.NodeDP;
 import model.node.NodePK;
+import simulation.Simulation;
 
 import java.util.Comparator;
 
@@ -30,7 +31,9 @@ public class Leg implements Comparable<Leg> {
     public Leg(Vehicle vehicle) {
         this.vehicle = vehicle;
         this.fromNode = vehicle.getLastVisitedNode();
-        this.arrivalNext = this.fromNode.getDeparture();
+        // If departure is null:
+        // - Vehicle is parked => earliest departure
+        this.arrivalNext = vehicle.getEarliestDeparture();
         this.load = this.vehicle.getCurrentLoad();
         this.maxCapacity = this.vehicle.getCapacity();
         this.contractDeadline = this.vehicle.getContractDeadline();
@@ -39,13 +42,17 @@ public class Leg implements Comparable<Leg> {
 
     /**
      * Leg starting from first node of sequence assuming a vehicle can start from it immediately.
-     * @param node First node of sequence
+     * Used only in RV-graph request-request edge creation.
+     *
+     * Precondition:
+     * - r1 and r2 are not picked up. So, the earliest time any vehicle can arrive at r1 is the current time.
+     *
+     * @param node First node of sequence (must be pickup node)
      */
     public Leg(Node node) {
         this.fromNode = node;
-        this.arrivalNext = this.fromNode.getEarliestDeparture();
+        this.arrivalNext = Math.max(Simulation.rightTW, this.fromNode.getEarliestDeparture());
         this.delay = this.arrivalNext - this.fromNode.getEarliest();
-        assert this.delay >= 0;
         this.load = this.fromNode.getLoad();
         this.maxCapacity = Integer.MAX_VALUE;
         this.contractDeadline = Integer.MAX_VALUE;
@@ -69,7 +76,7 @@ public class Leg implements Comparable<Leg> {
     public boolean updateNextNode(Node nextNode) {
 
         this.nextNode = nextNode;
-        this.totalVisitSize +=1;
+        this.totalVisitSize += 1;
 
         if (!updateLoad()) return false;
         if (!updateArrivalNextDelayAndIdleness()) return false;
@@ -102,20 +109,21 @@ public class Leg implements Comparable<Leg> {
             // Time vehicle arrives at next node (can be earlier or later)
             // If distance is zero, arrival next MUST be at least earliest time at next node
             this.arrivalNext = this.arrivalNext + distFromTo;
-            assert this.arrivalNext >= Simulation.rightTW: String.format("Simulation=%s / Arrival=%s", Simulation.rightTW, arrivalNext);
-            if (this.arrivalNext <= nextNode.getLatest()){
+            assert this.arrivalNext >= Simulation.rightTW : String.format("From=%s / To=%s / Middle=%s / Simulation=%s / Arrival=%s", fromNode.getInfo(), nextNode.getInfo(), vehicle.getMiddleNode() != null ? vehicle.getMiddleNode().getInfo() : "null", Simulation.rightTW, arrivalNext);
+
+            // If request is known, the system only knows about it after earliest departure
+            if (this.arrivalNext >= nextNode.getEarliestDeparture() && this.arrivalNext <= nextNode.getLatest()) {
 
                 // Idleness - Vehicle arrives at pickup location BEFORE request is placed
                 // Happens only if requests are placed in advance
-                if (nextNode instanceof NodePK && arrivalNext < nextNode.getEarliest()) {
+                if (nextNode instanceof NodePK && arrivalNext < nextNode.getEarliestDeparture()) {
                     this.idleness += nextNode.getEarliest() - arrivalNext;
                     //System.out.printf("Idleness: %s - NextNode: %s - Arrival next: %s ", this.idleness, nextNode.getEarliest(), this.arrivalNext);
                     assert this.idleness == 0;
-                }
-                else if (nextNode instanceof NodeDP) {
+                } else if (nextNode instanceof NodeDP) {
                     int currentDelay = this.arrivalNext - nextNode.getEarliest();
                     this.delay += currentDelay;
-                    assert currentDelay >= 0:String.format("NextNode: %s - Earliest: %s - New arrival next: %s", nextNode, nextNode.getEarliest(), this.arrivalNext);
+                    assert currentDelay >= 0 : String.format("NextNode: %s - Earliest: %s - New arrival next: %s", nextNode, nextNode.getEarliest(), this.arrivalNext);
                 }
 
                 return true;
