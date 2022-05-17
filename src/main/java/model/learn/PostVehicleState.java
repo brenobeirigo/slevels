@@ -95,8 +95,7 @@ class PostVehicleState extends VehicleState {
                     waypointNetworkId,
                     arrivalAtWaypoint,
                     previousNode,
-                    nextNode,
-                    distOriginWaypoint);
+                    nextNode);
 
             this.nodeArrivals.add(arrivalAtWaypoint);
             this.delays.add(0);

@@ -12,7 +12,7 @@ public class NodeMiddle extends Node {
      * @param networkIdMiddleNode
      * @param nodeOrigin
      * @param nodeDestination
-     * @param currentTime
+     * @param distOriginToMiddle
      */
     public NodeMiddle(int networkIdMiddleNode, Node nodeOrigin, Node nodeDestination, int distOriginToMiddle) {
         super(nodeMiddleIds, networkIdMiddleNode);
@@ -28,6 +28,28 @@ public class NodeMiddle extends Node {
         this.earliestDeparture = this.earliest;
         this.arrivalSoFar = this.earliest;
         this.latest = Integer.MAX_VALUE;
+        this.maxDelay = 0;
+
+        // Only changes when node is visited
+        this.arrival = null;
+        this.departure = null;
+    }
+
+    public NodeMiddle(int networkIdMiddleNode, int earliest, Node nodeOrigin, Node nodeDestination) {
+        super(nodeMiddleIds, networkIdMiddleNode);
+        nodeMiddleIds++;
+        this.tripId = nodeMiddleIds;
+        this.load = 0;
+        this.delay = 0;
+
+        this.nodeFrom = nodeOrigin;
+        this.nodeTo = nodeDestination;
+
+        this.earliest = earliest;
+        this.earliestDeparture = this.earliest;
+        this.arrivalSoFar = this.earliest;
+        this.latest = Integer.MAX_VALUE;
+        this.maxDelay = 0;
 
         // Only changes when node is visited
         this.arrival = null;
