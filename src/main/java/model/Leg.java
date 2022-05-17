@@ -16,6 +16,7 @@ public class Leg implements Comparable<Leg> {
     public int arrivalNext;
     public int load;
     public int delay;
+    public int delayBonus;
     public int idleness;
     public int totalVisitSize;
     public Vehicle vehicle;
@@ -37,6 +38,8 @@ public class Leg implements Comparable<Leg> {
         this.load = this.vehicle.getCurrentLoad();
         this.maxCapacity = this.vehicle.getCapacity();
         this.contractDeadline = this.vehicle.getContractDeadline();
+        this.delay = 0;
+        this.delayBonus = 0;
     }
 
 
@@ -52,7 +55,10 @@ public class Leg implements Comparable<Leg> {
     public Leg(Node node) {
         this.fromNode = node;
         this.arrivalNext = Math.max(Simulation.rightTW, this.fromNode.getEarliestDeparture());
-        this.delay = this.arrivalNext - this.fromNode.getEarliest();
+
+        // Only drop-off delays are accounted in delay (RV-graph RR sequences always start with pickup nodes)
+        this.delay = 0;
+        this.delayBonus = 0;
         this.load = this.fromNode.getLoad();
         this.maxCapacity = Integer.MAX_VALUE;
         this.contractDeadline = Integer.MAX_VALUE;
@@ -79,7 +85,7 @@ public class Leg implements Comparable<Leg> {
         this.totalVisitSize += 1;
 
         if (!updateLoad()) return false;
-        if (!updateArrivalNextDelayAndIdleness()) return false;
+        if (!updateArrivalNextDelayRemainingAndIdleness()) return false;
         if (!isSoloRideRespected()) return false;
         if (!isArrivalWithinContractDeadline()) return false;
 
@@ -101,7 +107,18 @@ public class Leg implements Comparable<Leg> {
         return this.load >= 0 && this.load <= this.maxCapacity;
     }
 
-    private boolean updateArrivalNextDelayAndIdleness() {
+    /**
+     * Update arrival time, delay, and idleness of next node being visited in the sequence.
+     * IMPORTANT: Delay is accounted only at the drop-off node
+     * E.g.:
+     * PK1 = e: 100, a:200, l:300 -- dist(PK1, DP1) = 500
+     *
+     * DP1 = e: 600, a:700, l:1000, ea: 700 -- delay = 100 (at pickup)
+     * DP1 = e: 600, a:800, l:1000, ea: 700 -- delay = 200 (100 (pk) + 100 (dp))
+     *
+     * @return
+     */
+    private boolean updateArrivalNextDelayRemainingAndIdleness() {
         int distFromTo = Dao.getInstance().getDistSec(fromNode, nextNode);
 
         // No path available
@@ -116,13 +133,17 @@ public class Leg implements Comparable<Leg> {
 
                 // Idleness - Vehicle arrives at pickup location BEFORE request is placed
                 // Happens only if requests are placed in advance
-                if (nextNode instanceof NodePK && arrivalNext < nextNode.getEarliestDeparture()) {
-                    this.idleness += nextNode.getEarliest() - arrivalNext;
-                    //System.out.printf("Idleness: %s - NextNode: %s - Arrival next: %s ", this.idleness, nextNode.getEarliest(), this.arrivalNext);
-                    assert this.idleness == 0;
+                if (nextNode instanceof NodePK) {
+                    if (arrivalNext < nextNode.getEarliestDeparture()) {
+                        this.idleness += nextNode.getEarliest() - arrivalNext;
+                        //System.out.printf("Idleness: %s - NextNode: %s - Arrival next: %s ", this.idleness, nextNode.getEarliest(), this.arrivalNext);
+                        assert this.idleness == 0;
+                    }
+                    this.delayBonus += nextNode.getLatest() - arrivalNext;
                 } else if (nextNode instanceof NodeDP) {
                     int currentDelay = this.arrivalNext - nextNode.getEarliest();
                     this.delay += currentDelay;
+                    this.delayBonus += nextNode.getLatest() - arrivalNext;
                     assert currentDelay >= 0 : String.format("NextNode: %s - Earliest: %s - New arrival next: %s", nextNode, nextNode.getEarliest(), this.arrivalNext);
                 }
 
@@ -150,6 +171,10 @@ public class Leg implements Comparable<Leg> {
 
     public int getDelay() {
         return delay;
+    }
+
+    public int getDelayBonus() {
+        return delayBonus;
     }
 
     public void setDelay(int delay) {
