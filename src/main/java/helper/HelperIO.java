@@ -1,5 +1,7 @@
 package helper;
 
+import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
 import config.Config;
 import model.User;
 import model.Vehicle;
@@ -206,6 +208,15 @@ public class HelperIO {
             assert fos != null;
             fos.write(String.format("%s\r\n",line).getBytes());
         } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+    public static void saveJSON(Object obj, String filepath) {
+        try (Writer writer = new FileWriter(filepath)) {
+            Gson gson = new GsonBuilder().setPrettyPrinting().serializeNulls().create();
+            gson.toJson(obj, writer);
+        } catch (IOException e) {
             e.printStackTrace();
         }
     }
