@@ -27,6 +27,7 @@ public abstract class Node implements Comparable<Node> {
     protected Integer arrival; // Updated when picked up (User is a passenger)
     protected Integer departure;
     protected Integer latest;
+    protected Integer maxDelay;
     protected Integer arrivalSoFar; // Updated on the first match (User is a request)
     protected Integer load;
     protected Integer delay;
@@ -56,6 +57,7 @@ public abstract class Node implements Comparable<Node> {
         this.departure = n.departure;
         this.urgent = n.urgent;
         this.hotness = n.hotness;
+        this.maxDelay = n.maxDelay;
 
         //Node.hotSpot.compute(this.networkId, (tokenKey, oldValue) -> oldValue == null ? 1 : oldValue + 1);
     }
@@ -78,6 +80,7 @@ public abstract class Node implements Comparable<Node> {
         this.networkId = networkId;
         this.earliest = earliest;
         this.latest = latest;
+        this.maxDelay = latest - earliest;
         Node.nodeDic.put(networkId, new Double[]{lat, lon});
     }
 
@@ -86,6 +89,7 @@ public abstract class Node implements Comparable<Node> {
         this.networkId = networkId;
         this.earliest = earliest;
         this.latest = latest;
+        this.maxDelay = latest - earliest;
         Node.nodeDic.put(networkId, new Double[]{0.0, 0.0});
     }
 
@@ -269,4 +273,14 @@ public abstract class Node implements Comparable<Node> {
     public void setEarliestDeparture(int earliestDeparture) {
         this.earliestDeparture = earliestDeparture;
     }
+
+    public int getMaxDelay() {
+        return maxDelay;
+    }
+
+    public void setMaxDelay(int maxDelay) {
+        this.maxDelay = maxDelay;
+    }
+
+
 }
