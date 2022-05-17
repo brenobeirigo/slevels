@@ -29,6 +29,7 @@ public class NodeTargetRebalancing extends Node {
 
         this.setGenNode(target);
         this.delay = 0;
+        this.maxDelay = 0;
     }
 
     @Override

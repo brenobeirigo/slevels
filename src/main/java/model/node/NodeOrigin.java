@@ -12,6 +12,7 @@ public class NodeOrigin extends Node {
         this.departure = null;
         this.arrival = this.earliest;
         this.arrivalSoFar = this.earliest;
+        this.maxDelay = 0;
     }
 
     public NodeOrigin(int id, int id_network) {
@@ -22,6 +23,7 @@ public class NodeOrigin extends Node {
         this.departure = null;
         this.arrival = this.earliest;
         this.arrivalSoFar = this.earliest;
+        this.maxDelay = 0;
     }
 
     @Override

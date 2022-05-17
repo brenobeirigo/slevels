@@ -26,6 +26,7 @@ public class NodeStop extends Node {
         this.departure = null;
 
         this.delay = 0;
+        this.maxDelay = 0;
     }
 
     public int getVehicleId() {
