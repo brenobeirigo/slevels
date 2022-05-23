@@ -542,7 +542,7 @@ public class Method {
         if (lowestDelaySequence != null) {
 
             // Setup new visit
-            visit = new Visit(lowestDelaySequence, bestDraftVisit.delay, bestDraftVisit.idleness, vehicle, requests);
+            visit = new Visit(lowestDelaySequence, bestDraftVisit.delay, bestDraftVisit.delayBonus, bestDraftVisit.idleness, vehicle, requests);
 
         }
 
