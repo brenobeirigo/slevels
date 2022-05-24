@@ -29,8 +29,11 @@ public class InstanceConfig {
     public static final String REQUEST_TRACK_FOLDER = "request_track";
     //Files contain how each user end up being serviced
     public static final String GEOJSON_TRACK_FOLDER = "geojson_track";
+    // What has been learned each iteration
+    public static final String EXPERIENCES_FOLDER = "experiences_track";
     // Singleton
     private static InstanceConfig instance;
+
     private List<String> spMethodArray;
     private ArrayList<Date> earliestTimeArray;
     private Date firstDate;
@@ -41,6 +44,7 @@ public class InstanceConfig {
     private int[] timeWindowArray; // Time window of request collection bin
     private int[] timeHorizonArray; // Time horizon of experiment (0 t0 24h)
     private int[] maxRequestsIterationArray; // Max number of requests pooled in during an iteration
+    private double[] percentageRequestsIterationArray; //Percentage of requests sampled during each TW
     private int[] initialFleetArray; // Initial size of fleet
     private int[] vehicleMaxCapacityArray; // Max capacity of vehicle
     private boolean[] allowRebalancingArray; // Each round has TW seconds
@@ -68,11 +72,13 @@ public class InstanceConfig {
     private Path adjacencyMatrixPath;
     private Path networkNodeInfoPath;
     private Path requestsPath;
+    private String serverUrl;
     private String instanceDescription;
     private String instanceName;
     private String roundTrackFolder;
     private String requestTrackFolder;
     private String geojsonTrackFolder;
+    private String experiencesFolder;
     private int maxTimeToReachRegionCenter;
     private PDGeneratorFactory PDFactory;
 
@@ -100,6 +106,7 @@ public class InstanceConfig {
             this.durationsPath = Paths.get(jsonConfig.get("durations_file").toString());
             this.adjacencyMatrixPath = Paths.get(jsonConfig.get("adjacency_matrix_file").toString());
             this.networkNodeInfoPath = Paths.get(jsonConfig.get("network_node_info_file").toString());
+            this.serverUrl = jsonConfig.get("server_url").toString();
             this.requestsPath = Paths.get(jsonConfig.get("requests_file").toString());
             this.instanceDescription = jsonConfig.get("instance_description").toString();
             this.instanceName = jsonConfig.get("instance_name").toString();
@@ -129,6 +136,7 @@ public class InstanceConfig {
             }
 
             this.maxRequestsIterationArray = gson.fromJson(scenarioConfig.get("max_requests").getAsJsonArray(), int[].class);// Max number of requests pooled in during an iteration
+            this.percentageRequestsIterationArray = gson.fromJson(scenarioConfig.get("percentage_requests").getAsJsonArray(), double[].class);// Max number of requests pooled in during an iteration
             this.initialFleetArray = gson.fromJson(scenarioConfig.get("initial_fleet").getAsJsonArray(), int[].class);// Initial size of fleet
             this.vehicleMaxCapacityArray = gson.fromJson(scenarioConfig.get("max_capacity").getAsJsonArray(), int[].class);// Max capacity of vehicle
             this.allowRebalancingArray = gson.fromJson(scenarioConfig.get("rebalance").getAsJsonArray(), boolean[].class);// Each round has TW seconds
@@ -231,6 +239,11 @@ public class InstanceConfig {
                     MatchingOptimal method = readMatchingOptimalParams(gson, element);
                     this.matchingMethods.add(method);
 
+                } else if (Matching.METHOD_OPTIMAL_LEARN.equals(name)) {
+
+                    MatchingSimple method = readMatchingOptimalLearnParams(gson, element);
+                    this.matchingMethods.add(method);
+
                 } else if (Matching.METHOD_FCFS.equals(name)) {
 
                     MatchingFCFS method = readMatchingFCFSParams(gson, element);
@@ -284,9 +297,11 @@ public class InstanceConfig {
             this.roundTrackFolder = String.format("%s/%s", this.instancesPath, ROUND_TRACK_FOLDER);
             this.requestTrackFolder = String.format("%s/%s", this.instancesPath, REQUEST_TRACK_FOLDER);
             this.geojsonTrackFolder = String.format("%s/%s", this.instancesPath, GEOJSON_TRACK_FOLDER);
+            this.experiencesFolder = String.format("%s/%s", this.instancesPath, EXPERIENCES_FOLDER);
             FileUtil.createDir(roundTrackFolder);
             FileUtil.createDir(requestTrackFolder);
             FileUtil.createDir(geojsonTrackFolder);
+            FileUtil.createDir(experiencesFolder);
 
         } catch (IOException e) {
             e.printStackTrace();
@@ -317,6 +332,21 @@ public class InstanceConfig {
 
     }
 
+    public double[] getPercentageRequestsIterationArray() {
+        return this.percentageRequestsIterationArray;
+    }
+
+    public String getServerUrl() {
+        return this.serverUrl;
+    }
+
+    public class Learning{
+        public Learning(int nEpisodes) {
+            this.nEpisodes = nEpisodes;
+        }
+
+        public int nEpisodes;
+    }
     private MatchingOptimal readMatchingOptimalParams(Gson gson, JsonObject element) {
         int maxEdgesRV = gson.fromJson(element.get("max_edges_rv"), int.class);
         int maxEdgesRR = gson.fromJson(element.get("max_edges_rr"), int.class);
@@ -330,9 +360,34 @@ public class InstanceConfig {
         // TODO implement matching factory
         JsonObject elementPDGeneration = gson.fromJson(element.get("pd_generation_strategy"), JsonObject.class);
         String pdGeneratorMethodStrategyName = gson.fromJson(elementPDGeneration.get("name"), String.class);
+
+        //TODO read max PD sequences
         int pdGeneratorMaxSequences = gson.fromJson(elementPDGeneration.get("max_sequences"), int.class);
 
         return new MatchingOptimal(maxVehicleCapacityRTV, timeLimit, timeoutVehicle, mipGap, maxEdgesRV, maxEdgesRR, rejectionPenalty, objectives, pdGeneratorMethodStrategyName);
+    }
+
+    private MatchingSimple readMatchingOptimalLearnParams(Gson gson, JsonObject element) {
+        int maxEdgesRV = gson.fromJson(element.get("max_edges_rv"), int.class);
+        int maxEdgesRR = gson.fromJson(element.get("max_edges_rr"), int.class);
+        int maxVehicleCapacityRTV = gson.fromJson(element.get("rtv_max_vehicle_capacity"), int.class);
+        double timeoutVehicle = gson.fromJson(element.get("rtv_vehicle_timeout"), double.class);
+        double timeLimit = gson.fromJson(element.get("mip_time_limit"), double.class);
+        double mipGap = gson.fromJson(element.get("mip_gap"), double.class);
+        int rejectionPenalty = gson.fromJson(element.get("rejection_penalty"), int.class);
+        String[] objectives = gson.fromJson(element.get("objectives"), String[].class);
+
+        //Learning
+        JsonObject elementLearning = gson.fromJson(element.get("learning"), JsonObject.class);
+        int nEpisodes = gson.fromJson(elementLearning.get("n_episodes"), int.class);
+        Learning learningParams = new Learning(nEpisodes);
+
+        // TODO implement matching factory
+        JsonObject elementPDGeneration = gson.fromJson(element.get("pd_generation_strategy"), JsonObject.class);
+        String pdGeneratorMethodStrategyName = gson.fromJson(elementPDGeneration.get("name"), String.class);
+        int pdGeneratorMaxSequences = gson.fromJson(elementPDGeneration.get("max_sequences"), int.class);
+
+        return new MatchingSimple(maxVehicleCapacityRTV, timeLimit, timeoutVehicle, mipGap, maxEdgesRV, maxEdgesRR, rejectionPenalty, objectives, pdGeneratorMethodStrategyName);
     }
 
     private MatchingGreedy readMatchingGreedyParams(Gson gson, JsonObject element) {
@@ -417,6 +472,7 @@ public class InstanceConfig {
                 "\ntimeWindowArray=" + Arrays.toString(timeWindowArray) +
                 "\ntimeHorizonArray=" + Arrays.toString(timeHorizonArray) +
                 "\nmaxRequestsIterationArray=" + Arrays.toString(maxRequestsIterationArray) +
+                "\nPercentageRequestsIterationArray=" + Arrays.toString(percentageRequestsIterationArray) +
                 "\ninitialFleetArray=" + Arrays.toString(initialFleetArray) +
                 "\ninitialFleetArray=" + Arrays.toString(initialFleetArray) +
                 "\nvehicleMaxCapacityArray=" + Arrays.toString(vehicleMaxCapacityArray) +
@@ -536,6 +592,10 @@ public class InstanceConfig {
 
     public String getGeojsonTrackFolder() {
         return geojsonTrackFolder;
+    }
+
+    public String getExperiencesFolder() {
+        return experiencesFolder;
     }
 
     public String getInstanceName() {
