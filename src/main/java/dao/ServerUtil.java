@@ -1,30 +1,48 @@
 package dao;
 
+import com.google.common.reflect.TypeToken;
+import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
 import model.Vehicle;
+import model.learn.DecisionSpaceObject;
 import model.node.*;
 import visualization.GeoJsonUtil;
 
 import java.io.BufferedReader;
+import java.io.IOException;
 import java.io.InputStreamReader;
+import java.io.OutputStream;
+import java.lang.reflect.Type;
 import java.net.HttpURLConnection;
 import java.net.URL;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.*;
 import java.util.stream.Collectors;
 
 public class ServerUtil {
 
     //SERVER
-    private static final String ADDRESS_SERVER = "http://TUD256023.tudelft.net:4999";
-    private static final String ADDRESS_ALLNODES = ADDRESS_SERVER + "/nodes/GPS";
-    private static String restPoint = ADDRESS_SERVER + "/point_style/%d/%%23%s/%s/%s";
-    private static String restLine = ADDRESS_SERVER + "/linestring_style/%d/%d/%%23%s/%s/%s";
-    private static String restShortestPath = ADDRESS_SERVER + "/sp/%d/%d";
-    private static String restSmoothShortestPath = ADDRESS_SERVER + "/sp_smooth/%d/%d";
-    private static String restSmoothDurations = ADDRESS_SERVER + "/sp_smooth/%d/%d/%d";
-    private static String restShortestPathCoords = ADDRESS_SERVER + "/sp_coords/%d/%d";
+    public String ADDRESS_SERVER;
+    private String ADDRESS_ALLNODES = "%s/nodes/GPS";
+    private String restPoint = "%s/point_style/%d/%%23%s/%s/%s";
+    private String restLine = "%s/linestring_style/%d/%d/%%23%s/%s/%s";
+    private String restShortestPath = "%s/sp/%d/%d";
+    private String restSmoothShortestPath = "%s/sp_smooth/%d/%d";
+    private String restSmoothDurations = "%s/sp_smooth/%d/%d/%d";
+    private String restShortestPathCoords = "%s/sp_coords/%d/%d";
+    private String restPredictPostDecisionSpace = "%s/predict/%s";
+    private String restSaveModelFileName = "%s/savemodel/%s";
+    private String restLoadModelFileName = "%s/loadmodel/%s";
 
-    private static String restCanReachSet = ADDRESS_SERVER + "/can_reach/%d/%d";
+    private String restCanReachSet = "%s/can_reach/%d/%d";
     //http://TUD256023.tudelft.net:4999/sp_coords/1/2
+
+
+    public ServerUtil(String ADDRESS_SERVER) {
+        this.ADDRESS_SERVER = ADDRESS_SERVER;
+    }
 
     private static Map<String, HashMap<String, String>> styleNode = new HashMap<String, HashMap<String, String>>() {{
 
@@ -93,13 +111,101 @@ public class ServerUtil {
                 }});
     }};
 
+    public static String postJsonFileToURL(String filepath, String URL) {
+        String response = null;
+
+        try {
+            HttpURLConnection con = getHttpURLConnection(URL);
+            postFile(filepath, con);
+            response = extractResponseFromUrlConnection(con);
+
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+
+        return response;
+    }
+
+
+    public static String postJsonObjectToURL(Object obj, String URL) {
+        String response = null;
+
+        try {
+            HttpURLConnection con = getHttpURLConnection(URL);
+            postObject(obj, con);
+            response = extractResponseFromUrlConnection(con);
+
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+
+        return response;
+    }
+
+    private static void postFile(String filepath, HttpURLConnection con) throws IOException {
+        try (OutputStream os = con.getOutputStream()) {
+            byte[] input = Files.readAllBytes(Path.of(filepath));
+            os.write(input, 0, input.length);
+        }
+    }
+
+    private static void postObject(Object object, HttpURLConnection con) throws IOException {
+
+        try (OutputStream os = con.getOutputStream()) {
+            Gson gson = new GsonBuilder().serializeNulls().create();
+            byte[] input = gson.toJson(object).getBytes();
+            os.write(input, 0, input.length);
+        }
+    }
+
+    public static HttpURLConnection getHttpURLConnection(String serverURL) throws IOException {
+        URL url = new URL(serverURL);
+        HttpURLConnection con = (HttpURLConnection) url.openConnection();
+        con.setRequestMethod("POST");
+        con.setRequestProperty("Content-Type", "application/json; utf-8");
+        con.setRequestProperty("Accept", "application/json");
+        con.setDoOutput(true);
+        return con;
+    }
+
+    public static String extractResponseFromUrlConnection(HttpURLConnection con) throws IOException {
+        String r = null;
+        try (BufferedReader br = new BufferedReader(new InputStreamReader(con.getInputStream(), StandardCharsets.UTF_8))) {
+            StringBuilder response = new StringBuilder();
+            String responseLine = null;
+            while ((responseLine = br.readLine()) != null) {
+                response.append(responseLine.trim());
+            }
+            r = response.toString();
+        }
+        return r;
+    }
+
+//    public static String postJsonAndReadResponse(String json) {
+//        String serviceUrl = "http://localhost:5001/predict/";
+//        HttpClient client = HttpClient.newHttpClient();
+//        HttpRequest request = HttpRequest.newBuilder()
+//                .uri(URI.create(serviceUrl))
+//                .POST(HttpRequest.BodyPublishers.ofString(json))
+//                .build();
+//
+//        HttpResponse<String> response = null;
+//        try {
+//            response = client.send(request, HttpResponse.BodyHandlers.ofString());
+//            return response.body();
+//        } catch (InterruptedException | IOException e) {
+//            e.printStackTrace();
+//        }
+//        return null;
+//    }
+
     /**
      * Make request to REST server.
      *
      * @param address Request url. E.g., localhost:5000/linestring/1/2
      * @return Server response
      */
-    public static String requestTo(String address) {
+    public String requestTo(String address) {
 
         String result = null;
 
@@ -130,17 +236,18 @@ public class ServerUtil {
      * @param d Destination node id
      * @return list of ids
      */
-    public static String getGeoJsonSPBetweenODfromServer(Node o, Node d) {
+    public String getGeoJsonSPBetweenODfromServer(Node o, Node d) {
         String lineType = "servicing";
         System.out.println(o.getClass().getName() + " - " + d.getClass().getName());
         if (d instanceof NodeTargetRebalancing) {
             lineType = "rebalancing";
-        } else if ((o instanceof NodeOrigin || o instanceof NodeMiddle  || o instanceof NodeStop) && d instanceof NodePK) {
+        } else if ((o instanceof NodeOrigin || o instanceof NodeMiddle || o instanceof NodeStop) && d instanceof NodePK) {
             lineType = "cruising";
         }
 
         String rest = String.format(
                 restLine,
+                this.ADDRESS_SERVER,
                 o.getNetworkId(),
                 d.getNetworkId(),
                 styleEdge.get(lineType).get("stroke"),
@@ -158,7 +265,7 @@ public class ServerUtil {
      * @param n Node with the point information.
      * @return
      */
-    public static String getGeoJsonPointfromServer(Node n) {
+    public String getGeoJsonPointfromServer(Node n) {
 
         System.out.println(n);
         System.out.println(n.getNetworkId());
@@ -205,9 +312,9 @@ public class ServerUtil {
      * @param d Destination node id
      * @return list of ids
      */
-    public static ArrayList<Integer> getShortestPathBetween(int o, int d) {
+    public ArrayList<Integer> getShortestPathBetween(int o, int d) {
         //System.out.println(o + " ->" + d);
-        String rest = String.format(restShortestPath, o, d);
+        String rest = String.format(restShortestPath, this.ADDRESS_SERVER, o, d);
         ArrayList<Integer> list_ids = null;
         list_ids = (ArrayList) Arrays.asList(requestTo(rest).split(";")).stream().map(n -> Integer.valueOf(n)).collect(Collectors.toList());
         return list_ids;
@@ -221,8 +328,8 @@ public class ServerUtil {
      * @param maxTripTimeSec Destination node id
      * @return list of ids
      */
-    public static ArrayList<Integer> getAllCanReachNode(int n, int maxTripTimeSec) {
-        String rest = String.format(restCanReachSet, n, maxTripTimeSec);
+    public ArrayList<Integer> getAllCanReachNode(int n, int maxTripTimeSec) {
+        String rest = String.format(restCanReachSet, this.ADDRESS_SERVER, n, maxTripTimeSec);
         return (ArrayList<Integer>) Arrays.stream(requestTo(rest).split(";")).map(Integer::valueOf).collect(Collectors.toList());
     }
 
@@ -235,8 +342,8 @@ public class ServerUtil {
      * @param d Destination node id
      * @return list of ids
      */
-    public static ArrayList<Integer> getSmoothShortestPathBetween(int o, int d) {
-        String rest = String.format(restShortestPath, o, d);
+    public ArrayList<Integer> getSmoothShortestPathBetween(int o, int d) {
+        String rest = String.format(restShortestPath, this.ADDRESS_SERVER, o, d);
         ArrayList<Integer> list_ids = null;
         list_ids = (ArrayList) Arrays.asList(requestTo(rest).split(";")).stream().map(n -> Integer.valueOf(n)).collect(Collectors.toList());
         return list_ids;
@@ -249,17 +356,65 @@ public class ServerUtil {
      * @param d Destination node id
      * @return list of ids
      */
-    public static ArrayList<String> getRESTShortestPathCoordsBetween(int o, int d) {
-        String rest = String.format(restShortestPathCoords, o, d);
+    public ArrayList<String> getRESTShortestPathCoordsBetween(int o, int d) {
+        String rest = String.format(restShortestPathCoords, this.ADDRESS_SERVER, o, d);
         ArrayList<String> listCoords = null;
         listCoords = (ArrayList) Arrays.asList(requestTo(rest).split(";")).stream().collect(Collectors.toList());
         return listCoords;
     }
 
-    public static List<String> getShortestPathCoordsBetween(int o, int d) {
-        String rest = String.format(restShortestPathCoords, o, d);
+    /**
+     * Map o vfs per vehicle
+     * @param obj
+     * @return Value functions
+     */
+    public Map<Integer, List<Double>> getPredictionsFromDecisionSpace(DecisionSpaceObject obj) {
+        String url = String.format(restPredictPostDecisionSpace, this.ADDRESS_SERVER, "");
+        String response = Dao.getInstance().getServer().postJsonObjectToURL(obj, url);
+
+        Type t = new TypeToken<Map<Integer, List<Double>>>() {
+        }.getType();
+
+        Gson g = new Gson();
+        return g.fromJson(response, t);
+    }
+
+    /**
+     * Values separated by ";"
+     * @param stateSpaceJsonFilepath
+     * @return Value functions
+     */
+    public ArrayList<Double> getPredictionsFromJsonFile(String stateSpaceJsonFilepath) {
+        String url = String.format(restPredictPostDecisionSpace, this.ADDRESS_SERVER, "");
+        String response = ServerUtil.postJsonFileToURL(stateSpaceJsonFilepath, url);
+        ArrayList<Double> valueFunctionArray = null;
+        valueFunctionArray = (ArrayList<Double>) Arrays.stream(response.split(";"))
+                .map(Double::valueOf)
+                .collect(Collectors.toList());
+        return valueFunctionArray;
+    }
+
+    /**
+     * Values separated by ";"
+     * @param obj
+     * @return Value functions
+     */
+    public ArrayList<Double> getPredictionsFrom(DecisionSpaceObject obj) {
+        String url = String.format(restPredictPostDecisionSpace, this.ADDRESS_SERVER, "");
+        Gson gson = new Gson();
+        gson.toJson(obj);
+        String response = ServerUtil.postJsonObjectToURL(obj, url);
+        ArrayList<Double> valueFunctionArray = null;
+        valueFunctionArray = (ArrayList<Double>) Arrays.stream(response.split(";"))
+                .map(Double::valueOf)
+                .collect(Collectors.toList());
+        return valueFunctionArray;
+    }
+
+    public List<String> getShortestPathCoordsBetween(int o, int d) {
+        String rest = String.format(restShortestPathCoords, this.ADDRESS_SERVER, o, d);
         List<String> listCoords = null;
-        listCoords = Dao.getInstance().getLonLatList(Dao.getInstance().getShortestPathBetween(o,d));
+        listCoords = Dao.getInstance().getLonLatList(Dao.getInstance().getShortestPathBetween(o, d));
 
         return listCoords;
     }
@@ -269,12 +424,12 @@ public class ServerUtil {
      *
      * @return String with json of format {"nodes"=[{"id"=1, "x": 45.56, "y":75.43}]}
      */
-    public static String getNodeList() {
-        return requestTo(ADDRESS_ALLNODES);
+    public String getNodeList() {
+        return requestTo(String.format(ADDRESS_ALLNODES, this.ADDRESS_SERVER));
     }
 
 
-    public static void printGeoJsonJourney(Vehicle v) {
+    public void printGeoJsonJourney(Vehicle v) {
         /*
         List<String> listFeatures = new ArrayList<>();
         System.out.println("size:"+ journey.size());
@@ -317,4 +472,11 @@ public class ServerUtil {
     }
 
 
+    public String saveModelWithLabel(String fileName) {
+        return requestTo(String.format(restSaveModelFileName, this.ADDRESS_SERVER, fileName));
+    }
+
+    public String loadModelWithLabel(String fileName) {
+        return requestTo(String.format(restLoadModelFileName, this.ADDRESS_SERVER, fileName));
+    }
 }
