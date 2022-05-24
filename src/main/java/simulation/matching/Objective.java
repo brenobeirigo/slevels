@@ -14,4 +14,6 @@ public class Objective {
     public static final String HIERARCHICAL_SERVICE_LEVEL = "obj_hierarchical_service_level";
     public static final String HIERARCHICAL_SLACK = "obj_hierarchical_slack";
     public static final String TOTAL_REJECTION = "obj_rejection";
+    public static final String TOTAL_REQUESTS = "obj_requests";
+    public static final String TOTAL_REQUESTS_PLUS_VFS = "obj_requests_plus_vfs";
 }
