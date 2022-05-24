@@ -1,7 +1,6 @@
 package dao;
 
 import com.google.gson.Gson;
-import config.Config;
 import config.ConfigInstance;
 
 import java.io.BufferedReader;
@@ -18,6 +17,26 @@ import java.util.stream.Collectors;
 public class FileUtil {
 
     public static final String DISTANCE_FILES_PATH = "C:\\Users\\breno\\OneDrive\\Phd_TU\\PROJECTS\\rs_heuristic\\data\\gen\\data\\SP\\";
+
+    public static String readJson(String jsonFilePath) {
+
+        Path filePath = Paths.get(jsonFilePath);
+
+        return readFile(filePath);
+    }
+
+
+    private static String readFile(Path filePath) {
+        // Reading input settings
+        String inputSettings = null;
+        try {
+            inputSettings = new String(Files.readAllBytes(filePath));
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+        //String jsonString = gson.fromJson(inputSettings, String.class);
+        return inputSettings;
+    }
 
     public static ConfigInstance getMapFrom(String jsonFilePath) throws IOException {
         // Reading input settings
