@@ -10,6 +10,8 @@ import model.Vehicle;
 import model.Visit;
 
 import java.nio.file.Path;
+import java.util.Date;
+import java.util.Random;
 
 public class SimulationFCFS extends Simulation {
 
@@ -22,10 +24,12 @@ public class SimulationFCFS extends Simulation {
 
     /* Construct FCFS simulation */
     public SimulationFCFS(String methodName,
+                          Date earliestTime,
                           int maxTimeToReachRegionCenter,
                           int initialFleet,
                           int vehicleMaxCapacity,
                           int maxRequestsIteration,
+                          double percentageRequestsIteration,
                           int timeWindow,
                           int timeHorizon,
                           int contractDuration,
@@ -33,19 +37,23 @@ public class SimulationFCFS extends Simulation {
                           String serviceRateScenarioLabel,
                           String segmentationScenarioLabel,
                           Rebalance rebalance,
-                          Matching matchingSettings) {
+                          Matching matchingSettings,
+                          Random randomSeed) {
 
 
         // Build generic Simulation object
         super(initialFleet,
                 vehicleMaxCapacity,
                 maxRequestsIteration,
+                percentageRequestsIteration,
+                earliestTime,
                 timeWindow,
                 timeHorizon,
                 contractDuration,
                 isAllowedToHire,
                 rebalance,
-                matchingSettings);
+                matchingSettings,
+                randomSeed);
 
         // Service rate and segmentation scenarios
         this.serviceRateScenarioLabel = serviceRateScenarioLabel;
@@ -60,9 +68,11 @@ public class SimulationFCFS extends Simulation {
         // Initialize solution
         sol = new Solution(
                 methodName,
+                earliestTime,
                 maxTimeToReachRegionCenter,
                 initialFleet,
                 maxRequestsIteration,
+                percentageRequestsIteration,
                 vehicleMaxCapacity,
                 timeWindow,
                 timeHorizon,

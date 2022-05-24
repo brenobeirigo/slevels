@@ -6,7 +6,8 @@ import dao.Dao;
 import helper.HelperIO;
 import helper.MethodHelper;
 import helper.Runtime;
-import model.*;
+import model.User;
+import model.Vehicle;
 import model.node.Node;
 import simulation.matching.Matching;
 import simulation.matching.ResultAssignment;
@@ -15,11 +16,20 @@ import simulation.rebalancing.RebalanceHeuristic;
 import simulation.rebalancing.RebalanceOptimal;
 
 import java.nio.file.Files;
+import java.time.Duration;
+import java.time.Instant;
 import java.util.*;
 import java.util.stream.Collectors;
 
 public abstract class Simulation {
 
+
+    protected Random randomSeed;
+    protected Duration runTime;
+
+    public Solution getSol() {
+        return sol;
+    }
 
     // Solution coming from simulation
     protected Solution sol; //Simulation solution
@@ -39,8 +49,9 @@ public abstract class Simulation {
     protected String segmentationScenarioLabel;
 
     /* TIME HORIZON */
-    protected int timeWindow; // Size of time bins
-    protected int timeHorizon; // Total time horizon
+    public static int timeWindow; // Size of time bins
+    public static int timeHorizon; // Total time horizon
+    protected Date earliestTime;
 
     /* VEHICLE INFO */
     protected int initialFleetSize; // Fleet size
@@ -48,7 +59,8 @@ public abstract class Simulation {
     protected int maxRoundsIdle; // Ends the contract of extra vehicle after number of rounds
 
     /* POOLING DATA */
-    protected int maxNumberOfTrips; //How many trips are pooled in time horizon
+    protected int maxNumberOfTrips; //How many trips are pooled in time window
+    protected double percentageTrips; // Percentage of total number of trips sampled from time window batch
     protected int time_slot;
     protected int start_timestamp; // (00:00:00) Initial timestamp for pooling data
     public static int leftTW, rightTW; // Left and right time windows (rightTW = current time)
@@ -76,12 +88,18 @@ public abstract class Simulation {
     public Simulation(int initialFleetSize,
                       int vehicleCapacity,
                       int maxNumberOfTrips,
+                      double percentageTrips,
+                      Date earliestTime,
                       int timeWindow,
                       int timeHorizon,
                       int contractDuration,
                       boolean isAllowedToHire,
                       Rebalance rebalanceUtil,
-                      Matching matchingSettings) {
+                      Matching matchingSettings,
+                      Random randomSeed) {
+
+        /* USER SELECTION AND VEHICLE ORIGINS*/
+        this.randomSeed = randomSeed;
 
         /*MATCHING*/
         this.sortWaitingUsersByClass = true;
@@ -91,8 +109,9 @@ public abstract class Simulation {
         this.rebalanceUtil = rebalanceUtil;
 
         /* TIME HORIZON */
-        this.timeWindow = timeWindow; // Size of time bins
-        this.timeHorizon = timeHorizon; // Total time horizon
+        Simulation.timeWindow = timeWindow; // Size of time bins
+        Simulation.timeHorizon = timeHorizon; // Total time horizon
+        this.earliestTime = earliestTime;
 
         /* DEACTIVATING */
         this.contractDuration = contractDuration;
@@ -104,6 +123,7 @@ public abstract class Simulation {
 
         /* PULLING DATA */
         this.maxNumberOfTrips = maxNumberOfTrips; //How many trips are pooled in time horizon
+        this.percentageTrips = percentageTrips;
         totalRounds = timeHorizon / timeWindow; // How many rounds of time horizon will be pooled
         time_slot = totalRounds * timeWindow;
         start_timestamp = 0; // (00:00:00) Initial timestamp for pooling data
@@ -124,9 +144,29 @@ public abstract class Simulation {
 
         runTimes = Dao.getInstance().getRunTimes();
 
-        listVehicles = MethodHelper.createListVehicles(initialFleetSize, vehicleCapacity, true, leftTW); // List of vehicles
+        listVehicles = MethodHelper.createListVehicles(initialFleetSize, vehicleCapacity, true, leftTW, this.randomSeed, Dao.getInstance().getDistMatrix().length); // List of vehicles
+//        String a = listVehicles.stream().map(v -> String.valueOf(v.getOrigin().getNetworkId())).reduce("", (subtotal, element) -> subtotal + "," + element);
+//        HelperIO.saveDataWithHeaders(String.format("vehicle_distribution_%s.txt", this.randomSeed), a, this.matching.toString(), true);
         listHiredVehicles = new HashSet<>();
         //TODO hot_PK_list
+    }
+
+    public String getSummary(int episode) {
+
+        return String.format("%20s;%4d;%s,%4d;%10d;%10d;%5.4f;%4d;%4d;%10d;%,10.2f;%,10.2f,%4d",
+                this.matching.getRideMatchingStrategy(),
+                episode,
+                Config.formatter_date_time.format(this.earliestTime),
+                this.listVehicles.size(),
+                this.allRequests.size(),
+                this.finishedRequests.size(),
+                (double) this.finishedRequests.size() / this.allRequests.size(),
+                this.totalRounds,
+                this.roundCount,
+                this.finishedRequests.stream().mapToInt(sub -> sub.getNodeDp().getDelay()).sum(),
+                this.listVehicles.stream().mapToDouble(sub -> sub.getDistanceTraveledEmpty()).sum(),
+                this.listVehicles.stream().mapToDouble(sub -> sub.getDistanceTraveledLoaded()).sum(),
+                this.runTime.toSeconds());
     }
 
     public static void reset() {
@@ -146,10 +186,11 @@ public abstract class Simulation {
 
             // Dictionary of pooled requests inside time slot
             newUsers = Dao.getInstance()
-                    .getListTripsClassed(
+                    .getListTripsClassedShuffled(
                             timeWindow,
                             vehicleCapacity,
-                            maxNumberOfTrips);
+                            percentageTrips,
+                            this.randomSeed);
         }
         return newUsers;
     }
@@ -244,12 +285,7 @@ public abstract class Simulation {
 
     public void run() {
 
-        if (instanceAlreadyProcessed()) {
-            System.out.println(this.sol.getOutputFile() + " already exists.");
-            return;
-        } else {
-            System.out.println(String.format("# Processing instance \"%s\"...", this.sol.getOutputFile()));
-        }
+        Instant before = Instant.now();
 
         // Loop rounds of TW
         do {
@@ -321,8 +357,9 @@ public abstract class Simulation {
                 // 2.2. Middle is target node (there are no middle points) = Middle is target node
                 vehicle.updateMiddle(rightTW);
                 assertConsistentArrivalDepartureTimesForVehicle(vehicle);
-            }
 
+                //vehicle.printVisitTrack();
+            }
 
 
             // Updating vehicle lists
@@ -368,6 +405,7 @@ public abstract class Simulation {
                 roundHiredVehicles.add(vehicle);
             }
 
+            // System.out.println(resultAssignment.getSnapshot(listVehicles));
             ///// 5 - UPDATE WAITING LIST //////////////////////////////////////////////////////////////////////////////
             unassignedRequests = resultAssignment.getRequestsUnassigned();
             roundUnmetServiceLevel = resultAssignment.requestsServicedLevelNotAchieved;
@@ -400,8 +438,14 @@ public abstract class Simulation {
             rightTW = leftTW + timeWindow;
             roundCount = roundCount + 1;
 
-        } while (!unassignedRequests.isEmpty() || roundCount < totalRounds || activeFleet);
+        } while (roundCount < totalRounds || activeFleet);
 
+
+        Instant after = Instant.now();
+        this.runTime = Duration.between(before, after);
+        System.out.println("Duration:" + runTime.toMinutes());
+
+        System.out.printf("FINISHED SIMULATION - Duration=%02d:%02d", runTime.toMinutesPart(), runTime.toSecondsPart());
         // Print detailed journeys for each vehicle
         if (Config.infoHandling.get(Config.SHOW_ALL_VEHICLE_JOURNEYS))
             sol.printAllJourneys(listVehicles);
@@ -420,14 +464,14 @@ public abstract class Simulation {
     }
 
     private void assertConsistentArrivalDepartureTimesForVehicle(Vehicle vehicle) {
-        assert vehicle.getLastVisitedNode().getArrival() >= vehicle.getLastVisitedNode().getEarliest(): String.format("Node=%s (%s) - %s - %s", vehicle.getLastVisitedNode().getInfo(), vehicle.getVisit(), vehicle.getJourney(), String.valueOf(vehicle.getVisitTrack()));
+        assert vehicle.getLastVisitedNode().getArrival() >= vehicle.getLastVisitedNode().getEarliest() : String.format("Node=%s (%s) - %s - %s", vehicle.getLastVisitedNode().getInfo(), vehicle.getVisit(), vehicle.getJourney(), String.valueOf(vehicle.getVisitTrack()));
         if (!vehicle.isParked()) {
             assert vehicle.getLastVisitedNode().getDeparture() >= vehicle.getLastVisitedNode().getArrival() : String.format("Dep=%s >= Arr=%s (%s) - %s", vehicle.getLastVisitedNode().getDeparture(), vehicle.getLastVisitedNode().getArrival(), vehicle.getVisit(), vehicle.getJourney());
             assert vehicle.getLastVisitedNode().getDeparture() >= vehicle.getLastVisitedNode().getEarliestDeparture() : String.format("Dep=%s >= EarDep=%s (%s) - %s", vehicle.getLastVisitedNode().getDeparture(), vehicle.getLastVisitedNode().getEarliestDeparture(), vehicle.getVisit(), vehicle.getJourney());
         }
     }
 
-    private boolean instanceAlreadyProcessed() {
+    public boolean instanceAlreadyProcessed() {
         return Files.exists(this.sol.getOutputFile());
     }
 
@@ -474,7 +518,8 @@ public abstract class Simulation {
 
                 if (intersection.size() > 0) {
 
-                    System.out.printf("Users=%s are assigned to vehicles %s and %s.", intersection, v1, v2);
+                    System.out.printf("Users=%s are assigned to vehicles %s (%s) and %s (%s).\n", intersection, v1, v1.getId(), v2, v2.getId());
+
                     System.out.println(v1.getVisit());
                     System.out.println(v2.getVisit());
                     return false;

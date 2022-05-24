@@ -91,16 +91,22 @@ public class Solution {
         createHeader();
     }
 
-    public String getDigitsFromDate(Date date) {
+    public static String getDigitsFromDate(Date date) {
         String onlyDigits = Config.formatter_date_time.format(date).replace("-", "").replace(":", "");
         return onlyDigits.replace(" ", "");
     }
 
+    public String getTestCaseName() {
+        return testCaseName;
+    }
+
     // Initialize solution
     public Solution(String methodName,
+                    Date earliestTime,
                     int maxHiringDelaySeconds,
                     int initialFleetSize,
                     int maxNumberOfRequests,
+                    double percentageRequests,
                     int maxVehicleCapacity,
                     int batchDurationSeconds,
                     int simulationTimeSeconds,
@@ -128,23 +134,7 @@ public class Solution {
         this.customerSegmentation = customerSegmentation;
 
 
-        testCaseName = String.format(
-                "IN-%s_SD-%s_ST-%d_BA-%d_MR-%d_IF-%d_MC-%d_CS-%s_HC-%d",
-                methodName,
-                getDigitsFromDate(Config.getInstance().getEarliestTime()),
-                simulationTimeSeconds,
-                batchDurationSeconds,
-                maxNumberOfRequests,
-                initialFleetSize,
-                maxVehicleCapacity,
-                customerSegmentation,
-                maxHiringDelaySeconds);
-        testCaseName += (allowVehicleHiring ? "_CD-" + (contractDuration == Config.DURATION_SINGLE_RIDE ? 0 : contractDuration) : "");
-        testCaseName += (allowServiceDeterioration ? "_SR-" + serviceRate : "");
-        testCaseName += (allowVehicleHiring ? "_VH" : "");
-        testCaseName += (allowServiceDeterioration ? "_SD" : "");
-        testCaseName += rebalanceStrategy != null ? rebalanceStrategy : "_RE-NO";
-        testCaseName += matchingStrategy;
+        this.testCaseName = getTestCaseName(methodName, earliestTime, maxHiringDelaySeconds, initialFleetSize, maxNumberOfRequests, percentageRequests, maxVehicleCapacity, batchDurationSeconds, simulationTimeSeconds, contractDuration, allowVehicleHiring, allowServiceDeterioration, serviceRate, customerSegmentation, rebalanceStrategy, matchingStrategy);
 
         // File path
         this.outputFile = Paths.get(
@@ -165,6 +155,44 @@ public class Solution {
                         InstanceConfig.getInstance().getRequestTrackFolder(),
                         testCaseName
                 ));
+    }
+
+    public static String getTestCaseName(
+            String methodName,
+            Date earliestTime,
+            Integer maxHiringDelaySeconds,
+            Integer initialFleetSize,
+            Integer maxNumberOfRequests,
+            Double percentageRequests,
+            Integer maxVehicleCapacity,
+            Integer batchDurationSeconds,
+            Integer simulationTimeSeconds,
+            Integer contractDuration,
+            Boolean allowVehicleHiring,
+            Boolean allowServiceDeterioration,
+            String serviceRate,
+            String customerSegmentation,
+            RebalanceStrategy rebalanceStrategy,
+            RideMatchingStrategy matchingStrategy) {
+        String testCaseName = String.format(
+                "%s%sST-%d_BA-%d_%s%sIF-%d_MC-%d_CS-%s_HC-%d",
+                methodName != null? String.format("IN-%s_", methodName):"",
+                earliestTime != null? String.format("SD-%s_", getDigitsFromDate(earliestTime)):"",
+                simulationTimeSeconds,
+                batchDurationSeconds,
+                maxNumberOfRequests != null? String.format("MR-%d_", maxNumberOfRequests): "",
+                percentageRequests != null? String.format("PR-%3.2f_", percentageRequests): "",
+                initialFleetSize,
+                maxVehicleCapacity,
+                customerSegmentation,
+                maxHiringDelaySeconds);
+        testCaseName += (allowVehicleHiring ? "_CD-" + (contractDuration == Config.DURATION_SINGLE_RIDE ? 0 : contractDuration) : "");
+        testCaseName += (allowServiceDeterioration ? "_SR-" + serviceRate : "");
+        testCaseName += (allowVehicleHiring ? "_VH" : "");
+        testCaseName += (allowServiceDeterioration ? "_SD" : "");
+        testCaseName += rebalanceStrategy != null ? rebalanceStrategy : "_RE-NO";
+        testCaseName += matchingStrategy != null ? matchingStrategy : "";;
+        return testCaseName;
     }
 
     public static void reset() {
@@ -320,7 +348,6 @@ public class Solution {
                 e.printStackTrace();
             }
         }
-
 
 
         try {
