@@ -22,7 +22,7 @@ public class MethodHelper {
         return new Vehicle(capacity, randomOrigin, currentTime, true, numberOfContractedRounds);
     }
 
-    public static Set<Vehicle> createListVehicles(int n, int size, boolean uniqueSize, int currentTime) {
+    public static Set<Vehicle> createListVehicles(int n, int size, boolean uniqueSize, int currentTime, Random seed, int maxFleetSize) {
 
         //System.out.println("Creating vehicles...");
         Set<Vehicle> listVehicle = new HashSet<>();
@@ -48,7 +48,7 @@ public class MethodHelper {
             }
 
             //
-            short randomOrigin = (short) (Dao.getInstance().rand.nextDouble() * Dao.getInstance().getDistMatrix().length);
+            short randomOrigin = (short) (seed.nextDouble() * maxFleetSize);
 
             //System.out.println("Vehicles:" + randomOrigin + "-" + Dao.getInstance().getDistMatrix().length);
             //System.out.println(randomOrigin);
