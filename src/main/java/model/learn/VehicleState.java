@@ -14,6 +14,7 @@ public class VehicleState implements Comparable<VehicleState>, VisitObj {
 
     private static final int MAX_PICKUP_DELAY = 300;
     protected Vehicle vehicle;
+    private double vf;
 
     public VisitObj getVisit() {
         return visit;
@@ -30,6 +31,7 @@ public class VehicleState implements Comparable<VehicleState>, VisitObj {
     protected Integer totalDelay;
     protected Integer totalDelayBonus;
     protected Integer requestCount;
+    protected Integer departure;
     private Integer vehicleCountAtOrigin;
     protected Integer vehicleCapacity;
     protected Integer postDecisionTime;
@@ -52,13 +54,14 @@ public class VehicleState implements Comparable<VehicleState>, VisitObj {
     public VehicleState(VisitObj visit, int preDecisionTime, int totalTimeHorizon, int timestepInterval) {
         this.init(preDecisionTime, timestepInterval, totalTimeHorizon);
         this.visit = visit;
+        this.departure = visit.getVehicle().getEarliestDeparture();
         this.requests = new HashSet<>(visit.getRequests());
         this.passengers = new HashSet<>(visit.getPassengers());
         this.vehicle = visit.getVehicle();
         this.requestCount = visit.getRequests().size();
         this.totalDelay = visit.getDelay();
         this.totalDelayBonus = visit.getDelayBonus();
-
+        assert this.totalDelayBonus != null;
         processLastVisitedNode();
 
         if (visit != null) {
@@ -270,6 +273,7 @@ public class VehicleState implements Comparable<VehicleState>, VisitObj {
         vs.requestCount = visit.getRequests().size();
         vs.totalDelay = visit.getDelay();
         vs.totalDelayBonus = visit.getDelayBonus();
+        assert vs.totalDelayBonus != null: visit;
 
 //        # Normalising Inputs
 //        current_time_input = (current_time - self.envt.START_EPOCH) / (self.envt.STOP_EPOCH - self.envt.START_EPOCH)
@@ -286,8 +290,8 @@ public class VehicleState implements Comparable<VehicleState>, VisitObj {
                 vs.processNextDestination();
             } else {
 
-                int arrivalTime = visit.getDeparture();
                 Node originNode = visit.getVehicle().getLastVisitedNode();
+                int arrivalTime = originNode.getEarliestDeparture();
                 int currentLoad = visit.getVehicle().getCurrentLoad();
 
                 int maxDelay = originNode.getMaxDelay();
@@ -296,7 +300,7 @@ public class VehicleState implements Comparable<VehicleState>, VisitObj {
                 for (Node destinationNode : visit.getSequenceVisits()) {
 
                     int distanceLeg = Dao.getInstance().getDistSec(originNode, destinationNode);
-
+                    //System.out.printf("%s -> %s -> %s - Arrival: %s", originNode, distanceLeg, destinationNode, arrivalTime);
                     if (distanceLeg == 0) {
                         int indexLastNode = vs.nodeArrivals.size() - 1;
                         currentLoad += destinationNode.getLoad();
@@ -305,17 +309,19 @@ public class VehicleState implements Comparable<VehicleState>, VisitObj {
                         int delayBonus = getDelayBonus(arrivalTime, destinationNode);
                         vs.delays.set(indexLastNode, vs.delays.get(indexLastNode) + delay);
                         vs.delayBonuses.set(indexLastNode, vs.delayBonuses.get(indexLastNode) + delayBonus);
-
                         vs.loads.set(indexLastNode, currentLoad);
                         vs.normalOccupancyRates.set(indexLastNode, vs.getOccupancyRate(currentLoad));
                         // Assume highest delay to reach node
-                        double highestDelay = Math.max(vs.normalArrivalDelays.get(indexLastNode), delay);
+                        double normalDelay = vs.getNormalDelay(destinationNode, arrivalTime);
+                        double highestDelay = Math.max(vs.normalArrivalDelays.get(indexLastNode), normalDelay);
                         vs.normalArrivalDelays.set(indexLastNode, highestDelay);
+
                         originNode = destinationNode;
                     } else {
 
 
                         arrivalTime = arrivalTime + distanceLeg;
+                        //System.out.println(visit.getVehicle().getLastVisitedNode() +"="+ arrivalTime);
                         currentLoad += destinationNode.getLoad();
 
                         vs.networkIds.add(destinationNode.getNetworkId());
@@ -376,7 +382,8 @@ public class VehicleState implements Comparable<VehicleState>, VisitObj {
 
     private void processDestinationSequence() {
 
-        int departureTime = this.visit.getDeparture();
+        int departureTime = this.visit.getVehicle().getEarliestDeparture();
+        assert java.util.Objects.equals(this.visit.getVehicle().getEarliestDeparture(), this.visit.getDeparture());
         Node originNode = this.visit.getVehicle().getLastVisitedNode();
         int currentLoad = this.visit.getVehicle().getCurrentLoad();
 
@@ -452,7 +459,7 @@ public class VehicleState implements Comparable<VehicleState>, VisitObj {
     private double getNormalDelay(Node destination, int arrival) {
         double normalDelay = 0;
         if (isPickupOrDeliveryNode(destination))
-            normalDelay = Double.valueOf(arrival - destination.getEarliest()) / destination.getMaxDelay();
+            normalDelay = (double) (arrival - destination.getEarliest()) / destination.getMaxDelay();
         return normalDelay;
     }
 
@@ -606,7 +613,7 @@ public class VehicleState implements Comparable<VehicleState>, VisitObj {
 
     @Override
     public Integer getDeparture() {
-        return null;
+        return this.departure;
     }
 
     @Override
@@ -637,6 +644,22 @@ public class VehicleState implements Comparable<VehicleState>, VisitObj {
     @Override
     public Integer getDelayBonus() {
         return this.totalDelayBonus;
+    }
+
+    @Override
+    public void setVF(double vf) {
+        this.vf = vf;
+
+    }
+
+    @Override
+    public double getVF() {
+        return this.vf;
+    }
+
+    @Override
+    public void setDeparture(int departure) {
+        this.departure = departure;
     }
 
     public int getCapacity() {

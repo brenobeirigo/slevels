@@ -5,13 +5,14 @@ import com.google.common.collect.Sets;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import dao.Dao;
+import model.learn.VehicleState;
 import model.node.*;
 import simulation.Simulation;
 
 import java.util.*;
 import java.util.stream.Collectors;
 
-public class Visit implements Comparable<Visit> {
+public class Visit implements Comparable<VisitObj>, VisitObj {
     // TODO use visit count to index visits
     private static int visitCount;
     protected Integer departure; // When vehicle departs
@@ -19,29 +20,39 @@ public class Visit implements Comparable<Visit> {
     protected Vehicle vehicle;
     protected double avgLoadPerVisitLeg; // Load divided by visit's legs
     protected Integer delay; // Requests' total waiting time
+    protected Integer delayBonus; // How much time until deadline
     protected Integer idle; // Vehicle's total waiting time
+    private double vf;
+
+    public double getAvgLoadPerVisitLeg() {
+        return avgLoadPerVisitLeg;
+    }
+
     private int arrival; // Arrival time at the last visited node
     private Set<User> passengers; // Users picked up
     private Set<User> requests; // Users that can still be moved (not picked up)
     public Map<User, Integer> userDelayMap;
 
-    public static Comparator<Visit> visitComparator = Comparator.nullsLast(Comparator.comparing(Visit::getDelay).thenComparing(Visit::getVisitSequenceSize));
+    public static Comparator<VisitObj> visitComparator = Comparator.nullsLast(Comparator.comparing(VisitObj::getDelay).thenComparing(VisitObj::getVisitSequenceSize));
     private List<Integer> draftArrivalTimes;
+    private VehicleState vehicleState;
 
-    public Visit(Visit v) {
-        this.arrival = v.arrival;
-        this.requests = new HashSet<>(v.requests);
-        this.passengers = new HashSet<>(v.passengers);
-        this.sequenceVisits = new LinkedList<>(v.sequenceVisits);
-        this.vehicle = v.vehicle;
-        this.avgLoadPerVisitLeg = v.avgLoadPerVisitLeg;
-        this.delay = v.delay;
-        this.idle = v.idle;
+    public Visit(VisitObj v) {
+        this.arrival = v.getArrival();
+        this.requests = new HashSet<>(v.getRequests());
+        this.passengers = new HashSet<>(v.getPassengers());
+        this.sequenceVisits = new LinkedList<>(v.getSequenceVisits());
+        this.vehicle = v.getVehicle();
+        this.avgLoadPerVisitLeg = v.getAvgLoadPerVisitLeg();
+        this.delay = v.getDelay();
+        this.delayBonus = v.getDelayBonus();
+        this.idle = v.getIdle();
     }
 
     public Visit(LinkedList<Node> sequenceVisits, int delay, int idle) {
         this.sequenceVisits = sequenceVisits;
         this.delay = delay;
+        this.delayBonus =
         this.idle = idle;
         this.passengers = new HashSet<>();
         this.requests = new HashSet<>();
@@ -50,6 +61,16 @@ public class Visit implements Comparable<Visit> {
     public Visit(LinkedList<Node> sequenceVisits, int delay, int idle, Vehicle v) {
         this.sequenceVisits = sequenceVisits;
         this.delay = delay;
+        this.idle = idle;
+        this.vehicle = v;
+        this.passengers = new HashSet<>();
+        this.requests = new HashSet<>();
+    }
+
+    public Visit(LinkedList<Node> sequenceVisits, int delayBonus, int delay, int idle, Vehicle v) {
+        this.sequenceVisits = sequenceVisits;
+        this.delay = delay;
+        this.delayBonus = delayBonus;
         this.idle = idle;
         this.vehicle = v;
         this.passengers = new HashSet<>();
@@ -83,14 +104,6 @@ public class Visit implements Comparable<Visit> {
         this.passengers = new HashSet<>();
     }
 
-    public Visit(LinkedList<Node> sequenceVisits,
-                 int delay,
-                 int idle,
-                 double avgOccupationLeg) {
-
-        this(sequenceVisits, delay, idle);
-        this.avgLoadPerVisitLeg = avgOccupationLeg;
-    }
 
     public Visit() {
         this.delay = Integer.MAX_VALUE;
@@ -98,6 +111,11 @@ public class Visit implements Comparable<Visit> {
         this.avgLoadPerVisitLeg = Double.MIN_VALUE;
         this.passengers = new HashSet<>();
         this.requests = new HashSet<>();
+    }
+
+    public Visit(Node[] sequencePD, int delay, int delayBonus, int idleness, Vehicle vehicle, Set<User> requests) {
+    this(sequencePD,delay, idleness, vehicle, requests);
+    this.delayBonus = delayBonus;
     }
 
     public Visit(Node[] sequencePD, int delay, int idleness, Vehicle vehicle, Set<User> requests) {
@@ -257,7 +275,7 @@ public class Visit implements Comparable<Visit> {
         assert validPDSequence[0].getLatest() >= Simulation.rightTW;
 
         for (int i = 1; i < validPDSequence.length; i++) {
-            assert validPDSequence[0].getLatest() >= Simulation.rightTW;
+            assert validPDSequence[i].getLatest() >= Simulation.rightTW;
             //System.out.printf("from= %s ### Arrival=%4d ### Delay=%4d\n", currentLeg.fromNode.getInfo(), currentLeg.arrivalNext, currentLeg.delay);
             if (!currentLeg.updateNextNode(validPDSequence[i])) {
                 return null;
@@ -434,22 +452,26 @@ public class Visit implements Comparable<Visit> {
         return false;
     }
 
-    public static List<User> filterFirstTier(Set<Visit> visitsOK) {
+    public static List<User> filterFirstTier(Set<VisitObj> visitsOK) {
         List<User> firstTierUsers = new ArrayList<>();
-        for (Visit visit : visitsOK) {
+        for (VisitObj visit : visitsOK) {
             firstTierUsers.addAll(User.filterFirstTier(visit.getRequests()));
         }
         return firstTierUsers;
     }
 
-    public static List<User> filterSecondTier(Set<Visit> visitsOK) {
+    public static List<User> filterSecondTier(Set<VisitObj> visitsOK) {
         List<User> secondTierUsers = new ArrayList<>();
-        for (Visit visit : visitsOK) {
+        for (VisitObj visit : visitsOK) {
             secondTierUsers.addAll(User.filterSecondTier(visit.getRequests()));
         }
         return secondTierUsers;
     }
 
+
+    public Visit getVisit(){
+        return this;
+    }
 
     public Integer getDeparture() {
         return this.departure;
@@ -475,7 +497,7 @@ public class Visit implements Comparable<Visit> {
         this.sequenceVisits = sequenceVisits;
     }
 
-    public int getDelay() {
+    public Integer getDelay() {
         return delay;
     }
 
@@ -487,7 +509,7 @@ public class Visit implements Comparable<Visit> {
         this.vehicle = v;
     }
 
-    public int getIdle() {
+    public Integer getIdle() {
         return idle;
     }
 
@@ -517,16 +539,8 @@ public class Visit implements Comparable<Visit> {
         return Objects.hashCode(getSequenceVisits(), getVehicle());
     }
 
-    /**
-     * @param v is a non-null Visit.
-     */
-    @Override
-    public int compareTo(Visit v) {
-        return visitComparator.compare(this, v);
-    }
-
     public int getVisitSequenceSize() {
-        return this.sequenceVisits.size();
+        return this.sequenceVisits != null ? this.sequenceVisits.size() : 0;
     }
 
     /**
@@ -537,6 +551,29 @@ public class Visit implements Comparable<Visit> {
         return this.vehicle.getVisit() == this;
     }
 
+    @Override
+    public Integer getDelayBonus() {
+        return this.delayBonus;
+    }
+
+    @Override
+    public void setVF(double vf) {
+        this.vf = vf;
+    }
+
+    @Override
+    public double getVF() {
+        return vf;
+    }
+
+    @Override
+    public void setDeparture(int departure) {
+        this.departure = departure;
+    }
+
+    public Node getLastVisitedNode(){
+        return this.vehicle.getLastVisitedNode();
+    }
     public int isValidSequence() {
 
         LinkedList<Node> allNodes = new LinkedList<>(Arrays.asList(this.vehicle.getLastVisitedNode()));
@@ -713,7 +750,7 @@ public class Visit implements Comparable<Visit> {
      * @return target node
      */
     public Node getTargetNode() {
-        return this.sequenceVisits.getFirst();
+        return this.sequenceVisits.isEmpty()? null : this.sequenceVisits.getFirst();
     }
 
     public Set<User> getRequests() {
@@ -872,7 +909,7 @@ public class Visit implements Comparable<Visit> {
                 this.vehicle.getMiddleNode() == null ? "-------" : this.vehicle.getMiddleNode(),
                 getDistanceLegInfoFromNodes(
                         this.vehicle.getMiddleNode(),
-                        sequenceNodesToVisit.get(0))
+                        sequenceNodesToVisit.isEmpty()? null : sequenceNodesToVisit.get(0))
         );
     }
 
@@ -886,10 +923,18 @@ public class Visit implements Comparable<Visit> {
                 vehicle,
                 this.vehicle.getCurrentLoad(),
                 passengers.size(),
-                passengers.stream().mapToInt(User::getNumPassengers).sum(),
+                getPassengersTotalLoad(),
                 requests.size(),
-                requests.stream().mapToInt(User::getNumPassengers).sum()
+                getRequestsTotalLoad()
         );
+    }
+
+    public int getPassengersTotalLoad() {
+        return passengers.stream().mapToInt(User::getNumPassengers).sum();
+    }
+
+    public int getRequestsTotalLoad() {
+        return requests.stream().mapToInt(User::getNumPassengers).sum();
     }
 
     /**
@@ -910,11 +955,11 @@ public class Visit implements Comparable<Visit> {
                 loadVehicleAtCurrentNode,
                 vehicle.getCapacity(),
                 currentNode.getEarliest(),
-                arrivalAtCurrentNode,
+                arrivalAtCurrentNode == null ? "INF":arrivalAtCurrentNode,
                 currentNode.getLatest() == Integer.MAX_VALUE ? "INF" : currentNode.getLatest(),
-                currentNode.getEarliest() == 0 ? "-" : arrivalAtCurrentNode - currentNode.getEarliest(),
+                currentNode.getEarliest() == 0 || arrivalAtCurrentNode == null? "-" : arrivalAtCurrentNode - currentNode.getEarliest(),
                 currentNode.getArrivalSoFar() == null || arrivalAtCurrentNode == null ? "INF" : currentNode.getArrivalSoFar() - arrivalAtCurrentNode,
-                currentNode.getLatest() == Integer.MAX_VALUE ? "INF" : currentNode.getLatest() - arrivalAtCurrentNode
+                currentNode.getLatest() == Integer.MAX_VALUE || arrivalAtCurrentNode == null? "INF" : currentNode.getLatest() - arrivalAtCurrentNode
         );
     }
 
@@ -931,5 +976,20 @@ public class Visit implements Comparable<Visit> {
         this.draftArrivalTimes = draftArrivalTimes;
     }
 
+    public void setVehicleState(VehicleState vehicleState) {
+        this.vehicleState = vehicleState;
+    }
+
+    public VehicleState getVehicleState() {
+        return vehicleState;
+    }
+
+    /**
+     * @param v is a non-null Visit.
+     */
+    @Override
+    public int compareTo(VisitObj v) {
+        return visitComparator.compare(this, v);
+    }
 }
 

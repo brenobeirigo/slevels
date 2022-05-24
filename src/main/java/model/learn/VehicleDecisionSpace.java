@@ -12,6 +12,7 @@ import java.util.stream.Collectors;
 
 public class VehicleDecisionSpace {
 
+    protected int decisionCount;
     protected ArrayList<Integer> requestCounts;
     protected Set<VehicleState> vehicleStates;
     protected int vehicleId;
@@ -44,8 +45,10 @@ public class VehicleDecisionSpace {
         this.totalDelayBonus = new ArrayList<>();
         this.nodes = new ArrayList<>();
         this.requestCounts = new ArrayList<>();
+        this.decisionCount = 0;
 
         for (VehicleState vehicleState : vehicleStates) {
+            this.decisionCount++;
             normalCapacity.add((double) (vehicleState.getCapacity()/DecisionSpaceObject.MAX_CAPACITY_VEHICLE));
             capacity.add(vehicleState.getCapacity());
             nextNetworkIds.add(vehicleState.networkIds);

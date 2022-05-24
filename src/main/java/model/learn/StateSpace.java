@@ -18,8 +18,8 @@ public class StateSpace {
     protected Map<Vehicle, VehicleState> vehicleCurrentStateMap;
     protected Map<Vehicle, Set<VehicleState>> vehicleDecisionsMap;
     protected Map<User, Set<VehicleState>> userVisitMap;
-    protected Set<Vehicle> vehicles;
-    protected Set<User> requests;
+    public Set<Vehicle> vehicles;
+    public Set<User> requests;
     protected int currentTime;
     protected int timeHorizon;
     protected int elapsed;
