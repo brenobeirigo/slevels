@@ -27,12 +27,12 @@ public class MatchingOptimalServiceLevelAndHire extends MatchingOptimalServiceLe
     }
 
     @Override
-    public ResultAssignment match(int currentTime, Set<User> unassignedRequests, Set<Vehicle> currentVehicleList, Set<Vehicle> hired) {
+    public ResultAssignment match(int currentTime, Set<User> unassignedRequests, Set<Vehicle> vehicles, Set<Vehicle> hired) {
         this.currentTime = currentTime;
         this.hiredCurrentPeriod = hired;
         this.result = new ResultAssignment(currentTime);
 
-        Set<Vehicle> allAvailableVehicles = new HashSet<>(currentVehicleList);
+        Set<Vehicle> allAvailableVehicles = new HashSet<>(vehicles);
         allAvailableVehicles.addAll(hired);
 
         buildGraphRTV(unassignedRequests, allAvailableVehicles, this.maxVehicleCapacityRTV, timeoutVehicleRTV, this.maxEdgesRV, maxEdgesRR);
@@ -249,7 +249,7 @@ public class MatchingOptimalServiceLevelAndHire extends MatchingOptimalServiceLe
             hiredVehicleVisits.put(vehicle, new GRBLinExpr());
         }
 
-        for (Visit visit : visits) {
+        for (VisitObj visit : visits) {
 
             if (isVisitFromHiringCandidate(visit)) {
                 hiredVehicleVisits.get(visit.getVehicle()).addTerm(1, varVisitSelected(visit));
@@ -262,8 +262,8 @@ public class MatchingOptimalServiceLevelAndHire extends MatchingOptimalServiceLe
         }
     }
 
-    private boolean isVisitFromHiringCandidate(Visit visit) {
-        return hiredCurrentPeriod.contains(visit.getVehicle()) && visit.getVehicle().isHired() && !(visit instanceof VisitStop) && !(visit instanceof VisitRelocation);
+    private boolean isVisitFromHiringCandidate(VisitObj visit) {
+        return hiredCurrentPeriod.contains(visit.getVehicle()) && visit.getVehicle().isHired() && !(visit instanceof VisitStop) && !(visit instanceof VisitRelocation) && !(visit instanceof VisitDisplaceAndStop);
     }
 
 
@@ -318,7 +318,7 @@ public class MatchingOptimalServiceLevelAndHire extends MatchingOptimalServiceLe
         for (Vehicle vehicle : graphRTV.getListVehicles()) {
             visitsVehicle.put(vehicle, "");
         }
-        for (Visit visit : visits) {
+        for (VisitObj visit : visits) {
             StringBuilder reqs = new StringBuilder();
             reqs.append(getVarVisit(visit));
             reqs.append("=[");
@@ -344,7 +344,7 @@ public class MatchingOptimalServiceLevelAndHire extends MatchingOptimalServiceLe
         Map<User, Set<Vehicle>> usersVehicle = new HashMap<>();
 
         System.out.printf("#Visits: %d\n", visits.size());
-        for (Visit visit : visits) {
+        for (VisitObj visit : visits) {
             Set<User> users = visit.getUsers();
             for (User user : users) {
                 usersVehicle.putIfAbsent(user, new HashSet<>());
@@ -368,7 +368,7 @@ public class MatchingOptimalServiceLevelAndHire extends MatchingOptimalServiceLe
         for (Vehicle vehicle : hiredCurrentPeriod) {
             //System.out.println(vehicle + " - " + graphRTV.getListOfVisitsFromVehicle(vehicle));
             boolean atLeastOneVisitHasFAVUnser = false;
-            for (Visit visit : graphRTV.getListOfVisitsFromVehicle(vehicle)) {
+            for (VisitObj visit : graphRTV.getListOfVisitsFromVehicle(vehicle)) {
                 if (visit.getRequests().contains(vehicle.getUserHiredMustPickup())) {
                     atLeastOneVisitHasFAVUnser = true;
                     break;

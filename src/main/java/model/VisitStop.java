@@ -1,16 +1,22 @@
 package model;
 
 import model.node.Node;
-
-import java.util.stream.Collectors;
-
 public class VisitStop extends Visit {
 
 
     public VisitStop(Vehicle v) {
         this.vehicle = v;
         this.delay = 0;
+        this.delayBonus = 0;
         this.idle = 0;
+    }
+
+    public Node getTargetNode(){
+        if (this.vehicle.getVisit()==null){
+            return vehicle.getLastVisitedNode();
+        }
+        assert this.vehicle.getVisit() instanceof VisitRelocation;
+        return this.vehicle.getTargetNode();
     }
 
     public String toString() {

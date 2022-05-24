@@ -1,6 +1,7 @@
 package simulation.matching;
 
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Sets;
 import config.Config;
 import config.Qos;
 import dao.Dao;
@@ -9,8 +10,10 @@ import helper.Runtime;
 import model.*;
 import model.graph.GraphRTV;
 import model.graph.ParallelGraphRTV;
+import model.learn.VehicleState;
 import model.node.Node;
 import simulation.Method;
+import simulation.Simulation;
 
 import java.util.*;
 import java.util.stream.Collectors;
@@ -28,15 +31,18 @@ public class MatchingOptimal implements RideMatchingStrategy {
     protected int maxEdgesRV;
     protected int maxEdgesRR;
     protected int rejectionPenalty;
+
     // Model
     protected GRBEnv env;
     protected GRBModel model;
-    protected Set<Visit> visits;
+    protected Set<VisitObj> visits;
     protected Set<User> requests;
+
     // Some vehicles cannot access
     protected Set<Vehicle> vehicles;
-    protected Map<Visit, Integer> visitIndex;
+    protected Map<VisitObj, Integer> visitIndex;
     protected Map<User, Integer> requestIndex;
+
     // Assignment variables: x[r][v] == 1 if request r is assigned to trip v
     protected GRBVar[] varVisitSelected;
     protected GRBVar[] varRequestRejected;
@@ -45,6 +51,8 @@ public class MatchingOptimal implements RideMatchingStrategy {
     protected Map<String, GRBLinExpr> penObjectives;
     GraphRTV graphRTV;
     ResultAssignment result;
+    public Map<Vehicle, Set<VisitObj>> vehicleVisitsMap;
+    public Map<User, Set<VisitObj>> userVisitsMap;
 
     public MatchingOptimal(int maxVehicleCapacityRTV, double mipTimeLimit, double timeoutVehicleRTV, double mipGap, int maxEdgesRV, int maxEdgesRR, int rejectionPenalty, String[] orderedListOfObjectiveLabels, String PDVisitGenerator) {
         this.maxVehicleCapacityRTV = maxVehicleCapacityRTV;
@@ -60,7 +68,7 @@ public class MatchingOptimal implements RideMatchingStrategy {
     }
 
     @Override
-    public void realizeVisit(Visit visit) {
+    public void realizeVisit(VisitObj visit) {
 
         // Does nothing if same visit chosen (e.g., continue rebalancing)
         if (visit.getVehicle().getVisit() == visit)
@@ -72,7 +80,7 @@ public class MatchingOptimal implements RideMatchingStrategy {
         }
 
         // Vehicle drop scheduled requests and stop at the closest node
-        if (visit instanceof VisitRelocation) {
+        if (visit instanceof VisitDisplaceAndStop) {
             visit.getVehicle().setVisit(visit);
             return;
         }
@@ -111,10 +119,10 @@ public class MatchingOptimal implements RideMatchingStrategy {
         return vehicle.toString().trim().replace(" ", "_");
     }
 
-    public String getVarVisit(Visit visit) {
+    public String getVarVisit(VisitObj visit) {
         if (visit instanceof VisitStop) {
-            return visit.getVehicle().toString().trim() + "_stay_" + visit.getVehicle().getLastVisitedNode().toString().replace(" ", "");
-        } else if (visit instanceof VisitRelocation) {
+            return visit.getVehicle().toString().trim() + "_stay_" + visit.getLastVisitedNode().toString().replace(" ", "");
+        } else if (visit instanceof VisitDisplaceAndStop || visit instanceof VisitRelocation) {
             return String.format("rebalance_%s_%d", getVarNode(visit.getTargetNode()), varVisitId++);
         } else {
             return String.format(
@@ -128,13 +136,107 @@ public class MatchingOptimal implements RideMatchingStrategy {
     }
 
     @Override
-    public ResultAssignment match(int currentTime, Set<User> unassignedRequests, Set<Vehicle> listVehicles, Set<Vehicle> hired) {
-        result = new ResultAssignment(currentTime);
-        buildGraphRTV(unassignedRequests, listVehicles, this.maxVehicleCapacityRTV, timeoutVehicleRTV, maxEdgesRV, maxEdgesRR);
+    public ResultAssignment match(int currentTime, Set<User> unassignedRequests, Set<Vehicle> vehicles, Set<Vehicle> hired) {
+        buildGraphRTV(unassignedRequests, vehicles, this.maxVehicleCapacityRTV, timeoutVehicleRTV, maxEdgesRV, maxEdgesRR);
+        Map<User, Set<VisitObj>> userVisitMapRTV = graphRTV.getUserVisitsMap();
+        Map<Vehicle, Set<VisitObj>> vehicleVisitMapRTV = graphRTV.getVehicleVisitsMap();
+        this.result = assign(currentTime, vehicleVisitMapRTV, userVisitMapRTV);
+
+        // assert assertRTVUserVisitMapCanBeReconstructedFromVehicleVisitMap(unassignedRequests, userVisitMapRTV, vehicleVisitMapRTV);
+        // assert assertConsecutiveAssignmentsProduceSameResults(unassignedRequests, userVisitMapRTV, vehicleVisitMapRTV);
 
 
-        if (this.requests.isEmpty())
-            return result;
+//        MatchingSimple ms = new MatchingSimple(
+//                maxVehicleCapacityRTV,
+//                mipTimeLimit,
+//                timeoutVehicleRTV,
+//                mipGap,
+//                maxEdgesRV,
+//                maxEdgesRR,
+//                rejectionPenalty,
+//                orderedListOfObjectiveLabels,
+//                PDVisitGenerator);
+//
+//        ResultAssignment result = ms.match(currentTime, unassignedRequests, vehicles, hired);
+//        return result;
+        return this.result;
+    }
+
+    private boolean assertConsecutiveAssignmentsProduceSameResults(Set<User> unassignedRequests, Map<User, Set<VisitObj>> userVisitMapRTV, Map<Vehicle, Set<VisitObj>> vehicleVisitMapRTV) {
+        AssignmentILP a = new AssignmentILP(Simulation.rightTW, vehicleVisitMapRTV, userVisitMapRTV, true);
+        AssignmentILP that = new AssignmentILP(Simulation.rightTW, vehicleVisitMapRTV, unassignedRequests, true);
+        for (User u : a.userVisitsMap.keySet()) {
+            if (!a.userVisitsMap.get(u).isEmpty() && !a.userVisitsMap.get(u).containsAll(that.userVisitsMap.get(u))) {
+                System.out.println(a.userVisitsMap.get(u));
+                System.out.println(that.userVisitsMap.get(u));
+                return false;
+            }
+        }
+        for (Vehicle v : a.vehicleVisitsMap.keySet()) {
+            if (!a.vehicleVisitsMap.get(v).isEmpty() && !a.vehicleVisitsMap.get(v).containsAll(that.vehicleVisitsMap.get(v))) {
+                return false;
+            }
+        }
+        a.run(new String[]{Objective.TOTAL_REJECTION, Objective.TOTAL_WAITING});
+        that.run(new String[]{Objective.TOTAL_REJECTION, Objective.TOTAL_WAITING});
+        if (!a.getResult().equals(that.getResult())) {
+
+            System.out.println("# A:");
+            a.printObj();
+            System.out.println("# B:");
+            that.printObj();
+
+            //Objects.equal(unmetServiceLevelClass, that.getResult().unmetServiceLevelClass) &&
+            //Objects.equal(nOfRequestsClass, that.getResult().nOfRequestsClass) &&
+            //Objects.equal(rejectedServiceLevelClass, that.getResult().rejectedServiceLevelClass &&
+            //&& violationCountClassServiceLevel.equals(that.getResult().violationCountClassServiceLevel) &&
+            System.out.println(a.getResult().requestsServicedLevelAchieved.equals(that.getResult().requestsServicedLevelAchieved));
+            System.out.println(a.getResult().requestsServicedLevelNotAchieved.equals(that.getResult().requestsServicedLevelNotAchieved));
+            System.out.println(a.getResult().requestsDisplaced.equals(that.getResult().requestsDisplaced));
+            System.out.println(a.getResult().getVehiclesDisrupted().equals(that.getResult().getVehiclesDisrupted()));
+            System.out.println(a.getResult().roundPrivateRides.equals(that.getResult().roundPrivateRides));
+            System.out.println(a.getResult().getRequestsOK().equals(that.getResult().getRequestsOK()));
+            System.out.println(a.getResult().getVehiclesOK().equals(that.getResult().getVehiclesOK()));
+            System.out.println(a.getResult().getVisitsOK().equals(that.getResult().getVisitsOK()));
+            System.out.println(Sets.difference(a.getResult().getVisitsOK(), that.getResult().getVisitsOK()));
+            System.out.println(a.getResult().getRequestsUnassigned().equals(that.getResult().getRequestsUnassigned()));
+            System.out.println(Sets.difference(a.getResult().getRequestsUnassigned(), that.getResult().getRequestsUnassigned()));
+            System.out.println(a.getResult().getVehiclesHired().equals(that.getResult().getVehiclesHired()));
+            return false;
+        }
+        return true;
+    }
+
+    private boolean assertRTVUserVisitMapCanBeReconstructedFromVehicleVisitMap(Set<User> unassignedRequests, Map<User, Set<VisitObj>> userVisitMapRTV, Map<Vehicle, Set<VisitObj>> vehicleVisitMapRTV) {
+        Map<User, Set<VisitObj>> userVisitMap = AssignmentILP.extractUserVisitsMap(vehicleVisitMapRTV, unassignedRequests);
+        if (!userVisitMapRTV.keySet().containsAll(userVisitMap.keySet())) {
+            Set<User> diff = userVisitMap.keySet();
+            diff.removeAll(userVisitMapRTV.keySet());
+            System.out.printf("Diff: %s", diff);
+            return false;
+        }
+        if (!userVisitMap.keySet().containsAll(userVisitMapRTV.keySet())) {
+            Set<User> diff = userVisitMapRTV.keySet();
+            diff.removeAll(userVisitMap.keySet());
+            System.out.printf("Diff: %s", diff);
+            return false;
+        }
+
+        for (User u : unassignedRequests) {
+            if (!userVisitMapRTV.get(u).containsAll(userVisitMap.get(u)) || !userVisitMap.get(u).containsAll(userVisitMapRTV.get(u))) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private ResultAssignment assign(int currentTime, Map<Vehicle, Set<VisitObj>> vehicleVisitsMap, Map<User, Set<VisitObj>> userVisitsMap) {
+        this.vehicleVisitsMap = vehicleVisitsMap;
+        this.userVisitsMap = userVisitsMap;
+        this.visits = vehicleVisitsMap.values().stream().flatMap(Collection::stream).collect(Collectors.toSet());
+        this.requests = userVisitsMap.keySet();
+        this.vehicles = vehicleVisitsMap.keySet();
+        this.result = new ResultAssignment(currentTime);
 
         try {
             ////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -173,6 +275,9 @@ public class MatchingOptimal implements RideMatchingStrategy {
         } catch (GRBException e) {
             System.out.println("# Matching - ILP - TIME IS OVER - No solution found, keep previous assignment. Gurobi error code: " + e.getErrorCode() + ". " + e.getMessage());
             keepPreviousAssignment();
+        } catch (Exception e) {
+            System.out.println("XXXXXXX:" + e.getMessage());
+
         } finally {
             disposeModelEnvironmentAndSave();
         }
@@ -189,6 +294,12 @@ public class MatchingOptimal implements RideMatchingStrategy {
         //assert eachUserIsAssignedToSingleVehicle() : "User is assigned to two different vehicles.";
         //assert allPassengersAreAssigned(): "Vehicle carrying passenger is not matched.";
 
+//        System.out.println("##### BEST VISIT");
+//        for (VisitObj bestVisit:result.visitsOK) {
+//            System.out.println(bestVisit.getVehicleState());
+//            System.out.println("Request:" + bestVisit.getRequests().size());
+//            System.out.println("Request load:" + bestVisit.getRequestsTotalLoad());
+//        }
         return result;
     }
 
@@ -229,8 +340,8 @@ public class MatchingOptimal implements RideMatchingStrategy {
     }
 
     @Override
-    public void realize(Set<Visit> visits) {
-        visits.forEach(visit -> realizeVisit(visit));
+    public void realize(Set<VisitObj> visits) {
+        visits.forEach(this::realizeVisit);
     }
 
     protected void keepPreviousAssignment() {
@@ -247,9 +358,6 @@ public class MatchingOptimal implements RideMatchingStrategy {
 
         // BUILDING GRAPH STRUCTURE ////////////////////////////////////////////////////////////////////////////////////
         this.graphRTV = new ParallelGraphRTV(unassignedRequests, listVehicles, maxVehicleCapacity, timeoutVehicle, maxVehReqEdges, maxReqReqEdges);
-        this.visits = graphRTV.getAllVisits();
-        this.requests = graphRTV.getAllRequests();
-        this.vehicles = graphRTV.getListVehiclesFromRTV();
     }
 
     protected void computeIIS() throws GRBException {
@@ -354,7 +462,7 @@ public class MatchingOptimal implements RideMatchingStrategy {
         for (String objective : orderedListOfObjectiveLabels) {
             addObjective(objective);
         }
-        System.out.println("All objectives: "+ penObjectives.keySet());
+        System.out.println("All objectives: " + penObjectives.keySet());
         addHierarchicalObjectivesToModel();
 
     }
@@ -376,7 +484,7 @@ public class MatchingOptimal implements RideMatchingStrategy {
         String label = "TOT_WAIT_REJ";
         penObjectives.put(label, new GRBLinExpr());
 
-        for (Visit visit : visits) {
+        for (VisitObj visit : visits) {
             penObjectives.get(label).addTerm(visit.getDelay(), varVisitSelected(visit));
         }
 
@@ -414,7 +522,7 @@ public class MatchingOptimal implements RideMatchingStrategy {
     protected void objTotalWaitingTime() {
         String label = "TOT_WAIT";
         penObjectives.put(label, new GRBLinExpr());
-        for (Visit visit : visits) {
+        for (VisitObj visit : visits) {
             penObjectives.get(label).addTerm(visit.getDelay(), varVisitSelected(visit));
         }
     }
@@ -433,8 +541,8 @@ public class MatchingOptimal implements RideMatchingStrategy {
         for (User request : requests) {
 
             String labelQos = String.format("%s_%s", label, request.qos.id);
-            Set<Visit> requestVisits = graphRTV.getListOfVisitsFromUser(request);
-            for (Visit visit : requestVisits) {
+            Set<VisitObj> requestVisits = this.getListOfVisitsFromUser(request);
+            for (VisitObj visit : requestVisits) {
                 double delay = getDelayOfRequestInVisit(request, visit);
                 penObjectives.get(labelQos).addTerm(delay, varVisitSelected(visit));
             }
@@ -457,8 +565,8 @@ public class MatchingOptimal implements RideMatchingStrategy {
             String labelQos = String.format("%s_%s", label, request.qos.id);
             penObjectives.get(labelQos).addTerm(rejectionPenalty, varRequestRejected(request));
 
-            Set<Visit> requestVisits = getListOfVisitsFromRequest(request);
-            for (Visit visit : requestVisits) {
+            Set<VisitObj> requestVisits = getListOfVisitsFromRequest(request);
+            for (VisitObj visit : requestVisits) {
                 double delay = getDelayOfRequestInVisit(request, visit);
                 penObjectives.get(labelQos).addTerm(delay, varVisitSelected(visit));
             }
@@ -473,7 +581,7 @@ public class MatchingOptimal implements RideMatchingStrategy {
         return varRequestRejected[requestIndex.get(request)];
     }
 
-    protected GRBVar varVisitSelected(Visit visit) {
+    protected GRBVar varVisitSelected(VisitObj visit) {
         return varVisitSelected[visitIndex.get(visit)];
     }
 
@@ -482,7 +590,7 @@ public class MatchingOptimal implements RideMatchingStrategy {
         varRequestRejected[requestIndex.get(request)] = model.addVar(0, 1, 1, GRB.BINARY, label);
     }
 
-    protected void addIsVisitChosenVar(Visit visit) throws GRBException {
+    protected void addIsVisitChosenVar(VisitObj visit) throws GRBException {
         String label = String.format("x_visit_%s", getVarVisit(visit).replace(" ", "_").trim());
         varVisitSelected[visitIndex.get(visit)] = model.addVar(0, 1, visit.getDelay(), GRB.BINARY, label);
     }
@@ -492,8 +600,10 @@ public class MatchingOptimal implements RideMatchingStrategy {
         // Model
         env = new GRBEnv();
 
-        // Turn off logging
-        // env.set(GRB.IntParam.OutputFlag, 0);
+        if (config.Config.showRoundMIPInfo()){
+            // Turn off logging
+            env.set(GRB.IntParam.OutputFlag, 0);
+        }
 
         model = new GRBModel(env);
         model.set(GRB.StringAttr.ModelName, "assignment_rtv");
@@ -505,14 +615,14 @@ public class MatchingOptimal implements RideMatchingStrategy {
     protected void initVarsStandardAssignment() throws GRBException {
         visitIndex = new HashMap<>();
         int i = 0;
-        for (Visit v: visits) {
+        for (VisitObj v : visits) {
             visitIndex.put(v, i);
             i++;
         }
 
         requestIndex = new HashMap<>();
         int j = 0;
-        for (User request:requests) {
+        for (User request : requests) {
             requestIndex.put(request, j);
             j++;
         }
@@ -525,18 +635,18 @@ public class MatchingOptimal implements RideMatchingStrategy {
             addIsRejectedVar(request);
         }
 
-        for (Visit visit : visits) {
+        for (VisitObj visit : visits) {
             addIsVisitChosenVar(visit);
         }
     }
 
-    protected double getDelayOfRequestInVisit(User request, Visit visit) {
+    protected double getDelayOfRequestInVisit(User request, VisitObj visit) {
         double weight = graphRTV.getWeightFromRequestVisitEdge(request, visit);
         return weight;
     }
 
-    protected Set<Visit> getListOfVisitsFromRequest(User request) {
-        return graphRTV.getListOfVisitsFromUser(request);
+    protected Set<VisitObj> getListOfVisitsFromRequest(User request) {
+        return this.getListOfVisitsFromUser(request);
     }
 
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -548,7 +658,7 @@ public class MatchingOptimal implements RideMatchingStrategy {
 
             GRBLinExpr constrVehicleConservation = new GRBLinExpr();
 
-            for (Visit visit : graphRTV.getListOfVisitsFromVehicle(vehicle)) {
+            for (VisitObj visit : this.getListOfVisitsFromVehicle(vehicle)) {
                 constrVehicleConservation.addTerm(1, varVisitSelected(visit));
             }
             // A target can be visited by at most one vehicle
@@ -562,10 +672,10 @@ public class MatchingOptimal implements RideMatchingStrategy {
         // Requests are associated with only one visit
         for (User request : requests) {
 
-            Set<Visit> requestVisits = graphRTV.getListOfVisitsFromUser(request);
+            Set<VisitObj> requestVisits = this.getListOfVisitsFromUser(request);
 
             GRBLinExpr constrRequestConservation = new GRBLinExpr();
-            for (Visit visit : requestVisits) {
+            for (VisitObj visit : requestVisits) {
                 constrRequestConservation.addTerm(1, varVisitSelected(visit));
             }
 
@@ -579,12 +689,12 @@ public class MatchingOptimal implements RideMatchingStrategy {
 
     protected void previouslyAssignedMustBeServiced() throws GRBException {
 
-        for (User request : User.filterPreviouslyAssigned(requests)) {
+        for (User request : getPreviouslyAssignedUsers()) {
 
-            Set<Visit> requestVisits = graphRTV.getListOfVisitsFromUser(request);
+            Set<VisitObj> requestVisits = this.getListOfVisitsFromUser(request);
             GRBLinExpr constrRequestPreviouslyAssignedHaveToBeServiced = new GRBLinExpr();
 
-            for (Visit visit : requestVisits) {
+            for (VisitObj visit : requestVisits) {
                 if (request.isPreviouslyAssigned()) {
                     constrRequestPreviouslyAssignedHaveToBeServiced.addTerm(1, varVisitSelected(visit));
                 }
@@ -593,6 +703,10 @@ public class MatchingOptimal implements RideMatchingStrategy {
             String label = String.format("request_previously_assigned_is_serviced_%s", request.toString().replace(" ", "_").trim());
             model.addConstr(constrRequestPreviouslyAssignedHaveToBeServiced, GRB.EQUAL, 1, label);
         }
+    }
+
+    private List<User> getPreviouslyAssignedUsers() {
+        return User.filterPreviouslyAssigned(requests);
     }
 
     protected void extractResult() throws GRBException {
@@ -604,7 +718,7 @@ public class MatchingOptimal implements RideMatchingStrategy {
             }
         }
 
-        for (Visit visit : visits) {
+        for (VisitObj visit : visits) {
 
             if (isVisitSelected(visit)) {
                 result.addVisit(visit);
@@ -616,12 +730,27 @@ public class MatchingOptimal implements RideMatchingStrategy {
         result.vehiclesDisrupted.removeAll(result.getVehiclesOK());
     }
 
-    private boolean isVisitSelected(Visit visit) throws GRBException {
+    private boolean isVisitSelected(VisitObj visit) throws GRBException {
         return varVisitSelected(visit).get(GRB.DoubleAttr.X) > 0.99;
     }
 
     protected boolean isRequestRejected(User request) throws GRBException {
         return varRequestRejected(request).get(GRB.DoubleAttr.X) > 0.99;
+    }
+
+    @Override
+    public String toString() {
+        return "_OPT-JAVIER";
+    }
+
+    Set<VisitObj> getListOfVisitsFromUser(User u) {
+        assert this.graphRTV.getListOfVisitsFromUser(u).containsAll(userVisitsMap.get(u));
+        return this.userVisitsMap.get(u);
+    }
+
+    Set<VisitObj> getListOfVisitsFromVehicle(Vehicle v) {
+        assert this.graphRTV.getListOfVisitsFromVehicle(v).containsAll(this.vehicleVisitsMap.get(v));
+        return this.vehicleVisitsMap.get(v);
     }
 
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -634,26 +763,28 @@ public class MatchingOptimal implements RideMatchingStrategy {
         assert eachUserIsAssignedToSingleVehicle() : "User is assigned to two different vehicles.";
     }*/
 
+
     protected boolean userCannotBePickedUpByIdleVehicles(GraphRTV graphRTV, Set<Vehicle> unassignedVehicles, User u) {
 
-        for (Visit visit: graphRTV.getListOfVisitsFromUser(u)) {
+        for (VisitObj visit : this.getListOfVisitsFromUser(u)) {
             Vehicle v = visit.getVehicle();
             if (unassignedVehicles.contains(v)) {
                 System.out.println(unassignedVehicles);
-                System.out.println(String.format("Free vehicle %s can service request %s: Visit = %s", v, u, v.getVisit()));
+                System.out.println(String.format("Free vehicle %s can service request %s: VisitObj = %s", v, u, v.getVisit()));
                 return false;
             }
         }
 
         for (Vehicle v : unassignedVehicles) {
-            Visit candidateVisit = Method.getBestVisitFromPDPermutations(v, new HashSet<>(Arrays.asList(u)));
+            VisitObj candidateVisit = Method.getBestVisitFromPDPermutations(v, new HashSet<>(Arrays.asList(u)));
             if (candidateVisit != null) {
-                System.out.println(String.format("(CANDIDATE VISIT) Free vehicle %s can service request %s: Visit = %s", v, u, candidateVisit));
+                System.out.println(String.format("(CANDIDATE VISIT) Free vehicle %s can service request %s: VisitObj = %s", v, u, candidateVisit));
                 return false;
             }
         }
         return true;
     }
+
 
     protected boolean usersAreNotDisplaced(List<User> unassignedUsers) {
         List<User> displacedUsers = unassignedUsers.stream().filter(user -> user.getCurrentVisit() != null).collect(Collectors.toList());
@@ -666,12 +797,21 @@ public class MatchingOptimal implements RideMatchingStrategy {
         return true;
     }
 
-    public Set<User> getRequests() {
-        return requests;
+    public boolean vehiclesVisitsSameOrder(Map<Vehicle, Set<VisitObj>> a, Map<Vehicle, Set<VehicleState>> b) {
+        if (a.size() != b.size()) return false;
+
+        List<Vehicle> la = new ArrayList<Vehicle>(a.keySet());
+        List<Vehicle> lb = new ArrayList<Vehicle>(b.keySet());
+        if (!la.equals(lb)) return false;
+
+        for (Vehicle v : la) {
+            List<VisitObj> lva = new ArrayList<VisitObj>(a.get(v));
+            List<VisitObj> lvb = new ArrayList<VisitObj>(b.get(v).stream().map(vehicleState -> vehicleState.getVisit()).collect(Collectors.toList()));
+            if (!lva.equals(lvb)) return false;
+        }
+        return true;
     }
 
-    @Override
-    public String toString() {
-        return "_OPT-JAVIER";
-    }
+
 }
+

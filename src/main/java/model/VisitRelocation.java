@@ -9,10 +9,18 @@ public class VisitRelocation extends Visit {
     protected Node targetNode;
     protected int targetArrival;
 
-
+    /**
+     * If Vehicle is parked:
+     * - Departure = decision time
+     * If vehicle is displacing users (i.e., cruising to pick up)
+     * - Departure = time vehicle left last visited node (e.g., origin (dep=t1) -----> v1 --------> Target (middle) )
+     * @param targetNode Where vehicle is going to
+     * @param vehicle Vehicle that will rebalance
+     */
     public VisitRelocation(Node targetNode, Vehicle vehicle) {
         // Create a target node for rebalancing
         NodeTargetRebalancing target = new NodeTargetRebalancing(vehicle, targetNode);
+        // Time vehicle left the previous node
         this.departure = vehicle.getEarliestDeparture();
         this.targetNode = target;
         this.vehicle = vehicle;

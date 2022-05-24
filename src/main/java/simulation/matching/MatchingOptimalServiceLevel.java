@@ -8,7 +8,8 @@ import gurobi.GRBLinExpr;
 import gurobi.GRBVar;
 import model.User;
 import model.Vehicle;
-import model.Visit;
+import model.VisitObj;
+
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -28,11 +29,11 @@ public class MatchingOptimalServiceLevel extends MatchingOptimal {
     }
 
     @Override
-    public ResultAssignment match(int currentTime, Set<User> unassignedRequests, Set<Vehicle> currentVehicleList, Set<Vehicle> hired) {
+    public ResultAssignment match(int currentTime, Set<User> unassignedRequests, Set<Vehicle> vehicles, Set<Vehicle> hired) {
         this.currentTime = currentTime;
         this.result = new ResultAssignment(currentTime);
 
-        Set<Vehicle> allAvailableVehicles = new HashSet<>(currentVehicleList);
+        Set<Vehicle> allAvailableVehicles = new HashSet<>(vehicles);
         allAvailableVehicles.addAll(hired);
 
         buildGraphRTV(unassignedRequests, allAvailableVehicles, this.maxVehicleCapacityRTV, timeoutVehicleRTV, maxEdgesRV, maxEdgesRR);
@@ -255,7 +256,7 @@ public class MatchingOptimalServiceLevel extends MatchingOptimal {
     }
 
 
-    private boolean isFirstTier(User request, Visit visit) {
+    private boolean isFirstTier(User request, VisitObj visit) {
 
         double pickupDelay = getDelayOfRequestInVisit(request, visit);
         return request.isDelayFirstTier(pickupDelay);
@@ -266,9 +267,9 @@ public class MatchingOptimalServiceLevel extends MatchingOptimal {
         for (User request : requests) {
             GRBLinExpr constrRequestServiceLevel = new GRBLinExpr();
 
-            Set<Visit> requestVisits = graphRTV.getListOfVisitsFromUser(request);
+            Set<VisitObj> requestVisits = graphRTV.getListOfVisitsFromUser(request);
 
-            for (Visit visit : requestVisits) {
+            for (VisitObj visit : requestVisits) {
                 if (isFirstTier(request, visit)) {
                     constrRequestServiceLevel.addTerm(1, varVisitSelected(visit));
                 }

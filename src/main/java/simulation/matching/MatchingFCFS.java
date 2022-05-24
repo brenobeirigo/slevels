@@ -6,6 +6,7 @@ import dao.Dao;
 import model.User;
 import model.Vehicle;
 import model.Visit;
+import model.VisitObj;
 import model.node.Node;
 import simulation.Simulation;
 import simulation.hiring.HiringFromCenters;
@@ -33,7 +34,7 @@ public class MatchingFCFS implements RideMatchingStrategy {
     }
 
     @Override
-    public void realizeVisit(Visit visit) {
+    public void realizeVisit(VisitObj visit) {
 
         // Does nothing if same visit chosen (e.g., continue rebalancing)
         if (visit.getVehicle().getVisit() == visit)
@@ -51,10 +52,9 @@ public class MatchingFCFS implements RideMatchingStrategy {
 
         // Assign visit to requests
         for (User request : visit.getRequests()) {
-            request.setCurrentVisit(visit);
 
-            // If request was assigned to another vehicle
-            if (request.getCurrentVehicle() != null && request.getCurrentVehicle() != visit.getVehicle()) {
+            // If request was assigned to another vehicle, remove it from there
+            if (request.getCurrentVehicle() != null && !request.getCurrentVehicle().equals(visit.getVehicle())) {
                 Vehicle vehiclePreviouslyAssignedToRequest = request.getCurrentVehicle();
                 Visit visitWithoutRequest = vehiclePreviouslyAssignedToRequest.getVisitWithoutRequest(request);
                 vehiclePreviouslyAssignedToRequest.setVisit(visitWithoutRequest);
@@ -64,6 +64,9 @@ public class MatchingFCFS implements RideMatchingStrategy {
                     u.setCurrentVisit(visitWithoutRequest);
                 }
             }
+
+            request.setCurrentVisit(visit);
+
         }
 
         // Assign visit to passengers
@@ -187,7 +190,7 @@ public class MatchingFCFS implements RideMatchingStrategy {
         for (User u : unassignedRequests) {
 
             // Aux. best visit for comparison
-            Visit bestVisit = u.getBestVisitByInsertion(
+            VisitObj bestVisit = u.getBestVisitByInsertion(
                     listVehicles,
                     currentTime,
                     stopAtFirstBest);
@@ -208,7 +211,7 @@ public class MatchingFCFS implements RideMatchingStrategy {
     }
 
     @Override
-    public void realize(Set<Visit> visits) {
+    public void realize(Set<VisitObj> visits) {
 
     }
 
@@ -217,7 +220,7 @@ public class MatchingFCFS implements RideMatchingStrategy {
         return "_OPT-FCFS";
     }
 
-    private void assertRequestsAndPassengersAreInVehicleCarryingOutVisit(Visit visit) {
+    private void assertRequestsAndPassengersAreInVehicleCarryingOutVisit(VisitObj visit) {
         for (User requests : visit.getRequests()) {
             assert requests.getCurrentVehicle() == visit.getVehicle() : String.format("Request current vehicle = %s, Best visit vehicle=%s", requests.getCurrentVehicle(), visit.getVehicle());
         }

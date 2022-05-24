@@ -341,7 +341,7 @@ public class GraphRV {
         return requestRequestsMap;
     }
 
-    private List<Vehicle> getVehiclesFromVREdgesOfRequest(User request) {
+    public List<Vehicle> getVehiclesFromVREdgesOfRequest(User request) {
 
         return graphRV.edgesOf(request).stream()
                 .filter(edge -> graphRV.getEdgeSource(edge) instanceof Vehicle)

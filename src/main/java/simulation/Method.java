@@ -2,10 +2,7 @@ package simulation;
 
 import config.Config;
 import dao.Dao;
-import model.Leg;
-import model.User;
-import model.Vehicle;
-import model.Visit;
+import model.*;
 import model.node.Node;
 import org.paukov.combinatorics.CombinatoricsVector;
 import org.paukov.combinatorics.Generator;
@@ -549,7 +546,7 @@ public class Method {
         return visit;
     }
 
-    public static Visit getBestVisitFromInsertion(Vehicle vehicle, User request) {
+    public static VisitObj getBestVisitFromInsertion(Vehicle vehicle, User request) {
         // A single request can be inserted in a vehicle in multiple ways. Only the best (i.e., the lowest delay)
         // visit is inserted in the RTV graph.
 

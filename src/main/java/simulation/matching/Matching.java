@@ -3,14 +3,17 @@ package simulation.matching;
 import config.CustomerBaseConfig;
 import model.User;
 import model.Vehicle;
+import model.VisitObj;
 import simulation.hiring.Hiring;
 import simulation.hiring.HiringFromCenters;
 import simulation.rebalancing.Rebalance;
 
 import java.util.*;
+import java.util.stream.Collectors;
 
 public class Matching {
     public static final String METHOD_OPTIMAL = "method_optimal";
+    public static final String METHOD_OPTIMAL_LEARN = "method_optimal_learn";
     public static final String METHOD_GREEDY = "method_greedy";
     public static final String METHOD_FCFS = "method_fcfs";
     public static final String METHOD_OPTIMAL_ENFORCE_SL = "method_optimal_enforce_sl";
@@ -24,6 +27,10 @@ public class Matching {
     private int maxVehicleCapacity;
 
     private boolean allowUserDisplacement;
+
+    public RideMatchingStrategy getRideMatchingStrategy() {
+        return rideMatchingStrategy;
+    }
 
     public Matching(CustomerBaseConfig customerBaseConfig,
                     int contractDuration,
@@ -61,7 +68,11 @@ public class Matching {
         ResultAssignment result = rideMatchingStrategy.match(currentTime, allRequestsInOutVehicles, listVehicles, hired);
         System.out.println(String.format("# Matching - Time step=%4d, #Requests=%4d, #Vehicles=%4d, #Hired(current period)=%4d, #Hired(kept)=%4d", currentTime, setUnassignedRequests.size(), listVehicles.size(), hired.size(), result.getVehiclesHired().size()));
 
-        rideMatchingStrategy.realize(result.visitsOK);
+
+        for (User request:result.requestsDisplaced) {
+            request.setCurrentVisit(null);
+        }
+        rideMatchingStrategy.realize(result.visitsOK.stream().map(VisitObj::getVisit).collect(Collectors.toSet()));
 
         return result;
     }

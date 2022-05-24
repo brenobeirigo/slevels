@@ -1,8 +1,7 @@
 package simulation.matching;
 
-import model.User;
-import model.Vehicle;
-import model.Visit;
+import model.*;
+import model.VisitObj;
 import model.graph.StandardGraphRTV;
 
 import java.util.*;
@@ -49,18 +48,18 @@ public class MatchingGreedy implements RideMatchingStrategy {
         // Setup visits of vehicle carrying passengers. Notice that many
         for (Vehicle vehicleCarryingPassenger : vehiclesWithPassengers) {
 
-            List<Visit> visitsVehicleCarryingPassenger = graphRTV.getListOfSortedVisitsFromVehicle(vehicleCarryingPassenger);
+            List<VisitObj> visitsVehicleCarryingPassenger = graphRTV.getListOfSortedVisitsFromVehicle(vehicleCarryingPassenger);
 
             // Passengers from visit are all unmatched
             // Loop candidate visits for vehicle carrying passenger
-            for (Visit visit : visitsVehicleCarryingPassenger) {
+            for (VisitObj visit : visitsVehicleCarryingPassenger) {
 
-                // Visit is only accepted if requests are not displaced
+                // VisitObj is only accepted if requests are not displaced
                 if (!visit.getRequests().containsAll(visit.getVehicle().getVisit().getRequests())) {
                     continue;
                 }
 
-                // Visit is valid only if all requests are still unassigned up to this point
+                // VisitObj is valid only if all requests are still unassigned up to this point
                 if (graphRTV.allRequestsUnmatched(visit)) {
                     result.addVisit(visit);
                     graphRTV.removeVisit(visit);
@@ -84,7 +83,7 @@ public class MatchingGreedy implements RideMatchingStrategy {
         assert unmatchedVehiclesWithPassengers.isEmpty() : String.format("There are still unmatched vehicles = %s", unmatchedVehiclesWithPassengers);
 
         /*for (Vehicle vehicleUnassignedAndCarrying : unmatchedVehiclesWithPassengers) {
-            System.out.println(String.format("Setting up vehicle with passenger. %s - Visit: %s", vehicleUnassignedAndCarrying.getVisit().getUserInfo(), vehicleUnassignedAndCarrying.getVisit()));
+            System.out.println(String.format("Setting up vehicle with passenger. %s - VisitObj: %s", vehicleUnassignedAndCarrying.getVisit().getUserInfo(), vehicleUnassignedAndCarrying.getVisit()));
 
             // Refurbishing user set (remove from visit user that have been serviced)
             Set<User> unassignedRequestFromVehicleCarrying = new HashSet<>(vehicleUnassignedAndCarrying.getVisit().getRequests());
@@ -121,18 +120,18 @@ public class MatchingGreedy implements RideMatchingStrategy {
         // Setup visits of vehicle carrying passengers. Notice that many
         for (Vehicle vehicleCarryingPassenger : vehiclesWithPassengers) {
 
-            List<Visit> visitsVehicleCarryingPassenger = graphRTV.getListOfSortedVisitsFromVehicle(vehicleCarryingPassenger);
+            List<VisitObj> visitsVehicleCarryingPassenger = graphRTV.getListOfSortedVisitsFromVehicle(vehicleCarryingPassenger);
 
             // Passengers from visit are all unmatched
             // Loop candidate visits for vehicle carrying passenger
-            for (Visit visit : visitsVehicleCarryingPassenger) {
+            for (VisitObj visit : visitsVehicleCarryingPassenger) {
 
-                // Visit is only accepted if requests are not displaced
+                // VisitObj is only accepted if requests are not displaced
                 if (!visit.getRequests().containsAll(visit.getVehicle().getVisit().getRequests())) {
                     continue;
                 }
 
-                // Visit is valid only if all requests are still unassigned up to this point
+                // VisitObj is valid only if all requests are still unassigned up to this point
                 if (graphRTV.allRequestsUnmatched(visit)) {
                     result.addVisit(visit);
                     graphRTV.removeVisit(visit);
@@ -156,7 +155,7 @@ public class MatchingGreedy implements RideMatchingStrategy {
         assert unmatchedVehiclesWithPassengers.isEmpty() : String.format("There are still unmatched vehicles = %s", unmatchedVehiclesWithPassengers);
 
         /*for (Vehicle vehicleUnassignedAndCarrying : unmatchedVehiclesWithPassengers) {
-            System.out.println(String.format("Setting up vehicle with passenger. %s - Visit: %s", vehicleUnassignedAndCarrying.getVisit().getUserInfo(), vehicleUnassignedAndCarrying.getVisit()));
+            System.out.println(String.format("Setting up vehicle with passenger. %s - VisitObj: %s", vehicleUnassignedAndCarrying.getVisit().getUserInfo(), vehicleUnassignedAndCarrying.getVisit()));
 
             // Refurbishing user set (remove from visit user that have been serviced)
             Set<User> unassignedRequestFromVehicleCarrying = new HashSet<>(vehicleUnassignedAndCarrying.getVisit().getRequests());
@@ -180,13 +179,13 @@ public class MatchingGreedy implements RideMatchingStrategy {
         for (int k = graphRTV.getFeasibleTrips().size() - 1; k >= 0; k--) {
 
             // Set of ordered visits (shortest delay) in level k
-            List<Visit> visitsLevelK = graphRTV.getFeasibleTrips().get(k);
-            Collections.sort(visitsLevelK);
+            List<VisitObj> visitsLevelK = graphRTV.getFeasibleTrips().get(k);
+            //Collections.sort(visitsLevelK);
 
             // Loop all visits
-            for (Visit visit : visitsLevelK) {
+            for (VisitObj visit : visitsLevelK) {
 
-                // Visit is only accepted if requests are not displaced
+                // VisitObj is only accepted if requests are not displaced
                 /*System.out.println("Requests (visit):" + visit.getRequests());
                 System.out.println("Vehicle:" + visit.getVehicle());
                 System.out.println("Vehicle.visit:" + visit.getVehicle().getVisit());
@@ -195,7 +194,7 @@ public class MatchingGreedy implements RideMatchingStrategy {
                     continue;
                 }
 
-                // Visit was previously assigned (refers to vehicle with passengers)
+                // VisitObj was previously assigned (refers to vehicle with passengers)
                 if (!graphRTV.containsVertex(visit))
                     continue;
 
@@ -344,12 +343,12 @@ public class MatchingGreedy implements RideMatchingStrategy {
     }
 
     @Override
-    public void realize(Set<Visit> visits) {
+    public void realize(Set<VisitObj> visits) {
         visits.forEach(visit -> realizeVisit(visit));
     }
 
     @Override
-    public void realizeVisit(Visit visit) {
+    public void realizeVisit(VisitObj visit) {
 
     }
 

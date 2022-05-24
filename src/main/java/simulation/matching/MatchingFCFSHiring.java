@@ -5,6 +5,7 @@ import dao.Dao;
 import model.User;
 import model.Vehicle;
 import model.Visit;
+import model.VisitObj;
 import model.node.Node;
 import simulation.hiring.HiringFromCenters;
 import simulation.rebalancing.Rebalance;
@@ -204,12 +205,12 @@ public class MatchingFCFSHiring implements RideMatchingStrategy {
     }
 
     @Override
-    public void realize(Set<Visit> visits) {
+    public void realize(Set<VisitObj> visits) {
 
     }
 
     @Override
-    public void realizeVisit(Visit visit) {
+    public void realizeVisit(VisitObj visit) {
 
     }
 

@@ -2,26 +2,35 @@ package model.graph;
 
 import model.User;
 import model.Vehicle;
-import model.Visit;
+import model.VisitObj;
 
-import java.util.Collection;
-import java.util.List;
-import java.util.Set;
+import java.util.*;
 
 public interface GraphRTV  {
     Set<User> getAllRequests();
 
-    Set<Visit> getListOfVisitsFromVehicle(Vehicle vehicle);
+    Set<VisitObj> getListOfVisitsFromVehicle(Vehicle vehicle);
 
-    Set<Visit> getAllVisits();
+
+    Map<Integer, Integer> getPickupLocationCandidateVehicleCountMap();
+
+    GraphRV getGraphRV();
+
+    Set<VisitObj> getAllVisits();
 
     Set<Vehicle> getListVehiclesFromRTV();
 
-    Set<Visit> getListOfVisitsFromUser(User request);
+    Set<VisitObj> getListOfVisitsFromUser(User request);
 
-    double getWeightFromRequestVisitEdge(User request, Visit visit);
+    double getWeightFromRequestVisitEdge(User request, VisitObj visit);
 
     Set<Vehicle> getHiredVehiclesFromUser(User request);
 
     Set<Vehicle> getListVehicles();
+
+    Map<Vehicle, Set<VisitObj>> getVehicleVisitsMap();
+
+    Map<User, Set<VisitObj>> getUserVisitsMap();
+
+    void printAllVisitsPerVehicle();
 }

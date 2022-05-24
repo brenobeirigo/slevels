@@ -44,7 +44,7 @@ public class User implements Comparable<User> {
     private int distFromTo;
     // Which type of vehicle serviced the request? Was it even serviced?
     private int servedBy;
-    private Visit currentVisit;
+    private VisitObj currentVisit;
     //Number of passengers in request
     private int numPassengers;
     // From - To nodes
@@ -478,15 +478,15 @@ public class User implements Comparable<User> {
         return this.getNodeDp().getDelay() - this.getNodePk().getDelay();
     }
 
-    public Visit getCurrentVisit() {
+    public VisitObj getCurrentVisit() {
         return currentVisit;
     }
 
     public Vehicle getCurrentVehicle() {
-        return currentVisit != null? currentVisit.vehicle: null;
+        return currentVisit != null? currentVisit.getVehicle(): null;
     }
 
-    public void setCurrentVisit(Visit currentVisit) {
+    public void setCurrentVisit(VisitObj currentVisit) {
         this.currentVisit = currentVisit;
     }
 
@@ -505,14 +505,13 @@ public class User implements Comparable<User> {
     /**
      * Try to insert the user in a list of vehicles, and return the best insertion.
      */
-    public Visit getBestVisitByInsertion(Set<Vehicle> listVehicles, int currentTime, boolean stopAtFirstBest) {
+    public VisitObj getBestVisitByInsertion(Set<Vehicle> listVehicles, int currentTime, boolean stopAtFirstBest) {
 
-        Visit bestVisit = null;
+        VisitObj bestVisit = null;
 
         // Try to insert user in each vehicle
         for (Vehicle v : listVehicles) {
-
-            Visit candidateVisit = v.getValidVisitForUser(this);
+            VisitObj candidateVisit = v.getValidVisitForUser(this);
 
             // Update best visit if delay of candidate visit is shorter
             if (candidateVisit != null && candidateVisit.compareTo(bestVisit) < 0) {

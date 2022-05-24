@@ -9,7 +9,7 @@ import java.util.stream.Collectors;
 
 import static config.Config.*;
 
-public class Vehicle implements Comparable<Vehicle> {
+public class Vehicle implements Comparable<Vehicle>, Cloneable {
 
     // Cumulative leg info saved in array[3] used to build legs step by step (i.e., each od segment at a time)
     public static final byte ARRIVAL = 0;
@@ -29,10 +29,10 @@ public class Vehicle implements Comparable<Vehicle> {
     private int contractedDuration; // How many rounds vehicle is allowed to work?
 
     //TODO Stop tracking for speed
-    List<Visit> visitTrack;
+    List<VisitObj> visitTrack;
     /* Vehicle status */
     private Integer currentLoad; // Current vehicle currentLoad
-    private Visit visit; // Passengers, Node sequence, etc.
+    private VisitObj visit; // Passengers, Node sequence, etc.
     private Node lastVisitedNode; // Node where vehicle is, or from where vehicle left
     private boolean hired; // Was this vehicle hired on the fly?
     private int roundsIdle; // How many rounds this vehicle is idle?
@@ -80,10 +80,10 @@ public class Vehicle implements Comparable<Vehicle> {
         return this.isHired() && currentTime >= this.getContractDeadline();
     }
 
-    public Vehicle(Vehicle vehicle, Visit visit) {
+    public Vehicle(Vehicle vehicle, VisitObj visit) {
         this.id = vehicle.id;
         this.visit = visit;
-        this.visit.vehicle = this;
+        this.visit.setVehicle(this);
     }
 
     public Vehicle(int capacity, int id_network) {
@@ -321,6 +321,8 @@ public class Vehicle implements Comparable<Vehicle> {
                 this.lastVisitedNode.setArrival(arrivalNextNode);
                 // Min. departure is arrival time
                 this.lastVisitedNode.setDeparture(arrivalNextNode);
+                this.lastVisitedNode.setEarliestDeparture(arrivalNextNode);
+                this.visit.setDeparture(arrivalNextNode);
                 this.journey.add(lastVisitedNode);
 
                 // User associated to current Node
@@ -561,7 +563,7 @@ public class Vehicle implements Comparable<Vehicle> {
         return first;
     }
 
-    public Visit getValidVisitForUser(User candidateRequest) {
+    public VisitObj getValidVisitForUser(User candidateRequest) {
         return Method.getBestVisitFromInsertion(this, candidateRequest);
     }
 
@@ -796,14 +798,14 @@ public class Vehicle implements Comparable<Vehicle> {
         return currentLoad;
     }
 
-    public Visit getVisit() {
+    public VisitObj getVisit() {
         return visit;
     }
 
-    public void setVisit(Visit visit) {
+    public void setVisit(VisitObj visit) {
         this.visit = visit;
+        // When a vehicle take up a decision, it departs from its last visited node at the time specified in the visit
         if (visit != null) {
-            assert this.getLastVisitedNode().getDeparture() == visit.getDeparture(): String.format("Last node: %s --- Visit: %s", this.getLastVisitedNode().getInfo(), visit);
             this.getLastVisitedNode().setDeparture(visit.getDeparture());
         }
         visitTrack.add(visit);
@@ -819,7 +821,7 @@ public class Vehicle implements Comparable<Vehicle> {
 
     public void printVisitTrack() {
         System.out.println("# VISIT TRACK " + this);
-        for (Visit v : visitTrack) {
+        for (VisitObj v : visitTrack) {
             if (v != null) {
                 System.out.println("  - " + v.getClass() + "=" + v);
             } else {
@@ -961,6 +963,14 @@ public class Vehicle implements Comparable<Vehicle> {
         if (this.currentLoad < that.currentLoad) return BEFORE;
         if (this.currentLoad > that.currentLoad) return AFTER;
         return EQUAL;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+        Vehicle vehicle = (Vehicle) o;
+        return getId() == vehicle.getId();
     }
 
     /**
@@ -1334,9 +1344,9 @@ public class Vehicle implements Comparable<Vehicle> {
         return new VisitStop(this);
     }
 
-    public VisitRelocation getVisitRelocationToMiddle() {
+    public VisitDisplaceAndStop getVisitRelocationToMiddle() {
         Node middle = this.getMiddleNode();
-        return new VisitRelocation(middle, this);
+        return new VisitDisplaceAndStop(middle, this);
     }
 
     public void addUserHiredMustPickup(User user) {
@@ -1360,6 +1370,9 @@ public class Vehicle implements Comparable<Vehicle> {
     }
 
     public Node getTargetNode() {
+        if (this.getVisit() == null) {
+            return this.getLastVisitedNode();
+        }
         return this.getVisit().getTargetNode();
     }
 
@@ -1381,7 +1394,7 @@ public class Vehicle implements Comparable<Vehicle> {
         requestsWithoutUser.remove(request);
 
         // Remove request from current sequence
-        List<Node> sequenceWithoutRequest = new LinkedList<Node>(this.visit.sequenceVisits);
+        List<Node> sequenceWithoutRequest = new LinkedList<Node>(this.visit.getSequenceVisits());
         sequenceWithoutRequest.remove(request.getNodePk());
         sequenceWithoutRequest.remove(request.getNodeDp());
 
@@ -1429,7 +1442,7 @@ public class Vehicle implements Comparable<Vehicle> {
         return this.lastVisitedNode.getDeparture() != null ? this.lastVisitedNode.getDeparture() : this.lastVisitedNode.getEarliestDeparture();
     }
 
-    public List<Visit> getVisitTrack() {
+    public List<VisitObj> getVisitTrack() {
         return visitTrack;
     }
 
