@@ -14,6 +14,7 @@ public class Config {
     public static final byte PRINT_SUMMARY_ROUND_INFO = 2;
     public static final byte PRINT_NO_ROUND_INFO = 0;
     public static final String SAVE_VEHICLE_ROUND_GEOJSON = "save_vehicle_round_geojson";
+    public static final String SAVE_EXPERIENCES = "save_experiences";
     public static final String SAVE_REQUEST_INFO_CSV = "save_request_info_csv";
     public static final String SAVE_ROUND_INFO_CSV = "save_round_info_csv";
     public static final String SAVE_ROUND_MIP_INFO_LP = "save_round_mip_info_lp";

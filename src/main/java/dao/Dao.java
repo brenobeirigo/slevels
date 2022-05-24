@@ -88,6 +88,7 @@ public class Dao {
     private String pathNetworkNodeInfo;
     // Geographical data
     private Map<Integer, NodeNetwork> nodeNetworkInfo; // Map of node ids and respective coordinates
+    private ServerUtil server;
 
     public Map<Integer, Set<Integer>> getMapReachableNetworkIdsWithinTimeLimit() {
         return mapReachableNetworkIdsWithinTimeLimit;
@@ -128,6 +129,7 @@ public class Dao {
 
             iUserNextRound = 0;
 
+            server = new ServerUtil(InstanceConfig.getInstance().getServerUrl().toString());
             // Get paths from configuration file ///////////////////////////////////////////////////////////////////////
             pathDistanceMatrix = InstanceConfig.getInstance().getDistancesPath().toString();
             pathDurationsMatrix = InstanceConfig.getInstance().getDurationsPath().toString();
@@ -144,6 +146,7 @@ public class Dao {
 
             //distMatrix = getDistanceMatrixFrom(pathDistanceMatrix);
             distMatrix = getDistanceMatrixFrom(pathDurationsMatrix, false);
+//            distMatrixMeters = getDistanceMatrixMeters(pathDistanceMatrix);
 
             System.out.printf("# Reading precalculated PUDO data from \"%s\"...%n", pathPrecalculatedPermutations);
             loadPrecalculatedPermutationsPUDO(pathPrecalculatedPermutations);
@@ -235,7 +238,7 @@ public class Dao {
      */
     public static List<Integer> getArrayTravelDurationsBetweenInSeconds(Node from, Node to) {
 
-        List<Integer> listNodes = ServerUtil.getShortestPathBetween(from.getNetworkId(), to.getNetworkId());
+        List<Integer> listNodes = Dao.getInstance().getServer().getShortestPathBetween(from.getNetworkId(), to.getNetworkId());
 
         List<Integer> durations = new ArrayList<>();
 
@@ -329,7 +332,7 @@ public class Dao {
 
             for (Entry<String, Integer> e : InstanceConfig.getInstance().getMaxTimeHiringList().entrySet()) {
                 int maxTime = e.getValue();
-                List<Integer> canReachNode = ServerUtil.getAllCanReachNode(i, maxTime);
+                List<Integer> canReachNode = Dao.getInstance().getServer().getAllCanReachNode(i, maxTime);
                 //canReachList.get(i).put(maxTime, canReachNode);
                 canReachClass.get(i).put(e.getKey(), canReachNode);
                 //System.out.println(i + " - " + canReachList.get(i).get(maxTime).size());
@@ -455,18 +458,18 @@ public class Dao {
         return canReachClass;
     }
 
-    private double[][] getDistanceMatrixMeters(String file_path) {
+    private double[][] getDistanceMatrixMeters(String filePath) {
         double[][] dist_matrix = new double[numberOfNodes][numberOfNodes];
 
         try {
-            System.out.println("Reading distance data (meters)...");
-            Reader in = new FileReader(file_path);
+            System.out.println(String.format("# Reading distance matrix from \"%s\"...", filePath));
+            Reader in = new FileReader(filePath);
             int row = 0;
             Iterable<CSVRecord> records = CSVFormat.DEFAULT.parse(in);
             for (CSVRecord record : records) {
                 int col = 0;
                 for (String r : record) {
-                    dist_matrix[row][col] = Float.valueOf(r);
+                    dist_matrix[row][col] = Float.parseFloat(r);
                     col++;
                 }
                 row++;
@@ -479,14 +482,53 @@ public class Dao {
 
     public Set<User> getListTripsClassed(int timeSpanSec, int maxPassengerCount, int maxNumber) {
 
-        Set<User> trips = getListTripsClassed(timeSpanSec, maxPassengerCount);
+        List<User> trips = getListTripsClassed(timeSpanSec, maxPassengerCount);
+
+        Collections.shuffle(trips);
 
         if (trips.size() > maxNumber) {
-            trips = trips.stream().limit(maxNumber).collect(Collectors.toSet());
+            return trips.stream().limit(maxNumber).collect(Collectors.toSet());
         }
 
-        return trips;
+        return new HashSet<>(trips);
     }
+
+
+    public Set<User> getListTripsClassedShuffled(int timeSpanSec, int maxPassengerCount, int maxNumber, Random rand) {
+
+        List<User> trips = getListTripsClassed(timeSpanSec, maxPassengerCount);
+
+        Collections.shuffle(trips, rand);
+
+        return getTripSubset(maxNumber, trips);
+
+    }
+
+    public Set<User> getListTripsClassedShuffled(int timeSpanSec, int maxPassengerCount, double percentage, Random rand) {
+
+        List<User> trips = getListTripsClassed(timeSpanSec, maxPassengerCount);
+
+        Collections.shuffle(trips, rand);
+
+        return getTripSubset(percentage, trips);
+
+    }
+
+    private Set<User> getTripSubset(int maxSize, List<User> trips) {
+        if (trips.size() > maxSize) {
+            return trips.stream().limit(trips.size()).collect(Collectors.toSet());
+        }
+        return new HashSet<>(trips);
+    }
+
+    private Set<User> getTripSubset(double percentage, List<User> trips) {
+        if (trips.size() > percentage * trips.size()) {
+            int maxSize = (int) (percentage * trips.size());
+            return trips.stream().limit(maxSize).collect(Collectors.toSet());
+        }
+        return new HashSet<>(trips);
+    }
+
 
     public Set<User> getListTrips(int timeSpanSec, int maxPassengerCount, int maxNumber) {
         Set<User> trips = getListTrips(timeSpanSec, maxPassengerCount);
@@ -625,10 +667,10 @@ public class Dao {
      * @param maxPassengerCount Maximum passenger count (<= max. vehicle capacity)
      * @return
      */
-    public Set<User> getListTripsClassed(int timeSpanSec, int maxPassengerCount) {
+    public List<User> getListTripsClassed(int timeSpanSec, int maxPassengerCount) {
 
         // Start list of users with buffer from last iteration (users read, but not in time span)
-        Set<User> listUser = new HashSet<>();
+        List<User> listUser = new ArrayList<>();
 
         int latestTimeRequestBatch = earliestTimeRequestBatch + timeSpanSec;
         assert latestTimeRequestBatch == Simulation.rightTW;
@@ -921,7 +963,7 @@ public class Dao {
      */
     public int getIntermediateNodeNetworkIdNew(int o, int d, int elapsedTime) {
 
-        ArrayList<Integer> sp = ServerUtil.getShortestPathBetween(o, d);
+        ArrayList<Integer> sp = Dao.getInstance().getServer().getShortestPathBetween(o, d);
 
         // Building array of arrivals
         // e.g.,     List [      o,      1,      2,      3,      4,      5,      d]
@@ -991,18 +1033,23 @@ public class Dao {
         List<Integer> intermediateArrivalsList = shortestPathDistances.get(o).get(d);
         assert !intermediateArrivalsList.isEmpty();
 
-        // Find position of first higher arrival
-        int insertionPoint = Collections.binarySearch(intermediateArrivalsList, elapsedTime);
-
-        // Correct for elapsedTime not in shortest path (<0)
-        // Position that element would be inserted into the list = (-(insertion point) - 1).
-        insertionPoint = insertionPoint >= 0 ? insertionPoint : -1 - insertionPoint;
+        int insertionPoint = getInsertionPoint(elapsedTime, intermediateArrivalsList);
 
         if (insertionPoint == sp.size()) {
             return d;
         }
 
         return sp.get(insertionPoint);
+    }
+
+    public int getInsertionPoint(int elapsedTime, List<Integer> intermediateArrivalsList) {
+        // Find position of first higher arrival
+        int insertionPoint = Collections.binarySearch(intermediateArrivalsList, elapsedTime);
+
+        // Correct for elapsedTime not in shortest path (<0)
+        // Position that element would be inserted into the list = (-(insertion point) - 1).
+        insertionPoint = insertionPoint >= 0 ? insertionPoint : -1 - insertionPoint;
+        return insertionPoint;
     }
 
     /**
@@ -1058,6 +1105,10 @@ public class Dao {
         int closestRegionCenterId = centers.get(maxTimeToReach);
 
         return closestRegionCenterId;
+    }
+
+    public ServerUtil getServer() {
+        return this.server;
     }
 }
 
