@@ -1,11 +1,9 @@
 package simulation.matching;
 
+import com.google.common.base.Objects;
 import config.Config;
 import config.Qos;
-import model.User;
-import model.Vehicle;
-import model.Visit;
-import model.VisitRelocation;
+import model.*;
 import model.node.Node;
 
 import java.util.*;
@@ -14,6 +12,7 @@ import java.util.stream.Collectors;
 public class ResultAssignment {
 
     public Set<User> requestsServicedLevelAchieved;
+    public Map<Vehicle, VisitObj> vehicleBestVisitMap;
     public Map<Qos, Integer> unmetServiceLevelClass;
     public Map<Qos, Integer> nOfRequestsClass;
     public Map<Qos, Integer> rejectedServiceLevelClass;
@@ -30,13 +29,83 @@ public class ResultAssignment {
     // Set of vehicles assigned to visits
     protected Set<Vehicle> vehiclesOK;
     // Set of visits chosen in round
-    protected Set<Visit> visitsOK;
+    protected Set<VisitObj> visitsOK;
     // Unassigned requests
     private Set<User> requestsUnassigned;
     // New vehicle is added in list
     private Set<Vehicle> vehiclesHired;
     // Result refers to current simulation time
     private int currentTime;
+
+    protected double objValTotalRejected;
+
+    public void setObjValTotalRejected(double objValTotalRejected) {
+        this.objValTotalRejected = objValTotalRejected;
+    }
+
+    public void setObjValTotalServiced(double objValTotalServiced) {
+        this.objValTotalServiced = objValTotalServiced;
+    }
+
+    public void setObjValTotalWaiting(double objValTotalWaiting) {
+        this.objValTotalWaiting = objValTotalWaiting;
+    }
+
+    public double getObjValRequestsPlusVFs() {
+        return objValRequestsPlusVFs;
+    }
+
+    public void setObjValRequestsPlusVFs(double objValRequestsPlusVFs) {
+        this.objValRequestsPlusVFs = objValRequestsPlusVFs;
+    }
+
+
+    protected double objValTotalServiced;
+    protected double objValTotalWaiting;
+    protected double objValRequestsPlusVFs;
+
+
+
+
+    public double getTotalDelay() {
+        return this.visitsOK.stream().reduce(0, (totalDelay, visit) -> totalDelay + visit.getDelay(), Integer::sum);
+    }
+
+    public double getTotalVFs() {
+        return this.visitsOK.stream().reduce(0.0, (totalDelay, visit) -> totalDelay + visit.getVF(), Double::sum);
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+        ResultAssignment that = (ResultAssignment) o;
+        return currentTime == that.currentTime
+                //Objects.equal(unmetServiceLevelClass, that.unmetServiceLevelClass) &&
+                //Objects.equal(nOfRequestsClass, that.nOfRequestsClass) &&
+                //Objects.equal(rejectedServiceLevelClass, that.rejectedServiceLevelClass &&
+                //&& violationCountClassServiceLevel.equals(that.violationCountClassServiceLevel) &&
+                && requestsServicedLevelAchieved.size() == that.requestsServicedLevelAchieved.size()
+                && requestsServicedLevelNotAchieved.size() == that.requestsServicedLevelNotAchieved.size()
+                && requestsDisplaced.size() == that.requestsDisplaced.size()
+                && getVehiclesDisrupted().size() == that.getVehiclesDisrupted().size()
+                && roundPrivateRides.size() == that.roundPrivateRides.size()
+                && getRequestsOK().size() == that.getRequestsOK().size()
+                && getVehiclesOK().size() == that.getVehiclesOK().size()
+                && getVisitsOK().size() == that.getVisitsOK().size()
+                && getRequestsUnassigned().size() == that.getRequestsUnassigned().size()
+                && getVehiclesHired().size() == that.getVehiclesHired().size()
+                && objValTotalRejected == that.objValTotalRejected
+                && objValTotalServiced == that.objValTotalServiced
+                && objValTotalWaiting == that.objValTotalWaiting
+                && objValRequestsPlusVFs == that.objValRequestsPlusVFs;
+
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hashCode(requestsServicedLevelAchieved, unmetServiceLevelClass, nOfRequestsClass, rejectedServiceLevelClass, requestsServicedLevelNotAchieved, violationCountClassServiceLevel, requestsDisplaced, getVehiclesDisrupted(), roundPrivateRides, getRequestsOK(), getVehiclesOK(), getVisitsOK(), getRequestsUnassigned(), getVehiclesHired(), currentTime);
+    }
 
     public ResultAssignment(int currentTime) {
         this.currentTime = currentTime;
@@ -63,6 +132,7 @@ public class ResultAssignment {
 
         // Set of visits chosen in round
         visitsOK = new HashSet<>();
+        vehicleBestVisitMap = new HashMap<>();
 
         for (Qos qos : Config.getInstance().qosDic.values()) {
             unmetServiceLevelClass.put(qos, 0);
@@ -123,6 +193,7 @@ public class ResultAssignment {
     }
 
     public void printRoundResultSummary() {
+
         System.out.println("######## Round current time: " + this.currentTime);
         System.out.printf("# Assigned vehicles = %d%n", vehiclesOK.size());
         System.out.printf("# Unassigned users  = %d%n", requestsUnassigned.size());
@@ -132,6 +203,12 @@ public class ResultAssignment {
         System.out.printf("# Class service quality: \n%s%n", overallServiceLevelDistribution());
         System.out.printf("# Disrupted         = %d%n", vehiclesDisrupted.size());
         System.out.printf("# Vehicles hired    = %s%n", getVehiclesHired().size());
+        System.out.printf("# Obj. vfs          = %s%n", getTotalVFs());
+        System.out.printf("# Obj. total delay  = %s%n", getTotalDelay());
+        System.out.printf("# Obj. reqs. + vfs  = %s%n", objValRequestsPlusVFs);
+        System.out.printf("# Obj. reqs         = %s%n", objValTotalServiced);
+
+
     }
 
     private String overallServiceLevelDistribution() {
@@ -172,12 +249,13 @@ public class ResultAssignment {
         this.vehiclesHired.add(vehicle);
     }
 
-    public void addVisit(Visit visit) {
+    public void addVisit(VisitObj visit) {
 
         // Update requests, vehicles, and visitsOK solution
         this.requestsOK.addAll(visit.getRequests());
         this.vehiclesOK.add(visit.getVehicle());
         this.visitsOK.add(visit);
+        this.vehicleBestVisitMap.put(visit.getVehicle(), visit);
 
 
         // Remove vehicle and users matched from graph
@@ -186,7 +264,7 @@ public class ResultAssignment {
             // If user changes visit
             if (user.getCurrentVisit() != null && visit != user.getCurrentVisit()) {
 
-                // Visit of vehicle formerly carrying request will be changed
+                // VisitObj of vehicle formerly carrying request will be changed
                 this.vehiclesDisrupted.add(user.getCurrentVisit().getVehicle());
             }
         }
@@ -204,7 +282,7 @@ public class ResultAssignment {
         // All vehicles that lost requests rebalance to closest node (middle or next target)
         for (Vehicle vehicleDisrupted : this.vehiclesDisrupted) {
 
-            assert vehicleDisrupted.getVisit().getPassengers().isEmpty() : "Interrupted vehicle had passenger!" + vehicleDisrupted.getVisit().getUserInfo() + " - Visit:" + vehicleDisrupted.getVisit();
+            assert vehicleDisrupted.getVisit().getPassengers().isEmpty() : "Interrupted vehicle had passenger!" + vehicleDisrupted.getVisit().getUserInfo() + " - VisitObj:" + vehicleDisrupted.getVisit();
             assert disruptedUsersAreServicedByDifferentVehicles(vehicleDisrupted) : "Disrupted users (unmatched) are not inserted in different vehicles.";
             /*for (User u : requestsFormerlyServicedByDisruptedVehicle) {
                 assert u.getCurrentVisit() != null && u.getCurrentVisit() != vehicleDisrupted.getVisit() : String.format("User %s in vehicle %s is still associated with the vehicle", u, vehicleDisrupted);
@@ -236,11 +314,11 @@ public class ResultAssignment {
         this.vehiclesOK = vehiclesOK;
     }
 
-    public Set<Visit> getVisitsOK() {
+    public Set<VisitObj> getVisitsOK() {
         return visitsOK;
     }
 
-    public void setVisitsOK(Set<Visit> visitsOK) {
+    public void setVisitsOK(Set<VisitObj> visitsOK) {
         this.visitsOK = visitsOK;
     }
 
@@ -279,8 +357,8 @@ public class ResultAssignment {
     }
 
     protected void createFirstSecondTierListsFromServiced() {
-        requestsServicedLevelAchieved.addAll(Visit.filterFirstTier(getVisitsOK()));
-        requestsServicedLevelNotAchieved.addAll(Visit.filterSecondTier(getVisitsOK()));
+        requestsServicedLevelAchieved.addAll(Visit.filterFirstTier(this.getVisitsOK()));
+        requestsServicedLevelNotAchieved.addAll(Visit.filterSecondTier(this.getVisitsOK()));
     }
 
     public Set<User> getRequestsUnassigned() {
@@ -300,12 +378,12 @@ public class ResultAssignment {
     }
 
     public void accountRejected(User request) {
-        getRequestsUnassigned().add(request);
+        requestsUnassigned.add(request);
         rejectedServiceLevelClass.computeIfPresent(request.qos, (qos, countRejected) -> countRejected + 1);
 
         // Rejected user was displaced from a routing plan
         if (request.getCurrentVisit() != null) {
-            request.setCurrentVisit(null);
+//            request.setCurrentVisit(null);
             requestsDisplaced.add(request);
         }
     }
@@ -327,6 +405,59 @@ public class ResultAssignment {
         nOfRequestsClass.put(qos, nOfRequestsPerClass);
     }
 
+    /**
+     * Show what each vehicle is doing:
+     *  pos  (status) node-arrival(so far)
+     *  4308 (S)4308-0/
+     *  1776 (S)1776-0/
+     *  3789 (S)3789-0/
+     *  1229 (S)1229-0/
+     *   554 (S)554-0/
+     *  1686 (S)1686-0/
+     *  1978 (S)1978-0/
+     * @param listVehicles
+     * @return
+     */
+    public String getSnapshot(Set<Vehicle> listVehicles) {
+        StringBuilder builder = new StringBuilder();
+        builder.append(this.currentTime);
+        builder.append("*");
+        for (Vehicle v : listVehicles) {
+            builder.append(String.format("%5d ", v.getLastVisitedNode().getNetworkId()));
+            if (v.getVisit() != null) {
+                if (v.getVisit() instanceof VisitRelocation || v.getVisit() instanceof VisitDisplaceAndStop) {
+
+                    builder.append("(R");
+                    if (v.getVisit() instanceof VisitDisplaceAndStop){
+                        builder.append("S");
+                    }else{
+                        builder.append(")");
+                    }
+                    builder.append(v.getTargetNode().getNetworkId());
+                    builder.append("-");
+                    builder.append(v.getTargetNode().getArrivalSoFar());
+                } else {
+                    builder.append("(V)");
+                    for (Node n : v.getVisit().getSequenceVisits()) {
+                        builder.append(n.getNetworkId());
+                        builder.append("-");
+                        builder.append(n.getArrivalSoFar());
+                        builder.append(",");
+                    }
+                    builder.append("-d:");
+                    builder.append(v.getVisit().getDelay());
+                }
+            } else {
+                builder.append("(S)");
+                builder.append(v.getLastVisitedNode().getNetworkId());
+                builder.append("-");
+                builder.append(v.getLastVisitedNode().getArrivalSoFar());
+            }
+            builder.append("/\n");
+        }
+        return builder.toString();
+    }
+
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     /// SHOW ///////////////////////////////////////////////////////////////////////////////////////////////////////////
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -338,11 +469,20 @@ public class ResultAssignment {
                 System.out.println(user.getCurrentAssigmentInfo());
         }
     }
+
     public void showFirstTierFromAssigned() {
         List<User> listAssigned = getSortedListOfAssignedUsers();
         for (User user : listAssigned) {
             if (user.isFirstTier())
                 System.out.println(user.getCurrentAssigmentInfo());
         }
+    }
+
+    public Set<Vehicle> getVehiclesDisrupted() {
+        return this.vehiclesDisrupted;
+    }
+
+    public VisitObj getChosenVisitForVehicle(Vehicle v) {
+        return this.vehicleBestVisitMap.get(v);
     }
 }
