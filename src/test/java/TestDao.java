@@ -38,8 +38,8 @@ public class TestDao {
             if (cont % size == 0) {
                 //System.out.println(a);
                 Vehicle v = new Vehicle(10, 0, 2.34, 4.3);
-                Visit valid = Method.getValidVisit(a, v);
-                System.out.println(valid);
+                //Visit valid = Method.getValidVisit(a, v);
+                //System.out.println(valid);
                 a = new ArrayList<>();
             }
         }
