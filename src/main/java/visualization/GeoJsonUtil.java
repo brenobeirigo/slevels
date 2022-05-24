@@ -187,7 +187,7 @@ public class GeoJsonUtil {
         int dist = Dao.getInstance().getDistSec(fromId, toId);
         int waiting = to.getArrival() - dist - from.getDeparture();
 
-        List<String> listCoords = ServerUtil.getShortestPathCoordsBetween(fromId, toId);
+        List<String> listCoords = Dao.getInstance().getServer().getShortestPathCoordsBetween(fromId, toId);
         if (listCoords.size() == 1) {
             return null;
         }
