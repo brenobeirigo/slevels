@@ -55,14 +55,15 @@ The file `java.exe` is in `\bin` folder.
 
 ## Logging
 
-|Label|Description|
-|-----|-----------|
-|`save_vehicle_round_geojson`| Save each vehicle journey in a different file  in folder `geojson_track`.|
-|`save_request_info_csv`| Save request service info  in folder `request_track`.|
-|`save_round_info_csv`| Save round service info in folder `round_track`.|
-|`show_all_vehicle_journeys`|Print detailed journey upon finishing the execution.|
-|`show_round_fleet_status`| What each car is doing (visit and passengers)|
-|`show_round_info`| User service levels and fleet status.|
+| Label                        |Description|
+|------------------------------|-----------|
+| `save_vehicle_round_geojson` | Save each vehicle journey in a different file  in folder `geojson_track`.|
+| `save_experiences`           | Save each vehicle journey in a different file  in folder `geojson_track`.|
+| `save_request_info_csv`      | Save request service info  in folder `request_track`.|
+| `save_round_info_csv`        | Save round service info in folder `round_track`.|
+| `show_all_vehicle_journeys`  |Print detailed journey upon finishing the execution.|
+| `show_round_fleet_status`    | What each car is doing (visit and passengers)|
+| `show_round_info`            | User service levels and fleet status.|
 
 ## Vehicle journeys
     
