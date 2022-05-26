@@ -5,7 +5,7 @@ import com.google.common.collect.Sets;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import dao.Dao;
-import model.learn.VehicleState;
+import model.learn.StateAction;
 import model.node.*;
 import simulation.Simulation;
 
@@ -35,7 +35,7 @@ public class Visit implements Comparable<VisitObj>, VisitObj {
 
     public static Comparator<VisitObj> visitComparator = Comparator.nullsLast(Comparator.comparing(VisitObj::getDelay).thenComparing(VisitObj::getVisitSequenceSize));
     private List<Integer> draftArrivalTimes;
-    private VehicleState vehicleState;
+    private StateAction stateAction;
 
     public Visit(VisitObj v) {
         this.arrival = v.getArrival();
@@ -976,12 +976,12 @@ public class Visit implements Comparable<VisitObj>, VisitObj {
         this.draftArrivalTimes = draftArrivalTimes;
     }
 
-    public void setVehicleState(VehicleState vehicleState) {
-        this.vehicleState = vehicleState;
+    public void setVehicleState(StateAction stateAction) {
+        this.stateAction = stateAction;
     }
 
-    public VehicleState getVehicleState() {
-        return vehicleState;
+    public StateAction getVehicleState() {
+        return stateAction;
     }
 
     /**

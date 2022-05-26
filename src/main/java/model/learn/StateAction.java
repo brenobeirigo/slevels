@@ -10,7 +10,7 @@ import model.node.NodePK;
 import java.util.*;
 import java.util.stream.Collectors;
 
-public class VehicleState implements Comparable<VehicleState>, VisitObj {
+public class StateAction implements Comparable<StateAction>, VisitObj {
 
     private static final int MAX_PICKUP_DELAY = 300;
     protected Vehicle vehicle;
@@ -34,7 +34,7 @@ public class VehicleState implements Comparable<VehicleState>, VisitObj {
     protected Integer departure;
     private Integer vehicleCountAtOrigin;
     protected Integer vehicleCapacity;
-    protected Integer postDecisionTime;
+    protected Integer postDecisionTimeStep;
     protected List<String> nodeLabels;
     protected List<Integer> loads;
     protected List<Integer> remaining;
@@ -47,12 +47,12 @@ public class VehicleState implements Comparable<VehicleState>, VisitObj {
     protected Double normalPostDecisionTime;
     protected Double shareOfSurroundingVehicles;
 
-    protected int preDecisionTime;
-    protected int totalTimeHorizon;
+    protected int timeStep;
+    protected int timeHorizon;
 
 
-    public VehicleState(VisitObj visit, int preDecisionTime, int totalTimeHorizon, int timestepInterval) {
-        this.init(preDecisionTime, timestepInterval, totalTimeHorizon);
+    public StateAction(VisitObj visit, int timeStep, int timeHorizon, int timestepInterval) {
+        this.init(timeStep, timestepInterval, timeHorizon);
         this.visit = visit;
         this.departure = visit.getVehicle().getEarliestDeparture();
         this.requests = new HashSet<>(visit.getRequests());
@@ -74,16 +74,16 @@ public class VehicleState implements Comparable<VehicleState>, VisitObj {
         }
     }
 
-    public VehicleState(int preDecisionTime, int elapsed, int totalTimeHorizon) {
-        init(preDecisionTime, elapsed, totalTimeHorizon);
+    public StateAction(int timeStep, int elapsedTime, int timeHorizon) {
+        init(timeStep, elapsedTime, timeHorizon);
     }
 
-    private void init(int preDecisionTime, int timestepInterval, int totalTimeHorizon) {
+    private void init(int timeStep, int elapsedTime, int timeHorizon) {
 //        this.targetNode = visit.getTargetNode();
 //        this.isSetup = visit.isSetup();
-        this.preDecisionTime = preDecisionTime;
-        this.totalTimeHorizon = totalTimeHorizon;
-        this.postDecisionTime = preDecisionTime + timestepInterval;
+        this.timeStep = timeStep;
+        this.timeHorizon = timeHorizon;
+        this.postDecisionTimeStep = timeStep + elapsedTime;
         this.nodeArrivals = new ArrayList<>();
         this.networkIds = new ArrayList<>();
         this.nodeLabels = new ArrayList<>();
@@ -92,7 +92,8 @@ public class VehicleState implements Comparable<VehicleState>, VisitObj {
         this.remaining = new ArrayList<>();
         this.delays = new ArrayList<>();
         this.delayBonuses = new ArrayList<>();
-        this.normalPostDecisionTime = Double.valueOf(this.postDecisionTime) / this.totalTimeHorizon;
+        this.normalPostDecisionTime = Double.valueOf(this.postDecisionTimeStep) / this.timeHorizon;
+        assert this.normalPostDecisionTime<=1:String.format("%s/%s", Double.valueOf(this.postDecisionTimeStep) , this.timeHorizon);
         this.normalArrivalDelays = new ArrayList<>();
         this.normalOccupancyRates = new ArrayList<>();
         this.vehicleCapacity = null;
@@ -100,18 +101,18 @@ public class VehicleState implements Comparable<VehicleState>, VisitObj {
         this.visit = null;
     }
 
-    public static VehicleState realize(VehicleState preVehicleStateState, int rightTW, int timestep, Map<Integer, Integer> pickupLocationCandidateVehicleCountMap) {
+    public static StateAction realize(StateAction preVehicleStateStateAction, int rightTW, int timestep, Map<Integer, Integer> pickupLocationCandidateVehicleCountMap) {
         //VehicleState postVehicleState = realize(preVehicleStateState, timestep);
-        VehicleState postVehicleState = preVehicleStateState.stepForward(timestep);
+        StateAction postStateAction = preVehicleStateStateAction.stepForward(timestep);
 
         // If you take this action, how many vehicles could access the next location
-        postVehicleState.vehicleCountAtOrigin = pickupLocationCandidateVehicleCountMap.getOrDefault(postVehicleState.networkIds.get(0), 0);
-        return postVehicleState;
+        postStateAction.vehicleCountAtOrigin = pickupLocationCandidateVehicleCountMap.getOrDefault(postStateAction.networkIds.get(0), 0);
+        return postStateAction;
     }
 
 
-    public PostVehicleState stepForward(int timeStep) {
-        return new PostVehicleState(this, timeStep);
+    public PostVehicleStateAction stepForward(int timeStep) {
+        return new PostVehicleStateAction(this, timeStep);
     }
 
     //    public static VehicleState realize(VehicleState preVehicleState, int timestepInterval) {
@@ -255,17 +256,17 @@ public class VehicleState implements Comparable<VehicleState>, VisitObj {
 //    }
 //
 //
-    public static VehicleState getVisitState(Vehicle v, int preDecisionTime, int elapsed, int totalTimeHorizon) {
+    public static StateAction getVisitState(Vehicle v, int preDecisionTime, int elapsed, int totalTimeHorizon) {
         if (v.getVisit() != null) {
-            return VehicleState.getVisitState(v.getVisit(), preDecisionTime, elapsed, totalTimeHorizon);
+            return StateAction.getVisitState(v.getVisit(), preDecisionTime, elapsed, totalTimeHorizon);
         } else {
-            return VehicleState.getVisitState(new VisitStop(v), preDecisionTime, elapsed, totalTimeHorizon);
+            return StateAction.getVisitState(new VisitStop(v), preDecisionTime, elapsed, totalTimeHorizon);
         }
     }
 
-    public static VehicleState getVisitState(VisitObj visit, int preDecisionTime, int elapsed, int totalTimeHorizon) {
+    public static StateAction getVisitState(VisitObj visit, int preDecisionTime, int elapsed, int totalTimeHorizon) {
 
-        VehicleState vs = new VehicleState(preDecisionTime, elapsed, totalTimeHorizon);
+        StateAction vs = new StateAction(preDecisionTime, elapsed, totalTimeHorizon);
         vs.visit = visit;
         vs.requests = new HashSet<>(visit.getRequests());
         vs.passengers = new HashSet<>(visit.getPassengers());
@@ -335,7 +336,7 @@ public class VehicleState implements Comparable<VehicleState>, VisitObj {
                         vs.delays.add(getDelay(arrivalTime, destinationNode));
                         vs.delayBonuses.add(getDelayBonus(arrivalTime, destinationNode));
 
-                        int remainingToRebalancingTarget = arrivalTime - vs.preDecisionTime;
+                        int remainingToRebalancingTarget = arrivalTime - vs.timeStep;
                         vs.remaining.add(remainingToRebalancingTarget);
 
                         vs.normalArrivalDelays.add(vs.getNormalDelay(destinationNode, arrivalTime));
@@ -404,7 +405,7 @@ public class VehicleState implements Comparable<VehicleState>, VisitObj {
             delays.add(getDelay(arrivalTime, destinationNode));
             delayBonuses.add(getDelayBonus(arrivalTime, destinationNode));
 
-            int remainingToRebalancingTarget = arrivalTime - preDecisionTime;
+            int remainingToRebalancingTarget = arrivalTime - timeStep;
             remaining.add(remainingToRebalancingTarget);
 
             double normalDelay = getNormalDelay(destinationNode, arrivalTime);
@@ -428,7 +429,7 @@ public class VehicleState implements Comparable<VehicleState>, VisitObj {
             nodeLabels.add(targetNode.toString());
             nodes.add(targetNode);
             loads.add(0);
-            int remainingToRebalancingTarget = targetNode.getArrivalSoFar() - preDecisionTime;
+            int remainingToRebalancingTarget = targetNode.getArrivalSoFar() - timeStep;
             remaining.add(remainingToRebalancingTarget);
             delays.add(0);
             delayBonuses.add(0);
@@ -468,7 +469,7 @@ public class VehicleState implements Comparable<VehicleState>, VisitObj {
     public String toString() {
         return "VisitSnapShot{" +
                 "\n        length=" + nodeArrivals.size() +
-                ",\n  pre-decision=" + preDecisionTime +
+                ",\n  pre-decision=" + timeStep +
                 ",\n   vehicleSize=" + vehicleCapacity +
                 ",\n      arrivals=" + nodeArrivals +
                 ",\n           ids=" + networkIds +
@@ -504,8 +505,8 @@ public class VehicleState implements Comparable<VehicleState>, VisitObj {
     public boolean equals(Object o) {
         if (this == o) return true;
         if (o == null || getClass() != o.getClass()) return false;
-        VehicleState that = (VehicleState) o;
-        return preDecisionTime == that.preDecisionTime && totalTimeHorizon == that.totalTimeHorizon && Objects.equal(networkIds, that.networkIds) && Objects.equal(nodeArrivals, that.nodeArrivals) && Objects.equal(vehicleCountAtOrigin, that.vehicleCountAtOrigin) && Objects.equal(vehicleCapacity, that.vehicleCapacity) && Objects.equal(postDecisionTime, that.postDecisionTime) && Objects.equal(loads, that.loads) && Objects.equal(delays, that.delays) && Objects.equal(shareOfSurroundingVehicles, that.shareOfSurroundingVehicles);
+        StateAction that = (StateAction) o;
+        return timeStep == that.timeStep && timeHorizon == that.timeHorizon && Objects.equal(networkIds, that.networkIds) && Objects.equal(nodeArrivals, that.nodeArrivals) && Objects.equal(vehicleCountAtOrigin, that.vehicleCountAtOrigin) && Objects.equal(vehicleCapacity, that.vehicleCapacity) && Objects.equal(postDecisionTimeStep, that.postDecisionTimeStep) && Objects.equal(loads, that.loads) && Objects.equal(delays, that.delays) && Objects.equal(shareOfSurroundingVehicles, that.shareOfSurroundingVehicles);
     }
 
     @Override
@@ -515,12 +516,12 @@ public class VehicleState implements Comparable<VehicleState>, VisitObj {
     }
 
     @Override
-    public int compareTo(VehicleState o) {
+    public int compareTo(StateAction o) {
         return this.getVehicle().getId();
     }
 
     @Override
-    public void setVehicleState(VehicleState vehicleState) {
+    public void setVehicleState(StateAction stateAction) {
 
     }
 
@@ -666,7 +667,7 @@ public class VehicleState implements Comparable<VehicleState>, VisitObj {
         return this.vehicleCapacity;
     }
 
-    public static boolean vehicleCanReach(VehicleState v1VisitPostState, Vehicle v2PreDecision) {
+    public static boolean vehicleCanReach(StateAction v1VisitPostState, Vehicle v2PreDecision) {
         // Next node post decision
         Node v1PostNextNode = v1VisitPostState.getNextNode();
 

@@ -10,7 +10,7 @@ import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-public class RewardObject {
+public class FleetStateActionRewardObject {
     protected List<Integer> delay_arrival_latest;
     protected List<Integer> vehicle_ids;
     protected List<Integer> request_count;
@@ -19,7 +19,7 @@ public class RewardObject {
     protected List<List<Integer>> requests;
     protected List<Double> vf;
 
-    public RewardObject(Set<Vehicle> vehicles, ResultAssignment result) {
+    public FleetStateActionRewardObject(Set<Vehicle> vehicles, ResultAssignment result) {
 
         this.vehicle_ids = new ArrayList<>();
         this.requests = new ArrayList<>();

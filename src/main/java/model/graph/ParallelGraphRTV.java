@@ -6,11 +6,8 @@ import helper.Runtime;
 import model.User;
 import model.Vehicle;
 import model.VisitObj;
-import model.VisitObj;
-import model.learn.VehicleState;
 import org.jgrapht.graph.DefaultWeightedEdge;
 import simulation.Method;
-import simulation.Simulation;
 
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;

@@ -3,18 +3,17 @@ package model.learn;
 import model.User;
 import model.Vehicle;
 import model.node.Node;
-import org.checkerframework.checker.units.qual.A;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-public class VehicleDecisionSpace {
+public class VehicleStateActionSpace {
 
     protected int decisionCount;
     protected ArrayList<Integer> requestCounts;
-    protected Set<VehicleState> vehicleStates;
+    protected Set<StateAction> stateActions;
     protected int vehicleId;
     protected List<Double> currentTimes;
     protected List<Double> numRequests;
@@ -29,10 +28,10 @@ public class VehicleDecisionSpace {
     protected List<List<Node>> nodes;
     protected List<Double> surroundingVehiclesCount;
 
-    public VehicleDecisionSpace(Vehicle vehicle, Set<VehicleState> vehicleStates, Double requestShare) {
+    public VehicleStateActionSpace(Vehicle vehicle, Set<StateAction> stateActions, Double requestShare) {
         this.normalCapacity = new ArrayList<>();
         this.vehicleId = vehicle.getId();
-        this.vehicleStates = vehicleStates;
+        this.stateActions = stateActions;
         this.capacity = new ArrayList<>();
         this.currentTimes = new ArrayList<>();
         this.numRequests = new ArrayList<>();
@@ -47,22 +46,22 @@ public class VehicleDecisionSpace {
         this.requestCounts = new ArrayList<>();
         this.decisionCount = 0;
 
-        for (VehicleState vehicleState : vehicleStates) {
+        for (StateAction stateAction : stateActions) {
             this.decisionCount++;
-            normalCapacity.add((double) (vehicleState.getCapacity()/DecisionSpaceObject.MAX_CAPACITY_VEHICLE));
-            capacity.add(vehicleState.getCapacity());
-            nextNetworkIds.add(vehicleState.networkIds);
-            currentTimes.add(vehicleState.normalPostDecisionTime);
-            assert vehicleState.normalArrivalDelays.size() <= 9:String.format("%s", vehicleState.nodes);
-            arrivalDelays.add(vehicleState.normalArrivalDelays);
-            occupancyRates.add(vehicleState.normalOccupancyRates.stream().map(o->1-o).collect(Collectors.toList()));
-            surroundingVehiclesCount.add(vehicleState.shareOfSurroundingVehicles);
-            nodes.add(vehicleState.nodes);
+            normalCapacity.add((double) (stateAction.getCapacity()/ FleetStateActionSpaceObject.MAX_CAPACITY_VEHICLE));
+            capacity.add(stateAction.getCapacity());
+            nextNetworkIds.add(stateAction.networkIds);
+            currentTimes.add(stateAction.normalPostDecisionTime);
+            assert stateAction.normalArrivalDelays.size() <= 9:String.format("%s", stateAction.nodes);
+            arrivalDelays.add(stateAction.normalArrivalDelays);
+            occupancyRates.add(stateAction.normalOccupancyRates.stream().map(o->1-o).collect(Collectors.toList()));
+            surroundingVehiclesCount.add(stateAction.shareOfSurroundingVehicles);
+            nodes.add(stateAction.nodes);
             numRequests.add(requestShare); //TODO add VR share?
-            requestIds.add(vehicleState.getRequests().stream().map(User::getId).collect(Collectors.toList()));
-            totalDelay.add(vehicleState.getDelay());
-            totalDelayBonus.add(vehicleState.getDelayBonus());
-            requestCounts.add(vehicleState.getRequests().size());
+            requestIds.add(stateAction.getRequests().stream().map(User::getId).collect(Collectors.toList()));
+            totalDelay.add(stateAction.getDelay());
+            totalDelayBonus.add(stateAction.getDelayBonus());
+            requestCounts.add(stateAction.getRequests().size());
 
         }
     }

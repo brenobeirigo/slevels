@@ -1,6 +1,6 @@
 package model;
 
-import model.learn.VehicleState;
+import model.learn.StateAction;
 import model.node.Node;
 
 import java.util.LinkedList;
@@ -11,7 +11,7 @@ public interface VisitObj {
 
     VisitObj getVisit();
 
-    void setVehicleState(VehicleState vehicleState);
+    void setVehicleState(StateAction stateAction);
 
     int getVisitSequenceSize();
 

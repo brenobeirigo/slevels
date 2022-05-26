@@ -4,43 +4,42 @@ import dao.Dao;
 import model.User;
 import model.Vehicle;
 import model.VisitObj;
-import simulation.Simulation;
 
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
 
-public class StateSpace {
+public class FleetStateActionSpace {
 
     protected Dao environment;
     protected Map<Vehicle, Set<VisitObj>> vehicleVisitMap;
-    protected Map<Vehicle, VehicleState> vehicleCurrentStateMap;
-    protected Map<Vehicle, Set<VehicleState>> vehicleDecisionsMap;
-    protected Map<User, Set<VehicleState>> userVisitMap;
+    protected Map<Vehicle, StateAction> vehicleCurrentStateMap;
+    protected Map<Vehicle, Set<StateAction>> vehicleStateActionMap;
+    protected Map<User, Set<StateAction>> userVisitMap;
     public Set<Vehicle> vehicles;
     public Set<User> requests;
-    protected int currentTime;
+    public int timeStep;
     protected int timeHorizon;
     protected int elapsed;
 
-    public Map<Vehicle, Set<VehicleState>> getVehicleDecisionsMap() {
-        return vehicleDecisionsMap;
+    public Map<Vehicle, Set<StateAction>> getVehicleStateActionMap() {
+        return vehicleStateActionMap;
     }
 
-    public void setVehicleDecisionsMap(Map<Vehicle, Set<VehicleState>> vehicleDecisionsMap) {
-        this.vehicleDecisionsMap = vehicleDecisionsMap;
+    public void setVehicleStateActionMap(Map<Vehicle, Set<StateAction>> vehicleStateActionMap) {
+        this.vehicleStateActionMap = vehicleStateActionMap;
     }
 
-    public DecisionSpaceObject getCurrentStateObject(){
-        List<VehicleDecisionSpace> vehicleDecisionSpaces = getVehicleCurrentDecision();
-        return new DecisionSpaceObject(vehicleDecisionSpaces, false);
+    public FleetStateActionSpaceObject getStateActionObject(){
+        List<VehicleStateActionSpace> vehicleStateActionSpaces = getVehicleCurrentDecision();
+        return new FleetStateActionSpaceObject(vehicleStateActionSpaces, false);
     }
 
-    public DecisionSpaceObject getDecisionSpaceObject() {
+    public FleetStateActionSpaceObject getDecisionSpaceObject() {
 
 
-        List<VehicleDecisionSpace> vehicleDecisionSetList = getVehicleDecisionSpaces();
+        List<VehicleStateActionSpace> vehicleDecisionSetList = getVehicleDecisionSpaces();
 
         // Create summary object of decision space:
         // - current_time_input
@@ -50,14 +49,14 @@ public class StateSpace {
         // - other_agents_input
         // - occupancy_input
         // - request_ids
-        return new DecisionSpaceObject(vehicleDecisionSetList, false);
+        return new FleetStateActionSpaceObject(vehicleDecisionSetList, false);
     }
 
-    private List<VehicleDecisionSpace> getVehicleDecisionSpaces() {
+    private List<VehicleStateActionSpace> getVehicleDecisionSpaces() {
         double requestShare = getRequestShare();
         return this.vehicles.stream().parallel().map(vehicle -> {
 
-            Set<VehicleState> decisions = getVehicleDecisionsMap().get(vehicle);
+            Set<StateAction> decisions = getVehicleStateActionMap().get(vehicle);
 
             // Select for each vehicle:
             // - current time (share of total horizon)
@@ -67,13 +66,13 @@ public class StateSpace {
             // - next nodes (network ids)
             // - surrounding vehicles count (share)
 
-            return new VehicleDecisionSpace(vehicle, decisions, requestShare);
+            return new VehicleStateActionSpace(vehicle, decisions, requestShare);
         }).collect(Collectors.toList());
     }
 
-    private List<VehicleDecisionSpace> getVehicleCurrentDecision() {
+    private List<VehicleStateActionSpace> getVehicleCurrentDecision() {
         double requestShare = getRequestShare();
-        return this.vehicles.stream().parallel().map(vehicle -> new VehicleDecisionSpace(vehicle, Collections.singleton(this.vehicleCurrentStateMap.get(vehicle)), requestShare)).collect(Collectors.toList());
+        return this.vehicles.stream().parallel().map(vehicle -> new VehicleStateActionSpace(vehicle, Collections.singleton(this.vehicleCurrentStateMap.get(vehicle)), requestShare)).collect(Collectors.toList());
     }
 
     private double getRequestShare() {
@@ -81,7 +80,7 @@ public class StateSpace {
     }
 
     private void createVehicleDecisions() {
-        ConcurrentHashMap<Vehicle, Set<VehicleState>> vehicleDecisions = new ConcurrentHashMap<>();
+        ConcurrentHashMap<Vehicle, Set<StateAction>> vehicleDecisions = new ConcurrentHashMap<>();
         this.vehicleVisitMap.entrySet().stream().parallel().forEach(entryVehicleVisits -> {
             Vehicle vehicle = entryVehicleVisits.getKey();
             Set<VisitObj> visits = entryVehicleVisits.getValue();
@@ -90,7 +89,7 @@ public class StateSpace {
         });
 
 
-        this.vehicleDecisionsMap = vehicleDecisions;
+        this.vehicleStateActionMap = vehicleDecisions;
     }
 
 
@@ -100,21 +99,21 @@ public class StateSpace {
      * @param visits
      * @return
      */
-    private Set<VehicleState> getDecisionSetFromVisits(Set<VisitObj> visits) {
-        Set<VehicleState> vehicleStates = new HashSet<>();
+    private Set<StateAction> getDecisionSetFromVisits(Set<VisitObj> visits) {
+        Set<StateAction> stateActions = new HashSet<>();
         for (VisitObj visit : visits) {
-            VehicleState vehicleState = VehicleState.getVisitState(visit, this.currentTime, this.elapsed, this.timeHorizon);
-            setNumberOfSurroundingVehiclesAtNextLocation(vehicleState);
-            vehicleStates.add(vehicleState);
+            StateAction stateAction = StateAction.getVisitState(visit, this.timeStep, this.elapsed, this.timeHorizon);
+            setNumberOfSurroundingVehiclesAtNextLocation(stateAction);
+            stateActions.add(stateAction);
             //visit.setVehicleState(vehicleState);
         }
-        return vehicleStates;
+        return stateActions;
     }
 
-    public StateSpace(Set<Vehicle> vehicles, Set<User> requests, int currentTime, int timeHorizon) {
+    public FleetStateActionSpace(Set<Vehicle> vehicles, Set<User> requests, int timeStep, int timeHorizon) {
         this.vehicles = vehicles;
         this.requests = requests;
-        this.currentTime = currentTime;
+        this.timeStep = timeStep;
         this.timeHorizon = timeHorizon;
     }
 
@@ -123,33 +122,33 @@ public class StateSpace {
      * Each decision correspond to a new VehicleState, which is derived from realizing the decision.
      *
      * @param vehicles
-     * @param unassignedUsers
+     * @param requests
      * @param vehicleVisitMap
-     * @param currentTime
+     * @param timeStep
      * @param timeHorizon
      */
-    public StateSpace(Set<Vehicle> vehicles, Set<User> unassignedUsers, Map<Vehicle, Set<VisitObj>> vehicleVisitMap, int currentTime, int timeHorizon) {
+    public FleetStateActionSpace(Set<Vehicle> vehicles, Set<User> requests, Map<Vehicle, Set<VisitObj>> vehicleVisitMap, int timeStep, int timeHorizon) {
         this.vehicles = vehicles;
-        this.requests = unassignedUsers;
-        this.currentTime = currentTime;
+        this.requests = requests;
+        this.timeStep = timeStep;
         this.timeHorizon = timeHorizon;
         this.vehicleVisitMap = vehicleVisitMap;
         this.elapsed = 0;
 
         this.vehicleCurrentStateMap = new ConcurrentHashMap<>();
         for (Vehicle vehicle : vehicles) {
-            VehicleState currentState = VehicleState.getVisitState(vehicle, Simulation.rightTW, 0, Simulation.timeHorizon);
+            StateAction currentState = StateAction.getVisitState(vehicle, timeStep, 0, timeHorizon);
             setNumberOfSurroundingVehiclesAtNextLocation(currentState);
             vehicleCurrentStateMap.put(vehicle, currentState);
         }
         this.createVehicleDecisions();
     }
 
-    protected void setNumberOfSurroundingVehiclesAtNextLocation(VehicleState state) {
+    protected void setNumberOfSurroundingVehiclesAtNextLocation(StateAction state) {
         int nOfSurroundingVehicles = 0;
         for (Vehicle otherVehicle : this.vehicles) {
             if (!otherVehicle.equals(state.vehicle))
-                if (VehicleState.vehicleCanReach(state, otherVehicle)) {
+                if (StateAction.vehicleCanReach(state, otherVehicle)) {
                     nOfSurroundingVehicles++;
                 }
         }
