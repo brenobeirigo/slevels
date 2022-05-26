@@ -4,8 +4,9 @@ import com.google.common.reflect.TypeToken;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import model.Vehicle;
-import model.learn.DecisionSpaceObject;
+import model.learn.FleetStateActionSpaceObject;
 import model.node.*;
+import org.springframework.web.util.UriUtils;
 import visualization.GeoJsonUtil;
 
 import java.io.BufferedReader;
@@ -33,8 +34,12 @@ public class ServerUtil {
     private String restSmoothDurations = "%s/sp_smooth/%d/%d/%d";
     private String restShortestPathCoords = "%s/sp_coords/%d/%d";
     private String restPredictPostDecisionSpace = "%s/predict/%s";
+    private String restPredictPostDecisionSpace2 = "%s/predict_detail/%s";
     private String restSaveModelFileName = "%s/savemodel/%s";
+    private String restSaveModelAt = "%s/savemodelat/%s";
     private String restLoadModelFileName = "%s/loadmodel/%s";
+    private String restLoadModelAt = "%s/loadmodelat/%s";
+    private String restTrackExp = "%s/trackexpat/%s";
 
     private String restCanReachSet = "%s/can_reach/%d/%d";
     //http://TUD256023.tudelft.net:4999/sp_coords/1/2
@@ -368,8 +373,24 @@ public class ServerUtil {
      * @param obj
      * @return Value functions
      */
-    public Map<Integer, List<Double>> getPredictionsFromDecisionSpace(DecisionSpaceObject obj) {
+    public Map<Integer, List<Double>> getPredictionsFromDecisionSpace(FleetStateActionSpaceObject obj) {
         String url = String.format(restPredictPostDecisionSpace, this.ADDRESS_SERVER, "");
+        String response = Dao.getInstance().getServer().postJsonObjectToURL(obj, url);
+
+        Type t = new TypeToken<Map<Integer, List<Double>>>() {
+        }.getType();
+
+        Gson g = new Gson();
+        return g.fromJson(response, t);
+    }
+
+    /**
+     * Map o vfs per vehicle
+     * @param obj
+     * @return Value functions
+     */
+    public Map<Integer, List<Double>> getPredictionsFromDecisionSpace2(FleetStateActionSpaceObject obj) {
+        String url = String.format(restPredictPostDecisionSpace2, this.ADDRESS_SERVER, "");
         String response = Dao.getInstance().getServer().postJsonObjectToURL(obj, url);
 
         Type t = new TypeToken<Map<Integer, List<Double>>>() {
@@ -399,7 +420,7 @@ public class ServerUtil {
      * @param obj
      * @return Value functions
      */
-    public ArrayList<Double> getPredictionsFrom(DecisionSpaceObject obj) {
+    public ArrayList<Double> getPredictionsFrom(FleetStateActionSpaceObject obj) {
         String url = String.format(restPredictPostDecisionSpace, this.ADDRESS_SERVER, "");
         Gson gson = new Gson();
         gson.toJson(obj);
@@ -476,7 +497,23 @@ public class ServerUtil {
         return requestTo(String.format(restSaveModelFileName, this.ADDRESS_SERVER, fileName));
     }
 
+    public String saveModelAt(String path) {
+        String fileName = UriUtils.encode(path, "UTF-8");
+        return requestTo(String.format(restSaveModelAt, this.ADDRESS_SERVER, fileName));
+    }
+
+    public String loadModelAt(String path) {
+        String fileName = UriUtils.encode(path, "UTF-8");
+        return requestTo(String.format(restLoadModelAt, this.ADDRESS_SERVER, fileName));
+    }
+
     public String loadModelWithLabel(String fileName) {
         return requestTo(String.format(restLoadModelFileName, this.ADDRESS_SERVER, fileName));
     }
+
+    public String createExperiencesFolderAt(String experiencesFolder) {
+        String fileName = UriUtils.encode(experiencesFolder, "UTF-8");
+        return requestTo(String.format(restTrackExp, this.ADDRESS_SERVER, fileName));
+    }
+
 }
