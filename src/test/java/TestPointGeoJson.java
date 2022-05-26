@@ -3,12 +3,14 @@ import config.Qos;
 import dao.Dao;
 import model.User;
 
+import java.text.ParseException;
+import java.util.Date;
 import java.util.List;
 import java.util.Set;
 
 public class TestPointGeoJson {
 
-    public static void main(String args[]) {
+    public static void main(String args[]) throws ParseException {
 
 //        Qos qos1 = new Qos("A", 180, 180, 0.9, 0.16, false);
 //        Qos qos2 = new Qos("B", 300, 600, 0.8, 0.68, true);
@@ -19,7 +21,8 @@ public class TestPointGeoJson {
 //        Config.getInstance().qosDic.put("C", qos3);
 
         Dao dao = Dao.getInstance();
-        Set<User> listUsers = dao.getListTripsClassed(30, 10, 10);
+        Date earliestTime = Config.formatter_date_time.parse("2011-02-12 00:00:00");
+        Set<User> listUsers = dao.getListTripsClassed(earliestTime,30, 10, 10);
 
         /*
 

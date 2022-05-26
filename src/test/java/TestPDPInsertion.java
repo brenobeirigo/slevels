@@ -22,15 +22,14 @@ public class TestPDPInsertion {
             instanceSettings = Config.createInstanceFrom(s);
 
             Date earliestTime = Config.formatter_date_time.parse("2011-02-12 00:00:00");
-            Config.getInstance().setEarliestTime(earliestTime);
             CustomerBaseConfig customerBaseSettings = instanceSettings.getCustomerBaseSettingsArray().get(0);
             Config.getInstance().updateQosDic(customerBaseSettings.qosDic);
             //Load requests 5 minutes apart
-            User u1 = new User("2011-02-12 00:00:00", 1, 0, 1, 3, 2, 3, 2);
-            User u5 = new User("2011-02-12 00:00:00", 1, 0, 1, 3, 2, 3, 2);
-            User u2 = new User("2011-02-12 00:05:00", 1, 2, 3, 3, 2, 3, 2);
-            User u3 = new User("2011-02-12 00:10:00", 1, 3, 4, 3, 2, 3, 2);
-            User u4 = new User("2011-02-12 00:15:00", 1, 4, 5, 3, 2, 3, 2);
+            User u1 = new User("2011-02-12 00:00:00",earliestTime, 1, 0, 1, 3, 2, 3, 2);
+            User u5 = new User("2011-02-12 00:00:00",earliestTime, 1, 0, 1, 3, 2, 3, 2);
+            User u2 = new User("2011-02-12 00:05:00",earliestTime, 1, 2, 3, 3, 2, 3, 2);
+            User u3 = new User("2011-02-12 00:10:00",earliestTime, 1, 3, 4, 3, 2, 3, 2);
+            User u4 = new User("2011-02-12 00:15:00",earliestTime, 1, 4, 5, 3, 2, 3, 2);
 
             Set<User> listWaitingUsers = new HashSet<>(List.of(new User[]{u1, u2, u3}));
 

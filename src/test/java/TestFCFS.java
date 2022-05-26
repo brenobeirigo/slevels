@@ -40,12 +40,12 @@ public class TestFCFS {
             System.out.println(v);
         }
 
-        Set<User> listU = dao.getListTrips(1, 20);
-
-        System.out.println("USER LIST:");
-        for (User u : listU) {
-            System.out.println(u);
-        }
+//        Set<User> listU = dao.getListTrips(1, 20);
+//
+//        System.out.println("USER LIST:");
+//        for (User u : listU) {
+//            System.out.println(u);
+//        }
 
         for (int i = 0; i < 5 * 3600; i = i + 30) {
             System.out.println("TIME:" + i);
