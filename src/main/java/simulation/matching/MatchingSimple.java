@@ -170,6 +170,9 @@ public class MatchingSimple implements RideMatchingStrategy {
             // Save this experience in the NN
             xp.remember(this.learningConfig);
         }
+
+        String msg = Dao.getInstance().getServer().updateTargetModel();
+        System.out.println(msg);
     }
 
     @Override

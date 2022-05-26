@@ -6,12 +6,12 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.reflect.TypeToken;
 import dao.FileUtil;
+import simulation.Simulation;
 import simulation.matching.*;
 import simulation.rebalancing.Rebalance;
 import simulation.rebalancing.RebalanceHeuristic;
 import simulation.rebalancing.RebalanceOptimal;
 import simulation.rebalancing.RebalanceStrategy;
-import util.pdcombinatorics.PDGenerator;
 import util.pdcombinatorics.PDGeneratorFactory;
 
 import java.io.IOException;
@@ -34,6 +34,20 @@ public class InstanceConfig {
     // Singleton
     private static InstanceConfig instance;
 
+    public List<LearningConfig> getLearningConfigs() {
+        return this.learningConfigs;
+    }
+
+    public class TimeConfig {
+        public int request_sampling_horizon;
+        public int total_simulation_horizon;
+
+        public TimeConfig(int request_sampling_horizon, int total_simulation_horizon) {
+            this.request_sampling_horizon = request_sampling_horizon;
+            this.total_simulation_horizon = total_simulation_horizon;
+        }
+    }
+
     private List<String> spMethodArray;
     private ArrayList<Date> earliestTimeArray;
     private Date firstDate;
@@ -42,7 +56,7 @@ public class InstanceConfig {
     private List<RideMatchingStrategy> matchingMethods;
     private boolean[] sortWaitingUsersByClassArray; // If true, sort users according class when matching
     private int[] timeWindowArray; // Time window of request collection bin
-    private int[] timeHorizonArray; // Time horizon of experiment (0 t0 24h)
+    private TimeConfig[] timeHorizonArray; // Time horizon of experiment (0 t0 24h)
     private int[] maxRequestsIterationArray; // Max number of requests pooled in during an iteration
     private double[] percentageRequestsIterationArray; //Percentage of requests sampled during each TW
     private int[] initialFleetArray; // Initial size of fleet
@@ -51,6 +65,7 @@ public class InstanceConfig {
     private int[] contractDurationArray; // In rounds of tw_batch seconds
     private boolean[] allowVehicleHiringArray;
     private boolean[] allowRequestDisplacementArray;
+    private List<LearningConfig> learningConfigs;
 
     // QoS
     private HashMap<String, Map<String, Double>> serviceRateScenarioMap;
@@ -82,6 +97,45 @@ public class InstanceConfig {
     private int maxTimeToReachRegionCenter;
     private PDGeneratorFactory PDFactory;
 
+    public class LearningConfig{
+        public List<Date> episodeStartDatetimeList;
+        public int requestSamples;
+        public int sizeExperienceReplayBatch;
+        public int sizeExperienceReplayBuffer;
+        public String folderModels;
+        private String modelInstanceLabel;
+        private String experiencesFolder;
+
+        public LearningConfig(int requestSamples, int sizeExperienceReplayBatch, int sizeExperienceReplayBuffer, String folderModels, List<Date> episodeStartTimestamps) {
+            this.folderModels = folderModels;
+            this.requestSamples = requestSamples;
+            this.sizeExperienceReplayBatch = sizeExperienceReplayBatch;
+            this.sizeExperienceReplayBuffer = sizeExperienceReplayBuffer;
+            this.episodeStartDatetimeList = episodeStartTimestamps;
+        }
+
+        public void setModelInstanceLabel(String modelInstanceLabel) {
+            this.modelInstanceLabel = modelInstanceLabel;
+        }
+
+        public String getModelInstanceLabel() {
+            return modelInstanceLabel;
+        }
+
+        public String getModelFilePath() {
+            return  String.format("%s/%s/model.h5", folderModels, modelInstanceLabel);
+        }
+
+        public String getExperiencesFolder() {
+            String folder = String.format("%s/%s/experiences", this.folderModels, this.modelInstanceLabel);
+            return folder;
+        }
+
+        public boolean isNotTerminal(int timeStep) {
+            return timeStep < Simulation.timeHorizon;
+        }
+    }
+
     private InstanceConfig(String jsonFilePath) {
 
         this.instanceFilePath = jsonFilePath;
@@ -111,8 +165,38 @@ public class InstanceConfig {
             this.instanceDescription = jsonConfig.get("instance_description").toString();
             this.instanceName = jsonConfig.get("instance_name").toString();
 
+            this.learningConfigs = new ArrayList<>();
+            JsonArray learning = gson.toJsonTree(jsonConfig.get("learning_config")).getAsJsonArray();
+            for (JsonElement learningConfig : learning) {
+
+                JsonObject element = gson.fromJson(learningConfig, JsonObject.class);
+                String folderModels = gson.fromJson(element.get("folder_models"), String.class);
+                int requestSamples = gson.fromJson(element.get("request_samples"), int.class);
+                JsonObject experienceReplay = gson.fromJson(element.get("experience_replay"), JsonObject.class);
+                int sizeExperienceReplayBuffer = gson.fromJson(experienceReplay.get("size_experience_replay_buffer"), int.class);
+                int sizeExperienceReplayBatch = gson.fromJson(experienceReplay.get("size_experience_replay_batch"), int.class);
+
+                JsonObject training = gson.fromJson(element.get("training_config"), JsonObject.class);
+                String[] episodeStartDatetimeStrArray = gson.fromJson(training.get("episode_start_datetime").getAsJsonArray(), String[].class);
+
+                List<Date> episodeStartDatetimeArray = new ArrayList<>();
+                for (String episodeStartDatetimeStr : episodeStartDatetimeStrArray) {
+                    try {
+                        episodeStartDatetimeArray.add(Config.formatter_date_time.parse(episodeStartDatetimeStr));
+                    } catch (ParseException e) {
+                        e.printStackTrace();
+                    }
+                }
+
+                LearningConfig lc = new LearningConfig(requestSamples, sizeExperienceReplayBatch, sizeExperienceReplayBuffer, folderModels, episodeStartDatetimeArray);
+
+
+                learningConfigs.add(lc);
+
+            }
+
             JsonObject scenarioConfig = gson.toJsonTree(jsonConfig
-                    .get("scenario_config"))
+                            .get("scenario_config"))
                     .getAsJsonObject();
 
             // Time window of request collection bin
@@ -122,8 +206,8 @@ public class InstanceConfig {
 
             // Time window of request collection bin
             this.timeHorizonArray = gson.fromJson(scenarioConfig
-                    .get("time_horizon")
-                    .getAsJsonArray(), int[].class);
+                    .get("time_config")
+                    .getAsJsonArray(), TimeConfig[].class);
 
             String[] earliestTimes = gson.fromJson(scenarioConfig.get("earliest_time").getAsJsonArray(), String[].class);
             this.earliestTimeArray = new ArrayList<>();
@@ -144,7 +228,8 @@ public class InstanceConfig {
             this.allowVehicleHiringArray = gson.fromJson(scenarioConfig.get("allow_vehicle_hiring").getAsJsonArray(), boolean[].class);
             this.allowRequestDisplacementArray = gson.fromJson(scenarioConfig.get("allow_request_displacement").getAsJsonArray(), boolean[].class);
             this.maxTimeToReachRegionCenter = gson.fromJson(scenarioConfig.get("max_time_to_reach_region_center"), int.class);
-            this.spMethodArray = gson.fromJson(scenarioConfig.get("shortest_path_method").getAsJsonArray(), new TypeToken<List<String>>() {}.getType());
+            this.spMethodArray = gson.fromJson(scenarioConfig.get("shortest_path_method").getAsJsonArray(), new TypeToken<List<String>>() {
+            }.getType());
 
             // Customer base settings
             Type segmentationScenarioType = new TypeToken<HashMap<String, HashMap<String, Double>>>() {
@@ -340,13 +425,14 @@ public class InstanceConfig {
         return this.serverUrl;
     }
 
-    public class Learning{
+    public class Learning {
         public Learning(int nEpisodes) {
             this.nEpisodes = nEpisodes;
         }
 
         public int nEpisodes;
     }
+
     private MatchingOptimal readMatchingOptimalParams(Gson gson, JsonObject element) {
         int maxEdgesRV = gson.fromJson(element.get("max_edges_rv"), int.class);
         int maxEdgesRR = gson.fromJson(element.get("max_edges_rr"), int.class);
@@ -387,7 +473,8 @@ public class InstanceConfig {
         String pdGeneratorMethodStrategyName = gson.fromJson(elementPDGeneration.get("name"), String.class);
         int pdGeneratorMaxSequences = gson.fromJson(elementPDGeneration.get("max_sequences"), int.class);
 
-        return new MatchingSimple(maxVehicleCapacityRTV, timeLimit, timeoutVehicle, mipGap, maxEdgesRV, maxEdgesRR, rejectionPenalty, objectives, pdGeneratorMethodStrategyName);
+        MatchingSimple m = new MatchingSimple(maxVehicleCapacityRTV, timeLimit, timeoutVehicle, mipGap, maxEdgesRV, maxEdgesRR, rejectionPenalty, objectives, pdGeneratorMethodStrategyName);
+        return m;
     }
 
     private MatchingGreedy readMatchingGreedyParams(Gson gson, JsonObject element) {
@@ -506,7 +593,7 @@ public class InstanceConfig {
         return timeWindowArray;
     }
 
-    public int[] getTimeHorizonArray() {
+    public TimeConfig[] getTimeHorizonArray() {
         return timeHorizonArray;
     }
 

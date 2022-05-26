@@ -1,6 +1,7 @@
 package simulation.matching;
 
 import config.Config;
+import config.InstanceConfig;
 import simulation.Simulation;
 import simulation.Solution;
 import simulation.rebalancing.Rebalance;
@@ -31,7 +32,7 @@ public class SimulationFCFS extends Simulation {
                           int maxRequestsIteration,
                           double percentageRequestsIteration,
                           int timeWindow,
-                          int timeHorizon,
+                          InstanceConfig.TimeConfig timeHorizon,
                           int contractDuration,
                           boolean isAllowedToHire,
                           String serviceRateScenarioLabel,

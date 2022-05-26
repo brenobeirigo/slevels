@@ -10,7 +10,7 @@ import helper.Runtime;
 import model.*;
 import model.graph.GraphRTV;
 import model.graph.ParallelGraphRTV;
-import model.learn.VehicleState;
+import model.learn.StateAction;
 import model.node.Node;
 import simulation.Method;
 import simulation.Simulation;
@@ -138,9 +138,12 @@ public class MatchingOptimal implements RideMatchingStrategy {
     @Override
     public ResultAssignment match(int currentTime, Set<User> unassignedRequests, Set<Vehicle> vehicles, Set<Vehicle> hired) {
         buildGraphRTV(unassignedRequests, vehicles, this.maxVehicleCapacityRTV, timeoutVehicleRTV, maxEdgesRV, maxEdgesRR);
-        Map<User, Set<VisitObj>> userVisitMapRTV = graphRTV.getUserVisitsMap();
+        //Map<User, Set<VisitObj>> userVisitMapRTV = graphRTV.getUserVisitsMap();
         Map<Vehicle, Set<VisitObj>> vehicleVisitMapRTV = graphRTV.getVehicleVisitsMap();
-        this.result = assign(currentTime, vehicleVisitMapRTV, userVisitMapRTV);
+        AssignmentILP visitToVehiclesAssignment = new AssignmentILP(currentTime,vehicleVisitMapRTV,  unassignedRequests, true);
+        visitToVehiclesAssignment.run(new String[]{Objective.TOTAL_REQUESTS, Objective.TOTAL_WAITING});
+        this.result = visitToVehiclesAssignment.getResult();
+        //this.result = assign(currentTime, vehicleVisitMapRTV, userVisitMapRTV);
 
         // assert assertRTVUserVisitMapCanBeReconstructedFromVehicleVisitMap(unassignedRequests, userVisitMapRTV, vehicleVisitMapRTV);
         // assert assertConsecutiveAssignmentsProduceSameResults(unassignedRequests, userVisitMapRTV, vehicleVisitMapRTV);
@@ -797,7 +800,7 @@ public class MatchingOptimal implements RideMatchingStrategy {
         return true;
     }
 
-    public boolean vehiclesVisitsSameOrder(Map<Vehicle, Set<VisitObj>> a, Map<Vehicle, Set<VehicleState>> b) {
+    public boolean vehiclesVisitsSameOrder(Map<Vehicle, Set<VisitObj>> a, Map<Vehicle, Set<StateAction>> b) {
         if (a.size() != b.size()) return false;
 
         List<Vehicle> la = new ArrayList<Vehicle>(a.keySet());

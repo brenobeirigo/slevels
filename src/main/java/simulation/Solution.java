@@ -38,6 +38,7 @@ public class Solution {
     private String serviceRate;
     private String customerSegmentation;
     private String testCaseName;
+    private Date earliestDatetime;
     private boolean allowVehicleCreation;
     private boolean allowDelayExtension;
     private Map<String, Map<String, Integer>> sLevelsClass;
@@ -70,8 +71,9 @@ public class Solution {
                     int nOfVehicles,
                     int maxNumberOfTrips,
                     int vehicleCapacity,
+                    Date earliestDatetime,
                     int timeHorizon,
-                    int totalHorizon,
+                    InstanceConfig.TimeConfig totalHorizon,
                     int deactivationFactor,
                     boolean allowVehicleCreation,
                     boolean allowDelayExtension) {
@@ -82,12 +84,13 @@ public class Solution {
         this.maxNumberOfTrips = maxNumberOfTrips;
         this.vehicleCapacity = vehicleCapacity;
         this.timeHorizon = timeHorizon;
-        this.totalHorizon = totalHorizon;
+        this.totalHorizon = totalHorizon.total_simulation_horizon;
         this.deactivationFactor = deactivationFactor;
         this.allowVehicleCreation = allowVehicleCreation;
         this.allowDelayExtension = allowDelayExtension;
         this.listRoundEntries = new ArrayList<>();
         this.sLevelsClass = new HashMap<>();
+        this.earliestDatetime = earliestDatetime;
         createHeader();
     }
 
@@ -101,22 +104,23 @@ public class Solution {
     }
 
     // Initialize solution
-    public Solution(String methodName,
-                    Date earliestTime,
-                    int maxHiringDelaySeconds,
-                    int initialFleetSize,
-                    int maxNumberOfRequests,
-                    double percentageRequests,
-                    int maxVehicleCapacity,
-                    int batchDurationSeconds,
-                    int simulationTimeSeconds,
-                    int contractDuration,
-                    boolean allowVehicleHiring,
-                    boolean allowServiceDeterioration,
-                    String serviceRate,
-                    String customerSegmentation,
-                    RebalanceStrategy rebalanceStrategy,
-                    RideMatchingStrategy matchingStrategy) {
+    public Solution(
+            String methodName,
+            Date earliestTime,
+            int maxHiringDelaySeconds,
+            int initialFleetSize,
+            int maxNumberOfRequests,
+            double percentageRequests,
+            int maxVehicleCapacity,
+            int batchDurationSeconds,
+            InstanceConfig.TimeConfig simulationTimeSeconds,
+            int contractDuration,
+            boolean allowVehicleHiring,
+            boolean allowServiceDeterioration,
+            String serviceRate,
+            String customerSegmentation,
+            RebalanceStrategy rebalanceStrategy,
+            RideMatchingStrategy matchingStrategy) {
 
         // Initialize solution
         this(methodName,
@@ -124,6 +128,7 @@ public class Solution {
                 initialFleetSize,
                 maxNumberOfRequests,
                 maxVehicleCapacity,
+                earliestTime,
                 batchDurationSeconds,
                 simulationTimeSeconds,
                 contractDuration,
@@ -166,7 +171,7 @@ public class Solution {
             Double percentageRequests,
             Integer maxVehicleCapacity,
             Integer batchDurationSeconds,
-            Integer simulationTimeSeconds,
+            InstanceConfig.TimeConfig simulationTimeSeconds,
             Integer contractDuration,
             Boolean allowVehicleHiring,
             Boolean allowServiceDeterioration,
@@ -175,13 +180,14 @@ public class Solution {
             RebalanceStrategy rebalanceStrategy,
             RideMatchingStrategy matchingStrategy) {
         String testCaseName = String.format(
-                "%s%sST-%d_BA-%d_%s%sIF-%d_MC-%d_CS-%s_HC-%d",
-                methodName != null? String.format("IN-%s_", methodName):"",
-                earliestTime != null? String.format("SD-%s_", getDigitsFromDate(earliestTime)):"",
-                simulationTimeSeconds,
+                "%s%sST-%d_RH-%d_BA-%d_%s%sIF-%d_MC-%d_CS-%s_HC-%d",
+                methodName != null ? String.format("IN-%s_", methodName) : "",
+                earliestTime != null ? String.format("SD-%s_", getDigitsFromDate(earliestTime)) : "",
+                simulationTimeSeconds.total_simulation_horizon,
+                simulationTimeSeconds.request_sampling_horizon,
                 batchDurationSeconds,
-                maxNumberOfRequests != null? String.format("MR-%d_", maxNumberOfRequests): "",
-                percentageRequests != null? String.format("PR-%3.2f_", percentageRequests): "",
+                maxNumberOfRequests != null ? String.format("MR-%d_", maxNumberOfRequests) : "",
+                percentageRequests != null ? String.format("PR-%4.3f_", percentageRequests) : "",
                 initialFleetSize,
                 maxVehicleCapacity,
                 customerSegmentation,
@@ -191,7 +197,8 @@ public class Solution {
         testCaseName += (allowVehicleHiring ? "_VH" : "");
         testCaseName += (allowServiceDeterioration ? "_SD" : "");
         testCaseName += rebalanceStrategy != null ? rebalanceStrategy : "_RE-NO";
-        testCaseName += matchingStrategy != null ? matchingStrategy : "";;
+        testCaseName += matchingStrategy != null ? matchingStrategy : "";
+        ;
         return testCaseName;
     }
 
@@ -303,7 +310,7 @@ public class Solution {
      *
      * @param vehicleList
      */
-    public void saveGeoJsonPerVehicle(Set<Vehicle> vehicleList) {
+    public void saveGeoJsonPerVehicle(Date earliestDatetime, Set<Vehicle> vehicleList) {
         System.out.println("Saving geojson vehicle traces...");
 
 
@@ -332,7 +339,7 @@ public class Solution {
                 writer = Files.newBufferedWriter(outputGeoJsonVehicle);
                 String geojson = String.format("{\n" +
                         "    \"type\": \"FeatureCollection\",\n" +
-                        "    \"features\": %s\n}", String.join(",\n", GeoJsonUtil.getJourneyComplete(v)));
+                        "    \"features\": %s\n}", String.join(",\n", GeoJsonUtil.getJourneyComplete(earliestDatetime, v)));
 
                 String geojsonFleet = String.format(
                         "    {\n" +
@@ -382,15 +389,15 @@ public class Solution {
             for (User u : sortedUsersPk) {
                 int minDistSec = Dao.getInstance().getDistSec(u.getNodePk(), u.getNodeDp());
                 List<String> entry = new ArrayList<>();
-                entry.add(Config.sec2Datetime(u.getNodePk().getEarliest()));
-                entry.add(u.isRejected() ? Config.sec2Datetime(u.getDropoutTime()) : "na");
+                entry.add(Config.sec2Datetime(earliestDatetime,u.getNodePk().getEarliest()));
+                entry.add(u.isRejected() ? Config.sec2Datetime(earliestDatetime,u.getDropoutTime()) : "na");
                 entry.add(String.valueOf(u.getId()));
                 entry.add(String.valueOf(u.getPerformanceClass()));
                 entry.add(u.isRejected() ? "na" : String.valueOf(u.getNodePk().getDelay()));
                 entry.add(u.isRejected() ? "na" : String.valueOf(u.inVehicleDelay()));
                 entry.add(u.isRejected() ? "na" : String.valueOf(u.getNodeDp().getDelay()));
-                entry.add(u.isRejected() ? "na" : Config.sec2Datetime(u.getNodePk().getArrival()));
-                entry.add(u.isRejected() ? "na" : Config.sec2Datetime(u.getNodeDp().getArrival()));
+                entry.add(u.isRejected() ? "na" : Config.sec2Datetime(earliestDatetime,u.getNodePk().getArrival()));
+                entry.add(u.isRejected() ? "na" : Config.sec2Datetime(earliestDatetime,u.getNodeDp().getArrival()));
                 entry.add(String.valueOf(u.getNodePk().getNetworkId()));
                 entry.add(String.valueOf(u.getNodeDp().getNetworkId()));
                 entry.add(String.valueOf(minDistSec));
@@ -728,7 +735,7 @@ public class Solution {
                             Runtime runTimes) {
 
         List<String> roundEntry = new ArrayList<>();
-        roundEntry.add(Config.sec2Datetime(currentTime));
+        roundEntry.add(Config.sec2Datetime(earliestDatetime,currentTime));
         roundEntry.add(String.valueOf(waitingRequests));
         roundEntry.add(String.valueOf(finishedRequests));
         roundEntry.add(String.valueOf(deniedRequests));

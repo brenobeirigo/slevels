@@ -36,6 +36,7 @@ import static util.pdcombinatorics.PDPermutations.loadPrecalculatedPermutationsP
 
 public class Dao {
 
+    public static Map<String, Map<Integer, Map<Integer, List<User>>>> requestDataMap = new HashMap<>();
 
     // Speed of vehicles m/s
     public static final double SPEED = 30;
@@ -124,7 +125,7 @@ public class Dao {
             allUsers = new ArrayList<>();
             userBuff = null;
 
-            // Set seed to guarantee reproducibility
+            // Set seed to guarantee reproducibility (set later)
             rand = new Random(SEED);
 
             iUserNextRound = 0;
@@ -480,9 +481,9 @@ public class Dao {
         return dist_matrix;
     }
 
-    public Set<User> getListTripsClassed(int timeSpanSec, int maxPassengerCount, int maxNumber) {
+    public Set<User> getListTripsClassed(Date earliestTime, int timeSpanSec, int maxPassengerCount, int maxNumber) {
 
-        List<User> trips = getListTripsClassed(timeSpanSec, maxPassengerCount);
+        List<User> trips = getListTripsClassed(earliestTime, timeSpanSec, maxPassengerCount);
 
         Collections.shuffle(trips);
 
@@ -494,9 +495,9 @@ public class Dao {
     }
 
 
-    public Set<User> getListTripsClassedShuffled(int timeSpanSec, int maxPassengerCount, int maxNumber, Random rand) {
+    public Set<User> getListTripsClassedShuffled(Date earliestTime, int timeSpanSec, int maxPassengerCount, int maxNumber, Random rand) {
 
-        List<User> trips = getListTripsClassed(timeSpanSec, maxPassengerCount);
+        List<User> trips = getListTripsClassed(earliestTime, timeSpanSec, maxPassengerCount);
 
         Collections.shuffle(trips, rand);
 
@@ -504,9 +505,28 @@ public class Dao {
 
     }
 
-    public Set<User> getListTripsClassedShuffled(int timeSpanSec, int maxPassengerCount, double percentage, Random rand) {
+    private List<User> getUsers(Date earliestTime, int timeSpanSec, int maxPassengerCount) {
+        List<User> trips = new ArrayList<>();
+        if (requestDataMap.containsKey(this.pathRequestList)) {
+            if (requestDataMap.get(this.pathRequestList).containsKey(earliestTimeRequestBatch)) {
+                if (requestDataMap.get(this.pathRequestList).get(earliestTimeRequestBatch).containsKey(maxPassengerCount)) {
+                    trips = requestDataMap.get(this.pathRequestList).get(earliestTimeRequestBatch).get(maxPassengerCount);
+                }
+            }
+        } else {
+            trips = getListTripsClassed(earliestTime, timeSpanSec, maxPassengerCount);
+            Map<Integer, Map<Integer, List<User>>> timeSpanPercentage = new HashMap<>();
+            Map<Integer, List<User>> percentageUsers = new HashMap<>();
+            percentageUsers.put(maxPassengerCount, trips);
+            timeSpanPercentage.put(earliestTimeRequestBatch, percentageUsers);
+            requestDataMap.put(this.pathRequestList, timeSpanPercentage);
+        }
+        return trips;
+    }
 
-        List<User> trips = getListTripsClassed(timeSpanSec, maxPassengerCount);
+    public Set<User> getListTripsClassedShuffled(Date earliestTime, int timeSpanSec, int maxPassengerCount, double percentage, Random rand) {
+
+        List<User> trips = getListTripsClassed(earliestTime, timeSpanSec, maxPassengerCount);
 
         Collections.shuffle(trips, rand);
 
@@ -530,8 +550,8 @@ public class Dao {
     }
 
 
-    public Set<User> getListTrips(int timeSpanSec, int maxPassengerCount, int maxNumber) {
-        Set<User> trips = getListTrips(timeSpanSec, maxPassengerCount);
+    public Set<User> getListTrips(Date earliestDatetime, int timeSpanSec, int maxPassengerCount, int maxNumber) {
+        Set<User> trips = getListTrips(earliestDatetime, timeSpanSec, maxPassengerCount);
         if (trips.size() > maxNumber) {
             trips = trips.stream().limit(maxNumber).collect(Collectors.toSet());
         }
@@ -545,7 +565,7 @@ public class Dao {
      * @param maxPassengerCount Keep records with PASSENGER_COUNT lower
      * @return
      */
-    public Set<User> getListTrips(int timeSpanSec, int maxPassengerCount) {
+    public Set<User> getListTrips(Date earliestDatetime, int timeSpanSec, int maxPassengerCount) {
 
         Set<User> listUser = new HashSet<>();
 
@@ -557,6 +577,7 @@ public class Dao {
 
             User user = new User(
                     record.get(PICKUP_DATETIME),
+                    earliestDatetime,
                     Integer.parseInt(record.get(PASSENGER_COUNT)),
                     Integer.parseInt(record.get(PICKUP_NODE_ID)),
                     Integer.parseInt(record.get(DROPOFF_NODE_ID)),
@@ -667,7 +688,7 @@ public class Dao {
      * @param maxPassengerCount Maximum passenger count (<= max. vehicle capacity)
      * @return
      */
-    public List<User> getListTripsClassed(int timeSpanSec, int maxPassengerCount) {
+    public List<User> getListTripsClassed(Date earliestTime, int timeSpanSec, int maxPassengerCount) {
 
         // Start list of users with buffer from last iteration (users read, but not in time span)
         List<User> listUser = new ArrayList<>();
@@ -687,7 +708,7 @@ public class Dao {
         for (CSVRecord record : records) {
 
             // Filter requests before earliest configured time
-            if (getPickupDateTime(record).before(Config.getInstance().getEarliestTime())) {
+            if (getPickupDateTime(record).before(earliestTime)) {
                 continue;
             }
             // Skip passenger record with high passenger count
@@ -696,7 +717,7 @@ public class Dao {
             }
 
             // Create user using record
-            User user = new User(record);
+            User user = new User(earliestTime, record);
 
             // Stop reading if request is out of time span
             if (user.getReqTime() >= latestTimeRequestBatch) {
@@ -1109,6 +1130,10 @@ public class Dao {
 
     public ServerUtil getServer() {
         return this.server;
+    }
+
+    public void setRandomSeed(Random random) {
+        rand = random;
     }
 }
 

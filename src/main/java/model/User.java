@@ -64,12 +64,12 @@ public class User implements Comparable<User> {
      *
      * @param record
      */
-    public User(CSVRecord record) {
+    public User(Date earliestDatetime, CSVRecord record) {
 
         int originId = Integer.parseInt(record.get(Dao.PICKUP_NODE_ID));
         int destinationId = Integer.parseInt(record.get(Dao.DROPOFF_NODE_ID));
         this.distFromTo = Dao.getInstance().getDistSec(originId, destinationId);
-        this.reqTime = Config.getInstance().date2Seconds(record.get(Dao.PICKUP_DATETIME));
+        this.reqTime = Config.getInstance().date2Seconds(earliestDatetime, record.get(Dao.PICKUP_DATETIME));
         this.setNumPassengers(Integer.parseInt(record.get(Dao.PASSENGER_COUNT)));
         this.id = ++nTrips;
         this.record = record;
@@ -120,6 +120,7 @@ public class User implements Comparable<User> {
     }
 
     public User(String reqTime,
+                Date earliestDatetime,
                 int numPassengers,
                 int originId,
                 int destinationId,
@@ -130,7 +131,7 @@ public class User implements Comparable<User> {
 
         this.servedBy = User.WAITING;
 
-        this.reqTime = Config.getInstance().date2Seconds(reqTime);
+        this.reqTime = Config.getInstance().date2Seconds(earliestDatetime, reqTime);
         this.setNumPassengers(numPassengers);
         this.id = ++nTrips;
 
@@ -230,13 +231,12 @@ public class User implements Comparable<User> {
 
         this.performanceClass = performanceClass;
 
-        int originId = Integer.parseInt(record.get("pk_id"));
-        int destinationId = Integer.parseInt(record.get("dp_id"));
-        double originLat = Double.parseDouble(record.get("pickup_latitude"));
-        double originLon = Double.parseDouble(record.get("pickup_longitude"));
-        double destinationLat = Double.parseDouble(record.get("dropoff_latitude"));
-        double destinationLon = Double.parseDouble(record.get("dropoff_longitude"));
-
+        int originId = Integer.parseInt(record.get(Dao.PICKUP_NODE_ID));
+        int destinationId = Integer.parseInt(record.get(Dao.DROPOFF_NODE_ID));
+        double originLat = 0; //Double.parseDouble(record.get("pickup_latitude"));
+        double originLon = 0; //Double.parseDouble(record.get("pickup_longitude"));
+        double destinationLat = 0; //Double.parseDouble(record.get("dropoff_latitude"));
+        double destinationLon = 0; //Double.parseDouble(record.get("dropoff_longitude"));
         int pk_latest = Method.getLatestPK(this.reqTime, performanceClass);
         int dp_earliest = Method.getEarliestDp(this.reqTime, originId, destinationId, performanceClass);
         int dp_latest = Method.getLatestDp(this.reqTime, originId, destinationId, performanceClass);
@@ -281,25 +281,25 @@ public class User implements Comparable<User> {
                 this.performanceClass);
     }
 
-    public String getInfo() {
-        return String.format("%s [%s -> %s -> %s]",
-                this,
-                Config.formatter_t.format(Config.getInstance().seconds2Date(nodePk.getEarliest())),
-                Config.formatter_t.format(Config.getInstance().seconds2Date(nodePk.getArrival())),
-                Config.formatter_t.format(Config.getInstance().seconds2Date(nodeDp.getArrival())));
-    }
+//    public String getInfo() {
+//        return String.format("%s [%s -> %s -> %s]",
+//                this,
+//                Config.formatter_t.format(Config.getInstance().seconds2Date(nodePk.getEarliest())),
+//                Config.formatter_t.format(Config.getInstance().seconds2Date(nodePk.getArrival())),
+//                Config.formatter_t.format(Config.getInstance().seconds2Date(nodeDp.getArrival())));
+//    }
 
-    public String getDetailedInfo() {
-        return String.format("%s [%s -> %s -> %s] - [%s -> %s -> %s]",
-                this,
-                Config.formatter_t.format(Config.getInstance().seconds2Date(nodePk.getEarliest())),
-                Config.formatter_t.format(Config.getInstance().seconds2Date(nodePk.getArrival())),
-                Config.formatter_t.format(Config.getInstance().seconds2Date(nodePk.getLatest())),
-
-                Config.formatter_t.format(Config.getInstance().seconds2Date(nodeDp.getEarliest())),
-                Config.formatter_t.format(Config.getInstance().seconds2Date(nodeDp.getArrival())),
-                Config.formatter_t.format(Config.getInstance().seconds2Date(nodeDp.getLatest())));
-    }
+//    public String getDetailedInfo() {
+//        return String.format("%s [%s -> %s -> %s] - [%s -> %s -> %s]",
+//                this,
+//                Config.formatter_t.format(Config.getInstance().seconds2Date(nodePk.getEarliest())),
+//                Config.formatter_t.format(Config.getInstance().seconds2Date(nodePk.getArrival())),
+//                Config.formatter_t.format(Config.getInstance().seconds2Date(nodePk.getLatest())),
+//
+//                Config.formatter_t.format(Config.getInstance().seconds2Date(nodeDp.getEarliest())),
+//                Config.formatter_t.format(Config.getInstance().seconds2Date(nodeDp.getArrival())),
+//                Config.formatter_t.format(Config.getInstance().seconds2Date(nodeDp.getLatest())));
+//    }
 
     public int getDeparture() {
         return departure;
@@ -376,56 +376,56 @@ public class User implements Comparable<User> {
         return this.servedBy == User.WAITING;
     }
 
-    /**
-     * Show vehicles able to pick up this user within maxDistance
-     *
-     * @param listVehicles
-     */
-    public Visit getVisitInRange(List<Vehicle> listVehicles,
-                                 int currentTime) {
-
-        // Extra delay is equals to original pickup delay of customer class
-        int maxDistance = Config.getInstance().qosDic.get(this.getPerformanceClass()).pkDelay;
-
-        System.out.println("Vehicle distances to " + this.getId());
-        Set<Vehicle> listOfCloseVehicles = new TreeSet<>();
-        Set<Visit> listOfVisits = new TreeSet<>();
-
-        // Aux. best visit for comparison
-        Visit bestVisit = null;
-
-        for (Vehicle v : listVehicles) {
-
-            int dist = Dao.getInstance().getDistSec(v.getLastVisitedNode(), this.getNodePk());
-
-            if (dist <= maxDistance) {
-
-                listOfCloseVehicles.add(v);
-
-                System.out.println(String.format("%s -> %s - %d - %s", v.getId(), this.getInfo(), dist, v.getInfo()));
-
-                Visit candidateVisit = v.getVisitWithInsertedUser(this, currentTime);
-
-                // Update best visit if delay of candidate visit is shorter
-                if (candidateVisit != null && candidateVisit.compareTo(bestVisit) < 0) {
-
-                    // Updating visit
-                    bestVisit = candidateVisit;
-
-                }
-
-                if (candidateVisit != null) {
-
-                    listOfVisits.add(candidateVisit);
-                }
-
-                System.out.println("##### ENROUTE");
-                Visit visitNodesEnroute = v.getVisitWithEnroute();
-            }
-        }
-
-        return bestVisit;
-    }
+//    /**
+//     * Show vehicles able to pick up this user within maxDistance
+//     *
+//     * @param listVehicles
+//     */
+//    public Visit getVisitInRange(List<Vehicle> listVehicles,
+//                                 int currentTime) {
+//
+//        // Extra delay is equals to original pickup delay of customer class
+//        int maxDistance = Config.getInstance().qosDic.get(this.getPerformanceClass()).pkDelay;
+//
+//        System.out.println("Vehicle distances to " + this.getId());
+//        Set<Vehicle> listOfCloseVehicles = new TreeSet<>();
+//        Set<Visit> listOfVisits = new TreeSet<>();
+//
+//        // Aux. best visit for comparison
+//        Visit bestVisit = null;
+//
+//        for (Vehicle v : listVehicles) {
+//
+//            int dist = Dao.getInstance().getDistSec(v.getLastVisitedNode(), this.getNodePk());
+//
+//            if (dist <= maxDistance) {
+//
+//                listOfCloseVehicles.add(v);
+//
+//                System.out.println(String.format("%s -> %s - %d - %s", v.getId(), this.getInfo(), dist, v.getInfo()));
+//
+//                Visit candidateVisit = v.getVisitWithInsertedUser(this, currentTime);
+//
+//                // Update best visit if delay of candidate visit is shorter
+//                if (candidateVisit != null && candidateVisit.compareTo(bestVisit) < 0) {
+//
+//                    // Updating visit
+//                    bestVisit = candidateVisit;
+//
+//                }
+//
+//                if (candidateVisit != null) {
+//
+//                    listOfVisits.add(candidateVisit);
+//                }
+//
+//                System.out.println("##### ENROUTE");
+//                Visit visitNodesEnroute = v.getVisitWithEnroute();
+//            }
+//        }
+//
+//        return bestVisit;
+//    }
 
     /**
      * Find best pair of edges (i,i+1) and (j,j+1) such that replacing

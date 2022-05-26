@@ -2,6 +2,7 @@ package simulation;
 
 import com.google.common.collect.Sets;
 import config.Config;
+import config.InstanceConfig;
 import dao.Dao;
 import helper.HelperIO;
 import helper.MethodHelper;
@@ -51,6 +52,7 @@ public abstract class Simulation {
     /* TIME HORIZON */
     public static int timeWindow; // Size of time bins
     public static int timeHorizon; // Total time horizon
+    public static int requestSamplingHorizon; // Until when requests are sampled (must be lower then time horizon)
     protected Date earliestTime;
 
     /* VEHICLE INFO */
@@ -66,8 +68,8 @@ public abstract class Simulation {
     public static int leftTW, rightTW; // Left and right time windows (rightTW = current time)
 
     /* ROUND INFO */
-    protected int totalRounds; // How many rounds of time horizon will be pooled
-    protected int roundCount;
+    protected int totalTimeSteps; // How many rounds of time horizon will be pooled
+    protected int timeStep;
     protected boolean activeFleet; //True if a single vehicle is still working (rebalancing, picking up, etc.)
 
     /* SETS OF VEHICLES AND REQUESTS */
@@ -91,7 +93,7 @@ public abstract class Simulation {
                       double percentageTrips,
                       Date earliestTime,
                       int timeWindow,
-                      int timeHorizon,
+                      InstanceConfig.TimeConfig timeHorizon,
                       int contractDuration,
                       boolean isAllowedToHire,
                       Rebalance rebalanceUtil,
@@ -110,7 +112,8 @@ public abstract class Simulation {
 
         /* TIME HORIZON */
         Simulation.timeWindow = timeWindow; // Size of time bins
-        Simulation.timeHorizon = timeHorizon; // Total time horizon
+        Simulation.timeHorizon = timeHorizon.total_simulation_horizon; // Total time horizon
+        Simulation.requestSamplingHorizon = timeHorizon.request_sampling_horizon;
         this.earliestTime = earliestTime;
 
         /* DEACTIVATING */
@@ -124,12 +127,12 @@ public abstract class Simulation {
         /* PULLING DATA */
         this.maxNumberOfTrips = maxNumberOfTrips; //How many trips are pooled in time horizon
         this.percentageTrips = percentageTrips;
-        totalRounds = timeHorizon / timeWindow; // How many rounds of time horizon will be pooled
-        time_slot = totalRounds * timeWindow;
+        totalTimeSteps = timeHorizon.total_simulation_horizon / timeWindow; // How many rounds of time horizon will be pooled
+        time_slot = timeHorizon.total_simulation_horizon;
         start_timestamp = 0; // (00:00:00) Initial timestamp for pooling data
         leftTW = start_timestamp; // Left and right time windows (rightTW = current time)
         rightTW = leftTW + timeWindow;
-        roundCount = 0;
+        timeStep = 1;
 
         /* SETS OF VEHICLES AND REQUESTS */
         allRequests = new HashMap<>(); // Dictionary of all users
@@ -161,8 +164,8 @@ public abstract class Simulation {
                 this.allRequests.size(),
                 this.finishedRequests.size(),
                 (double) this.finishedRequests.size() / this.allRequests.size(),
-                this.totalRounds,
-                this.roundCount,
+                this.totalTimeSteps,
+                this.timeStep,
                 this.finishedRequests.stream().mapToInt(sub -> sub.getNodeDp().getDelay()).sum(),
                 this.listVehicles.stream().mapToDouble(sub -> sub.getDistanceTraveledEmpty()).sum(),
                 this.listVehicles.stream().mapToDouble(sub -> sub.getDistanceTraveledLoaded()).sum(),
@@ -182,11 +185,12 @@ public abstract class Simulation {
         Set<User> newUsers = new LinkedHashSet<>();
 
         // After the number of rounds stop pooling requests but finish waiting requests
-        if (roundCount < totalRounds) {
+        if (rightTW <= requestSamplingHorizon) {
 
             // Dictionary of pooled requests inside time slot
             newUsers = Dao.getInstance()
                     .getListTripsClassedShuffled(
+                            this.earliestTime,
                             timeWindow,
                             vehicleCapacity,
                             percentageTrips,
@@ -207,7 +211,9 @@ public abstract class Simulation {
         String roundSnapshot = null;
 
         if (showRoundInfo) {
-            roundHeader = HelperIO.getHeaderTW(start_timestamp,
+            roundHeader = HelperIO.getHeaderTW(
+                    earliestTime,
+                    start_timestamp,
                     time_slot,
                     leftTW,
                     rightTW,
@@ -215,8 +221,8 @@ public abstract class Simulation {
                     allRequests,
                     initialFleetSize,
                     timeWindow,
-                    roundCount,
-                    totalRounds
+                    timeStep,
+                    totalTimeSteps
             );
         }
 
@@ -436,9 +442,9 @@ public abstract class Simulation {
             //// UPDATING TW ///////////////////////////////////////////////////////////////////////////////////////////
             leftTW = rightTW;
             rightTW = leftTW + timeWindow;
-            roundCount = roundCount + 1;
+            timeStep = timeStep + 1;
 
-        } while (roundCount < totalRounds || activeFleet);
+        } while (timeStep <= totalTimeSteps || activeFleet);
 
 
         Instant after = Instant.now();
@@ -452,7 +458,7 @@ public abstract class Simulation {
 
         // Saving vehicles traces
         if (Config.infoHandling.get(Config.SAVE_VEHICLE_ROUND_GEOJSON))
-            sol.saveGeoJsonPerVehicle(listVehicles);
+            sol.saveGeoJsonPerVehicle(earliestTime, listVehicles);
 
         // Save solution to file (summary of rounds)
         if (Config.infoHandling.get(Config.SAVE_ROUND_INFO_CSV))

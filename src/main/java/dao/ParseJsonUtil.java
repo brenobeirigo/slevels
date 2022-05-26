@@ -30,12 +30,13 @@ public class ParseJsonUtil {
             double x = arr.get(i).getAsJsonObject().get("x").getAsDouble();
             double y = arr.get(i).getAsJsonObject().get("y").getAsDouble();
 
+            //TODO center node is centroid
             // Closest center that can reach node at each step (e.g., 30, 60, 90, ..., 600)
-            JsonObject centers = arr.get(i).getAsJsonObject().get("step_center").getAsJsonObject();
+            //JsonObject centers = arr.get(i).getAsJsonObject().get("step_center").getAsJsonObject();
             Map<Integer, Integer> centerNodeId = new HashMap<>();
-            for (Map.Entry<String, JsonElement> entry : centers.entrySet()) {
-                centerNodeId.put(Integer.valueOf(entry.getKey()), Integer.valueOf(entry.getKey()));
-            }
+//            for (Map.Entry<String, JsonElement> entry : centers.entrySet()) {
+//                centerNodeId.put(Integer.valueOf(entry.getKey()), Integer.valueOf(entry.getKey()));
+//            }
             Point2D point = new Point2D.Double(x, y);
             NodeNetwork node = new NodeNetwork(id, point, centerNodeId);
 

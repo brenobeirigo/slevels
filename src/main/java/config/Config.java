@@ -38,7 +38,6 @@ public class Config {
     private static Config ourInstance = new Config();
     private static ConfigInstance configInstance;
     public Map<String, Qos> qosDic;
-    private Date earliestTime;
     private List<Qos> qosListPriority;
     private String spAlgorithm;
 
@@ -82,12 +81,12 @@ public class Config {
         ourInstance = new Config();
     }
 
-    public static String sec2TStamp(int sec) {
-        return Config.formatter_t.format(Config.getInstance().seconds2Date(sec));
+    public static String sec2TStamp(Date earliestDatetime, int sec) {
+        return Config.formatter_t.format(Config.getInstance().seconds2Date(earliestDatetime, sec));
     }
 
-    public static String sec2Datetime(int sec) {
-        return Config.formatter_date_time.format(Config.getInstance().seconds2Date(sec));
+    public static String sec2Datetime(Date earliestDatetime, int sec) {
+        return Config.formatter_date_time.format(Config.getInstance().seconds2Date(earliestDatetime, sec));
     }
 
     public static Config getInstance() {
@@ -98,22 +97,19 @@ public class Config {
         return this.qosDic.size();
     }
 
-    public int date2Seconds(String departureDate) {
+    public int date2Seconds(Date earliestTime, String departureDate) {
         int secs = -1;
         try {
-            secs = (int) (Config.formatter_date_time.parse(departureDate).getTime() - this.earliestTime.getTime()) / 1000;
+            secs = (int) (Config.formatter_date_time.parse(departureDate).getTime() - earliestTime.getTime()) / 1000;
         } catch (ParseException e) {
             e.printStackTrace();
         }
         return secs;
     }
 
-    public Date getEarliestTime() {
-        return earliestTime;
-    }
 
-    public Date seconds2Date(int departureDate) {
-        return new Date(departureDate * 1000 + this.earliestTime.getTime());
+    public Date seconds2Date(Date earliestTime, int departureDate) {
+        return new Date(departureDate * 1000L + earliestTime.getTime());
     }
 
 
@@ -138,9 +134,6 @@ public class Config {
         return qosListPriority;
     }
 
-    public void setEarliestTime(Date earliestTime) {
-        this.earliestTime = earliestTime;
-    }
 
     public void setShortestPathAlgorithm(String spMethod) {
         this.spAlgorithm = spMethod;

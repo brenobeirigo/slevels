@@ -21,7 +21,8 @@ public class HelperIO {
 
     public static Map<String, FileOutputStream> logs = new HashMap<>();
 
-    public static String getHeaderTW(int start_time,
+    public static String getHeaderTW(Date earliestDatetime,
+                                     int start_time,
                                      int duration,
                                      int left_tw,
                                      int right_tw,
@@ -32,7 +33,7 @@ public class HelperIO {
                                      int round,
                                      int totalRounds) {
         //String str = String.format("\n###### TW: [%s - %s] ###############################################", config.Config.sec2TStamp(left_tw), config.Config.sec2TStamp(right_tw));
-        String str = String.format("\n###### TW: [%s - %s] ###############################################", Config.sec2Datetime(left_tw), Config.sec2Datetime(right_tw));
+        String str = String.format("\n###### TW: [%s - %s] ###############################################", Config.sec2Datetime(earliestDatetime,left_tw), Config.sec2Datetime(earliestDatetime,right_tw));
         //str = str + String.format("\n// PK delay: %d  //////  Trip delay: %d",max_pk_time, max_trip_time);
         str = str + String.format("\n||    Start: %10s  ||    Duration: %4s s", String.valueOf(start_time), String.valueOf(duration));
         str = str + String.format("\n|| Vehicles: %10s  ||  T. Horizon: %4s s", String.valueOf(n_vehicles), String.valueOf(t_horizon));
