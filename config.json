@@ -1,5 +1,5 @@
 {
-  "instance_file_path": "C:\\Users\\LocalAdmin\\IdeaProjects\\slevels\\src\\main\\resources\\hour\\enforce_sl_all_hierarchical_scenarios_no_hiring_plus.json",
+  "instance_file_path": "D:\\projects\\dev\\slevels\\src\\main\\resources\\day\\day_nyc_zones.json",
   "info_level": "print_summary_round_info",
   "info_level_options": [
     "print_summary_round_info",
@@ -7,13 +7,14 @@
     "print_no_round_info"
   ],
   "info_handling": {
-    "save_vehicle_round_geojson": true,
-    "save_request_info_csv": true,
-    "save_round_info_csv": true,
-    "save_round_mip_info_lp": true,
+    "save_vehicle_round_geojson": false,
+    "save_experiences": false,
+    "save_request_info_csv": false,
+    "save_round_info_csv": false,
+    "save_round_mip_info_lp": false,
     "show_all_vehicle_journeys": false,
     "show_round_fleet_status": false,
     "show_round_info": true,
-    "show_round_mip_info": true
+    "show_round_mip_info": false
   }
 }
