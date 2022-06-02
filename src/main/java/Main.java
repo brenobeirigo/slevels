@@ -44,130 +44,42 @@ public class Main {
                                                 for (boolean isAllowedToDisplaceRequests : instanceSettings.getAllowRequestDisplacementArray()) {
                                                     for (int contractDuration : instanceSettings.getContractDurationArray()) {
                                                         for (CustomerBaseConfig customerBaseSettings : instanceSettings.getCustomerBaseSettingsArray()) {
-
-
                                                             for (RebalanceStrategy rebalanceStrategy : instanceSettings.getRebalancingMethods()) {
                                                                 for (RideMatchingStrategy matchingMethod : instanceSettings.getMatchingMethods()) {
                                                                     for (InstanceConfig.LearningConfig learningConfig : instanceSettings.getLearningConfigs()) {
 
 
-                                                                        //String fileName = String.format("v=%04d_tw=%04d_h=%06d_req=%04d", initialFleet, timeWindow, timeHorizon, maxRequestsIteration);
+                                                                        //String fileName = String.format
+                                                                        // ("v=%04d_tw=%04d_h=%06d_req=%04d",
+                                                                        // initialFleet, timeWindow, timeHorizon,
+                                                                        // maxRequestsIteration);
 
 
-                                                                        // Update global class configuration to run current test case
+                                                                        // Update global class configuration to run
+                                                                        // current test case
                                                                         Config.getInstance().updateQosDic(customerBaseSettings.qosDic);
                                                                         Config.getInstance().setShortestPathAlgorithm(spMethod);
 
                                                                         Rebalance rebalancingSettings = new Rebalance(rebalanceStrategy);
+                                                                        Matching matchingSettings = new Matching(customerBaseSettings, contractDuration, rebalancingSettings, isAllowedToHire && matchingMethod instanceof MatchingOptimalServiceLevelAndHire, isAllowedToDisplaceRequests, matchingMethod);
 
-                                                                        Matching matchingSettings = new Matching(
-                                                                                customerBaseSettings,
-                                                                                contractDuration,
-                                                                                rebalancingSettings,
-                                                                                isAllowedToHire && matchingMethod instanceof MatchingOptimalServiceLevelAndHire,
-                                                                                isAllowedToDisplaceRequests,
-                                                                                matchingMethod);
-
-                                                                        // Save data from matching methods in the same file for all possible earliest times
-                                                                        String fileName = Solution.getTestCaseName(
-                                                                                instanceSettings.getInstanceName(),
-                                                                                null,
-                                                                                instanceSettings.getMaxTimeToReachRegionCenter(),
-                                                                                initialFleet,
-                                                                                maxRequestsIteration,
-                                                                                percentageRequestsIteration,
-                                                                                vehicleMaxCapacity,
-                                                                                timeWindow,
-                                                                                timeHorizon,
-                                                                                contractDuration,
-                                                                                matchingSettings.isAllowUserDisplacement(),
-                                                                                isAllowedToHire,
-                                                                                customerBaseSettings.serviceRateLabel,
-                                                                                customerBaseSettings.customerSegmentationLabel,
-                                                                                rebalanceStrategy,
-                                                                                null);
-
+                                                                        // Save data from matching methods in the same file
+                                                                        String fileName = Solution.getTestCaseName(instanceSettings.getInstanceName(), null, instanceSettings.getMaxTimeToReachRegionCenter(), initialFleet, maxRequestsIteration, percentageRequestsIteration, vehicleMaxCapacity, timeWindow, timeHorizon, contractDuration, matchingSettings.isAllowUserDisplacement(), isAllowedToHire, customerBaseSettings.serviceRateLabel, customerBaseSettings.customerSegmentationLabel, rebalanceStrategy, null);
                                                                         learningConfig.setModelInstanceLabel(fileName);
 
+//                                                                        while (learningConfig.hasNext()){
+//                                                                            System.out.println(learningConfig.next().getLabel());
+//                                                                        }
 
-                                                                        int N_OF_EPISODES = 1;
-                                                                        boolean learningIsActive = true;
                                                                         if (matchingMethod instanceof MatchingSimple) {
-                                                                            N_OF_EPISODES = learningConfig.requestSamples;
-                                                                            learningIsActive = true;
-                                                                            ((MatchingSimple) matchingMethod).configureLearning(learningConfig);
-                                                                            String msg1 = Dao.getInstance().getServer().loadModelAt(learningConfig.getModelFilePath());
-                                                                            System.out.println(msg1);
-                                                                            String msg2 = Dao.getInstance().getServer().createExperiencesFolderAt(learningConfig.getExperiencesFolder());
-                                                                            System.out.println(msg2);
+                                                                            train(matchingMethod, instanceSettings, timeHorizon, maxRequestsIteration, percentageRequestsIteration, timeWindow, vehicleMaxCapacity, initialFleet, isAllowedToHire, contractDuration, customerBaseSettings, learningConfig, rebalancingSettings, matchingSettings, fileName);
+                                                                            // Disable learning
+                                                                            ((MatchingSimple) matchingMethod).configureLearning(null);
                                                                         }
 
+                                                                        test(instanceSettings, timeHorizon, maxRequestsIteration, percentageRequestsIteration, timeWindow, vehicleMaxCapacity, initialFleet, isAllowedToHire, contractDuration, customerBaseSettings, learningConfig, rebalancingSettings, matchingSettings, fileName);
 
-                                                                        for (int iEpisode = 0; iEpisode < N_OF_EPISODES; iEpisode++) {
-                                                                            //Dao.getInstance().setRandomSeed(new Random(iEpisode));
-                                                                            // Loop throughout the training data to diversify experiences
-                                                                            for (Date episodeStartDatetime : learningConfig.episodeStartDatetimeList){
-
-
-                                                                                // Users are sampled randomly from batch
-                                                                                // Vehicles start at random positions
-                                                                                Random randomSeed = new Random(iEpisode);
-
-                                                                            //TODO instance objects generating solution objects
-                                                                            // Create FCFS simulation
-                                                                            Simulation simulation = new SimulationFCFS(
-                                                                                    instanceSettings.getInstanceName(),
-                                                                                    episodeStartDatetime,
-                                                                                    instanceSettings.getMaxTimeToReachRegionCenter(),
-                                                                                    initialFleet,
-                                                                                    vehicleMaxCapacity,
-                                                                                    maxRequestsIteration,
-                                                                                    percentageRequestsIteration,
-                                                                                    timeWindow,
-                                                                                    timeHorizon,
-                                                                                    contractDuration,
-                                                                                    isAllowedToHire,
-                                                                                    customerBaseSettings.serviceRateLabel,
-                                                                                    customerBaseSettings.customerSegmentationLabel,
-                                                                                    rebalancingSettings,
-                                                                                    matchingSettings,
-                                                                                    randomSeed);
-
-                                                                            // Run simulation
-
-                                                                            if (simulation.instanceAlreadyProcessed() && !learningIsActive) {
-                                                                                System.out.println(simulation.getSol().getOutputFile() + " already exists.");
-                                                                            } else {
-                                                                                System.out.println(String.format("# Processing instance \"%s\"...", simulation.getSol().getOutputFile()));
-
-
-                                                                                simulation.run();
-
-
-                                                                                if (learningIsActive) {
-                                                                                    // Saving episode
-                                                                                    String headers = "method;episode;earliest,n_vehicles;n_requests;n_finished;service_rate;max_rounds;round_count;total_delay;distance_empty;distance_loaded,runtime_sec";
-                                                                                    String episodeInfo = simulation.getSummary(iEpisode);
-                                                                                    System.out.println(episodeInfo);
-                                                                                    HelperIO.saveDataWithHeaders(fileName + ".csv", episodeInfo, headers, true);
-                                                                                    if (matchingMethod instanceof MatchingSimple) {
-                                                                                        String msg = Dao.getInstance().getServer().saveModelAt(learningConfig.getModelFilePath());
-                                                                                        System.out.println("Model saved at " + msg);
-                                                                                    }
-                                                                                }
-                                                                                // Reset classes for next iteration
-                                                                                Dao.getInstance().resetRecords();
-                                                                                User.reset();
-                                                                                Vehicle.reset();
-                                                                                Node.reset();
-                                                                                NodeMiddle.reset();
-                                                                                Visit.reset();
-                                                                                Simulation.reset();
-                                                                                Solution.reset();
-
-                                                                            }
-                                                                        }
-                                                                    }
+                                                                        // Reset QOS class
                                                                         Config.reset();
                                                                     }
                                                                 }
@@ -191,6 +103,140 @@ public class Main {
         } catch (IOException e) {
             System.out.println("Error! Cannot read " + configFilePath);
             e.printStackTrace();
+        }
+    }
+
+    private static void train(RideMatchingStrategy matchingMethod, InstanceConfig instanceSettings, InstanceConfig.TimeConfig timeHorizon, int maxRequestsIteration, double percentageRequestsIteration, int timeWindow, int vehicleMaxCapacity, int initialFleet, boolean isAllowedToHire, int contractDuration, CustomerBaseConfig customerBaseSettings, InstanceConfig.LearningConfig learningConfig, Rebalance rebalancingSettings, Matching matchingSettings, String fileName) {
+
+        while (learningConfig.hasNext()) {
+
+
+
+            InstanceConfig.LearningConfig.LearningSettings learningSettings = learningConfig.next();
+            ((MatchingSimple) matchingMethod).configureLearning(learningSettings);
+
+            String modelFilePath = learningSettings.getModelFilePath(fileName);
+            String msg1 = Dao.getInstance().getServer().loadModelAt(modelFilePath);
+            System.out.println(msg1);
+            String experiencesFolder = learningSettings.getExperiencesFolder();
+            String msg2 = Dao.getInstance().getServer().createExperiencesFolderAt(experiencesFolder);
+            System.out.println(msg2);
+
+            System.out.println(learningSettings);
+
+            for (int iEpisode = 50; iEpisode < 50 + learningSettings.requestSamples; iEpisode++) {
+
+                // Loop throughout the training data to diversify experiences
+                for (Date episodeStartDatetime : learningConfig.episodeStartDatetimeList) {
+
+                    // Users are sampled randomly from batch
+                    // Vehicles start at random  positions
+                    Random randomSeed = new Random(iEpisode);
+
+                    Simulation simulation = new SimulationFCFS(
+                            instanceSettings.getInstanceName(),
+                            episodeStartDatetime,
+                            instanceSettings.getMaxTimeToReachRegionCenter(),
+                            initialFleet,
+                            vehicleMaxCapacity,
+                            maxRequestsIteration,
+                            percentageRequestsIteration,
+                            timeWindow,
+                            timeHorizon,
+                            contractDuration,
+                            isAllowedToHire,
+                            customerBaseSettings.serviceRateLabel,
+                            customerBaseSettings.customerSegmentationLabel,
+                            rebalancingSettings,
+                            matchingSettings,
+                            randomSeed);
+
+                    // Run simulation
+
+                    if (simulation.instanceAlreadyProcessed()) {
+                        System.out.println(simulation.getSol().getOutputFile() + " " + "already exists.");
+                    } else {
+                        System.out.println(String.format("# Processing instance \"%s\"...", simulation.getSol().getOutputFile()));
+
+
+                        simulation.run();
+
+
+                        // Saving episode
+                        String headers = "type;config;method;episode;" + "earliest;n_vehicles;n_requests;n_finished;service_rate;max_rounds;round_count;total_delay;distance_empty;distance_loaded;runtime_sec";
+                        String episodeInfo = simulation.getSummary(iEpisode);
+                        System.out.println(episodeInfo);
+                        HelperIO.saveDataWithHeaders(fileName + ".csv", "train;" + learningSettings.getLabel() + ";" + episodeInfo, headers, true);
+                        String msg = Dao.getInstance().getServer().saveModelAt(modelFilePath);
+                        System.out.println("Model saved at " + msg);
+
+                    }
+
+                    // Reset classes for next iteration
+                    Dao.getInstance().resetRecords();
+                    User.reset();
+                    Vehicle.reset();
+                    Node.reset();
+                    NodeMiddle.reset();
+                    Visit.reset();
+                    Simulation.reset();
+                    Solution.reset();
+                }
+
+            }
+        }
+    }
+
+    private static void test(InstanceConfig instanceSettings, InstanceConfig.TimeConfig timeHorizon, int maxRequestsIteration, double percentageRequestsIteration, int timeWindow, int vehicleMaxCapacity, int initialFleet, boolean isAllowedToHire, int contractDuration, CustomerBaseConfig customerBaseSettings, InstanceConfig.LearningConfig learningConfig, Rebalance rebalancingSettings, Matching matchingSettings, String fileName) {
+
+
+        for (int iEpisode = 0; iEpisode < 10; iEpisode++) {
+            //Dao.getInstance().setRandomSeed(new
+            // Random(iEpisode));
+            // Loop throughout the training data
+            // to diversify experiences
+            for (Date episodeStartDatetime : learningConfig.episodeStartDatetimeListTest) {
+
+
+                // Users are sampled randomly
+                // from batch
+                // Vehicles start at random
+                // positions
+                Random randomSeed = new Random(iEpisode);
+
+                //TODO instance objects
+                // generating solution objects
+                // Create FCFS simulation
+                Simulation simulation = new SimulationFCFS(instanceSettings.getInstanceName(), episodeStartDatetime, instanceSettings.getMaxTimeToReachRegionCenter(), initialFleet, vehicleMaxCapacity, maxRequestsIteration, percentageRequestsIteration, timeWindow, timeHorizon, contractDuration, isAllowedToHire, customerBaseSettings.serviceRateLabel, customerBaseSettings.customerSegmentationLabel, rebalancingSettings, matchingSettings, randomSeed);
+
+                // Run simulation
+
+                if (simulation.instanceAlreadyProcessed()) {
+                    System.out.println(simulation.getSol().getOutputFile() + " " + "already exists.");
+                } else {
+                    System.out.println(String.format("# Processing instance \"%s\"...", simulation.getSol().getOutputFile()));
+
+
+                    simulation.run();
+
+
+                    // Saving episode
+                    String headers = "type;config;method;episode;" + "earliest;n_vehicles;n_requests;n_finished;service_rate;max_rounds;round_count;total_delay;distance_empty;distance_loaded;runtime_sec";
+                    String episodeInfo = simulation.getSummary(iEpisode);
+                    System.out.println(episodeInfo);
+                    HelperIO.saveDataWithHeaders(fileName + ".csv", "test;-;" + episodeInfo, headers, true);
+
+                }
+                // Reset classes for next iteration
+                Dao.getInstance().resetRecords();
+                User.reset();
+                Vehicle.reset();
+                Node.reset();
+                NodeMiddle.reset();
+                Visit.reset();
+                Simulation.reset();
+                Solution.reset();
+            }
         }
     }
 }

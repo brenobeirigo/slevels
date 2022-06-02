@@ -56,7 +56,7 @@ public class MatchingSimple implements RideMatchingStrategy {
     public Map<User, Set<VisitObj>> userVisitsMap;
     public List<Experience> experiences;
     private CircularFifoQueue<FleetStateActionSpace> experienceReplayMemory;
-    private InstanceConfig.LearningConfig learningConfig;
+    public InstanceConfig.LearningConfig.LearningSettings learningSettings;
 
     public MatchingSimple(int maxVehicleCapacityRTV, double mipTimeLimit, double timeoutVehicleRTV, double mipGap, int maxEdgesRV, int maxEdgesRR, int rejectionPenalty, String[] orderedListOfObjectiveLabels, String PDVisitGenerator) {
         this.maxVehicleCapacityRTV = maxVehicleCapacityRTV;
@@ -72,9 +72,10 @@ public class MatchingSimple implements RideMatchingStrategy {
         this.experiences = new ArrayList<>();
     }
 
-    public void configureLearning(InstanceConfig.LearningConfig learningConfig) {
-        this.learningConfig = learningConfig;
-        this.experienceReplayMemory = new CircularFifoQueue(this.learningConfig.sizeExperienceReplayBuffer);
+    public void configureLearning(InstanceConfig.LearningConfig.LearningSettings learningConfig) {
+        this.learningSettings = learningConfig;
+        if (learningConfig != null)
+            this.experienceReplayMemory = new CircularFifoQueue(this.learningSettings.sizeExperienceReplayBuffer);
 
     }
 
@@ -128,19 +129,19 @@ public class MatchingSimple implements RideMatchingStrategy {
 
         List<FleetStateActionSpace> sampledExperiences = new ArrayList<>(this.experienceReplayMemory);
         Collections.shuffle(sampledExperiences);
-        for (int i = 0; i < this.learningConfig.sizeExperienceReplayBatch; i++) {
+        System.out.printf("### EXPERIENCE REPLAY (batch=%d, buffer=%d)", this.learningSettings.sizeExperienceReplayBatch, sampledExperiences.size());
+        ;
+        for (int i = 0; i < this.learningSettings.sizeExperienceReplayBatch; i++) {
             FleetStateActionSpace fleetStateActionSpace = sampledExperiences.get(i);
-            FleetStateActionSpaceObject preDecisionStateSpaceObj = fleetStateActionSpace.getDecisionSpaceObject();
             //e1,e2,e3,e4,e5,e6
             Map<Vehicle, Set<VisitObj>> vehicleStateActionObjMap;
 
 
             // Create post-decision states
-            FleetStateActionSpace postDecisionFleetStateActionSpace = new PostDecisionFleetStateActionSpace(fleetStateActionSpace, Simulation.timeWindow);
-            FleetStateActionSpaceObject postDecisionStateActionSpaceObj = postDecisionFleetStateActionSpace.getDecisionSpaceObject();
+            FleetStateActionSpaceObject postDecisionStateActionSpaceObj = fleetStateActionSpace.postDecisionStateActionObj;
 
             // Only get predictions if post decision time step is not the terminal state
-            if (this.learningConfig.isNotTerminal(fleetStateActionSpace.timeStep + Simulation.timeWindow)) {
+            if (InstanceConfig.LearningConfig.isNotTerminal(fleetStateActionSpace.timeStep + Simulation.timeWindow)) {
                 // Query the vfs for postDecision spaces
                 Map<Integer, List<Double>> predictions = Dao.getInstance().getServer().getPredictionsFromDecisionSpace(postDecisionStateActionSpaceObj);
                 Map<Vehicle, Set<StateAction>> vehiclePreDecisionsMap = fleetStateActionSpace.getVehicleStateActionMap();
@@ -153,13 +154,13 @@ public class MatchingSimple implements RideMatchingStrategy {
 
             // Find best assignment
             AssignmentILP assignVehiclesVisitsWithVFs = new AssignmentILP(
-                    Simulation.rightTW,
+                    fleetStateActionSpace.timeStep,
                     vehicleStateActionObjMap,
                     fleetStateActionSpace.requests,
                     false);
 
             assignVehiclesVisitsWithVFs.run(new String[]{Objective.TOTAL_REQUESTS_PLUS_VFS, Objective.TOTAL_WAITING});
-            assignVehiclesVisitsWithVFs.getResult().printRoundResultSummary();
+
             FleetStateActionRewardObject fleetStateActionReward = new FleetStateActionRewardObject(fleetStateActionSpace.vehicles, assignVehiclesVisitsWithVFs.getResult());
 
             ExperienceObject xp = new ExperienceObject(
@@ -167,12 +168,13 @@ public class MatchingSimple implements RideMatchingStrategy {
                     postDecisionStateActionSpaceObj,
                     fleetStateActionReward);
 
-            // Save this experience in the NN
-            xp.remember(this.learningConfig);
-        }
+            System.out.printf("************************* %3d) Experience id = %d - VFs = %.4f", i, xp.id, assignVehiclesVisitsWithVFs.getResult().getTotalVFs());
+//            assignVehiclesVisitsWithVFs.getResult().printRoundResultSummary("Experience Replay");
 
-        String msg = Dao.getInstance().getServer().updateTargetModel();
-        System.out.println(msg);
+            // Save this experience in the NN
+            String msg = xp.remember(this.learningSettings);
+            System.out.println(msg);
+        }
     }
 
     @Override
@@ -209,11 +211,15 @@ public class MatchingSimple implements RideMatchingStrategy {
 
             FleetStateActionSpace postDecisionFleetStateActionSpace = new PostDecisionFleetStateActionSpace(preDecisionFleetStateActionSpace, Simulation.timeWindow);
             FleetStateActionSpaceObject postDecisionStateSpaceObj = postDecisionFleetStateActionSpace.getDecisionSpaceObject();
+
+            preDecisionFleetStateActionSpace.addPostDecisionStateActionObj(postDecisionStateSpaceObj);
+
+
             Map<Integer, List<Double>> predictions = Dao.getInstance().getServer().getPredictionsFromDecisionSpace(postDecisionStateSpaceObj);
             vehiclePreDecisionsObjMap = getVisitObjMap(vehiclePreDecisionsMap, predictions);
 
 
-            if (experienceReplayEnabled()) {
+            if (isLearning() && experienceReplayEnabled()) {
                 // Only take up experiences that occur before total time window:
                 //   Earliest       Requests stop        End of          Total time      Simulation ends
                 //     time           arriving          exp. sampling      window    (last request delivered)
@@ -221,10 +227,20 @@ public class MatchingSimple implements RideMatchingStrategy {
 
                 nOfExperiences++;
                 experienceReplayMemory.add(preDecisionFleetStateActionSpace);
-                System.out.printf("Experience progress: %d/%d%n", experienceReplayMemory.size(), this.learningConfig.sizeExperienceReplayBuffer);
+                System.out.printf("t=%3d (time=%4d)  - Replay memory(current_size=%5d, max=%5d, batch=%5d) - total_experiences=%5d - Training frequency=%s\n", timeStep / Simulation.timeWindow, timeStep, experienceReplayMemory.size(), experienceReplayMemory.maxSize(), this.learningSettings.sizeExperienceReplayBatch, nOfExperiences, this.learningSettings.trainingFrequency);
 
-                if (experienceReplayMemory.isAtFullCapacity() && nOfExperiences % this.learningConfig.sizeExperienceReplayBatch == 0) {
+                // experienceReplayMemory.isAtFullCapacity() ||
+                //experienceReplayMemory.size() >= this.learningSettings.sizeExperienceReplayBatch
+                System.out.println("N. of experiences: " + nOfExperiences);
+                //if (experienceReplayMemory.isAtFullCapacity()
+                if (experienceReplayMemory.size() >= this.learningSettings.sizeExperienceReplayBatch && nOfExperiences % this.learningSettings.trainingFrequency == 0) {
                     experienceReplay();
+                    System.out.printf("### FINISHED TRAINING - t=%03d, total_experiences=%5d, target_freq=%s\n", timeStep, nOfExperiences, this.learningSettings.targetNetworkUpdateFrequency);
+                    if (nOfExperiences % this.learningSettings.targetNetworkUpdateFrequency == 0) {
+                        System.out.printf("Updating target network (frequency=%d).\n", this.learningSettings.targetNetworkUpdateFrequency);
+                        String msg = Dao.getInstance().getServer().updateTargetModel();
+                        System.out.println(msg);
+                    }
                 }
 
             }
@@ -269,7 +285,7 @@ public class MatchingSimple implements RideMatchingStrategy {
 
 //        System.out.println("\n--->ASSIGNMENT 3");
         assignment3.run(new String[]{Objective.TOTAL_REQUESTS_PLUS_VFS, Objective.TOTAL_WAITING});
-        assignment3.getResult().printRoundResultSummary();
+        assignment3.getResult().printRoundResultSummary("Online Assignment");
 
 //        if (Sets.difference(assignment2.getResult().getRequestsOK(), assignment3.getResult().getRequestsOK()).size() > 0){
 //            System.out.println("VFs shifted assignment");
@@ -346,6 +362,10 @@ public class MatchingSimple implements RideMatchingStrategy {
         return assignment3.getResult();
     }
 
+    private boolean isLearning() {
+        return this.learningSettings != null;
+    }
+
     private boolean isNotTerminal(int currentTime) {
         return currentTime < Simulation.timeHorizon;
     }
@@ -377,6 +397,7 @@ public class MatchingSimple implements RideMatchingStrategy {
 
     /**
      * Return a vehicle-visits map where predictions have been associated with VehicleState objects.
+     *
      * @param vehiclePreDecisionsMap
      * @param predictions
      * @return
@@ -401,6 +422,7 @@ public class MatchingSimple implements RideMatchingStrategy {
 
     /**
      * Return a vehicle-visits map where predictions are turned off.
+     *
      * @param vehiclePreDecisionsMap
      * @return
      */
