@@ -130,51 +130,57 @@ public class MatchingSimple implements RideMatchingStrategy {
         List<FleetStateActionSpace> sampledExperiences = new ArrayList<>(this.experienceReplayMemory);
         Collections.shuffle(sampledExperiences);
         System.out.printf("### EXPERIENCE REPLAY (batch=%d, buffer=%d)", this.learningSettings.sizeExperienceReplayBatch, sampledExperiences.size());
-        ;
-        for (int i = 0; i < this.learningSettings.sizeExperienceReplayBatch; i++) {
-            FleetStateActionSpace fleetStateActionSpace = sampledExperiences.get(i);
-            //e1,e2,e3,e4,e5,e6
-            Map<Vehicle, Set<VisitObj>> vehicleStateActionObjMap;
 
+        List<ExperienceObject> xps = sampledExperiences
+                .stream().limit(this.learningSettings.sizeExperienceReplayBatch)
+                .parallel().map(this::getReplayedExperienceObject).toList();
 
-            // Create post-decision states
-            FleetStateActionSpaceObject postDecisionStateActionSpaceObj = fleetStateActionSpace.postDecisionStateActionObj;
-
-            // Only get predictions if post decision time step is not the terminal state
-            if (InstanceConfig.LearningConfig.isNotTerminal(fleetStateActionSpace.timeStep + Simulation.timeWindow)) {
-                // Query the vfs for postDecision spaces
-                Map<Integer, List<Double>> predictions = Dao.getInstance().getServer().getPredictionsFromDecisionSpace(postDecisionStateActionSpaceObj);
-                Map<Vehicle, Set<StateAction>> vehiclePreDecisionsMap = fleetStateActionSpace.getVehicleStateActionMap();
-                vehicleStateActionObjMap = getVisitObjMap(vehiclePreDecisionsMap, predictions);
-            } else {
-                // TERMINAL STATE - Predictions are turned off
-                Map<Vehicle, Set<StateAction>> vehiclePreDecisionsMap = fleetStateActionSpace.getVehicleStateActionMap();
-                vehicleStateActionObjMap = getVisitObjMap(vehiclePreDecisionsMap);
-            }
-
-            // Find best assignment
-            AssignmentILP assignVehiclesVisitsWithVFs = new AssignmentILP(
-                    fleetStateActionSpace.timeStep,
-                    vehicleStateActionObjMap,
-                    fleetStateActionSpace.requests,
-                    false);
-
-            assignVehiclesVisitsWithVFs.run(new String[]{Objective.TOTAL_REQUESTS_PLUS_VFS, Objective.TOTAL_WAITING});
-
-            FleetStateActionRewardObject fleetStateActionReward = new FleetStateActionRewardObject(fleetStateActionSpace.vehicles, assignVehiclesVisitsWithVFs.getResult());
-
-            ExperienceObject xp = new ExperienceObject(
-                    fleetStateActionSpace.getStateActionObject(),
-                    postDecisionStateActionSpaceObj,
-                    fleetStateActionReward);
-
-            System.out.printf("************************* %3d) Experience id = %d - VFs = %.4f", i, xp.id, assignVehiclesVisitsWithVFs.getResult().getTotalVFs());
-//            assignVehiclesVisitsWithVFs.getResult().printRoundResultSummary("Experience Replay");
-
+        xps.forEach(experienceObject -> {
             // Save this experience in the NN
-            String msg = xp.remember(this.learningSettings);
+            String msg = experienceObject.remember(this.learningSettings);
             System.out.println(msg);
+        });
+    }
+
+    private ExperienceObject getReplayedExperienceObject(FleetStateActionSpace fleetStateActionSpace) {
+        //e1,e2,e3,e4,e5,e6
+        Map<Vehicle, Set<VisitObj>> vehicleStateActionObjMap;
+
+
+        // Create post-decision states
+        FleetStateActionSpaceObject postDecisionStateActionSpaceObj = fleetStateActionSpace.postDecisionStateActionObj;
+
+        // Only get predictions if post decision time step is not the terminal state
+        if (InstanceConfig.LearningConfig.isNotTerminal(fleetStateActionSpace.timeStep + Simulation.timeWindow)) {
+            // Query the vfs for postDecision spaces
+            Map<Integer, List<Double>> predictions = Dao.getInstance().getServer().getPredictionsFromDecisionSpace(postDecisionStateActionSpaceObj);
+            Map<Vehicle, Set<StateAction>> vehiclePreDecisionsMap = fleetStateActionSpace.getVehicleStateActionMap();
+            vehicleStateActionObjMap = getVisitObjMap(vehiclePreDecisionsMap, predictions);
+        } else {
+            // TERMINAL STATE - Predictions are turned off
+            Map<Vehicle, Set<StateAction>> vehiclePreDecisionsMap = fleetStateActionSpace.getVehicleStateActionMap();
+            vehicleStateActionObjMap = getVisitObjMap(vehiclePreDecisionsMap);
         }
+
+        // Find best assignment
+        AssignmentILP assignVehiclesVisitsWithVFs = new AssignmentILP(
+                fleetStateActionSpace.timeStep,
+                vehicleStateActionObjMap,
+                fleetStateActionSpace.requests,
+                false);
+
+        assignVehiclesVisitsWithVFs.run(new String[]{Objective.TOTAL_REQUESTS_PLUS_VFS, Objective.TOTAL_WAITING});
+
+        FleetStateActionRewardObject fleetStateActionReward = new FleetStateActionRewardObject(fleetStateActionSpace.vehicles, assignVehiclesVisitsWithVFs.getResult());
+
+        ExperienceObject xp = new ExperienceObject(
+                fleetStateActionSpace.getStateActionObject(),
+                postDecisionStateActionSpaceObj,
+                fleetStateActionReward);
+
+        System.out.printf("************************* Experience id = %d - VFs = %.4f", xp.id, assignVehiclesVisitsWithVFs.getResult().getTotalVFs());
+//            assignVehiclesVisitsWithVFs.getResult().printRoundResultSummary("Experience Replay");
+        return xp;
     }
 
     @Override
