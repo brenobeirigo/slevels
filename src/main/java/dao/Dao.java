@@ -1,6 +1,7 @@
 package dao;
 
 
+import com.google.gson.Gson;
 import config.Config;
 import config.InstanceConfig;
 import config.Qos;
@@ -36,7 +37,7 @@ import static util.pdcombinatorics.PDPermutations.loadPrecalculatedPermutationsP
 
 public class Dao {
 
-    public static Map<String, Map<Integer, Map<Integer, List<User>>>> requestDataMap = new HashMap<>();
+    public static Map<Date, Map<String, Map<Integer, Map<Integer, List<String>>>>> requestDataMap = new HashMap<>();
 
     // Speed of vehicles m/s
     public static final double SPEED = 30;
@@ -399,6 +400,7 @@ public class Dao {
 
     /**
      * Get shortest path (node id list) between origin o and destination d (including)
+     *
      * @param o Shortest path origin
      * @param d Shortest path destination
      * @return List of node ids
@@ -497,7 +499,7 @@ public class Dao {
 
     public Set<User> getListTripsClassedShuffled(Date earliestTime, int timeSpanSec, int maxPassengerCount, int maxNumber, Random rand) {
 
-        List<User> trips = getListTripsClassed(earliestTime, timeSpanSec, maxPassengerCount);
+        List<User> trips = getUsers(earliestTimeRequestBatch, earliestTime, timeSpanSec, maxPassengerCount);
 
         Collections.shuffle(trips, rand);
 
@@ -505,21 +507,32 @@ public class Dao {
 
     }
 
-    private List<User> getUsers(Date earliestTime, int timeSpanSec, int maxPassengerCount) {
+    private List<User> getUsers(int earliestTimeRequestBatch, Date earliestTime, int timeSpanSec, int maxPassengerCount) {
         List<User> trips = new ArrayList<>();
-        if (requestDataMap.containsKey(this.pathRequestList)) {
-            if (requestDataMap.get(this.pathRequestList).containsKey(earliestTimeRequestBatch)) {
-                if (requestDataMap.get(this.pathRequestList).get(earliestTimeRequestBatch).containsKey(maxPassengerCount)) {
-                    trips = requestDataMap.get(this.pathRequestList).get(earliestTimeRequestBatch).get(maxPassengerCount);
-                }
+        if (requestDataMap.containsKey(earliestTime)) {
+            if (requestDataMap.get(earliestTime).containsKey(this.pathRequestList)) {
+            if (requestDataMap.get(earliestTime).get(this.pathRequestList).containsKey(earliestTimeRequestBatch)) {
+                if (requestDataMap.get(earliestTime).get(this.pathRequestList).get(earliestTimeRequestBatch).containsKey(maxPassengerCount)) {
+                    trips = requestDataMap.get(earliestTime).get(this.pathRequestList).get(earliestTimeRequestBatch).get(maxPassengerCount).stream().map(userStr -> {
+                        Gson u = new Gson();
+                        User n = u.fromJson(userStr, User.class);
+                        return n;
+                    }).collect(Collectors.toList());
+                }}
             }
         } else {
             trips = getListTripsClassed(earliestTime, timeSpanSec, maxPassengerCount);
-            Map<Integer, Map<Integer, List<User>>> timeSpanPercentage = new HashMap<>();
-            Map<Integer, List<User>> percentageUsers = new HashMap<>();
-            percentageUsers.put(maxPassengerCount, trips);
+            Map<String, Map<Integer, Map<Integer, List<String>>>> timeSpanPercentage1 = new HashMap<>();
+            Map<Integer, Map<Integer, List<String>>> timeSpanPercentage = new HashMap<>();
+            Map<Integer, List<String>> percentageUsers = new HashMap<>();
+            percentageUsers.put(maxPassengerCount, trips.stream().map(user -> {
+                Gson a = new Gson();
+                String s =  a.toJson(user);
+                return s;
+            }).collect(Collectors.toList()));
             timeSpanPercentage.put(earliestTimeRequestBatch, percentageUsers);
-            requestDataMap.put(this.pathRequestList, timeSpanPercentage);
+            timeSpanPercentage1.put(this.pathRequestList, timeSpanPercentage);
+            requestDataMap.put(earliestTime, timeSpanPercentage1);
         }
         return trips;
     }
@@ -527,6 +540,9 @@ public class Dao {
     public Set<User> getListTripsClassedShuffled(Date earliestTime, int timeSpanSec, int maxPassengerCount, double percentage, Random rand) {
 
         List<User> trips = getListTripsClassed(earliestTime, timeSpanSec, maxPassengerCount);
+//
+//        List<User> trips = getUsers(earliestTimeRequestBatch, earliestTime, timeSpanSec, maxPassengerCount);
+//        trips.forEach(user -> User.mapOfUsers.put(user.getId(), user));
 
         Collections.shuffle(trips, rand);
 
@@ -681,6 +697,8 @@ public class Dao {
         return adjacencyMatrix;
     }
 
+    public static Map<Integer, CSVRecord> recordsFiltered = new HashMap<>();
+
     /**
      * Get list of users, attributing classes A, B, and C to them (according to shares defined in config)
      *
@@ -689,12 +707,13 @@ public class Dao {
      * @return
      */
     public List<User> getListTripsClassed(Date earliestTime, int timeSpanSec, int maxPassengerCount) {
+        System.out.println("Getting users...");
 
         // Start list of users with buffer from last iteration (users read, but not in time span)
         List<User> listUser = new ArrayList<>();
 
         int latestTimeRequestBatch = earliestTimeRequestBatch + timeSpanSec;
-        assert latestTimeRequestBatch == Simulation.rightTW;
+        assert latestTimeRequestBatch == Simulation.rightTW: String.format("%s - %s", latestTimeRequestBatch, Simulation.rightTW);
         if (userBuff != null) {
             if (userBuff.getReqTime() < latestTimeRequestBatch) {
                 listUser.add(userBuff);
@@ -736,6 +755,7 @@ public class Dao {
         for (User user : listUser) {
             user.updatePerformanceClass(getRandomClassRoulleteWheel(qosClasses));
         }
+        System.out.println("Read " + listUser.size());
 
         return listUser;
     }

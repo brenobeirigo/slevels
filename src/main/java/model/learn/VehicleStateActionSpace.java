@@ -52,7 +52,6 @@ public class VehicleStateActionSpace {
             capacity.add(stateAction.getCapacity());
             nextNetworkIds.add(stateAction.networkIds);
             currentTimes.add(stateAction.normalPostDecisionTime);
-            assert stateAction.normalArrivalDelays.size() <= 9:String.format("%s", stateAction.nodes);
             arrivalDelays.add(stateAction.normalArrivalDelays);
             occupancyRates.add(stateAction.normalOccupancyRates.stream().map(o->1-o).collect(Collectors.toList()));
             surroundingVehiclesCount.add(stateAction.shareOfSurroundingVehicles);

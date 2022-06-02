@@ -468,7 +468,9 @@ public class StateAction implements Comparable<StateAction>, VisitObj {
     @Override
     public String toString() {
         return "VisitSnapShot{" +
-                "\n        length=" + nodeArrivals.size() +
+                "\n request count=" + this.getRequests().size() +
+                String.format(",\n vf=%6.4f", this.vf) +
+                ",\n        length=" + nodeArrivals.size() +
                 ",\n  pre-decision=" + timeStep +
                 ",\n   vehicleSize=" + vehicleCapacity +
                 ",\n      arrivals=" + nodeArrivals +
@@ -480,7 +482,6 @@ public class StateAction implements Comparable<StateAction>, VisitObj {
                 ",\n     remaining=" + remaining +
                 ",\n        delays=" + delays +
                 ",\n  normalDelays=" + normalArrivalDelays.stream().map(aDouble -> String.format("%.2f", aDouble)).collect(Collectors.toList()) +
-                ",\n request count=" + visit.getRequests().size() +
                 ",\n   request sum=" + visit.getRequestsTotalLoad() +
                 ",\n passenger sum=" + visit.getPassengersTotalLoad() +
                 ",\n   total delay=" + visit.getDelay() +

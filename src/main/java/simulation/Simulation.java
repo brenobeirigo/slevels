@@ -156,7 +156,7 @@ public abstract class Simulation {
 
     public String getSummary(int episode) {
 
-        return String.format("%20s;%4d;%s,%4d;%10d;%10d;%5.4f;%4d;%4d;%10d;%,10.2f;%,10.2f,%4d",
+        return String.format("%20s;%4d;%s;%4d;%10d;%10d;%5.4f;%4d;%4d;%10d;%,10.2f;%,10.2f;%4d",
                 this.matching.getRideMatchingStrategy(),
                 episode,
                 Config.formatter_date_time.format(this.earliestTime),
@@ -371,7 +371,7 @@ public abstract class Simulation {
             // Updating vehicle lists
             listVehicles.removeAll(setDeactivated);
             setHired.removeAll(setDeactivated);
-            System.out.printf("# Removing %d hired vehicles:\n", setDeactivated.size());
+            System.out.printf("# Removing %d hired vehicles.\n", setDeactivated.size());
 
             runTimes.endTimerFor(Runtime.TIME_UPDATE_FLEET_STATUS);
 
@@ -400,8 +400,9 @@ public abstract class Simulation {
             roundUnmetServiceLevel.clear();
 
             ///// 3 - ASSIGN WAITING USERS (previous + current round)  TO VEHICLES /////////////////////////////////////
+            runTimes.startTimerFor(Runtime.TIME_MATCHING);
             ResultAssignment resultAssignment = this.matching.executeStrategy(rightTW, unassignedRequests, listVehicles);
-
+            runTimes.endTimerFor(Runtime.TIME_MATCHING);
             ///// 4 - COLLECT HIRED VEHICLES ///////////////////////////////////////////////////////////////////////////
             for (Vehicle vehicle : resultAssignment.getVehiclesHired()) {
                 // New vehicle is added in list

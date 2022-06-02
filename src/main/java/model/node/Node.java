@@ -37,9 +37,13 @@ public abstract class Node implements Comparable<Node> {
     protected int urgent;
     protected int hotness; // How many nodes share the same networkID?
 
-    public Node(int id, int networkId) {
-        this.id = id;
+    public Node(int networkId) {
         this.networkId = networkId;
+    }
+
+    public Node(int id, int networkId) {
+        this(networkId);
+        this.id = id;
     }
 
 

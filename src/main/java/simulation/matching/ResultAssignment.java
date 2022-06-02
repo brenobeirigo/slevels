@@ -192,9 +192,9 @@ public class ResultAssignment {
         }
     }
 
-    public void printRoundResultSummary() {
+    public void printRoundResultSummary(String label) {
 
-        System.out.println("######## Round current time: " + this.currentTime);
+        System.out.printf("######## [%s] Round current time=%s:\n", label, this.currentTime);
         System.out.printf("# Assigned vehicles = %d%n", vehiclesOK.size());
         System.out.printf("# Unassigned users  = %d%n", requestsUnassigned.size());
         System.out.printf("# Unmet s. levels   = %d%n", getUnmetServiceLevelRequests().size());

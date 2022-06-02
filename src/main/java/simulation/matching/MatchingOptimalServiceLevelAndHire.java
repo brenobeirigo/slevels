@@ -68,7 +68,7 @@ public class MatchingOptimalServiceLevelAndHire extends MatchingOptimalServiceLe
             disposeModelEnvironmentAndSave();
         }
 
-        result.printRoundResultSummary();
+        result.printRoundResultSummary("Online assignment");
 
         return result;
     }

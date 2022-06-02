@@ -677,7 +677,8 @@ public class Solution {
                         "\n         Makeup: %s (TOTAL CAPACITY: %d - HIRED: %d - #DEACTIVATED: %d)" +
                         "\n   Update fleet: %8.4f ms " +
                         "\n    Rebalancing: %8.4f ms " +
-                        "\n  Update demand: %8.4f ms ",
+                        "\n  Update demand: %8.4f ms " +
+                        "\n       Matching: %8.4f ms ",
                 String.valueOf(nOfAssignedUsers), Math.abs((double) nOfAssignedUsers / allRequests.size()) * 100,
                 String.valueOf(waitingRequests.size()), waitingRequestsPercentage * 100,
                 String.valueOf(deniedRequests.size()), deniedRequestsPercentage * 100,
@@ -702,7 +703,8 @@ public class Solution {
                 setDeactivated.size(),
                 runTimes.getExecutionTimeSecFor(Runtime.TIME_UPDATE_FLEET_STATUS),
                 runTimes.getExecutionTimeSecFor(Runtime.TIME_REBALANCING_FLEET),
-                runTimes.getExecutionTimeSecFor(Runtime.TIME_UPDATE_DEMAND)
+                runTimes.getExecutionTimeSecFor(Runtime.TIME_UPDATE_DEMAND),
+                runTimes.getExecutionTimeSecFor(Runtime.TIME_MATCHING)
         );
     }
 

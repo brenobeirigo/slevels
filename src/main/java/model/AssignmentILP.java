@@ -14,54 +14,36 @@ import java.util.stream.Collectors;
 public class AssignmentILP {
 
 
-
-    public static class ObjectiveFunction {
-        GRBLinExpr linExpr;
-        int goal; //GRB.MAXIMIZE (1), GRB.MINIMIZE (-1)
-        String label;
-
-        public ObjectiveFunction(String label, GRBLinExpr linExpr, int goal) {
-            this.label = label;
-            this.linExpr = linExpr;
-            this.goal = goal;
-        }
-    }
-
     // Model input
     private final double mipGap = 0.0001;
     private final int mipTimeLimit = 240;
     private final int rejectionPenalty = 1;
-    private String[] orderedListOfObjectiveLabels;
-
-    private int varVisitId = 0;
+    public Map<Vehicle, Set<VisitObj>> vehicleVisitsMap;
+    public Map<User, Set<VisitObj>> userVisitsMap;
+    public double objValTotalRejected;
+    public double objValTotalServiced;
+    public double objValueTotalWaiting;
+    public double objValTotalServicedPlusVFs;
     protected GRBEnv env;
     protected GRBModel model;
     protected Set<VisitObj> visits;
     protected Set<User> requests;
-
     // Some vehicles cannot access
     protected Set<Vehicle> vehicles;
     protected Set<Integer> vehicleIds;
     protected Map<VisitObj, Integer> visitIndex;
     protected Map<User, Integer> requestIndex;
-
     // Assignment variables: x[r][v] == 1 if request r is assigned to trip v
     protected GRBVar[] varVisitSelected;
     protected GRBVar[] varRequestRejected;
     protected int currentTime;
     protected Map<String, ObjectiveFunction> penObjectives;
-    public Map<Vehicle, Set<VisitObj>> vehicleVisitsMap;
     protected Map<Integer, Set<VisitObj>> vehicleIdVisitsMap;
-    public Map<User, Set<VisitObj>> userVisitsMap;
     protected boolean guaranteePreviouslyAssignedAreNotDisplaced;
-
     ResultAssignment result;
-    public double objValTotalRejected;
-    public double objValTotalServiced;
-    public double objValueTotalWaiting;
-    public double objValTotalServicedPlusVFs;
-
-    public AssignmentILP(int currentTime, Map<Vehicle, Set<VisitObj>> vehicleVisitsMap, Map<User, Set<VisitObj>> userVisitsMap, boolean guaranteePreviouslyAssignedAreNotDisplaced ) {
+    private String[] orderedListOfObjectiveLabels;
+    private final int varVisitId = 0;
+    public AssignmentILP(int currentTime, Map<Vehicle, Set<VisitObj>> vehicleVisitsMap, Map<User, Set<VisitObj>> userVisitsMap, boolean guaranteePreviouslyAssignedAreNotDisplaced) {
         this.currentTime = currentTime;
         this.penObjectives = new LinkedHashMap<>();
         this.vehicleVisitsMap = vehicleVisitsMap;
@@ -74,7 +56,7 @@ public class AssignmentILP {
         this.guaranteePreviouslyAssignedAreNotDisplaced = guaranteePreviouslyAssignedAreNotDisplaced;
     }
 
-//    public AssignmentILP(int currentTime, Map<Integer, Set<VisitObj>> vehicleVisitsMap, Map<User, Set<VisitObj>> userVisitsMap) {
+    //    public AssignmentILP(int currentTime, Map<Integer, Set<VisitObj>> vehicleVisitsMap, Map<User, Set<VisitObj>> userVisitsMap) {
 //        this.currentTime = currentTime;
 //        this.penObjectives = new LinkedHashMap<>();
 //        this.vehicleIdVisitsMap = vehicleVisitsMap;
@@ -100,7 +82,6 @@ public class AssignmentILP {
 
     }
 
-
     public static Map<User, Set<VisitObj>> extractUserVisitsMap(Map<Vehicle, Set<VisitObj>> vehicleVisitsMap, Set<User> requests) {
         Map<User, Set<VisitObj>> userVisits = new HashMap<>();
         requests.forEach(user -> userVisits.put(user, new HashSet<>()));
@@ -112,7 +93,6 @@ public class AssignmentILP {
 
         return userVisits;
     }
-
 
     public String getVarVisit(VisitObj visit) {
 //        if (visit instanceof VisitStop) {
@@ -138,7 +118,7 @@ public class AssignmentILP {
 
     protected void saveModel(int currentTime) {
         try {
-            String filepath = String.format("assignment%s_%d.lp", this.toString(), currentTime);
+            String filepath = String.format("assignment%s_%d.lp", this, currentTime);
             model.write(filepath);
         } catch (GRBException e) {
             e.printStackTrace();
@@ -202,7 +182,7 @@ public class AssignmentILP {
             initVarsStandardAssignment();
             addConstraintsStandardAssignment();
             // TODO do not consider request objects but indices & block specific request ids
-            if(guaranteePreviouslyAssignedAreNotDisplaced) {
+            if (guaranteePreviouslyAssignedAreNotDisplaced) {
                 previouslyAssignedMustBeServiced();
             }
             setupObjectives();
@@ -357,7 +337,7 @@ public class AssignmentILP {
         }
 
         // Save problem
-        model.write(String.format("IIS_assignment_%s.lp", this.toString()));
+        model.write(String.format("IIS_assignment_%s.lp", this));
 
         //graphRTV.printDetailedVisitsLevel();
     }
@@ -385,7 +365,7 @@ public class AssignmentILP {
 
             System.out.println();
 
-            model.write(String.format("IIS_assignment_%s_count_%d.lp", this.toString(), count));
+            model.write(String.format("IIS_assignment_%s_count_%d.lp", this, count));
 
             model.optimize();
             status = model.get(GRB.IntAttr.Status);
@@ -415,10 +395,6 @@ public class AssignmentILP {
 
     }
 
-    ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-    // OBJECTIVE ///////////////////////////////////////////////////////////////////////////////////////////////////////
-    ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
     protected void addObjective(String objective) {
         switch (objective) {
 //            case Objective.HIERARCHICAL_WAITING_AND_REJECTION:
@@ -447,6 +423,10 @@ public class AssignmentILP {
                 break;
         }
     }
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    // OBJECTIVE ///////////////////////////////////////////////////////////////////////////////////////////////////////
+    ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
     protected void setupObjectives() throws GRBException {
 
@@ -481,7 +461,6 @@ public class AssignmentILP {
             penObjectives.get(label).linExpr.addTerm(rejectionPenalty, varRequestRejected(request));
         }
     }
-
 
     protected void objHierarchicalRejection() {
         // Sort QoS order = A, B, C
@@ -541,6 +520,10 @@ public class AssignmentILP {
         }
     }
 
+    Set<VisitObj> getListOfVisitsFromUser(User u) {
+        return this.userVisitsMap.get(u);
+    }
+
 //    protected void objHierarchicalWaiting() {
 //        // Sort QoS order = A, B, C
 //        List<Qos> sortedQos = Config.getInstance().getSortedQosList();
@@ -563,8 +546,8 @@ public class AssignmentILP {
 //        }
 //    }
 
-    Set<VisitObj> getListOfVisitsFromUser(User u) {
-        return this.userVisitsMap.get(u);
+    protected GRBVar varRequestRejected(User request) {
+        return varRequestRejected[requestIndex.get(request)];
     }
 
 //    protected void objHierarchicalWaitingAndRejection() {
@@ -595,10 +578,6 @@ public class AssignmentILP {
     // VAR ACCESS BY ID ////////////////////////////////////////////////////////////////////////////////////////////////
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-    protected GRBVar varRequestRejected(User request) {
-        return varRequestRejected[requestIndex.get(request)];
-    }
-
     protected GRBVar varVisitSelected(VisitObj visit) {
         return varVisitSelected[visitIndex.get(visit)];
     }
@@ -622,12 +601,18 @@ public class AssignmentILP {
         // Model
         env = new GRBEnv();
 
-        if (config.Config.showRoundMIPInfo()){
+        if (config.Config.showRoundMIPInfo()) {
+            env.set(GRB.IntParam.OutputFlag, 1);
+            model = new GRBModel(env);
+            model.set(GRB.IntParam.OutputFlag, 1);
+        } else {
             // Turn off logging
             env.set(GRB.IntParam.OutputFlag, 0);
+            model = new GRBModel(env);
+            model.set(GRB.IntParam.OutputFlag, 0);
         }
 
-        model = new GRBModel(env);
+
         model.set(GRB.StringAttr.ModelName, "assignment_rtv");
         model.set(GRB.DoubleParam.TimeLimit, mipTimeLimit);
         model.set(GRB.DoubleParam.MIPGap, mipGap);
@@ -662,22 +647,18 @@ public class AssignmentILP {
         }
     }
 
+    protected Set<VisitObj> getListOfVisitsFromRequest(User request) {
+        return this.getListOfVisitsFromUser(request);
+    }
+
 //    protected double getDelayOfRequestInVisit(User request, VisitObj visit) {
 //        double weight = graphRTV.getWeightFromRequestVisitEdge(request, visit);
 //        return weight;
 //    }
 
-    protected Set<VisitObj> getListOfVisitsFromRequest(User request) {
-        return this.getListOfVisitsFromUser(request);
-    }
-
     private Set<VisitObj> getListOfVisitsFromVehicle(Vehicle vehicle) {
         return this.vehicleVisitsMap.get(vehicle);
     }
-
-    ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-    // CONSTRAINTS /////////////////////////////////////////////////////////////////////////////////////////////////////
-    ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
     protected void oneVisitForEveryVehicle() throws GRBException {
         for (Vehicle vehicle : this.vehicles) {
@@ -693,6 +674,10 @@ public class AssignmentILP {
             model.addConstr(constrVehicleConservation, GRB.EQUAL, 1, label);
         }
     }
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    // CONSTRAINTS /////////////////////////////////////////////////////////////////////////////////////////////////////
+    ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
     protected void oneVisitForEveryVehicleId() throws GRBException {
         for (Integer vehicle : this.vehicleIds) {
@@ -724,10 +709,9 @@ public class AssignmentILP {
             // v1 + v2 + v3 = 1 // Cannot reject request!
 
             // All requests can be rejected
-            if (!guaranteePreviouslyAssignedAreNotDisplaced){
+            if (!guaranteePreviouslyAssignedAreNotDisplaced) {
                 constrRequestConservation.addTerm(1, varRequestRejected(request));
-            }
-            else if (!request.isPreviouslyAssigned()) {
+            } else if (!request.isPreviouslyAssigned()) {
                 constrRequestConservation.addTerm(1, varRequestRejected(request));
             }
             String label = String.format("request_visit_conservation_%d", requestIndex.get(request));
@@ -791,6 +775,18 @@ public class AssignmentILP {
     @Override
     public String toString() {
         return "_OPT-JAVIER";
+    }
+
+    public static class ObjectiveFunction {
+        GRBLinExpr linExpr;
+        int goal; //GRB.MAXIMIZE (1), GRB.MINIMIZE (-1)
+        String label;
+
+        public ObjectiveFunction(String label, GRBLinExpr linExpr, int goal) {
+            this.label = label;
+            this.linExpr = linExpr;
+            this.goal = goal;
+        }
     }
 }
 

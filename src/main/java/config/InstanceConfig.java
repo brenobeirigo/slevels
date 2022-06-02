@@ -54,10 +54,12 @@ public class InstanceConfig {
     private String instanceFilePath; // File path of the instance
     private List<CustomerBaseConfig> customerBaseSettingsArray;
     private List<RideMatchingStrategy> matchingMethods;
-    private boolean[] sortWaitingUsersByClassArray; // If true, sort users according class when matching
+    private boolean[] sortWaitingUsersByClassArray;
+    // If true, sort users according class when matching
     private int[] timeWindowArray; // Time window of request collection bin
     private TimeConfig[] timeHorizonArray; // Time horizon of experiment (0 t0 24h)
-    private int[] maxRequestsIterationArray; // Max number of requests pooled in during an iteration
+    private int[] maxRequestsIterationArray;
+    // Max number of requests pooled in during an iteration
     private double[] percentageRequestsIterationArray; //Percentage of requests sampled during each TW
     private int[] initialFleetArray; // Initial size of fleet
     private int[] vehicleMaxCapacityArray; // Max capacity of vehicle
@@ -97,22 +99,189 @@ public class InstanceConfig {
     private int maxTimeToReachRegionCenter;
     private PDGeneratorFactory PDFactory;
 
-    public class LearningConfig{
-        public List<Date> episodeStartDatetimeList;
-        public int requestSamples;
-        public int sizeExperienceReplayBatch;
-        public int sizeExperienceReplayBuffer;
+    public class LearningConfig implements Iterator<LearningConfig.LearningSettings> {
+        public int currentRequestSamples;
+        public int currentSizeExperienceReplayBatch;
+        public int currentSizeExperienceReplayBuffer;
+        public Date currentEpisodeStartDatetimeTraining;
+        public int currentTargetNetworkUpdateFrequency;
+        public int currentTrainingFrequency;
+        public Double currentDiscountFactor;
+        public Double currentLearningRate;
         public String folderModels;
-        private String modelInstanceLabel;
-        private String experiencesFolder;
+        public String modelInstanceLabel;
+        public String experiencesFolder;
+        private Date currentStartDatetimeTesting;
+        private Date episodeStartDatetimeTesting;
 
-        public LearningConfig(int requestSamples, int sizeExperienceReplayBatch, int sizeExperienceReplayBuffer, String folderModels, List<Date> episodeStartTimestamps) {
-            this.folderModels = folderModels;
-            this.requestSamples = requestSamples;
-            this.sizeExperienceReplayBatch = sizeExperienceReplayBatch;
-            this.sizeExperienceReplayBuffer = sizeExperienceReplayBuffer;
-            this.episodeStartDatetimeList = episodeStartTimestamps;
+        public List<Date> episodeStartDatetimeListTest;
+        public List<Date> episodeStartDatetimeList;
+        public double[] discountFactorArray;
+        public double[] learningRateArray;
+        public int[] requestSamples;
+        public int[] sizeExperienceReplayBatch;
+        public int[] sizeExperienceReplayBuffer;
+        public int[] targetNetworkUpdateFrequency;
+        public int[] trainingFrequencyArray;
+        private int[] idx;
+        private LinkedList<LearningSettings> a;
+
+        public LearningSettings top() {
+            return a.get(0);
         }
+
+        public class LearningSettings {
+            public int requestSamples;
+            public int sizeExperienceReplayBatch;
+            public int sizeExperienceReplayBuffer;
+            public Date episodeStartDatetimeTraining;
+            private Date currentEpisodeStartDatetimeTesting;
+
+            public int targetNetworkUpdateFrequency;
+            public int trainingFrequency;
+            public Double discountFactor;
+            public Double learningRate;
+            public String folderModels;
+            public String modelInstanceLabel;
+            public String experiencesFolder;
+
+            public String getLabel() {
+                return String.format("RS-%s_BA-%s_BU-%s_TAR-%s_FR-%s", requestSamples, sizeExperienceReplayBatch, sizeExperienceReplayBuffer, targetNetworkUpdateFrequency, trainingFrequency);
+            }
+
+            public String getModelFilePath(String modelInstanceLabel) {
+                return String.format("%s/%s/model_%s.h5", folderModels, modelInstanceLabel, getLabel());
+            }
+
+            public String getExperiencesFolder() {
+                String folder = String.format("%s/%s/experiences_%s", this.folderModels, this.modelInstanceLabel, this.getLabel());
+                return folder;
+            }
+
+            @Override
+            public String toString() {
+                return "LearningSettings{" +
+                        "requestSamples=" + requestSamples +
+                        ", sizeExperienceReplayBatch=" + sizeExperienceReplayBatch +
+                        ", sizeExperienceReplayBuffer=" + sizeExperienceReplayBuffer +
+                        ", episodeStartDatetimeTraining=" + episodeStartDatetimeTraining +
+                        ", currentEpisodeStartDatetimeTesting=" + currentEpisodeStartDatetimeTesting +
+                        ", targetNetworkUpdateFrequency=" + targetNetworkUpdateFrequency +
+                        ", trainingFrequency=" + trainingFrequency +
+                        ", discountFactor=" + discountFactor +
+                        ", learningRate=" + learningRate +
+                        ", folderModels='" + folderModels + '\'' +
+                        ", modelInstanceLabel='" + modelInstanceLabel + '\'' +
+                        ", experiencesFolder='" + experiencesFolder + '\'' +
+                        '}';
+            }
+
+            public LearningSettings(int currentRequestSamples, int currentSizeExperienceReplayBatch,
+                                    int currentSizeExperienceReplayBuffer, Date currentEpisodeStartDatetime,
+                                    int currentTargetNetworkUpdateFrequency, int currentTrainingFrequency,
+                                    Double currentDiscountFactor, Double currentLearningRate, String folderModels,
+                                    String modelInstanceLabel, String experiencesFolder) {
+                this.requestSamples = currentRequestSamples;
+                this.sizeExperienceReplayBatch = currentSizeExperienceReplayBatch;
+                this.sizeExperienceReplayBuffer = currentSizeExperienceReplayBuffer;
+                this.episodeStartDatetimeTraining = currentEpisodeStartDatetime;
+                this.targetNetworkUpdateFrequency = currentTargetNetworkUpdateFrequency;
+                this.trainingFrequency = currentTrainingFrequency;
+                this.discountFactor = currentDiscountFactor;
+                this.learningRate = currentLearningRate;
+                this.folderModels = folderModels;
+                this.modelInstanceLabel = modelInstanceLabel;
+                this.experiencesFolder = experiencesFolder;
+            }
+        }
+
+        public Iterator<Double> discountFactorIt;
+        public Iterator<Integer> targetNetworkUpdateFrequencyIt;
+        public Iterator<Integer> trainingFrequencyIt;
+        public Iterator<Double> learningRateIt;
+        public Iterator<Date> episodeStartDatetimeTrainingIt;
+        public Iterator<Date> episodeStartDatetimeTestingIt;
+        public Iterator<Integer> sizeExperienceReplayBufferIt;
+        public Iterator<Integer> sizeExperienceReplayBatchIt;
+        public Iterator<Integer> requestSamplesIt;
+
+
+        public LearningConfig(int[] requestSamples, int[] sizeExperienceReplayBatch, int[] sizeExperienceReplayBuffer
+                , String folderModels, List<Date> episodeStartTimestamps, List<Date> episodeStartDatetimeArrayTest, int[] targetNetworkUpdateFrequency,
+                              int[] trainingFrequency, double[] learningRateArray, double[] discountFactorArray) {
+
+            this.folderModels = folderModels;
+            this.modelInstanceLabel = getModelInstanceLabel();
+
+            this.requestSamples = requestSamples;
+            this.requestSamplesIt = Arrays.stream(this.requestSamples).iterator();
+            this.currentRequestSamples = this.requestSamplesIt.next();
+
+
+            this.sizeExperienceReplayBatch = sizeExperienceReplayBatch;
+            this.sizeExperienceReplayBatchIt = Arrays.stream(this.sizeExperienceReplayBatch).iterator();
+            this.currentSizeExperienceReplayBatch = this.sizeExperienceReplayBatchIt.next();
+
+
+            this.sizeExperienceReplayBuffer = sizeExperienceReplayBuffer;
+            this.sizeExperienceReplayBufferIt = Arrays.stream(this.sizeExperienceReplayBuffer).iterator();
+            this.currentSizeExperienceReplayBuffer = this.sizeExperienceReplayBufferIt.next();
+
+            this.episodeStartDatetimeList = episodeStartTimestamps;
+            this.episodeStartDatetimeListTest = episodeStartDatetimeArrayTest;
+//            this.episodeStartDatetimeTrainingIt      = this.episodeStartDatetimeList.iterator();
+//            this.currentEpisodeStartDatetimeTraining = this.episodeStartDatetimeTrainingIt.next();
+
+            this.targetNetworkUpdateFrequency = targetNetworkUpdateFrequency;
+            this.targetNetworkUpdateFrequencyIt = Arrays.stream(this.targetNetworkUpdateFrequency).iterator();
+            this.currentTargetNetworkUpdateFrequency = this.targetNetworkUpdateFrequencyIt.next();
+
+            this.trainingFrequencyArray = trainingFrequency;
+            this.trainingFrequencyIt = Arrays.stream(this.trainingFrequencyArray).iterator();
+            //this.currentTrainingFrequency = trainingFrequencyIt.next();
+
+            this.discountFactorArray = discountFactorArray;
+            this.discountFactorIt = Arrays.stream(this.discountFactorArray).iterator();
+            this.currentDiscountFactor = discountFactorIt.next();
+
+            this.learningRateArray = learningRateArray;
+            this.learningRateIt = Arrays.stream(this.learningRateArray).iterator();
+            this.currentLearningRate = learningRateIt.next();
+
+
+            this.a = new LinkedList<LearningSettings>();
+
+            for (int j = 0; j < this.targetNetworkUpdateFrequency.length; j++) {
+                for (int k = 0; k < this.requestSamples.length; k++) {
+                    for (int l = 0; l < this.sizeExperienceReplayBuffer.length; l++) {
+                        for (int m = 0; m < this.sizeExperienceReplayBatch.length; m++) {
+                            for (int n = 0; n < this.trainingFrequencyArray.length; n++) {
+                                currentRequestSamples = this.requestSamples[k];
+                                currentTargetNetworkUpdateFrequency = this.targetNetworkUpdateFrequency[j];
+                                currentSizeExperienceReplayBatch = this.sizeExperienceReplayBatch[m];
+                                currentSizeExperienceReplayBuffer = this.sizeExperienceReplayBuffer[l];
+                                currentTrainingFrequency = this.trainingFrequencyArray[n];
+
+                                LearningSettings s = new LearningSettings(currentRequestSamples, currentSizeExperienceReplayBatch,
+                                        currentSizeExperienceReplayBuffer, currentEpisodeStartDatetimeTraining,
+                                        currentTargetNetworkUpdateFrequency, currentTrainingFrequency,
+                                        currentDiscountFactor, currentLearningRate, folderModels,
+                                        modelInstanceLabel, experiencesFolder);
+
+                                a.add(s);
+
+
+                            }
+
+                        }
+
+                    }
+
+                }
+
+            }
+        }
+
 
         public void setModelInstanceLabel(String modelInstanceLabel) {
             this.modelInstanceLabel = modelInstanceLabel;
@@ -122,17 +291,25 @@ public class InstanceConfig {
             return modelInstanceLabel;
         }
 
-        public String getModelFilePath() {
-            return  String.format("%s/%s/model.h5", folderModels, modelInstanceLabel);
-        }
 
         public String getExperiencesFolder() {
             String folder = String.format("%s/%s/experiences", this.folderModels, this.modelInstanceLabel);
             return folder;
         }
 
-        public boolean isNotTerminal(int timeStep) {
+        public static boolean isNotTerminal(int timeStep) {
             return timeStep < Simulation.timeHorizon;
+        }
+
+        @Override
+        public boolean hasNext() {
+            return a.size() >0;
+        }
+
+
+        @Override
+        public LearningSettings next() {
+         return a.pop();
         }
     }
 
@@ -154,7 +331,8 @@ public class InstanceConfig {
 
             //Description
             this.instancesPath = Paths.get(jsonConfig.get("instances_folder").toString());
-            this.precalculatedPermutationsPath = Paths.get(jsonConfig.get("precalculated_permutations_file").toString());
+            this.precalculatedPermutationsPath =
+                    Paths.get(jsonConfig.get("precalculated_permutations_file").toString());
             this.resultPath = Paths.get(jsonConfig.get("result_folder").toString());
             this.distancesPath = Paths.get(jsonConfig.get("distances_file").toString());
             this.durationsPath = Paths.get(jsonConfig.get("durations_file").toString());
@@ -169,15 +347,43 @@ public class InstanceConfig {
             JsonArray learning = gson.toJsonTree(jsonConfig.get("learning_config")).getAsJsonArray();
             for (JsonElement learningConfig : learning) {
 
+
                 JsonObject element = gson.fromJson(learningConfig, JsonObject.class);
                 String folderModels = gson.fromJson(element.get("folder_models"), String.class);
-                int requestSamples = gson.fromJson(element.get("request_samples"), int.class);
-                JsonObject experienceReplay = gson.fromJson(element.get("experience_replay"), JsonObject.class);
-                int sizeExperienceReplayBuffer = gson.fromJson(experienceReplay.get("size_experience_replay_buffer"), int.class);
-                int sizeExperienceReplayBatch = gson.fromJson(experienceReplay.get("size_experience_replay_batch"), int.class);
+                int[] requestSamples = gson.fromJson(element.get("request_samples"), int[].class);
 
-                JsonObject training = gson.fromJson(element.get("training_config"), JsonObject.class);
-                String[] episodeStartDatetimeStrArray = gson.fromJson(training.get("episode_start_datetime").getAsJsonArray(), String[].class);
+                double[]
+                        learningRateArray =
+                        gson.fromJson(element.get("learning_rate").getAsJsonArray(), double[].class);
+                double[]
+                        discountFactorArray =
+                        gson.fromJson(element.get("discount_factor").getAsJsonArray(), double[].class);
+
+                JsonObject
+                        targetNetwork =
+                        gson.fromJson(element.get("target_network"), JsonObject.class);
+                int[]
+                        targetNetworkUpdateFrequency =
+                        gson.fromJson(targetNetwork.get("update_frequency"), int[].class);
+
+                JsonObject experienceReplay = gson.fromJson(element.get("experience_replay"), JsonObject.class);
+                int[] trainingFrequency = gson.fromJson(element.get("training_frequency"), int[].class);
+
+
+                int[]
+                        sizeExperienceReplayBuffer =
+                        gson.fromJson(experienceReplay.get("size_experience_replay_buffer"), int[].class);
+                int[]
+                        sizeExperienceReplayBatch =
+                        gson.fromJson(experienceReplay.get("size_experience_replay_batch"), int[].class);
+
+
+                JsonObject
+                        training =
+                        gson.fromJson(element.get("training_config"), JsonObject.class);
+                String[]
+                        episodeStartDatetimeStrArray =
+                        gson.fromJson(training.get("episode_start_datetime").getAsJsonArray(), String[].class);
 
                 List<Date> episodeStartDatetimeArray = new ArrayList<>();
                 for (String episodeStartDatetimeStr : episodeStartDatetimeStrArray) {
@@ -188,7 +394,33 @@ public class InstanceConfig {
                     }
                 }
 
-                LearningConfig lc = new LearningConfig(requestSamples, sizeExperienceReplayBatch, sizeExperienceReplayBuffer, folderModels, episodeStartDatetimeArray);
+                JsonObject
+                        testing =
+                        gson.fromJson(element.get("testing_config"), JsonObject.class);
+                String[]
+                        episodeStartDatetimeStrArrayTest =
+                        gson.fromJson(testing.get("episode_start_datetime").getAsJsonArray(), String[].class);
+
+                List<Date> episodeStartDatetimeArrayTest = new ArrayList<>();
+                for (String episodeStartDatetimeStrTest : episodeStartDatetimeStrArrayTest) {
+                    try {
+                        episodeStartDatetimeArrayTest.add(Config.formatter_date_time.parse(episodeStartDatetimeStrTest));
+                    } catch (ParseException e) {
+                        e.printStackTrace();
+                    }
+                }
+
+                LearningConfig lc = new LearningConfig(
+                        requestSamples,
+                        sizeExperienceReplayBatch,
+                        sizeExperienceReplayBuffer,
+                        folderModels,
+                        episodeStartDatetimeArray,
+                        episodeStartDatetimeArrayTest,
+                        targetNetworkUpdateFrequency,
+                        trainingFrequency,
+                        learningRateArray,
+                        discountFactorArray);
 
 
                 learningConfigs.add(lc);
@@ -209,7 +441,9 @@ public class InstanceConfig {
                     .get("time_config")
                     .getAsJsonArray(), TimeConfig[].class);
 
-            String[] earliestTimes = gson.fromJson(scenarioConfig.get("earliest_time").getAsJsonArray(), String[].class);
+            String[]
+                    earliestTimes =
+                    gson.fromJson(scenarioConfig.get("earliest_time").getAsJsonArray(), String[].class);
             this.earliestTimeArray = new ArrayList<>();
             for (String earliestTime : earliestTimes) {
                 try {
@@ -219,22 +453,40 @@ public class InstanceConfig {
                 }
             }
 
-            this.maxRequestsIterationArray = gson.fromJson(scenarioConfig.get("max_requests").getAsJsonArray(), int[].class);// Max number of requests pooled in during an iteration
-            this.percentageRequestsIterationArray = gson.fromJson(scenarioConfig.get("percentage_requests").getAsJsonArray(), double[].class);// Max number of requests pooled in during an iteration
-            this.initialFleetArray = gson.fromJson(scenarioConfig.get("initial_fleet").getAsJsonArray(), int[].class);// Initial size of fleet
-            this.vehicleMaxCapacityArray = gson.fromJson(scenarioConfig.get("max_capacity").getAsJsonArray(), int[].class);// Max capacity of vehicle
-            this.allowRebalancingArray = gson.fromJson(scenarioConfig.get("rebalance").getAsJsonArray(), boolean[].class);// Each round has TW seconds
-            this.contractDurationArray = gson.fromJson(scenarioConfig.get("contract_duration").getAsJsonArray(), int[].class); // In rounds of tw_batch seconds
-            this.allowVehicleHiringArray = gson.fromJson(scenarioConfig.get("allow_vehicle_hiring").getAsJsonArray(), boolean[].class);
-            this.allowRequestDisplacementArray = gson.fromJson(scenarioConfig.get("allow_request_displacement").getAsJsonArray(), boolean[].class);
-            this.maxTimeToReachRegionCenter = gson.fromJson(scenarioConfig.get("max_time_to_reach_region_center"), int.class);
-            this.spMethodArray = gson.fromJson(scenarioConfig.get("shortest_path_method").getAsJsonArray(), new TypeToken<List<String>>() {
-            }.getType());
+            this.maxRequestsIterationArray =
+                    gson.fromJson(scenarioConfig.get("max_requests")
+                            .getAsJsonArray(), int[].class);// Max number of requests pooled in during an iteration
+            this.percentageRequestsIterationArray =
+                    gson.fromJson(scenarioConfig.get("percentage_requests")
+                            .getAsJsonArray(), double[].class);// Max number of requests pooled in during an iteration
+            this.initialFleetArray =
+                    gson.fromJson(scenarioConfig.get("initial_fleet")
+                            .getAsJsonArray(), int[].class);// Initial size of fleet
+            this.vehicleMaxCapacityArray =
+                    gson.fromJson(scenarioConfig.get("max_capacity")
+                            .getAsJsonArray(), int[].class);// Max capacity of vehicle
+            this.allowRebalancingArray =
+                    gson.fromJson(scenarioConfig.get("rebalance")
+                            .getAsJsonArray(), boolean[].class);// Each round has TW seconds
+            this.contractDurationArray =
+                    gson.fromJson(scenarioConfig.get("contract_duration")
+                            .getAsJsonArray(), int[].class); // In rounds of tw_batch seconds
+            this.allowVehicleHiringArray =
+                    gson.fromJson(scenarioConfig.get("allow_vehicle_hiring").getAsJsonArray(), boolean[].class);
+            this.allowRequestDisplacementArray =
+                    gson.fromJson(scenarioConfig.get("allow_request_displacement").getAsJsonArray(), boolean[].class);
+            this.maxTimeToReachRegionCenter =
+                    gson.fromJson(scenarioConfig.get("max_time_to_reach_region_center"), int.class);
+            this.spMethodArray =
+                    gson.fromJson(scenarioConfig.get("shortest_path_method")
+                            .getAsJsonArray(), new TypeToken<List<String>>() {
+                    }.getType());
 
             // Customer base settings
             Type segmentationScenarioType = new TypeToken<HashMap<String, HashMap<String, Double>>>() {
             }.getType();
-            this.segmentationScenarioMap = gson.fromJson(scenarioConfig.get("customer_segmentation"), segmentationScenarioType);
+            this.segmentationScenarioMap =
+                    gson.fromJson(scenarioConfig.get("customer_segmentation"), segmentationScenarioType);
 
             Type serviceLevelMapType = new TypeToken<HashMap<String, HashMap<String, Integer>>>() {
             }.getType();
@@ -294,14 +546,16 @@ public class InstanceConfig {
                         // Update global class configuration to run current test case
                         qosDic.put(serviceLevel.getKey(), qos);
                     }
-                    this.customerBaseSettingsArray.add(new CustomerBaseConfig(serviceRateScenarioLabel, segmentationScenarioLabel, qosDic));
+                    this.customerBaseSettingsArray.add(new CustomerBaseConfig(serviceRateScenarioLabel,
+                            segmentationScenarioLabel, qosDic));
                 }
             }
 
             //Matching configuration
             this.matchingMethods = new ArrayList<>();
             JsonArray matchingConfig = gson.toJsonTree(jsonConfig.get("matching_config")).getAsJsonArray();
-            //this.sortWaitingUsersByClassArray = gson.fromJson(matchingConfig.get("sort_waiting_users_by_class").getAsJsonArray(), boolean[].class);
+            //this.sortWaitingUsersByClassArray = gson.fromJson(matchingConfig.get("sort_waiting_users_by_class")
+            // .getAsJsonArray(), boolean[].class);
             //JsonArray matchingMethods = gson.toJsonTree(jsonConfig.get("method")).getAsJsonArray();
             for (JsonElement matchingMethod : matchingConfig) {
 
@@ -311,7 +565,9 @@ public class InstanceConfig {
 
                 if (Matching.METHOD_OPTIMAL_ENFORCE_SL_HIRE.equals(name)) {
 
-                    MatchingOptimalServiceLevelAndHire method = readMatchingOptimalServiceLevelAndHireParams(gson, element);
+                    MatchingOptimalServiceLevelAndHire
+                            method =
+                            readMatchingOptimalServiceLevelAndHireParams(gson, element);
                     this.matchingMethods.add(method);
 
                 } else if (Matching.METHOD_OPTIMAL_ENFORCE_SL.equals(name)) {
@@ -343,7 +599,9 @@ public class InstanceConfig {
             }
 
             this.rebalancingMethods = new ArrayList<>();
-            JsonArray rebalancingConfigurations = gson.toJsonTree(jsonConfig.get("rebalancing_config")).getAsJsonArray();
+            JsonArray
+                    rebalancingConfigurations =
+                    gson.toJsonTree(jsonConfig.get("rebalancing_config")).getAsJsonArray();
             for (JsonElement rebalanceStrategy : rebalancingConfigurations) {
 
                 JsonObject element = gson.fromJson(rebalanceStrategy, JsonObject.class);
@@ -358,10 +616,22 @@ public class InstanceConfig {
 
                     // Rebalancing configuration
                     JsonObject rebalancingConfig = gson.fromJson(rebalanceStrategy, JsonObject.class);
-                    boolean[] allowManyToOneTarget = gson.fromJson(rebalancingConfig.get("allow_many_to_one").getAsJsonArray(), boolean[].class);// Each round has TW seconds
-                    boolean[] reinsertTargets = gson.fromJson(rebalancingConfig.get("reinsert_targets").getAsJsonArray(), boolean[].class);// Each round has TW seconds
-                    boolean[] clearTargetListEveryRound = gson.fromJson(rebalancingConfig.get("clear_target_list_every_round").getAsJsonArray(), boolean[].class);// Each round has TW seconds
-                    boolean[] useUrgentKey = gson.fromJson(rebalancingConfig.get("allow_urgent_relocation").getAsJsonArray(), boolean[].class);// Each round has TW seconds
+                    boolean[]
+                            allowManyToOneTarget =
+                            gson.fromJson(rebalancingConfig.get("allow_many_to_one")
+                                    .getAsJsonArray(), boolean[].class);// Each round has TW seconds
+                    boolean[]
+                            reinsertTargets =
+                            gson.fromJson(rebalancingConfig.get("reinsert_targets")
+                                    .getAsJsonArray(), boolean[].class);// Each round has TW seconds
+                    boolean[]
+                            clearTargetListEveryRound =
+                            gson.fromJson(rebalancingConfig.get("clear_target_list_every_round")
+                                    .getAsJsonArray(), boolean[].class);// Each round has TW seconds
+                    boolean[]
+                            useUrgentKey =
+                            gson.fromJson(rebalancingConfig.get("allow_urgent_relocation")
+                                    .getAsJsonArray(), boolean[].class);// Each round has TW seconds
 
                     for (boolean n1 : allowManyToOneTarget) {
                         for (boolean reinsert : reinsertTargets) {
@@ -396,7 +666,10 @@ public class InstanceConfig {
     }
 
     public static void main(String[] a) {
-        String s = "C:\\Users\\LocalAdmin\\IdeaProjects\\slevels\\src\\main\\resources\\instance_settings_test_rebalancing.json";
+        String
+                s =
+                "C:\\Users\\LocalAdmin\\IdeaProjects\\slevels\\src\\main\\resources" +
+                        "\\instance_settings_test_rebalancing.json";
         InstanceConfig instanceConfig = new InstanceConfig(s);
         System.out.println(instanceConfig);
         System.out.println(instanceConfig.customerBaseSettingsArray);
@@ -444,13 +717,16 @@ public class InstanceConfig {
         String[] objectives = gson.fromJson(element.get("objectives"), String[].class);
 
         // TODO implement matching factory
-        JsonObject elementPDGeneration = gson.fromJson(element.get("pd_generation_strategy"), JsonObject.class);
+        JsonObject
+                elementPDGeneration =
+                gson.fromJson(element.get("pd_generation_strategy"), JsonObject.class);
         String pdGeneratorMethodStrategyName = gson.fromJson(elementPDGeneration.get("name"), String.class);
 
         //TODO read max PD sequences
         int pdGeneratorMaxSequences = gson.fromJson(elementPDGeneration.get("max_sequences"), int.class);
 
-        return new MatchingOptimal(maxVehicleCapacityRTV, timeLimit, timeoutVehicle, mipGap, maxEdgesRV, maxEdgesRR, rejectionPenalty, objectives, pdGeneratorMethodStrategyName);
+        return new MatchingOptimal(maxVehicleCapacityRTV, timeLimit, timeoutVehicle, mipGap, maxEdgesRV, maxEdgesRR,
+                rejectionPenalty, objectives, pdGeneratorMethodStrategyName);
     }
 
     private MatchingSimple readMatchingOptimalLearnParams(Gson gson, JsonObject element) {
@@ -469,11 +745,16 @@ public class InstanceConfig {
         Learning learningParams = new Learning(nEpisodes);
 
         // TODO implement matching factory
-        JsonObject elementPDGeneration = gson.fromJson(element.get("pd_generation_strategy"), JsonObject.class);
+        JsonObject
+                elementPDGeneration =
+                gson.fromJson(element.get("pd_generation_strategy"), JsonObject.class);
         String pdGeneratorMethodStrategyName = gson.fromJson(elementPDGeneration.get("name"), String.class);
         int pdGeneratorMaxSequences = gson.fromJson(elementPDGeneration.get("max_sequences"), int.class);
 
-        MatchingSimple m = new MatchingSimple(maxVehicleCapacityRTV, timeLimit, timeoutVehicle, mipGap, maxEdgesRV, maxEdgesRR, rejectionPenalty, objectives, pdGeneratorMethodStrategyName);
+        MatchingSimple
+                m =
+                new MatchingSimple(maxVehicleCapacityRTV, timeLimit, timeoutVehicle, mipGap, maxEdgesRV, maxEdgesRR,
+                        rejectionPenalty, objectives, pdGeneratorMethodStrategyName);
         return m;
     }
 
@@ -508,10 +789,12 @@ public class InstanceConfig {
         int badServicePenalty = gson.fromJson(element.get("bad_service_penalty"), int.class);
         String[] objectives = gson.fromJson(element.get("objectives"), String[].class);
         String pdGenerationStrategy = gson.fromJson(element.get("pd_generation_strategy"), String.class);
-        return new MatchingOptimalServiceLevel(maxVehicleCapacityRTV, badServicePenalty, timeLimit, timeoutVehicleRTV, mipGap, maxEdgesRV, maxEdgesRR, rejectionPenalty, objectives, pdGenerationStrategy);
+        return new MatchingOptimalServiceLevel(maxVehicleCapacityRTV, badServicePenalty, timeLimit, timeoutVehicleRTV
+                , mipGap, maxEdgesRV, maxEdgesRR, rejectionPenalty, objectives, pdGenerationStrategy);
     }
 
-    private MatchingOptimalServiceLevelAndHire readMatchingOptimalServiceLevelAndHireParams(Gson gson, JsonObject element) {
+    private MatchingOptimalServiceLevelAndHire readMatchingOptimalServiceLevelAndHireParams(Gson gson,
+                                                                                            JsonObject element) {
         int maxVehicleCapacityRTV = gson.fromJson(element.get("rtv_max_vehicle_capacity"), int.class);
         double timeoutVehicleRTV = gson.fromJson(element.get("rtv_vehicle_timeout"), double.class);
         int maxEdgesRV = gson.fromJson(element.get("max_edges_rv"), int.class);
@@ -526,7 +809,9 @@ public class InstanceConfig {
         int hiringPenalty = gson.fromJson(element.get("hiring_penalty"), int.class);
         boolean allowHiring = gson.fromJson(element.get("allow_hiring"), boolean.class);
         String[] objectives = gson.fromJson(element.get("objectives"), String[].class);
-        return new MatchingOptimalServiceLevelAndHire(maxVehicleCapacityRTV, badServicePenalty, hiringPenalty, timeLimit, timeoutVehicleRTV, mipGap, maxEdgesRV, maxEdgesRR, rejectionPenalty, allowHiring, objectives, pdGenerationStrategy);
+        return new MatchingOptimalServiceLevelAndHire(maxVehicleCapacityRTV, badServicePenalty, hiringPenalty,
+                timeLimit, timeoutVehicleRTV, mipGap, maxEdgesRV, maxEdgesRR, rejectionPenalty, allowHiring,
+                objectives, pdGenerationStrategy);
     }
 
     public boolean[] getSortWaitingUsersByClassArray() {

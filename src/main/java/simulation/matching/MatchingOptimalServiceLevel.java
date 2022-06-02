@@ -67,7 +67,7 @@ public class MatchingOptimalServiceLevel extends MatchingOptimal {
             disposeModelEnvironmentAndSave();
         }
 
-        result.printRoundResultSummary();
+        result.printRoundResultSummary("Online assignment");
 
         return result;
     }

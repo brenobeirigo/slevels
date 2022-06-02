@@ -18,10 +18,10 @@ public class ExperienceObject {
 
     }
 
-    public void remember(InstanceConfig.LearningConfig learningConfig) {
+    public String remember(InstanceConfig.LearningConfig.LearningSettings learningConfig) {
 
 
-        String r = ServerUtil.postJsonObjectToURL(this, Dao.getInstance().getServer().ADDRESS_SERVER + "/remember/" + learningConfig.getExperiencesFolder());
-        System.out.println(r);
+        String msg = ServerUtil.postJsonObjectToURL(this, Dao.getInstance().getServer().ADDRESS_SERVER + "/remember/" + learningConfig.experiencesFolder);
+        return msg;
     }
 }

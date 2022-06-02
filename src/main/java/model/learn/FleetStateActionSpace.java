@@ -22,6 +22,7 @@ public class FleetStateActionSpace {
     public int timeStep;
     protected int timeHorizon;
     protected int elapsed;
+    public FleetStateActionSpaceObject postDecisionStateActionObj;
 
     public Map<Vehicle, Set<StateAction>> getVehicleStateActionMap() {
         return vehicleStateActionMap;
@@ -154,5 +155,9 @@ public class FleetStateActionSpace {
         }
         state.setVehicleCount(nOfSurroundingVehicles);
         state.setVehicleCountNormal((double) nOfSurroundingVehicles / this.vehicles.size());
+    }
+
+    public void addPostDecisionStateActionObj(FleetStateActionSpaceObject postDecisionStateSpaceObj) {
+        this.postDecisionStateActionObj = postDecisionStateSpaceObj;
     }
 }
