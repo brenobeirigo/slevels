@@ -1,3 +1,5 @@
+import dao.Logging;
+
 import java.awt.geom.Point2D;
 import java.sql.Connection;
 import java.sql.ResultSet;
@@ -56,9 +58,9 @@ public class DatabaseUtil {
             }
         } catch (SQLException ex) {
             // handle any errors
-            System.out.println("SQLException: " + ex.getMessage());
-            System.out.println("SQLState: " + ex.getSQLState());
-            System.out.println("VendorError: " + ex.getErrorCode());
+            Logging.logger.info("SQLException: " + ex.getMessage());
+            Logging.logger.info("SQLState: " + ex.getSQLState());
+            Logging.logger.info("VendorError: " + ex.getErrorCode());
 
         } finally {
 
@@ -108,9 +110,9 @@ public class DatabaseUtil {
 
         } catch (SQLException ex) {
             // handle any errors
-            System.out.println("SQLException: " + ex.getMessage());
-            System.out.println("SQLState: " + ex.getSQLState());
-            System.out.println("VendorError: " + ex.getErrorCode());
+            Logging.logger.info("SQLException: " + ex.getMessage());
+            Logging.logger.info("SQLState: " + ex.getSQLState());
+            Logging.logger.info("VendorError: " + ex.getErrorCode());
 
         } finally {
 
@@ -159,7 +161,7 @@ public class DatabaseUtil {
 
         query = String.format(query, o, d);
 
-        System.out.println(query);
+        Logging.logger.info(query);
 
 
         try {
@@ -179,9 +181,9 @@ public class DatabaseUtil {
             }
         } catch (SQLException ex) {
             // handle any errors
-            System.out.println("SQLException: " + ex.getMessage());
-            System.out.println("SQLState: " + ex.getSQLState());
-            System.out.println("VendorError: " + ex.getErrorCode());
+            Logging.logger.info("SQLException: " + ex.getMessage());
+            Logging.logger.info("SQLState: " + ex.getSQLState());
+            Logging.logger.info("VendorError: " + ex.getErrorCode());
 
         } finally {
             // it is a good idea to release
@@ -208,7 +210,7 @@ public class DatabaseUtil {
             }
         }
 
-        //System.out.println(sp);
+        //Logging.logger.info(sp);
         return list_ids;
     }
 }

@@ -27,20 +27,20 @@ public class HiringFromCenters implements Hiring {
         int distOriginPkUser = Dao.getInstance().getDistSec(closestRegionCenterId, u.getNodePk().getNetworkId());
 
         int distPkDp = u.getDistFromTo();
-        //System.out.println("Distance origin pickup user: " + distOriginPkUser);
-        //System.out.println("   Distance pickup delivery: " + distPkDp);
-        //System.out.println("               Current time: " + contractDeadline);
-        //System.out.println("              User deadline: (pk:" + u.getNodePk().getLatest() + " / dp:"+ u.getNodeDp().getLatest()+ ")");
-        //System.out.println("   Distance pickup delivery: " + distPkDp);
+        //Logging.logger.info("Distance origin pickup user: " + distOriginPkUser);
+        //Logging.logger.info("   Distance pickup delivery: " + distPkDp);
+        //Logging.logger.info("               Current time: " + contractDeadline);
+        //Logging.logger.info("              User deadline: (pk:" + u.getNodePk().getLatest() + " / dp:"+ u.getNodeDp().getLatest()+ ")");
+        //Logging.logger.info("   Distance pickup delivery: " + distPkDp);
 
         // Deadline is the delivery time of user who caused hiring
         if (contractDuration == Config.DURATION_SINGLE_RIDE) {
             contractDeadline += distOriginPkUser + distPkDp;
-            //System.out.println("  (single) Contract deadline: " + contractDeadline);
+            //Logging.logger.info("  (single) Contract deadline: " + contractDeadline);
 
         } else {
             contractDeadline += contractDuration;
-            //System.out.println("          Contract deadline: " + contractDeadline);
+            //Logging.logger.info("          Contract deadline: " + contractDeadline);
         }
 
         Vehicle hiredVehicle = new Vehicle(u.getNumPassengers(), closestRegionCenterId, currentTime, true, contractDeadline);

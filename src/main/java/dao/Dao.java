@@ -19,10 +19,11 @@ import org.jgrapht.alg.shortestpath.AStarShortestPath;
 import org.jgrapht.alg.shortestpath.DijkstraShortestPath;
 import org.jgrapht.graph.DefaultWeightedEdge;
 import org.jgrapht.graph.SimpleDirectedWeightedGraph;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import simulation.Simulation;
 
 import java.awt.geom.Point2D;
-import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.io.IOException;
 import java.io.Reader;
@@ -118,6 +119,8 @@ public class Dao {
     }
 
     public Dao() {
+
+        Logging.logger.debug("Start DAO");
         try {
 
             runTimes = new Runtime();
@@ -131,7 +134,8 @@ public class Dao {
 
             iUserNextRound = 0;
 
-            server = new ServerUtil(InstanceConfig.getInstance().getServerUrl().toString());
+            String serverUrl = InstanceConfig.getInstance().getServerUrl();
+            server = new ServerUtil(serverUrl);
             // Get paths from configuration file ///////////////////////////////////////////////////////////////////////
             pathDistanceMatrix = InstanceConfig.getInstance().getDistancesPath().toString();
             pathDurationsMatrix = InstanceConfig.getInstance().getDurationsPath().toString();
@@ -142,7 +146,7 @@ public class Dao {
 
             // Reading map data ////////////////////////////////////////////////////////////////////////////////////////
 
-            System.out.printf("# Reading nodeset data from \"%s\"...%n", pathNetworkNodeInfo);
+            Logging.logger.info("# Reading nodeset data from '{}'...", pathNetworkNodeInfo);
             nodeNetworkInfo = ParseJsonUtil.getNodeDictionaryFromJsonString(HelperIO.readFileFromPath(pathNetworkNodeInfo));
             numberOfNodes = nodeNetworkInfo.size();
 
@@ -150,8 +154,9 @@ public class Dao {
             distMatrix = getDistanceMatrixFrom(pathDurationsMatrix, false);
 //            distMatrixMeters = getDistanceMatrixMeters(pathDistanceMatrix);
 
-            System.out.printf("# Reading precalculated PUDO data from \"%s\"...%n", pathPrecalculatedPermutations);
+            Logging.logger.info("# Reading precalculated PUDO data from '{}'...", pathPrecalculatedPermutations);
             loadPrecalculatedPermutationsPUDO(pathPrecalculatedPermutations);
+
 
             adjacencyMatrix = getAdjacencyMatrix(pathadjacencyMatrix);
 
@@ -185,21 +190,21 @@ public class Dao {
                 }
             }
 
-            System.out.printf("# Reading all records from \"%s\"...%n", pathRequestList);
+            Logging.logger.info("# Reading all records from '{}'...", pathRequestList);
             records = CSVParser.parse(new FileReader(pathRequestList), CSVFormat.RFC4180.withFirstRecordAsHeader());
 
 
             // TODO Read nodes from server
-            // System.out.println("Pulling shortest path info...");
+            // Logging.logger.info("Pulling shortest path info...");
             //
             // Pull map of nodes from server. Format: {id=Point(x,y)}
-            // System.out.println("Pulling nodes from server...");
+            // Logging.logger.info("Pulling nodes from server...");
             // nodeNetworkInfo = ParseJsonUtil.getNodeDictionaryFromJsonString(ServerUtil.getNodeList());
-            /*System.out.println("Pulling reachability map for max trip times:"
+            /*Logging.logger.info("Pulling reachability map for max trip times:"
                     + InstanceConfig.getInstance().getMaxTimeHiringList());
             canReachClass = getReachabilityMap(nodeNetworkInfo.keySet());
-            System.out.println(canReachClass);
-            //System.out.println();
+            Logging.logger.info(canReachClass);
+            //Logging.logger.info();
             ServerUtil.getAllCanReachNode(row, 150);
 
             */
@@ -212,14 +217,14 @@ public class Dao {
                             shortestPathDistances.get(o).set(d, ServerUtil.getShortestPathBetween(o, d))));
             Instant after = Instant.now();
             Duration duration = Duration.between(before, after);
-            System.out.println("DURATION: " + duration.toMillis());*/
+            Logging.logger.info("DURATION: " + duration.toMillis());*/
 
             /*
             // Save all shortest paths before execution
             for (int i = 0; i < distMatrixMeters.length; i++) {
-                System.out.println("Processing " + i);
+                Logging.logger.info("Processing " + i);
                 for (int j = 0; j < distMatrixMeters.length; j++) {
-                    System.out.println(i + "==" + j);
+                    Logging.logger.info(i + "==" + j);
                     getShortestPathBetween(i, j);
                 }
             }*/
@@ -337,7 +342,7 @@ public class Dao {
                 List<Integer> canReachNode = Dao.getInstance().getServer().getAllCanReachNode(i, maxTime);
                 //canReachList.get(i).put(maxTime, canReachNode);
                 canReachClass.get(i).put(e.getKey(), canReachNode);
-                //System.out.println(i + " - " + canReachList.get(i).get(maxTime).size());
+                //Logging.logger.info(i + " - " + canReachList.get(i).get(maxTime).size());
             }
         }
 
@@ -416,9 +421,9 @@ public class Dao {
 //            Duration d1 = Duration.between(a, b);
 //            Duration d2 = Duration.between(b, c);
 
-//            System.out.println(sp + "-" + d1.toMillis());
-//            System.out.println(sp2 + "-" + d2.toMinutes());
-            //System.out.printf("%d -> %d\n s%\n %s \n\n", o, d, String.valueOf(sp), String.valueOf(sp2));
+//            Logging.logger.info(sp + "-" + d1.toMillis());
+//            Logging.logger.info(sp2 + "-" + d2.toMinutes());
+            //Logging.logger.info("{}", String.format("%d -> %d\n s%\n %s \n\n", o, d, String.valueOf(sp), String.valueOf(sp2)));
             shortestPathsNodeIds.get(o).set(d, sp);
         }
         return shortestPathsNodeIds.get(o).get(d);
@@ -429,31 +434,31 @@ public class Dao {
      */
     public void resetRecords() {
 
-        // System.out.println("Resetting trip records...");
+        // Logging.logger.info("Resetting trip records...");
 
-        try {
+//        try {
 
-            // Timers are cleaned for next simulation
-            runTimes = new Runtime();
+        // Timers are cleaned for next simulation
+        runTimes = new Runtime();
 
-            // Reset system current for next test set
-            earliestTimeRequestBatch = 0;
+        // Reset system current for next test set
+        earliestTimeRequestBatch = 0;
 
-            // Read the requests from the beginning
-            records = CSVFormat.RFC4180.withFirstRecordAsHeader().parse(new FileReader(pathRequestList));
+        // Read the requests from the beginning
+        //records = CSVFormat.RFC4180.withFirstRecordAsHeader().parse(new FileReader(pathRequestList));
 
-            // Start random again
-            rand = new Random(SEED);
+        // Start random again
+        rand = new Random(SEED);
 
-            // Buffer that saves previous is reset
-            userBuff = null;
+        // Buffer that saves previous is reset
+        userBuff = null;
 
-
-        } catch (FileNotFoundException e) {
-            e.printStackTrace();
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
+//
+//        } catch (FileNotFoundException e) {
+//            e.printStackTrace();
+//        } catch (IOException e) {
+//            e.printStackTrace();
+//        }
 
     }
 
@@ -465,7 +470,7 @@ public class Dao {
         double[][] dist_matrix = new double[numberOfNodes][numberOfNodes];
 
         try {
-            System.out.println(String.format("# Reading distance matrix from \"%s\"...", filePath));
+            Logging.logger.info("{}", String.format("# Reading distance matrix from \"%s\"...", filePath));
             Reader in = new FileReader(filePath);
             int row = 0;
             Iterable<CSVRecord> records = CSVFormat.DEFAULT.parse(in);
@@ -511,14 +516,15 @@ public class Dao {
         List<User> trips = new ArrayList<>();
         if (requestDataMap.containsKey(earliestTime)) {
             if (requestDataMap.get(earliestTime).containsKey(this.pathRequestList)) {
-            if (requestDataMap.get(earliestTime).get(this.pathRequestList).containsKey(earliestTimeRequestBatch)) {
-                if (requestDataMap.get(earliestTime).get(this.pathRequestList).get(earliestTimeRequestBatch).containsKey(maxPassengerCount)) {
-                    trips = requestDataMap.get(earliestTime).get(this.pathRequestList).get(earliestTimeRequestBatch).get(maxPassengerCount).stream().map(userStr -> {
-                        Gson u = new Gson();
-                        User n = u.fromJson(userStr, User.class);
-                        return n;
-                    }).collect(Collectors.toList());
-                }}
+                if (requestDataMap.get(earliestTime).get(this.pathRequestList).containsKey(earliestTimeRequestBatch)) {
+                    if (requestDataMap.get(earliestTime).get(this.pathRequestList).get(earliestTimeRequestBatch).containsKey(maxPassengerCount)) {
+                        trips = requestDataMap.get(earliestTime).get(this.pathRequestList).get(earliestTimeRequestBatch).get(maxPassengerCount).stream().map(userStr -> {
+                            Gson u = new Gson();
+                            User n = u.fromJson(userStr, User.class);
+                            return n;
+                        }).collect(Collectors.toList());
+                    }
+                }
             }
         } else {
             trips = getListTripsClassed(earliestTime, timeSpanSec, maxPassengerCount);
@@ -527,7 +533,7 @@ public class Dao {
             Map<Integer, List<String>> percentageUsers = new HashMap<>();
             percentageUsers.put(maxPassengerCount, trips.stream().map(user -> {
                 Gson a = new Gson();
-                String s =  a.toJson(user);
+                String s = a.toJson(user);
                 return s;
             }).collect(Collectors.toList()));
             timeSpanPercentage.put(earliestTimeRequestBatch, percentageUsers);
@@ -627,7 +633,7 @@ public class Dao {
         short[][] dist_matrix = new short[numberOfNodes][numberOfNodes];
 
         try {
-            System.out.println(String.format("# Reading distance matrix from \"%s\"...", filePath));
+            Logging.logger.info("# Reading distance matrix from '{}'...", filePath);
             Reader in = new FileReader(filePath);
 
             int row = 0;
@@ -675,7 +681,7 @@ public class Dao {
         int[][] adjacencyMatrix = new int[numberOfNodes][numberOfNodes];
 
         try {
-            System.out.println(String.format("# Reading adjacency data from \"%s\"...", file_path));
+            Logging.logger.info("{}", String.format("# Reading adjacency data from \"%s\"...", file_path));
             Reader in = new FileReader(file_path);
 
             int row = 0;
@@ -707,13 +713,13 @@ public class Dao {
      * @return
      */
     public List<User> getListTripsClassed(Date earliestTime, int timeSpanSec, int maxPassengerCount) {
-        System.out.println("Getting users...");
+        Logging.logger.info("Getting users...");
 
         // Start list of users with buffer from last iteration (users read, but not in time span)
         List<User> listUser = new ArrayList<>();
 
         int latestTimeRequestBatch = earliestTimeRequestBatch + timeSpanSec;
-        assert latestTimeRequestBatch == Simulation.rightTW: String.format("%s - %s", latestTimeRequestBatch, Simulation.rightTW);
+        assert latestTimeRequestBatch == Simulation.rightTW : String.format("%s - %s", latestTimeRequestBatch, Simulation.rightTW);
         if (userBuff != null) {
             if (userBuff.getReqTime() < latestTimeRequestBatch) {
                 listUser.add(userBuff);
@@ -755,7 +761,7 @@ public class Dao {
         for (User user : listUser) {
             user.updatePerformanceClass(getRandomClassRoulleteWheel(qosClasses));
         }
-        System.out.println("Read " + listUser.size());
+        Logging.logger.info("Read {}", listUser.size());
 
         return listUser;
     }
@@ -800,7 +806,7 @@ public class Dao {
         // Start list of users with buffer from last iteration
         // (users read ahead time span to be placed in next iteration)
         Set<User> listUser = new HashSet<>();
-        // System.out.println("%d",timeSpanSec);
+        // Logging.logger.info("%d",timeSpanSec);
         // Continue reading records
 //            if (userBuff.get(userBuff.size()-1).getReqTime() < currentTime + timeSpanSec){
 //            return new ArrayList<>();
@@ -827,13 +833,11 @@ public class Dao {
             // Add user to list
             listUser.add(user);
         }
-        //System.out.println("RECORD:");
-        //System.out.println(record);
-        System.out.println("USER BUF:");
-        System.out.println(userBuff);
-        System.out.println();
-        System.out.println("LIST USER:");
-        listUser.forEach(user -> System.out.println(user.getPickupDatetime()));
+        //Logging.logger.info("RECORD:");
+        //Logging.logger.info(record);
+        Logging.logger.info("USER BUF: {}", userBuff);
+        Logging.logger.info("LIST USER:");
+        listUser.forEach(user -> Logging.logger.info(user.getPickupDatetime()));
 
         // Number of requests for each class according to their share
 
@@ -854,7 +858,7 @@ public class Dao {
 
         // Fill the number of users per class (in case proportions failed)
         while (usersPerClass.values().stream().mapToInt(Integer::intValue).sum() < listUser.size()) {
-            //System.out.println("TAG LIST:" + classTagList + "- qosDic: " + Config.getInstance().qosDic);
+            //Logging.logger.info("TAG LIST:" + classTagList + "- qosDic: " + Config.getInstance().qosDic);
             int randClass = Dao.getInstance().rand.nextInt(classTagList.size());
             usersPerClass.put(classTagList.get(randClass), usersPerClass.get(classTagList.get(randClass)) + 1);
         }
@@ -1038,13 +1042,13 @@ public class Dao {
     public void pullShortestPathInfo(int o, int d) {
         List<Integer> sp = getShortestPathBetween(o, d);
         ArrayList<Integer> spArrivals = getSpNodeArrivals(sp);
-        System.out.println(o + " -> " + d);
+        Logging.logger.info(o + " -> " + d);
 
         shortestPathDistances.get(o).set(d, spArrivals);
         shortestPathsNodeIds.get(o).set(d, sp);
 
-        System.out.println((shortestPathsNodeIds.get(o).size()) + "--" + sp);
-        System.out.println((shortestPathDistances.get(o).size()) + "--" + spArrivals);
+        Logging.logger.info((shortestPathsNodeIds.get(o).size()) + "--" + sp);
+        Logging.logger.info((shortestPathDistances.get(o).size()) + "--" + spArrivals);
     }
 
 
@@ -1137,7 +1141,7 @@ public class Dao {
             maxTimeToReach = InstanceConfig.getInstance().getMaxTimeToReachRegionCenter();
         }
 
-        // System.out.println(networkId + " - " + performanceClass + " - " + maxTimeToReach);
+        // Logging.logger.info(networkId + " - " + performanceClass + " - " + maxTimeToReach);
         // Network id
         // int closestRegionCenterId = canReach.get(Dao.getInstance().rand.nextInt(canReach.size()));
         // List<Integer> canReach = Dao.getInstance().getCanReachList().get(userNetworkId).get(userClass);
@@ -1154,6 +1158,15 @@ public class Dao {
 
     public void setRandomSeed(Random random) {
         rand = random;
+    }
+
+    public void setRecords(String filePathTrainingData) {
+        try {
+            records = CSVParser.parse(new FileReader(filePathTrainingData), CSVFormat.RFC4180.withFirstRecordAsHeader());
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+
     }
 }
 

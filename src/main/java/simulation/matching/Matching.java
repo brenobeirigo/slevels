@@ -1,6 +1,7 @@
 package simulation.matching;
 
 import config.CustomerBaseConfig;
+import dao.Logging;
 import model.User;
 import model.Vehicle;
 import model.VisitObj;
@@ -50,14 +51,18 @@ public class Matching {
     public ResultAssignment executeStrategy(int currentTime, Set<User> setUnassignedRequests, Set<Vehicle> listVehicles) {
 
         Set<User> allRequestsInOutVehicles = new HashSet<>(setUnassignedRequests);
-        System.out.println(String.format("# Matching - %4d unassigned users.", allRequestsInOutVehicles.size()));
+        Logging.logger.info("# Matching - {} unassigned users.", allRequestsInOutVehicles.size());
 
         if (allowUserDisplacement) {
             List<User> assignedUsers = Vehicle.getRequestsFrom(listVehicles);
             allRequestsInOutVehicles.addAll(assignedUsers);
-            System.out.println(String.format("# Matching - %4d displaced users.", assignedUsers.size()));
+            Logging.logger.info(
+                    "# Matching - {} displaced users.",
+                    assignedUsers.size());
         }
-        System.out.println(String.format("# Matching - %4d users to be matched.", allRequestsInOutVehicles.size()));
+        Logging.logger.info(
+                "# Matching - {} users to be matched.",
+                allRequestsInOutVehicles.size());
 
         Set<Vehicle> hired = new HashSet<>();
         if (isAllowedToHire) {
@@ -66,7 +71,13 @@ public class Matching {
         }
 
         ResultAssignment result = rideMatchingStrategy.match(currentTime, allRequestsInOutVehicles, listVehicles, hired);
-        System.out.println(String.format("# Matching - Time step=%4d, #Requests=%4d, #Vehicles=%4d, #Hired(current period)=%4d, #Hired(kept)=%4d", currentTime, setUnassignedRequests.size(), listVehicles.size(), hired.size(), result.getVehiclesHired().size()));
+        Logging.logger.info(
+                "# Matching - Time step={}, #Requests={}, #Vehicles={}, #Hired(current period)={}, #Hired(kept)={}",
+                currentTime,
+                setUnassignedRequests.size(),
+                listVehicles.size(),
+                hired.size(),
+                result.getVehiclesHired().size());
 
 
         for (User request:result.requestsDisplaced) {

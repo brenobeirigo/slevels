@@ -3,6 +3,7 @@ package helper;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import config.Config;
+import dao.Logging;
 import model.User;
 import model.Vehicle;
 import model.node.NodeOrigin;
@@ -96,7 +97,7 @@ public class HelperIO {
                     }
                 }
             }catch (Exception e){
-                System.out.println("AAAAAAAAAAAAAAAAaaaa" + v);
+                Logging.logger.info("AAAAAAAAAAAAAAAAaaaa" + v);
             }
 
         }

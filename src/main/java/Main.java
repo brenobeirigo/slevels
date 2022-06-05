@@ -2,6 +2,7 @@ import config.Config;
 import config.CustomerBaseConfig;
 import config.InstanceConfig;
 import dao.Dao;
+import dao.Logging;
 import helper.HelperIO;
 import model.User;
 import model.Vehicle;
@@ -29,6 +30,7 @@ public class Main {
         try {
 
             instanceSettings = Config.createInstanceFrom(configFilePath);
+            Logging.logger.info("## DNN - VF");
 
 
             // Vary test case parameters
@@ -68,7 +70,7 @@ public class Main {
                                                                         learningConfig.setModelInstanceLabel(fileName);
 
 //                                                                        while (learningConfig.hasNext()){
-//                                                                            System.out.println(learningConfig.next().getLabel());
+//                                                                            Logging.logger.info(learningConfig.next().getLabel());
 //                                                                        }
 
                                                                         if (matchingMethod instanceof MatchingSimple) {
@@ -101,7 +103,7 @@ public class Main {
                 }
             }
         } catch (IOException e) {
-            System.out.println("Error! Cannot read " + configFilePath);
+            Logging.logger.info("Error! Cannot read " + configFilePath);
             e.printStackTrace();
         }
     }
@@ -117,21 +119,25 @@ public class Main {
 
             String modelFilePath = learningSettings.getModelFilePath(fileName);
             String msg1 = Dao.getInstance().getServer().loadModelAt(modelFilePath);
-            System.out.println(msg1);
+            Logging.logger.info(msg1);
             String experiencesFolder = learningSettings.getExperiencesFolder();
             String msg2 = Dao.getInstance().getServer().createExperiencesFolderAt(experiencesFolder);
-            System.out.println(msg2);
+            Logging.logger.info(msg2);
 
-            System.out.println(learningSettings);
-
-            for (int iEpisode = 50; iEpisode < 50 + learningSettings.requestSamples; iEpisode++) {
+            Logging.logger.info("Learning settings: {}", learningSettings);
+            int iEpisode = 0;
+            for (int iSample = 0; iSample < learningSettings.requestSamples; iSample++) {
 
                 // Loop throughout the training data to diversify experiences
+                int i = 0;
                 for (Date episodeStartDatetime : learningConfig.episodeStartDatetimeList) {
 
+                    Logging.logger.info("{}", String.format("###### Episode %5d\n",iEpisode+1));
+                    Dao.getInstance().setRecords(learningConfig.arrayFilepathTrainingData[i]);
+                    i++;
                     // Users are sampled randomly from batch
                     // Vehicles start at random  positions
-                    Random randomSeed = new Random(iEpisode);
+                    Random randomSeed = new Random(iSample);
 
                     Simulation simulation = new SimulationFCFS(
                             instanceSettings.getInstanceName(),
@@ -154,9 +160,9 @@ public class Main {
                     // Run simulation
 
                     if (simulation.instanceAlreadyProcessed()) {
-                        System.out.println(simulation.getSol().getOutputFile() + " " + "already exists.");
+                        Logging.logger.info(simulation.getSol().getOutputFile() + " " + "already exists.");
                     } else {
-                        System.out.println(String.format("# Processing instance \"%s\"...", simulation.getSol().getOutputFile()));
+                        Logging.logger.info("{}", String.format("# Processing instance \"%s\"...", simulation.getSol().getOutputFile()));
 
 
                         simulation.run();
@@ -164,23 +170,40 @@ public class Main {
 
                         // Saving episode
                         String headers = "type;config;method;episode;" + "earliest;n_vehicles;n_requests;n_finished;service_rate;max_rounds;round_count;total_delay;distance_empty;distance_loaded;runtime_sec";
-                        String episodeInfo = simulation.getSummary(iEpisode);
-                        System.out.println(episodeInfo);
+                        String episodeInfo = simulation.getSummary(iSample);
+                        Logging.logger.info(episodeInfo);
                         HelperIO.saveDataWithHeaders(fileName + ".csv", "train;" + learningSettings.getLabel() + ";" + episodeInfo, headers, true);
-                        String msg = Dao.getInstance().getServer().saveModelAt(modelFilePath);
-                        System.out.println("Model saved at " + msg);
-
+                        if (iEpisode % 100 == 0) {
+                            Logging.logger.info("Saving model...");
+                            String msg = Dao.getInstance().getServer().saveModelAt(modelFilePath);
+                            Logging.logger.info("Model saved at " + msg);
+                        }
                     }
 
                     // Reset classes for next iteration
+                    Logging.logger.info("Resetting dao");
                     Dao.getInstance().resetRecords();
+
+                    Logging.logger.info("Resetting user");
                     User.reset();
+
+                    Logging.logger.info("Resetting vehicle");
                     Vehicle.reset();
+
+                    Logging.logger.info("Resetting node");
                     Node.reset();
+
+                    Logging.logger.info("Resetting middle node");
                     NodeMiddle.reset();
+
+                    Logging.logger.info("Resetting visit");
                     Visit.reset();
+
+                    Logging.logger.info("Resetting simulation");
                     Simulation.reset();
                     Solution.reset();
+                    iEpisode++;
+                    Logging.logger.info("Finished resetting.");
                 }
 
             }
@@ -195,8 +218,10 @@ public class Main {
             // Random(iEpisode));
             // Loop throughout the training data
             // to diversify experiences
+            int i = 0;
             for (Date episodeStartDatetime : learningConfig.episodeStartDatetimeListTest) {
-
+                Dao.getInstance().setRecords(learningConfig.arrayFilepathTestingData[i]);
+                i++;
 
                 // Users are sampled randomly
                 // from batch
@@ -212,9 +237,9 @@ public class Main {
                 // Run simulation
 
                 if (simulation.instanceAlreadyProcessed()) {
-                    System.out.println(simulation.getSol().getOutputFile() + " " + "already exists.");
+                    Logging.logger.info(simulation.getSol().getOutputFile() + " " + "already exists.");
                 } else {
-                    System.out.println(String.format("# Processing instance \"%s\"...", simulation.getSol().getOutputFile()));
+                    Logging.logger.info("{}", String.format("# Processing instance \"%s\"...", simulation.getSol().getOutputFile()));
 
 
                     simulation.run();
@@ -223,7 +248,7 @@ public class Main {
                     // Saving episode
                     String headers = "type;config;method;episode;" + "earliest;n_vehicles;n_requests;n_finished;service_rate;max_rounds;round_count;total_delay;distance_empty;distance_loaded;runtime_sec";
                     String episodeInfo = simulation.getSummary(iEpisode);
-                    System.out.println(episodeInfo);
+                    Logging.logger.info(episodeInfo);
                     HelperIO.saveDataWithHeaders(fileName + ".csv", "test;-;" + episodeInfo, headers, true);
 
                 }

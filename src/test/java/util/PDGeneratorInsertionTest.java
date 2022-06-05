@@ -1,5 +1,6 @@
 package util;
 
+import dao.Logging;
 import model.User;
 import model.Vehicle;
 import model.Visit;
@@ -23,18 +24,18 @@ class PDGeneratorInsertionTest {
         Vehicle v1 = new Vehicle(4, 0, 0, false, 4000);
 
 
-        System.out.println("# Requests");
+        Logging.logger.info("# Requests");
         HashSet<User> requests = new HashSet<>(List.of(new User[]{u1, u2, u3}));
-        requests.forEach(user -> System.out.printf("%s-%s\n", user, user.getReqTime()));
+        requests.forEach(user -> Logging.logger.info("{}", String.format("%s-%s\n", user, user.getReqTime())));
         PDGeneratorInsertion pd3 = new PDGeneratorInsertion(requests, v1);
 
-        System.out.println("# Sorted requests");
+        Logging.logger.info("# Sorted requests");
         List<User> sortedRequests = pd3.getRequestListSortedByReversedEarliestTime(requests);
-        sortedRequests.forEach(user -> System.out.printf("%s-%s\n", user, user.getReqTime()));
+        sortedRequests.forEach(user -> Logging.logger.info("{}", String.format("%s-%s\n", user, user.getReqTime())));
 
         while(pd3.hasNext()){
             List<Node> sequence = Arrays.asList(pd3.next());
-//            System.out.println(sequence);
+//            Logging.logger.info(sequence);
         }
     }
 
@@ -59,7 +60,7 @@ class PDGeneratorInsertionTest {
 
         while(pd3.hasNext()){
             List<Node> nextElement = Arrays.asList(pd3.next());
-            //System.out.println(nextElement);
+            //Logging.logger.info(nextElement);
         }
     }
     @org.junit.jupiter.api.Test
@@ -75,17 +76,17 @@ class PDGeneratorInsertionTest {
 
         PDGeneratorInsertion pd3 = new PDGeneratorInsertion(new HashSet<>(List.of(new User[]{u1, u2, u3})), v1);
 
-        System.out.println("# Requests");
+        Logging.logger.info("# Requests");
         HashSet<User> requests = new HashSet<>(List.of(new User[]{u1, u2, u3}));
-        requests.forEach(user -> System.out.printf("%s-%s\n", user, user.getReqTime()));
+        requests.forEach(user -> Logging.logger.info("{}", String.format("%s-%s\n", user, user.getReqTime())));
 
-        System.out.println("# Sorted requests");
+        Logging.logger.info("# Sorted requests");
         List<User> sortedRequests = pd3.getRequestListSortedByReversedEarliestTime(requests);
-        sortedRequests.forEach(user -> System.out.printf("%s-%s\n", user, user.getReqTime()));
+        sortedRequests.forEach(user -> Logging.logger.info("{}", String.format("%s-%s\n", user, user.getReqTime())));
 
 
         while(pd3.hasNext()){
-            System.out.println(Arrays.asList(pd3.next()));
+            Logging.logger.info(String.valueOf(Arrays.asList(pd3.next())));
         }
 
         PDGeneratorInsertion pd2 = new PDGeneratorInsertion(new HashSet<>(List.of(new User[]{u1, u2})), v1);
@@ -95,17 +96,17 @@ class PDGeneratorInsertionTest {
             Node[] sequence = pd2.next();
             pd2List.add(sequence);
             assertEquals(pd2List.size(),new HashSet<>(pd2List).size());
-            System.out.println(Arrays.asList(sequence));
+            Logging.logger.info(String.valueOf(Arrays.asList(sequence)));
         }
 
         PDGeneratorInsertion pd1 = new PDGeneratorInsertion(new HashSet<>(List.of(new User[]{u1})), v1);
         while(pd1.hasNext()){
-            System.out.println(Arrays.asList(pd1.next()));
+            Logging.logger.info(String.valueOf(Arrays.asList(pd1.next())));
         }
 
         PDGeneratorInsertion pd0 = new PDGeneratorInsertion(new HashSet<>(List.of(new User[]{})), v1);
         while(pd0.hasNext()){
-            System.out.println(Arrays.asList(pd0.next()));
+            Logging.logger.info(String.valueOf(Arrays.asList(pd0.next())));
         }
 
 

@@ -1,5 +1,6 @@
 package util.pdcombinatorics;
 
+import dao.Logging;
 import model.User;
 import model.Vehicle;
 import model.Visit;
@@ -71,10 +72,10 @@ class PDGeneratorFactoryTest {
         }
         Instant t4 = Instant.now();
 
-        System.out.printf("  Insertion: %s\nPermutation: %s\n",(t2.getNano()-t1.getNano())/100000, (t4.getNano()-t3.getNano())/100000);
+        Logging.logger.info("{}", String.format("  Insertion: %s\nPermutation: %s\n",(t2.getNano()-t1.getNano())/100000, (t4.getNano()-t3.getNano())/100000));
         assertEquals(setInsertion, setPermutation);
 
-        setInsertion.forEach(s -> System.out.println(s));
+        setInsertion.forEach(s -> Logging.logger.info(s));
 
     }
 
@@ -97,9 +98,9 @@ class PDGeneratorFactoryTest {
         }
         Instant t2 = Instant.now();
 
-        System.out.printf("  Insertion: %s\n",(t2.getNano()-t1.getNano())/100000);
+        Logging.logger.info("{}", String.format("  Insertion: %s\n",(t2.getNano()-t1.getNano())/100000));
 
-        setInsertion.forEach(s -> System.out.println(s));
+        setInsertion.forEach(s -> Logging.logger.info(s));
 
     }
 }

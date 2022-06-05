@@ -2,6 +2,7 @@ package model.graph;
 
 import com.google.common.collect.Sets;
 import dao.Dao;
+import dao.Logging;
 import helper.Runtime;
 import model.User;
 import model.Vehicle;
@@ -60,7 +61,7 @@ public class ParallelGraphRTV implements GraphRTV {
     }
 
     public ParallelGraphRTV(Set<User> allRequests, Set<Vehicle> listVehicles, int maxVehicleCapacity, double timeout, int maxVehReqEdges, int maxReqReqEdges) {
-        System.out.println(String.format("# Matching - RTV - Graph (VR=%d,RR=%d) - #Requests: %d  / #Vehicles: %d (%d) - timeout: %.2f sec", maxVehReqEdges, maxReqReqEdges, allRequests.size(), listVehicles.size(), maxVehicleCapacity, timeout));
+        Logging.logger.info("{}", String.format("# Matching - RTV - Graph (VR=%d,RR=%d) - #Requests: %d  / #Vehicles: %d (%d) - timeout: %.2f sec", maxVehReqEdges, maxReqReqEdges, allRequests.size(), listVehicles.size(), maxVehicleCapacity, timeout));
         this.timeout = (long) (timeout * 1000000000);
 
         // Populate list of feasible trips with current trips
@@ -97,7 +98,10 @@ public class ParallelGraphRTV implements GraphRTV {
         Dao.getInstance().getRunTimes().endTimerFor(Runtime.TIME_RTV_BUILDING_TOTAL);
 
 
-        System.out.println(String.format("\n\n# Matching - RTV" + "\n    - %6.2f s - RV Creation        (%s)" + "\n    - %6.2f s - RTV Initialization " + "\n    - %6.2f s - RTV Building       (%s)", Dao.getInstance().getRunTimes().getExecutionTimeSecFor(Runtime.TIME_CREATE_RV), this.graphRV, Dao.getInstance().getRunTimes().getExecutionTimeSecFor(Runtime.TIME_RTV_INIT), Dao.getInstance().getRunTimes().getExecutionTimeSecFor(Runtime.TIME_RTV_BUILDING_TOTAL), this.getSummaryFeasibleTripsLevel()));
+        Logging.logger.info("# Matching - RTV");
+        Logging.logger.info("    - {} s - RV Creation        ({})", Dao.getInstance().getRunTimes().getExecutionTimeSecFor(Runtime.TIME_CREATE_RV), this.graphRV);
+        Logging.logger.info("    - {} s - RTV Initialization ", Dao.getInstance().getRunTimes().getExecutionTimeSecFor(Runtime.TIME_RTV_INIT));
+        Logging.logger.info("    - {} s - RTV Building       ({})", Dao.getInstance().getRunTimes().getExecutionTimeSecFor(Runtime.TIME_RTV_BUILDING_TOTAL), this.getSummaryFeasibleTripsLevel());
     }
 
     public List<List<VisitObj>> getFeasibleTrips() {
@@ -148,15 +152,15 @@ public class ParallelGraphRTV implements GraphRTV {
 
     public void printFeasibleTrips(String label) {
 
-        System.out.println(label);
+        Logging.logger.info(label);
 
         for (int nOfRquests = 0; nOfRquests < feasibleTrips.size(); nOfRquests++) {
 
-            System.out.println("\n##################### n. requests: " + (nOfRquests + 1));
+            Logging.logger.info("\n##################### n. requests: " + (nOfRquests + 1));
             // Sort per vehicle
             List<VisitObj> sortedVisits = feasibleTrips.get(nOfRquests).stream().sorted((Comparator.comparing(o -> o.getVehicle().toString()))).collect(Collectors.toList());
             for (VisitObj v : sortedVisits) {
-                System.out.println(v);
+                Logging.logger.info(v.toString());
             }
         }
     }
@@ -213,7 +217,8 @@ public class ParallelGraphRTV implements GraphRTV {
         });
         Dao.getInstance().getRunTimes().endTimerFor(Runtime.TIME_RTV_POPULATE_GRAPH);
 
-        System.out.printf("    - %6.2f s - Finding feasible trips\n    - %6.2f s - Populating graph\n", Dao.getInstance().getRunTimes().getExecutionTimeSecFor(Runtime.TIME_RTV_FEASIBLE_TRIPS), Dao.getInstance().getRunTimes().getExecutionTimeSecFor(Runtime.TIME_RTV_POPULATE_GRAPH));
+        Logging.logger.info("    - {} s - Finding feasible trips", Dao.getInstance().getRunTimes().getExecutionTimeSecFor(Runtime.TIME_RTV_FEASIBLE_TRIPS));
+        Logging.logger.info("    - {} s - Populating graph", Dao.getInstance().getRunTimes().getExecutionTimeSecFor(Runtime.TIME_RTV_POPULATE_GRAPH));
     }
 
     /**
@@ -243,7 +248,7 @@ public class ParallelGraphRTV implements GraphRTV {
     private List<List<VisitObj>> getFeasibleTripsVehicle(Vehicle vehicle) {
 
         // Which points can a vehicle access in less than user pickup time?
-        // System.out.printf(" %s (%d) - %4d/%4d\n", vehicle, vehicle.getLastVisitedNode().getNetworkId(), Dao.getInstance().getReachability().get(vehicle.getLastVisitedNode().getNetworkId()).size(), Dao.getInstance().getDistMatrix().length);
+        // Logging.logger.info("{}", String.format(" %s (%d) - %4d/%4d\n", vehicle, vehicle.getLastVisitedNode().getNetworkId(), Dao.getInstance().getReachability().get(vehicle.getLastVisitedNode().getNetworkId()).size(), Dao.getInstance().getDistMatrix().length));
 
         // Process times out after an interval
         long startTime = System.nanoTime();
@@ -429,41 +434,41 @@ public class ParallelGraphRTV implements GraphRTV {
         Map<Integer, Integer> pickupLocationCandidateVehicleCountMap = this.getPickupLocationCandidateVehicleCountMap();
 
         for (Map.Entry<Integer, Integer> e : pickupLocationCandidateVehicleCountMap.entrySet()) {
-            System.out.printf("Network ID: %4d - Accessible: %4d", e.getKey(), e.getValue());
+            Logging.logger.info("Network ID: {} - Accessible: {}", e.getKey(), e.getValue());
         }
 
         for (Map.Entry<Vehicle, Set<VisitObj>> e : this.mapVehicleVisits.entrySet()) {
-            System.out.println("----------------------------------------------------------------------");
-            System.out.println(e.getKey());
-            System.out.println(e.getKey().getVisit());
+            Logging.logger.info("----------------------------------------------------------------------");
+            Logging.logger.info(e.getKey().toString());
+            Logging.logger.info(e.getKey().getVisit().toString());
 
 
             for (VisitObj visit : e.getValue()) {
 
 //                if (v.getTargetNode() != null) {
 //                    int networkId = v.getTargetNode().getNetworkId();
-//                    System.out.println(" Target:" + v.getTargetNode() + "  -  " + networkId);
+//                    Logging.logger.info(" Target:" + v.getTargetNode() + "  -  " + networkId);
 //                    int count = pickupLocationCandidateVehicleCountMap.getOrDefault(networkId, 0);
-//                    System.out.println("Count at :" + v.getTargetNode() + "(" + networkId + "): " + count);
+//                    Logging.logger.info("Count at :" + v.getTargetNode() + "(" + networkId + "): " + count);
 //                }
 
-//                System.out.println("**********************************************************************");
+//                Logging.logger.info("**********************************************************************");
 //                VehicleState vSnap = new VehicleState(visit, Simulation.rightTW,  Simulation.timeHorizon, 0);
-//                System.out.println("  Construct:" + vSnap);
-//                System.out.println("----------------------------------------------------------------------");
-//                //System.out.println("       Post:" + VehicleState.realize(vSnap, Simulation.timeWindow));
-//                System.out.println("----------------------------------------------------------------------");
+//                Logging.logger.info("  Construct:" + vSnap);
+//                Logging.logger.info("----------------------------------------------------------------------");
+//                //Logging.logger.info("       Post:" + VehicleState.realize(vSnap, Simulation.timeWindow));
+//                Logging.logger.info("----------------------------------------------------------------------");
 //                VehicleState vSnapShort = VehicleState.getVisitState(visit, Simulation.rightTW, Simulation.timeWindow, Simulation.timeHorizon);
 //
-//                System.out.println("     Static:" + vSnapShort);
-//                System.out.println("----------------------------------------------------------------------");
-//                System.out.println("1xTW Static:" + VehicleState.realize(vSnapShort, Simulation.rightTW, 1 * Simulation.timeWindow, pickupLocationCandidateVehicleCountMap));
-//                System.out.println("----------------------------------------------------------------------");
-//                System.out.println("2xTW Static:" + VehicleState.realize(vSnapShort, Simulation.rightTW, 2 * Simulation.timeWindow, pickupLocationCandidateVehicleCountMap));
-//                System.out.println("----------------------------------------------------------------------");
-//                System.out.println("3xTW Static:" + VehicleState.realize(vSnapShort, Simulation.rightTW, 3 * Simulation.timeWindow, pickupLocationCandidateVehicleCountMap));
-//                System.out.println("----------------------------------------------------------------------");
-//                System.out.println("4xTW Static:" + VehicleState.realize(vSnapShort, Simulation.rightTW,4 * Simulation.timeWindow, pickupLocationCandidateVehicleCountMap));
+//                Logging.logger.info("     Static:" + vSnapShort);
+//                Logging.logger.info("----------------------------------------------------------------------");
+//                Logging.logger.info("1xTW Static:" + VehicleState.realize(vSnapShort, Simulation.rightTW, 1 * Simulation.timeWindow, pickupLocationCandidateVehicleCountMap));
+//                Logging.logger.info("----------------------------------------------------------------------");
+//                Logging.logger.info("2xTW Static:" + VehicleState.realize(vSnapShort, Simulation.rightTW, 2 * Simulation.timeWindow, pickupLocationCandidateVehicleCountMap));
+//                Logging.logger.info("----------------------------------------------------------------------");
+//                Logging.logger.info("3xTW Static:" + VehicleState.realize(vSnapShort, Simulation.rightTW, 3 * Simulation.timeWindow, pickupLocationCandidateVehicleCountMap));
+//                Logging.logger.info("----------------------------------------------------------------------");
+//                Logging.logger.info("4xTW Static:" + VehicleState.realize(vSnapShort, Simulation.rightTW,4 * Simulation.timeWindow, pickupLocationCandidateVehicleCountMap));
             }
         }
     }

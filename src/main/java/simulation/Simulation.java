@@ -4,6 +4,7 @@ import com.google.common.collect.Sets;
 import config.Config;
 import config.InstanceConfig;
 import dao.Dao;
+import dao.Logging;
 import helper.HelperIO;
 import helper.MethodHelper;
 import helper.Runtime;
@@ -248,14 +249,14 @@ public abstract class Simulation {
 
         if (showRoundInfo) {
             // Print the time window reading
-            System.out.println(roundHeader);
-            System.out.println(roundSnapshot);
+            Logging.logger.info(roundHeader);
+            Logging.logger.info(roundSnapshot);
         }
 
         if (showVehicleStatusInfo) {
 
             // Print vehicle details
-            System.out.println(HelperIO.getVehicleInfo(
+            Logging.logger.info(HelperIO.getVehicleInfo(
                     listVehicles,
                     rightTW,
                     true,
@@ -279,9 +280,9 @@ public abstract class Simulation {
             targets.addAll(nodesFromRejectedUsers);
             targets.addAll(nodesFromUnmetServiceLevelUsers);
             targets.addAll(nodesFromVehicleOrigins);
-            System.out.println("     Rejected = " + nodesFromRejectedUsers.size() + " (" + Sets.intersection(new HashSet<>(targets), new HashSet<>(nodesFromRejectedUsers)).size() + ")");
-            System.out.println("Hired origins = " + nodesFromVehicleOrigins.size() + " (" + Sets.intersection(new HashSet<>(targets), new HashSet<>(nodesFromVehicleOrigins)).size() + ")");
-            System.out.println(" Pickup unmet = " + nodesFromUnmetServiceLevelUsers.size() + " (" + Sets.intersection(new HashSet<>(targets), new HashSet<>(nodesFromUnmetServiceLevelUsers)).size() + ")");
+            Logging.logger.info("     Rejected = " + nodesFromRejectedUsers.size() + " (" + Sets.intersection(new HashSet<>(targets), new HashSet<>(nodesFromRejectedUsers)).size() + ")");
+            Logging.logger.info("Hired origins = " + nodesFromVehicleOrigins.size() + " (" + Sets.intersection(new HashSet<>(targets), new HashSet<>(nodesFromVehicleOrigins)).size() + ")");
+            Logging.logger.info(" Pickup unmet = " + nodesFromUnmetServiceLevelUsers.size() + " (" + Sets.intersection(new HashSet<>(targets), new HashSet<>(nodesFromUnmetServiceLevelUsers)).size() + ")");
 
         } else if (rebalanceUtil.strategy instanceof RebalanceHeuristic) {
             targets = Vehicle.setOfHotPoints;
@@ -371,7 +372,7 @@ public abstract class Simulation {
             // Updating vehicle lists
             listVehicles.removeAll(setDeactivated);
             setHired.removeAll(setDeactivated);
-            System.out.printf("# Removing %d hired vehicles.\n", setDeactivated.size());
+            Logging.logger.info("{}", String.format("# Removing %d hired vehicles.\n", setDeactivated.size()));
 
             runTimes.endTimerFor(Runtime.TIME_UPDATE_FLEET_STATUS);
 
@@ -412,7 +413,7 @@ public abstract class Simulation {
                 roundHiredVehicles.add(vehicle);
             }
 
-            // System.out.println(resultAssignment.getSnapshot(listVehicles));
+            // Logging.logger.info(resultAssignment.getSnapshot(listVehicles));
             ///// 5 - UPDATE WAITING LIST //////////////////////////////////////////////////////////////////////////////
             unassignedRequests = resultAssignment.getRequestsUnassigned();
             roundUnmetServiceLevel = resultAssignment.requestsServicedLevelNotAchieved;
@@ -428,7 +429,7 @@ public abstract class Simulation {
 
                 runTimes.startTimerFor(Runtime.TIME_REBALANCING_FLEET);
                 Set<Vehicle> idleVehicles = Vehicle.getIdleVehiclesFrom(listVehicles);
-                System.out.println("  Rebal. Idle = " + idleVehicles.size());
+                Logging.logger.info("  Rebal. Idle = " + idleVehicles.size());
                 List<Node> targets = getRebalancingTargets();
                 rebalanceUtil.executeStrategy(idleVehicles, targets);
                 runTimes.endTimerFor(Runtime.TIME_REBALANCING_FLEET);
@@ -450,24 +451,32 @@ public abstract class Simulation {
 
         Instant after = Instant.now();
         this.runTime = Duration.between(before, after);
-        System.out.println("Duration:" + runTime.toMinutes());
+        Logging.logger.info("Duration: {}", runTime.toMinutes());
 
-        System.out.printf("FINISHED SIMULATION - Duration=%02d:%02d", runTime.toMinutesPart(), runTime.toSecondsPart());
+        Logging.logger.info("{}", String.format("FINISHED SIMULATION - Duration=%02d:%02d\n", runTime.toMinutesPart(), runTime.toSecondsPart()));
         // Print detailed journeys for each vehicle
-        if (Config.infoHandling.get(Config.SHOW_ALL_VEHICLE_JOURNEYS))
+        if (Config.infoHandling.get(Config.SHOW_ALL_VEHICLE_JOURNEYS)) {
+            Logging.logger.info("Showing vehicle journeys...");
             sol.printAllJourneys(listVehicles);
+        }
 
         // Saving vehicles traces
-        if (Config.infoHandling.get(Config.SAVE_VEHICLE_ROUND_GEOJSON))
+        if (Config.infoHandling.get(Config.SAVE_VEHICLE_ROUND_GEOJSON)) {
+            Logging.logger.info("Saving vehicle round geojson...");
             sol.saveGeoJsonPerVehicle(earliestTime, listVehicles);
+        }
 
         // Save solution to file (summary of rounds)
-        if (Config.infoHandling.get(Config.SAVE_ROUND_INFO_CSV))
+        if (Config.infoHandling.get(Config.SAVE_ROUND_INFO_CSV)) {
+            Logging.logger.info("Saving round info csv...");
             sol.saveRoundInfo();
+        }
 
         // Saving user info (how user was serviced, for example, pickup, dropoff, hired vehicle, delay, etc.)
-        if (Config.infoHandling.get(Config.SAVE_REQUEST_INFO_CSV))
+        if (Config.infoHandling.get(Config.SAVE_REQUEST_INFO_CSV)) {
+            Logging.logger.info("Saving request info csv...");
             sol.saveUserInfo(allRequests);
+        }
     }
 
     private void assertConsistentArrivalDepartureTimesForVehicle(Vehicle vehicle) {
@@ -489,7 +498,7 @@ public abstract class Simulation {
     public boolean allVehicleVisitsAreValid() {
         for (Vehicle vehicle : listVehicles) {
             if (vehicle.getVisit() != null && !vehicle.getVisit().isValid()) {
-                System.out.println(String.format("Sequence of vehicle %s is invalid! Visit: %s", vehicle, vehicle.getVisit()));
+                Logging.logger.info("{}", String.format("Sequence of vehicle %s is invalid! Visit: %s", vehicle, vehicle.getVisit()));
                 return false;
             }
         }
@@ -525,10 +534,10 @@ public abstract class Simulation {
 
                 if (intersection.size() > 0) {
 
-                    System.out.printf("Users=%s are assigned to vehicles %s (%s) and %s (%s).\n", intersection, v1, v1.getId(), v2, v2.getId());
+                    Logging.logger.info("{}", String.format("Users=%s are assigned to vehicles %s (%s) and %s (%s).\n", intersection, v1, v1.getId(), v2, v2.getId()));
 
-                    System.out.println(v1.getVisit());
-                    System.out.println(v2.getVisit());
+                    Logging.logger.info(v1.getVisit().toString());
+                    Logging.logger.info(v2.getVisit().toString());
                     return false;
                 }
             }
@@ -547,17 +556,17 @@ public abstract class Simulation {
     }
 
     private void printCurrentStatus(String label) {
-        System.out.println("\n######################### " + label + " ###########################");
+        Logging.logger.info("\n######################### " + label + " ###########################");
         List<User> inVehicleRequests = Vehicle.getUsersFrom(listVehicles);
         assert inVehicleRequests.size() == new HashSet<>(inVehicleRequests).size();
-        System.out.println(getCollectionInfo("Denied", deniedRequests));
-        System.out.println(getCollectionInfo("Unassigned", unassignedRequests));
-        System.out.println(getCollectionInfo("Finished", finishedRequests));
-        System.out.println(getCollectionInfo("In-Vehicle", inVehicleRequests));
-        System.out.println(getCollectionInfo("All requests", allRequests.values()));
+        Logging.logger.info(getCollectionInfo("Denied", deniedRequests));
+        Logging.logger.info(getCollectionInfo("Unassigned", unassignedRequests));
+        Logging.logger.info(getCollectionInfo("Finished", finishedRequests));
+        Logging.logger.info(getCollectionInfo("In-Vehicle", inVehicleRequests));
+        Logging.logger.info(getCollectionInfo("All requests", allRequests.values()));
         List<User> diff = new ArrayList(allRequests.values());
         diff.removeAll(inVehicleRequests);
-        System.out.println(getCollectionInfo("Diff:", diff));
+        Logging.logger.info(getCollectionInfo("Diff:", diff));
     }
 
     public String getCollectionInfo(String label, Collection collection) {

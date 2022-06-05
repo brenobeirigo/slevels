@@ -1,6 +1,7 @@
 package model.graph;
 
 import dao.Dao;
+import dao.Logging;
 import model.Leg;
 import model.User;
 import model.Vehicle;
@@ -402,21 +403,21 @@ public class GraphRV {
     }
 
     public void printRVEdges() {
-        System.out.println("------- RV EDGES");
+        Logging.logger.info("------- RV EDGES");
         getRVEdges().forEach((user, defaultWeightedEdges) -> {
-            System.out.printf("\n########## %s - (edges=%d)%n", user, defaultWeightedEdges.size());
+            Logging.logger.info("{}", String.format("\n########## %s - (edges=%d)", user, defaultWeightedEdges.size()));
             for (DefaultWeightedEdge edgeRV : defaultWeightedEdges) {
-                System.out.printf("%4d - %s%n", (int) graphRV.getEdgeWeight(edgeRV), edgeRV);
+                Logging.logger.info("{}", String.format("%4d - %s", (int) graphRV.getEdgeWeight(edgeRV), edgeRV));
             }
         });
     }
 
     public void printRREdges() {
-        System.out.println("------- RR EDGES");
+        Logging.logger.info("------- RR EDGES");
         getRREdges().forEach((user, defaultWeightedEdges) -> {
-            System.out.printf("\n########## %s - (edges(source)=%d)%n", user, defaultWeightedEdges.size());
+            Logging.logger.info("{}", String.format("\n########## %s - (edges(source)=%d)", user, defaultWeightedEdges.size()));
             for (DefaultWeightedEdge edgeRV : defaultWeightedEdges) {
-                System.out.printf("%4d - %s%n", (int) graphRV.getEdgeWeight(edgeRV), edgeRV);
+                Logging.logger.info("{}", String.format("%4d - %s", (int) graphRV.getEdgeWeight(edgeRV), edgeRV));
             }
         });
     }

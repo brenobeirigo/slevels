@@ -1,6 +1,7 @@
 package model;
 
 import dao.Dao;
+import dao.Logging;
 import model.node.*;
 import simulation.Method;
 
@@ -271,7 +272,7 @@ public class Vehicle implements Comparable<Vehicle>, Cloneable {
     }
 
     public void printHiringInfo() {
-        System.out.println(this + " - Deadline:" + this.contractDeadline);
+        Logging.logger.info(this + " - Deadline:" + this.contractDeadline);
     }
 
     /**
@@ -483,7 +484,7 @@ public class Vehicle implements Comparable<Vehicle>, Cloneable {
 
         newVisit.setSequenceVisits(deliveriesOrdered);
 
-        System.out.println("DELIVERIES ORDERED:" + newVisit);
+        Logging.logger.info("DELIVERIES ORDERED:" + newVisit);
 
         return newVisit;
     }
@@ -633,7 +634,7 @@ public class Vehicle implements Comparable<Vehicle>, Cloneable {
 
                 /*
 
-                System.out.println(String.format("Shortest path between %s(%d) and %s(%d): %s",
+                Logging.logger.info("{}", String.format("Shortest path between %s(%d) and %s(%d): %s",
                         this.getLastVisitedNode(),
                         this.getLastVisitedNode().getNetworkId(),
                         visitsVehicle.get(pkPos),
@@ -731,10 +732,10 @@ public class Vehicle implements Comparable<Vehicle>, Cloneable {
                 candidateVisit.setVehicle(this);
 
                 /*
-                System.out.println(String.format("Insert %d and %d -%s %s (%s)", pkPos, dpPos, candidateRequest, newSequence, candidateVisit));
-                System.out.println("VISITS = " + visitsVehicle + " - " + candidateRequest.getNodePk() + "-->" + candidateRequest.getNodeDp());
-                System.out.println("#######" + bestVisit);
-                System.out.println("-------" + candidateVisit + "--" + candidateVisit.getSequenceVisits());
+                Logging.logger.info("{}", String.format("Insert %d and %d -%s %s (%s)", pkPos, dpPos, candidateRequest, newSequence, candidateVisit));
+                Logging.logger.info("VISITS = " + visitsVehicle + " - " + candidateRequest.getNodePk() + "-->" + candidateRequest.getNodeDp());
+                Logging.logger.info("#######" + bestVisit);
+                Logging.logger.info("-------" + candidateVisit + "--" + candidateVisit.getSequenceVisits());
                  */
                 // Update best visit (Compare delay)
                 if (bestVisit.compareTo(candidateVisit) > 0) {
@@ -820,12 +821,12 @@ public class Vehicle implements Comparable<Vehicle>, Cloneable {
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
     public void printVisitTrack() {
-        System.out.println("# VISIT TRACK " + this);
+        Logging.logger.info("# VISIT TRACK " + this);
         for (VisitObj v : visitTrack) {
             if (v != null) {
-                System.out.println("  - " + v.getClass() + "=" + v);
+                Logging.logger.info("  - " + v.getClass() + "=" + v);
             } else {
-                System.out.println("  - Parked");
+                Logging.logger.info("  - Parked");
             }
         }
     }
@@ -1012,7 +1013,7 @@ public class Vehicle implements Comparable<Vehicle>, Cloneable {
                         dpPos,
                         currentTime);
 
-                //System.out.println(String.format("Insert %d and %d -%s %s (%s)", pkPos, dpPos, candidateUser, visitSequence, candidateVisit));
+                //Logging.logger.info("{}", String.format("Insert %d and %d -%s %s (%s)", pkPos, dpPos, candidateUser, visitSequence, candidateVisit));
 
                 // Update best visit (Compare delay)
                 if (bestVisit.compareTo(candidateVisit) > 0) {
@@ -1290,7 +1291,7 @@ public class Vehicle implements Comparable<Vehicle>, Cloneable {
 
         // Middle node between last visited and target (if null, middle = target)
         Node middle = this.getMiddleNode();
-        System.out.println(this + " rebalance to closest node " + middle + ". Visit=" + this.getVisit());
+        Logging.logger.info(this + " rebalance to closest node " + middle + ". Visit=" + this.getVisit());
         this.rebalanceTo(middle);
     }
 

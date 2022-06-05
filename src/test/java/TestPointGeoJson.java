@@ -50,8 +50,8 @@ public class TestPointGeoJson {
 
 
 
-        System.out.println(String.join(",", nodes.stream().map(n -> dao.getGeoJsonPointfromServer(n)).collect(Collectors.toList())));
-        System.out.println(String.join(",", edgeList));
+        Logging.logger.info(String.join(",", nodes.stream().map(n -> dao.getGeoJsonPointfromServer(n)).collect(Collectors.toList())));
+        Logging.logger.info(String.join(",", edgeList));
         */
     }
 }

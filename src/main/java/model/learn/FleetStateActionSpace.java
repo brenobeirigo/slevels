@@ -23,6 +23,8 @@ public class FleetStateActionSpace {
     protected int timeHorizon;
     protected int elapsed;
     public FleetStateActionSpaceObject postDecisionStateActionObj;
+    public ExperienceObject experienceObj;
+
 
     public Map<Vehicle, Set<StateAction>> getVehicleStateActionMap() {
         return vehicleStateActionMap;
@@ -159,5 +161,15 @@ public class FleetStateActionSpace {
 
     public void addPostDecisionStateActionObj(FleetStateActionSpaceObject postDecisionStateSpaceObj) {
         this.postDecisionStateActionObj = postDecisionStateSpaceObj;
+    }
+
+    public void setExperience(ExperienceObject xp) {
+        this.experienceObj = xp;
+    }
+
+    public void genExperienceObj() {
+        this.experienceObj = new ExperienceObject(
+                this.getStateActionObject(),
+                this.postDecisionStateActionObj);
     }
 }

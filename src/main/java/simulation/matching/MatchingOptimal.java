@@ -5,6 +5,7 @@ import com.google.common.collect.Sets;
 import config.Config;
 import config.Qos;
 import dao.Dao;
+import dao.Logging;
 import gurobi.*;
 import helper.Runtime;
 import model.*;
@@ -12,6 +13,8 @@ import model.graph.GraphRTV;
 import model.graph.ParallelGraphRTV;
 import model.learn.StateAction;
 import model.node.Node;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import simulation.Method;
 import simulation.Simulation;
 
@@ -20,6 +23,7 @@ import java.util.stream.Collectors;
 
 public class MatchingOptimal implements RideMatchingStrategy {
 
+    Logger logger = LoggerFactory.getLogger(MatchingOptimal.class);
 
     // There might have relocation trips to the same node, this variable helps creating unique labels
     private static int varVisitId = 0;
@@ -170,8 +174,8 @@ public class MatchingOptimal implements RideMatchingStrategy {
         AssignmentILP that = new AssignmentILP(Simulation.rightTW, vehicleVisitMapRTV, unassignedRequests, true);
         for (User u : a.userVisitsMap.keySet()) {
             if (!a.userVisitsMap.get(u).isEmpty() && !a.userVisitsMap.get(u).containsAll(that.userVisitsMap.get(u))) {
-                System.out.println(a.userVisitsMap.get(u));
-                System.out.println(that.userVisitsMap.get(u));
+                logger.info("{}", a.userVisitsMap.get(u));
+                logger.info("{}", that.userVisitsMap.get(u));
                 return false;
             }
         }
@@ -184,27 +188,27 @@ public class MatchingOptimal implements RideMatchingStrategy {
         that.run(new String[]{Objective.TOTAL_REJECTION, Objective.TOTAL_WAITING});
         if (!a.getResult().equals(that.getResult())) {
 
-            System.out.println("# A:");
+            logger.info("# A:");
             a.printObj();
-            System.out.println("# B:");
+            logger.info("# B:");
             that.printObj();
 
             //Objects.equal(unmetServiceLevelClass, that.getResult().unmetServiceLevelClass) &&
             //Objects.equal(nOfRequestsClass, that.getResult().nOfRequestsClass) &&
             //Objects.equal(rejectedServiceLevelClass, that.getResult().rejectedServiceLevelClass &&
             //&& violationCountClassServiceLevel.equals(that.getResult().violationCountClassServiceLevel) &&
-            System.out.println(a.getResult().requestsServicedLevelAchieved.equals(that.getResult().requestsServicedLevelAchieved));
-            System.out.println(a.getResult().requestsServicedLevelNotAchieved.equals(that.getResult().requestsServicedLevelNotAchieved));
-            System.out.println(a.getResult().requestsDisplaced.equals(that.getResult().requestsDisplaced));
-            System.out.println(a.getResult().getVehiclesDisrupted().equals(that.getResult().getVehiclesDisrupted()));
-            System.out.println(a.getResult().roundPrivateRides.equals(that.getResult().roundPrivateRides));
-            System.out.println(a.getResult().getRequestsOK().equals(that.getResult().getRequestsOK()));
-            System.out.println(a.getResult().getVehiclesOK().equals(that.getResult().getVehiclesOK()));
-            System.out.println(a.getResult().getVisitsOK().equals(that.getResult().getVisitsOK()));
-            System.out.println(Sets.difference(a.getResult().getVisitsOK(), that.getResult().getVisitsOK()));
-            System.out.println(a.getResult().getRequestsUnassigned().equals(that.getResult().getRequestsUnassigned()));
-            System.out.println(Sets.difference(a.getResult().getRequestsUnassigned(), that.getResult().getRequestsUnassigned()));
-            System.out.println(a.getResult().getVehiclesHired().equals(that.getResult().getVehiclesHired()));
+            logger.info("{}\n", a.getResult().requestsServicedLevelAchieved.equals(that.getResult().requestsServicedLevelAchieved));
+            logger.info("{}\n", a.getResult().requestsServicedLevelNotAchieved.equals(that.getResult().requestsServicedLevelNotAchieved));
+            logger.info("{}\n", a.getResult().requestsDisplaced.equals(that.getResult().requestsDisplaced));
+            logger.info("{}\n", a.getResult().getVehiclesDisrupted().equals(that.getResult().getVehiclesDisrupted()));
+            logger.info("{}\n", a.getResult().roundPrivateRides.equals(that.getResult().roundPrivateRides));
+            logger.info("{}\n", a.getResult().getRequestsOK().equals(that.getResult().getRequestsOK()));
+            logger.info("{}\n", a.getResult().getVehiclesOK().equals(that.getResult().getVehiclesOK()));
+            logger.info("{}\n", a.getResult().getVisitsOK().equals(that.getResult().getVisitsOK()));
+            logger.info("{}\n", Sets.difference(a.getResult().getVisitsOK(), that.getResult().getVisitsOK()));
+            logger.info("{}\n", a.getResult().getRequestsUnassigned().equals(that.getResult().getRequestsUnassigned()));
+            logger.info("{}\n", Sets.difference(a.getResult().getRequestsUnassigned(), that.getResult().getRequestsUnassigned()));
+            logger.info("{}\n", a.getResult().getVehiclesHired().equals(that.getResult().getVehiclesHired()));
             return false;
         }
         return true;
@@ -215,13 +219,13 @@ public class MatchingOptimal implements RideMatchingStrategy {
         if (!userVisitMapRTV.keySet().containsAll(userVisitMap.keySet())) {
             Set<User> diff = userVisitMap.keySet();
             diff.removeAll(userVisitMapRTV.keySet());
-            System.out.printf("Diff: %s", diff);
+            logger.info("{}", String.format("Diff: %s", diff));
             return false;
         }
         if (!userVisitMap.keySet().containsAll(userVisitMapRTV.keySet())) {
             Set<User> diff = userVisitMapRTV.keySet();
             diff.removeAll(userVisitMap.keySet());
-            System.out.printf("Diff: %s", diff);
+            logger.info("{}", String.format("Diff: %s", diff));
             return false;
         }
 
@@ -257,17 +261,17 @@ public class MatchingOptimal implements RideMatchingStrategy {
             model.optimize();
             Dao.getInstance().getRunTimes().endTimerFor(Runtime.TIME_ILP_SOLVING);
 
-            System.out.printf("\n# Matching - ILP - Building time = %.2f", Dao.getInstance().getRunTimes().getExecutionTimeSecFor(Runtime.TIME_ILP_BUILDING));
-            System.out.printf("\n# Matching - ILP - Opt. time     = %.2f\n", Dao.getInstance().getRunTimes().getExecutionTimeSecFor(Runtime.TIME_ILP_SOLVING));
+            logger.info("# Matching - ILP - Building time = {}", Dao.getInstance().getRunTimes().getExecutionTimeSecFor(Runtime.TIME_ILP_BUILDING));
+            logger.info("# Matching - ILP - Opt. time     = {}", Dao.getInstance().getRunTimes().getExecutionTimeSecFor(Runtime.TIME_ILP_SOLVING));
             if (isModelOptimal() || isTimeLimitReached()) {
 
                 if (isTimeLimitReached()) {
-                    System.out.printf("## TIME LIMIT REACHED = %.2f seconds - Solution count: %s%n", mipTimeLimit, model.get(GRB.IntAttr.SolCount));
+                    logger.info("## TIME LIMIT REACHED = {} seconds - Solution count: {}", mipTimeLimit, model.get(GRB.IntAttr.SolCount));
                 }
 
                 /*if (config.showInfo) {
-                    System.out.println("The optimal objective is " + modbefel.get(GRB.DoubleAttr.ObjVal));
-                    System.out.println("Optimal simulation.rebalancing:");
+                    Logging.logger.info("The optimal objective is " + modbefel.get(GRB.DoubleAttr.ObjVal));
+                    Logging.logger.info("Optimal simulation.rebalancing:");
                 }*/
 
                 extractResult();
@@ -276,10 +280,10 @@ public class MatchingOptimal implements RideMatchingStrategy {
                 computeIIS();
             }
         } catch (GRBException e) {
-            System.out.println("# Matching - ILP - TIME IS OVER - No solution found, keep previous assignment. Gurobi error code: " + e.getErrorCode() + ". " + e.getMessage());
+            Logging.logger.info("# Matching - ILP - TIME IS OVER - No solution found, keep previous assignment. Gurobi error code: " + e.getErrorCode() + ". " + e.getMessage());
             keepPreviousAssignment();
         } catch (Exception e) {
-            System.out.println("XXXXXXX:" + e.getMessage());
+            logger.info("XXXXXXX:" + e.getMessage());
 
         } finally {
             disposeModelEnvironmentAndSave();
@@ -287,7 +291,7 @@ public class MatchingOptimal implements RideMatchingStrategy {
 
 
         //this.runTimes.put(Solution.TIME_MATCHING, System.nanoTime() - this.runTimes.get(Solution.TIME_MATCHING));
-        //System.out.println(String.format("Users assigned (%.2f sec)", this.runTimes.get(Solution.TIME_MATCHING) / 1000000000.0));
+        //logger.info("{}", String.format("Users assigned (%.2f sec)", this.runTimes.get(Solution.TIME_MATCHING) / 1000000000.0));
 
         // Implement solutions
         //result.getVisitsOK().forEach(this::realizeVisit);
@@ -297,11 +301,11 @@ public class MatchingOptimal implements RideMatchingStrategy {
         //assert eachUserIsAssignedToSingleVehicle() : "User is assigned to two different vehicles.";
         //assert allPassengersAreAssigned(): "Vehicle carrying passenger is not matched.";
 
-//        System.out.println("##### BEST VISIT");
+//        logger.info("##### BEST VISIT");
 //        for (VisitObj bestVisit:result.visitsOK) {
-//            System.out.println(bestVisit.getVehicleState());
-//            System.out.println("Request:" + bestVisit.getRequests().size());
-//            System.out.println("Request load:" + bestVisit.getRequestsTotalLoad());
+//            logger.info(bestVisit.getVehicleState());
+//            logger.info("Request:" + bestVisit.getRequests().size());
+//            logger.info("Request load:" + bestVisit.getRequestsTotalLoad());
 //        }
         return result;
     }
@@ -365,12 +369,12 @@ public class MatchingOptimal implements RideMatchingStrategy {
 
     protected void computeIIS() throws GRBException {
         // Compute IIS
-        //System.out.println(String.format("ROUND = %s - The model is infeasible; computing IIS", this.roundCount));
+        //logger.info("{}", String.format("ROUND = %s - The model is infeasible; computing IIS", this.roundCount));
         model.computeIIS();
-        System.out.println("\nThe following constraint(s) cannot be satisfied:");
+        logger.info("\nThe following constraint(s) cannot be satisfied:");
         for (GRBConstr c : model.getConstrs()) {
             if (c.get(GRB.IntAttr.IISConstr) == 1) {
-                System.out.println(c.get(GRB.StringAttr.ConstrName));
+                logger.info(c.get(GRB.StringAttr.ConstrName));
             }
         }
 
@@ -382,7 +386,7 @@ public class MatchingOptimal implements RideMatchingStrategy {
 
     protected void computeIISReduceUntilCanBeSolved() throws GRBException {
         int status = 0;
-        System.out.println("The model is infeasible; computing IIS");
+        logger.info("The model is infeasible; computing IIS");
         LinkedList<String> removed = new LinkedList<String>();
 
         int count = 0;
@@ -390,10 +394,10 @@ public class MatchingOptimal implements RideMatchingStrategy {
         while (true) {
             count++;
             model.computeIIS();
-            System.out.println("\nThe following constraint cannot be satisfied:");
+            logger.info("\nThe following constraint cannot be satisfied:");
             for (GRBConstr c : model.getConstrs()) {
                 if (c.get(GRB.IntAttr.IISConstr) == 1) {
-                    System.out.println(c.get(GRB.StringAttr.ConstrName));
+                    logger.info(c.get(GRB.StringAttr.ConstrName));
                     // Remove a single constraint from the model
                     removed.add(c.get(GRB.StringAttr.ConstrName));
                     model.remove(c);
@@ -401,15 +405,13 @@ public class MatchingOptimal implements RideMatchingStrategy {
                 }
             }
 
-            System.out.println();
-
             model.write(String.format("IIS_assignment_%s_count_%d.lp", this.toString(), count));
 
             model.optimize();
             status = model.get(GRB.IntAttr.Status);
 
             if (status == GRB.Status.UNBOUNDED) {
-                System.out.println("The model cannot be solved "
+                Logging.logger.info("The model cannot be solved "
                         + "because it is unbounded");
                 return;
             }
@@ -418,18 +420,17 @@ public class MatchingOptimal implements RideMatchingStrategy {
             }
             if (status != GRB.Status.INF_OR_UNBD &&
                     status != GRB.Status.INFEASIBLE) {
-                System.out.println("Optimization was stopped with status " +
+                Logging.logger.info("Optimization was stopped with status " +
                         status);
                 return;
             }
         }
 
-        System.out.println("\nThe following constraints were removed "
+        Logging.logger.info("\nThe following constraints were removed "
                 + "to get a feasible LP:");
         for (String s : removed) {
-            System.out.print(s + " ");
+            Logging.logger.info(s + " ");
         }
-        System.out.println();
 
     }
 
@@ -465,7 +466,7 @@ public class MatchingOptimal implements RideMatchingStrategy {
         for (String objective : orderedListOfObjectiveLabels) {
             addObjective(objective);
         }
-        System.out.println("All objectives: " + penObjectives.keySet());
+        logger.info("All objectives: {}", penObjectives.keySet());
         addHierarchicalObjectivesToModel();
 
     }
@@ -772,8 +773,8 @@ public class MatchingOptimal implements RideMatchingStrategy {
         for (VisitObj visit : this.getListOfVisitsFromUser(u)) {
             Vehicle v = visit.getVehicle();
             if (unassignedVehicles.contains(v)) {
-                System.out.println(unassignedVehicles);
-                System.out.println(String.format("Free vehicle %s can service request %s: VisitObj = %s", v, u, v.getVisit()));
+                logger.info("{}", unassignedVehicles);
+                Logging.logger.info("{}", String.format("Free vehicle %s can service request %s: VisitObj = %s", v, u, v.getVisit()));
                 return false;
             }
         }
@@ -781,7 +782,7 @@ public class MatchingOptimal implements RideMatchingStrategy {
         for (Vehicle v : unassignedVehicles) {
             VisitObj candidateVisit = Method.getBestVisitFromPDPermutations(v, new HashSet<>(Arrays.asList(u)));
             if (candidateVisit != null) {
-                System.out.println(String.format("(CANDIDATE VISIT) Free vehicle %s can service request %s: VisitObj = %s", v, u, candidateVisit));
+                Logging.logger.info("{}", String.format("(CANDIDATE VISIT) Free vehicle %s can service request %s: VisitObj = %s", v, u, candidateVisit));
                 return false;
             }
         }
@@ -793,7 +794,7 @@ public class MatchingOptimal implements RideMatchingStrategy {
         List<User> displacedUsers = unassignedUsers.stream().filter(user -> user.getCurrentVisit() != null).collect(Collectors.toList());
         if (!displacedUsers.isEmpty()) {
             for (User displacedUser : displacedUsers) {
-                System.out.println(displacedUser + " - " + displacedUser.getCurrentVisit());
+                logger.info(displacedUser + " - " + displacedUser.getCurrentVisit());
             }
             return false;
         }

@@ -1,3 +1,5 @@
+import dao.Logging;
+
 import java.io.*;
 import java.nio.file.Files;
 import java.nio.file.Paths;
@@ -20,7 +22,7 @@ public class TestSPReading {
         ArrayList<ArrayList<ArrayList<Short>>> sps = new ArrayList<>();
 
         for (int fromNode = 0; fromNode < NETWORK_NODES; fromNode++) {
-            System.out.println("Reading folder " + fromNode);
+            Logging.logger.info("Reading folder " + fromNode);
 
             File folder = new File(shortestPathDistancesFile + String.format("%04d", fromNode));
 
@@ -34,19 +36,19 @@ public class TestSPReading {
                             .toArray();
 
                     //shortestPaths[fromNode][toNode] = Arrays.array;
-                    //System.out.println(Arrays.toString(shortestPaths[fromNode][toNode]));
+                    //Logging.logger.info(Arrays.toString(shortestPaths[fromNode][toNode]));
                 } catch (IOException e) {
                     e.printStackTrace();
                 }
 
-                System.out.println(fileName);
+                Logging.logger.info(fileName);
 
 
             }
 
         }
 
-        System.out.println("Execution " + (System.nanoTime() - runTime) / 1000000);
+        Logging.logger.info("Execution " + (System.nanoTime() - runTime) / 1000000);
 
 
     }
@@ -67,7 +69,7 @@ public class TestSPReading {
                 sps.get(fromNode).add(toNode, sp);
             }
 
-            System.out.println(String.format("Reading folder %s (%.2f s)", fromNode, (double) (System.nanoTime() - runTime) / 1000000000));
+            Logging.logger.info("{}", String.format("Reading folder %s (%.2f s)", fromNode, (double) (System.nanoTime() - runTime) / 1000000000));
         }
     }
 
@@ -100,7 +102,7 @@ public class TestSPReading {
                 // e.printStackTrace();
                 continue;
             }
-            //System.out.println(fileName);
+            //Logging.logger.info(fileName);
 
         }
     }
@@ -175,7 +177,7 @@ public class TestSPReading {
 
             updateShortestPathMatrix(sps, fromNode);
 
-            System.out.println(String.format("Reading folder %s (%.2f s)", fromNode, (double) (System.nanoTime() - runTime) / 1000000000));
+            Logging.logger.info("{}", String.format("Reading folder %s (%.2f s)", fromNode, (double) (System.nanoTime() - runTime) / 1000000000));
         }
 
         return sps;

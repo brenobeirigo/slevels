@@ -2,6 +2,7 @@ package simulation;
 
 import config.Config;
 import dao.Dao;
+import dao.Logging;
 import model.*;
 import model.node.Node;
 import org.paukov.combinatorics.CombinatoricsVector;
@@ -235,7 +236,7 @@ public class Method {
         // If hotpoint is urgent, get closest
         if (hotPoint.getUrgent() > 0) {
 
-            //System.out.println("Addressing urgent...");
+            //Logging.logger.info("Addressing urgent...");
 
             for (int i = 1; i < listIdle.size(); i++) {
 
@@ -296,7 +297,7 @@ public class Method {
         Node middle = vehicle.getMiddleNode();
 
         /*if (vehicle.isServicing())
-            System.out.println(String.format(
+            Logging.logger.info("{}", String.format(
                     ">>>>>> Servicing: %s, target: %s, sequence: %s, middle: %s",
                     vehicle.isServicing(),
                     vehicle.getVisit().getTargetNode(),
@@ -406,7 +407,7 @@ public class Method {
                     vehicle.getCapacity(),
                     vehicle.getContractDeadline());
 
-//            System.out.printf(
+//            Logging.logger.infof(
 //                    "delay = %4d - %s -> %s (network ids = %s)\n", delay,
 //                    sequencePickupsAndDeliveries,
 //                    sequenceFromVehiclePositionToLastDelivery,
@@ -447,7 +448,7 @@ public class Method {
     public static Visit getBestVisitFromAllNodePermutations(Vehicle vehicle, Set<User> requests) {
 
         Generator<Node> gen = getGeneratorOfNodeSequence(requests, vehicle);
-        // System.out.println("Setting up sequence " + vehicle.getVisit());
+        // Logging.logger.info("Setting up sequence " + vehicle.getVisit());
 
         // A single request can be inserted in a vehicle in multiple ways. Only the best (i.e., the lowest delay)
         // visit is inserted in the RTV graph.
@@ -466,7 +467,7 @@ public class Method {
             LinkedList<Node> sequenceFromVehiclePositionToLastDelivery = addLastVisitedAndMiddleNodesToStart(sequence, vehicle);
             sequences.add(sequenceFromVehiclePositionToLastDelivery);
 
-            // System.out.println("Seq. from last: " + sequenceFromVehiclePositionToLastDelivery);
+            // Logging.logger.info("Seq. from last: " + sequenceFromVehiclePositionToLastDelivery);
 
             if (sequenceFromVehiclePositionToLastDelivery == null)
                 continue;
@@ -550,11 +551,11 @@ public class Method {
         // A single request can be inserted in a vehicle in multiple ways. Only the best (i.e., the lowest delay)
         // visit is inserted in the RTV graph.
 
-        //System.out.printf("User %s, vehicle=%s, visit=%s\n", request, vehicle, vehicle.getVisit());
+        //Logging.logger.info("{}", String.format("User %s, vehicle=%s, visit=%s\n", request, vehicle, vehicle.getVisit()));
 
         // Do not try inserting request in the same vehicle again
         if (vehicle.hasAlreadyBeenAssignedToUser(request)) {
-            //System.out.printf("User %s already in %s. Visit=%s.\n", request, vehicle, vehicle.getVisit());
+            //Logging.logger.info("{}", String.format("User %s already in %s. Visit=%s.\n", request, vehicle, vehicle.getVisit()));
             return vehicle.getVisit();
         }
 
@@ -567,8 +568,8 @@ public class Method {
         while (perms.hasNext()) {
 
             Node[] PDPermutation = perms.next();
-            //System.out.println(Arrays.asList(PDPermutation));
-            //System.out.println(vehicle.getVisit());
+            //Logging.logger.info(Arrays.asList(PDPermutation));
+            //Logging.logger.info(vehicle.getVisit());
             Leg draftVisit = Visit.getDraftVisit(vehicle, PDPermutation);
 
             // Update if delay is valid
@@ -625,8 +626,8 @@ public class Method {
     }
 
     private static void printMapOfNodesPerNetworkIdSortedByEarliestTime(Vehicle vehicle, Visit visit) {
-        System.out.printf("BEST(%s):(%s)\n", vehicle, visit.getSequenceVisits());
-        System.out.printf("ARRIVALS: %s\n", Visit.getArrivalTimesFromVisit(vehicle, visit));
+        Logging.logger.info("{}", String.format("BEST(%s):(%s)\n", vehicle, visit.getSequenceVisits()));
+        Logging.logger.info("{}", String.format("ARRIVALS: %s\n", Visit.getArrivalTimesFromVisit(vehicle, visit)));
         //Map<Integer, TreeSet<Node>> networkIdNodes = getMapNetworkIdNodes(visit.getSequenceVisits());
         //sortNodesPerNetworkIdsByEarliestArrivalTime(networkIdNodes);
     }
@@ -641,7 +642,7 @@ public class Method {
                         node.getArrivalSoFar() == null ? "-" : node.getArrivalSoFar(),
                         node.getLatest() == Integer.MAX_VALUE ? "-" : node.getLatest()));
             }
-            System.out.println(b);
+            Logging.logger.info(b.toString());
         }
     }
 

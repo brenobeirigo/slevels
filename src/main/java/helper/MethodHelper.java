@@ -1,6 +1,7 @@
 package helper;
 
 import dao.Dao;
+import dao.Logging;
 import model.User;
 import model.Vehicle;
 import model.node.Node;
@@ -24,7 +25,7 @@ public class MethodHelper {
 
     public static Set<Vehicle> createListVehicles(int n, int size, boolean uniqueSize, int currentTime, Random seed, int maxFleetSize) {
 
-        //System.out.println("Creating vehicles...");
+        //Logging.logger.info("Creating vehicles...");
         Set<Vehicle> listVehicle = new HashSet<>();
 
         //TODO: initial distribution (vsize = [1,2,3,4,...,n]
@@ -50,18 +51,18 @@ public class MethodHelper {
             //
             short randomOrigin = (short) (seed.nextDouble() * maxFleetSize);
 
-            //System.out.println("Vehicles:" + randomOrigin + "-" + Dao.getInstance().getDistMatrix().length);
-            //System.out.println(randomOrigin);
+            //Logging.logger.info("Vehicles:" + randomOrigin + "-" + Dao.getInstance().getDistMatrix().length);
+            //Logging.logger.info(randomOrigin);
             listVehicle.add(new Vehicle(vSize, randomOrigin, currentTime));
         }
-        //System.out.println(listVehicle.size() + " vehicles created.");
+        //Logging.logger.info(listVehicle.size() + " vehicles created.");
         return listVehicle;
     }
 
 
     public static List<Vehicle> createListVehicles(Map<Integer, Integer> vPerCapacity) {
 
-        //System.out.println("Creating vehicles...");
+        //Logging.logger.info("Creating vehicles...");
         List<Vehicle> listVehicle = new ArrayList<>();
 
         for (Map.Entry<Integer, Integer> e : vPerCapacity.entrySet()) {
@@ -104,16 +105,16 @@ public class MethodHelper {
 
 
     public static void main(String[] str) {
-        System.out.println("Getting latest distances...");
+        Logging.logger.info("Getting latest distances...");
         for (int i = 0; i < 1000; i++) {
             for (int j = 0; j < 1000; j++) {
                 int latest = Method.getEarliestDp(0, i, j, "A");
-                System.out.println("Earliest:" + 0 + " - Latest time: " + latest);
+                Logging.logger.info("Earliest:" + 0 + " - Latest time: " + latest);
             }
         }
 
         for (int i = 0; i < Node.MAX_NUMBER_NODES; i++) {
-            System.out.println(User.status[i][0] + " - " + User.status[i][1] + " - " + User.status[i][2]);
+            Logging.logger.info(User.status[i][0] + " - " + User.status[i][1] + " - " + User.status[i][2]);
 
         }
     }

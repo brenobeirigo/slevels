@@ -1,5 +1,6 @@
 package util.pdcombinatorics;
 
+import dao.Logging;
 import model.User;
 import model.Vehicle;
 import org.testng.annotations.Test;
@@ -25,22 +26,22 @@ public class PDInsertionGroupTest {
 
         PDGeneratorInsertion pd3 = new PDGeneratorInsertion(new HashSet<>(List.of(new User[]{u1, u2, u3})), v1);
         while(pd3.hasNext()){
-            System.out.println(Arrays.asList(pd3.next()));
+            Logging.logger.info(String.valueOf(Arrays.asList(pd3.next())));
         }
 
         PDGeneratorInsertion pd2 = new PDGeneratorInsertion(new HashSet<>(List.of(new User[]{u1, u2})), v1);
         while(pd2.hasNext()){
-            System.out.println(Arrays.asList(pd2.next()));
+            Logging.logger.info(String.valueOf(Arrays.asList(pd2.next())));
         }
 
         PDGeneratorInsertion pd1 = new PDGeneratorInsertion(new HashSet<>(List.of(new User[]{u1})), v1);
         while(pd1.hasNext()){
-            System.out.println(Arrays.asList(pd1.next()));
+            Logging.logger.info(String.valueOf(Arrays.asList(pd1.next())));
         }
 
         PDGeneratorInsertion pd0 = new PDGeneratorInsertion(new HashSet<>(List.of(new User[]{})), v1);
         while(pd0.hasNext()){
-            System.out.println(Arrays.asList(pd0.next()));
+            Logging.logger.info(String.valueOf(Arrays.asList(pd0.next())));
         }
 
 

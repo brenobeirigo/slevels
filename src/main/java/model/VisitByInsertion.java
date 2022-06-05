@@ -126,7 +126,7 @@ public class VisitByInsertion extends Visit implements Runnable {
 
         // Update loads (DP nodes have negative loads)
         int load = intermediate[1] + toNode.getLoad();
-        //System.out.println("Load:"+load);
+        //Logging.logger.info("Load:"+load);
 
         // Capacity constraint (if lower than zero, sequence is invalid! Visited DP before PK)
         if (load < 0 || load > this.vehicle.getCapacity()) {

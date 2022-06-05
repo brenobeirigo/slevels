@@ -101,20 +101,20 @@ public class SimulationFCFS extends Simulation {
         int distOriginPkUser = Dao.getInstance().getDistSec(closestRegionCenterId, u.getNodePk().getNetworkId());
 
         int distPkDp = u.getDistFromTo();
-        //System.out.println("Distance origin pickup user: " + distOriginPkUser);
-        //System.out.println("   Distance pickup delivery: " + distPkDp);
-        //System.out.println("               Current time: " + contractDeadline);
-        //System.out.println("              User deadline: (pk:" + u.getNodePk().getLatest() + " / dp:"+ u.getNodeDp().getLatest()+ ")");
-        //System.out.println("   Distance pickup delivery: " + distPkDp);
+        //logger.info("Distance origin pickup user: " + distOriginPkUser);
+        //logger.info("   Distance pickup delivery: " + distPkDp);
+        //logger.info("               Current time: " + contractDeadline);
+        //logger.info("              User deadline: (pk:" + u.getNodePk().getLatest() + " / dp:"+ u.getNodeDp().getLatest()+ ")");
+        //logger.info("   Distance pickup delivery: " + distPkDp);
 
         // Deadline is the delivery time of user who caused hiring
         if (contractDuration == Config.DURATION_SINGLE_RIDE) {
             contractDeadline += distOriginPkUser + distPkDp;
-            //System.out.println("  (single) Contract deadline: " + contractDeadline);
+            //logger.info("  (single) Contract deadline: " + contractDeadline);
 
         } else {
             contractDeadline += contractDuration;
-            //System.out.println("          Contract deadline: " + contractDeadline);
+            //logger.info("          Contract deadline: " + contractDeadline);
         }
 
         return new Vehicle(u.getNumPassengers(), closestRegionCenterId, currentTime, true, contractDeadline);
@@ -142,7 +142,7 @@ public class SimulationFCFS extends Simulation {
         // Get service rate of user u
         double serviceRate = Config.getInstance().qosDic.get(u.getPerformanceClass()).serviceRate;
 
-        //System.out.print(String.format("\n2) %f <= %f : User: %s", draw, serviceRate, u));
+        //Logging.logger.info("{}", String.format("\n2) %f <= %f : User: %s", draw, serviceRate, u));
 
         // E.g., B - 0.8 <= 1? Yes! Add vehicle and try again to service customer
         // E.g., A - 1.0 <= 1? Yes! Add vehicle and try again to service customer

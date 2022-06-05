@@ -2,6 +2,7 @@ package model.graph;
 
 import com.google.common.collect.Sets;
 import dao.Dao;
+import dao.Logging;
 import helper.Runtime;
 import model.User;
 import model.Vehicle;
@@ -36,7 +37,7 @@ public class StandardGraphRTV implements GraphRTV {
     }
 
     public StandardGraphRTV(Set<User> allRequests, Set<Vehicle> listVehicles, int maxVehicleCapacity, double timeout, int maxVehReqEdges, int maxReqReqEdges) {
-        System.out.println(String.format("# Matching - RTV - Graph (VR=%d,RR=%d) - #Requests: %d  / #Vehicles: %d (%d) - timeout: %.2f sec", maxVehReqEdges, maxReqReqEdges, allRequests.size(), listVehicles.size(), maxVehicleCapacity, timeout));
+        Logging.logger.info("{}", String.format("# Matching - RTV - Graph (VR=%d,RR=%d) - #Requests: %d  / #Vehicles: %d (%d) - timeout: %.2f sec", maxVehReqEdges, maxReqReqEdges, allRequests.size(), listVehicles.size(), maxVehicleCapacity, timeout));
         this.timeout = (long) (timeout * 1000000000);
 
         // Populate list of feasible trips with current trips
@@ -70,7 +71,7 @@ public class StandardGraphRTV implements GraphRTV {
         Dao.getInstance().getRunTimes().endTimerFor(Runtime.TIME_RTV_BUILDING_TOTAL);
 
 
-        System.out.println(String.format(
+        Logging.logger.info("{}", String.format(
                 "\n\n# Matching - RTV"
                         + "\n    - %6.2f s - RV Creation        (%s)"
                         + "\n    - %6.2f s - RTV Initialization "
@@ -176,7 +177,7 @@ public class StandardGraphRTV implements GraphRTV {
             DefaultWeightedEdge requestVisitEdge = graphRTV.addEdge(request, visit);
             graphRTV.setEdgeWeight(requestVisitEdge, userDelayMap.get(request));
             // double a = graphRTV.getEdgeWeight(requestVisitEdge);
-            // System.out.println(request + "-" + a);
+            // Logging.logger.info(request + "-" + a);
         }
 
         // assert visit.getRequests() != null && !visit.getRequests().isEmpty() : String.format("VISIT %s", visit);
@@ -185,29 +186,29 @@ public class StandardGraphRTV implements GraphRTV {
 
     public void printFeasibleTrips(String label) {
 
-        System.out.println(label);
+        Logging.logger.info(label);
 
         for (int nOfRquests = 0; nOfRquests < feasibleTrips.size(); nOfRquests++) {
 
-            System.out.println("\n##################### n. requests: " + (nOfRquests + 1));
+            Logging.logger.info("\n##################### n. requests: " + (nOfRquests + 1));
             // Sort per vehicle
             List<VisitObj> sortedVisits = feasibleTrips.get(nOfRquests).stream().sorted((Comparator.comparing(o -> o.getVehicle().toString()))).collect(Collectors.toList());
             for (VisitObj v : sortedVisits) {
-                System.out.println(v);
+                Logging.logger.info(v.toString());
             }
         }
     }
 
     public void printDetailedVisitsLevel() {
 
-        System.out.println("### Vertices:");
+        Logging.logger.info("### Vertices:");
         for (Object o : this.graphRTV.vertexSet()) {
-            System.out.println(o);
+            Logging.logger.info(o.toString());
         }
         for (int i = 0; i < feasibleTrips.size(); i++) {
-            System.out.println(String.format("#### RTV LEVEL %d", i));
+            Logging.logger.info("{}", String.format("#### RTV LEVEL %d", i));
             for (VisitObj visit : feasibleTrips.get(i)) {
-                System.out.println(String.format(" - %s", visit));
+                Logging.logger.info("{}", String.format(" - %s", visit));
             }
         }
     }
@@ -251,9 +252,9 @@ public class StandardGraphRTV implements GraphRTV {
                     }});
         Dao.getInstance().getRunTimes().endTimerFor(Runtime.TIME_RTV_POPULATE_GRAPH);
 
-        System.out.printf("    - %6.2f s - Finding feasible trips\n    - %6.2f s - Populating graph\n",
+        Logging.logger.info("{}", String.format("    - %6.2f s - Finding feasible trips\n    - %6.2f s - Populating graph\n",
                 Dao.getInstance().getRunTimes().getExecutionTimeSecFor(Runtime.TIME_RTV_FEASIBLE_TRIPS),
-                Dao.getInstance().getRunTimes().getExecutionTimeSecFor(Runtime.TIME_RTV_POPULATE_GRAPH));
+                Dao.getInstance().getRunTimes().getExecutionTimeSecFor(Runtime.TIME_RTV_POPULATE_GRAPH)));
     }
 
     /**
@@ -283,7 +284,7 @@ public class StandardGraphRTV implements GraphRTV {
     private List<List<VisitObj>> getFeasibleTripsVehicle(Vehicle vehicle) {
 
         // Which points can a vehicle access in less than user pickup time?
-        // System.out.printf(" %s (%d) - %4d/%4d\n", vehicle, vehicle.getLastVisitedNode().getNetworkId(), Dao.getInstance().getReachability().get(vehicle.getLastVisitedNode().getNetworkId()).size(), Dao.getInstance().getDistMatrix().length);
+        // Logging.logger.info("{}", String.format(" %s (%d) - %4d/%4d\n", vehicle, vehicle.getLastVisitedNode().getNetworkId(), Dao.getInstance().getReachability().get(vehicle.getLastVisitedNode().getNetworkId()).size(), Dao.getInstance().getDistMatrix().length));
 
         // Process times out after an interval
         long startTime = System.nanoTime();

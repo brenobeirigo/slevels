@@ -130,11 +130,11 @@ public class StateAction implements Comparable<StateAction>, VisitObj {
 //        int indexInsertionArrival = Dao.getInstance().getInsertionPoint(nextTimestep, preVehicleState.nodeArrivals);
 //
 //
-////        System.out.printf("Timestep normal: %.2f\n", postVehicleState.timestepNormal);
-////        System.out.println("Insertion point: " + indexInsertionArrival);
-////        System.out.println("        Elapsed: " + elapsed);
-////        System.out.println("       Stepsize: " + timestepInterval);
-////        System.out.println("  Next timestep: " + nextTimestep);
+////        Logging.logger.info("{}", String.format("Timestep normal: %.2f\n", postVehicleState.timestepNormal));
+////        Logging.logger.info("Insertion point: " + indexInsertionArrival);
+////        Logging.logger.info("        Elapsed: " + elapsed);
+////        Logging.logger.info("       Stepsize: " + timestepInterval);
+////        Logging.logger.info("  Next timestep: " + nextTimestep);
 //
 //        // Vehicle has not reached the next node but may have reached another middle point
 //
@@ -301,7 +301,7 @@ public class StateAction implements Comparable<StateAction>, VisitObj {
                 for (Node destinationNode : visit.getSequenceVisits()) {
 
                     int distanceLeg = Dao.getInstance().getDistSec(originNode, destinationNode);
-                    //System.out.printf("%s -> %s -> %s - Arrival: %s", originNode, distanceLeg, destinationNode, arrivalTime);
+                    //Logging.logger.info("{}", String.format("%s -> %s -> %s - Arrival: %s", originNode, distanceLeg, destinationNode, arrivalTime));
                     if (distanceLeg == 0) {
                         int indexLastNode = vs.nodeArrivals.size() - 1;
                         currentLoad += destinationNode.getLoad();
@@ -322,7 +322,7 @@ public class StateAction implements Comparable<StateAction>, VisitObj {
 
 
                         arrivalTime = arrivalTime + distanceLeg;
-                        //System.out.println(visit.getVehicle().getLastVisitedNode() +"="+ arrivalTime);
+                        //Logging.logger.info(visit.getVehicle().getLastVisitedNode() +"="+ arrivalTime);
                         currentLoad += destinationNode.getLoad();
 
                         vs.networkIds.add(destinationNode.getNetworkId());
@@ -349,9 +349,9 @@ public class StateAction implements Comparable<StateAction>, VisitObj {
 
 //        if(visit.getSequenceVisits()!= null) {
 //            Leg a = Visit.getDraftVisit(visit.getSequenceVisits().toArray(new Node[visit.getVisitSequenceSize()]));
-//            System.out.println(a);
-//            System.out.println(vs);
-//            System.out.println(visit);
+//            Logging.logger.info(a);
+//            Logging.logger.info(vs);
+//            Logging.logger.info(visit);
 //            assert a.delay == vs.totalDelay: String.format(
 //                    "%s - %s - %s - Visit: %s",
 //                    Arrays.toString(visit.getSequenceVisits().toArray(new Node[visit.getVisitSequenceSize()])),

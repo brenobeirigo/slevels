@@ -4,6 +4,7 @@ import config.Config;
 import config.CustomerBaseConfig;
 import config.InstanceConfig;
 import dao.Dao;
+import dao.Logging;
 import model.User;
 import model.Vehicle;
 import model.Visit;
@@ -30,7 +31,6 @@ class ResultAssignmentTest {
             instanceSettings = Config.createInstanceFrom(s);
 
             Date earliestTime = Config.formatter_date_time.parse("2011-02-12 00:00:00");
-            Config.getInstance().setEarliestTime(earliestTime);
             CustomerBaseConfig customerBaseSettings = instanceSettings.getCustomerBaseSettingsArray().get(0);
             Config.getInstance().updateQosDic(customerBaseSettings.qosDic);
 
@@ -48,7 +48,7 @@ class ResultAssignmentTest {
             Vehicle emptyVehicle = new Vehicle(4, 0, 0, false, 4000);
 
             VisitObj bestVisit = Method.getBestVisitFromInsertion(fullVehicle, u1);
-            System.out.println(bestVisit);
+            Logging.logger.info(bestVisit.toString());
 
             //public Visit(Node[] sequencePD, int delay, int idleness, Vehicle vehicle, Set<User> requests) {
 //            Node[] sequence = new Node[]{u5.getNodeDp(), u6.getNodeDp()};

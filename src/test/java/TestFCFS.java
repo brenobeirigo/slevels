@@ -1,4 +1,5 @@
 import dao.Dao;
+import dao.Logging;
 import model.User;
 import model.Vehicle;
 
@@ -32,41 +33,41 @@ public class TestFCFS {
         Vehicle v1 = new Vehicle(4, 0, 12, 23);
 
 
-        System.out.println("10 seconds...");
+        Logging.logger.info("10 seconds...");
         List<Vehicle> listV = TestHelperMethods.createListVehicles(5, 4);
 
-        System.out.println("VEHICLE LIST:");
+        Logging.logger.info("VEHICLE LIST:");
         for (Vehicle v : listV) {
-            System.out.println(v);
+            Logging.logger.info(v.toString());
         }
 
 //        Set<User> listU = dao.getListTrips(1, 20);
 //
-//        System.out.println("USER LIST:");
+//        Logging.logger.info("USER LIST:");
 //        for (User u : listU) {
-//            System.out.println(u);
+//            Logging.logger.info(u);
 //        }
 
         for (int i = 0; i < 5 * 3600; i = i + 30) {
-            System.out.println("TIME:" + i);
+            Logging.logger.info("TIME:" + i);
             //Set<User> ok = Method.getSolutionFCFS(new HashSet<>(listU), listV, false, true, i, 10, false);
 
-            System.out.println("USER OK:");
+            Logging.logger.info("USER OK:");
             for (Vehicle v : listV) {
                 if (v.getVisit() != null) {
-                    System.out.println(v.getInfo());
+                    Logging.logger.info(v.getInfo());
                 }
             }
 
-            System.out.println("Updating...");
+            Logging.logger.info("Updating...");
             update_current_time(listV, i);
 
         }
 
 
-        //System.out.println("USER OK:");
+        //Logging.logger.info("USER OK:");
         //for (Model.User u:ok) {
-        //    System.out.println(ok);
+        //    Logging.logger.info(ok);
         //}
 
 

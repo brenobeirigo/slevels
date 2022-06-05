@@ -51,7 +51,7 @@ public class MatchingFCFSHiring implements RideMatchingStrategy {
         // Get service rate of user u
         double serviceRate = Config.getInstance().qosDic.get(u.getPerformanceClass()).serviceRate;
 
-        //System.out.print(String.format("\n2) %f <= %f : User: %s", draw, serviceRate, u));
+        //Logging.logger.info("{}", String.format("\n2) %f <= %f : User: %s", draw, serviceRate, u));
 
         // E.g., B - 0.8 <= 1? Yes! Add vehicle and try again to service customer
         // E.g., A - 1.0 <= 1? Yes! Add vehicle and try again to service customer
@@ -140,7 +140,7 @@ public class MatchingFCFSHiring implements RideMatchingStrategy {
 //                    listVehicles,
 //                    currentTime,
 //                    stopAtFirstBest);
-//            System.out.printf("%s - %s\n", u, bestVisit);
+//            Logging.logger.info("{}", String.format("%s - %s\n", u, bestVisit));
 //            // Depending on user class, decide if new vehicle will be created.
 //            if (bestVisit == null) {
 //
@@ -156,7 +156,7 @@ public class MatchingFCFSHiring implements RideMatchingStrategy {
 //                } else {
 //
 //                    if (configMatching.rebalanceUtil.showInfo)
-//                        System.out.println("CAN'T SERVICE - User:" +
+//                        Logging.logger.info("CAN'T SERVICE - User:" +
 //                                u + " - Node PK: " +
 //                                u.getNodePk() +
 //                                " - Node PK network id:" +
@@ -164,7 +164,7 @@ public class MatchingFCFSHiring implements RideMatchingStrategy {
 //                                " - Increasing");
 //                    // User is rejected if no vehicle could be hired and service level could not be met
 //
-//                    System.out.println("Cant match user");
+//                    Logging.logger.info("Cant match user");
 //                }
 //            }
 //
@@ -177,15 +177,15 @@ public class MatchingFCFSHiring implements RideMatchingStrategy {
 //                /*Visit clone = new Visit(bestVisit);
 //                vehicleOriginalVisit.putIfAbsent(new Vehicle(bestVisit.getVehicle(), clone), clone);
 //
-//                System.out.println(String.format("# User: %s \n# OLD (%s): %s \n# NEW (%s): %s", u, bestVisit.getVehicle().getVisit().hashCode(), bestVisit.getVehicle().getVisit(), clone.hashCode(), clone));
+//                Logging.logger.info("{}", String.format("# User: %s \n# OLD (%s): %s \n# NEW (%s): %s", u, bestVisit.getVehicle().getVisit().hashCode(), bestVisit.getVehicle().getVisit(), clone.hashCode(), clone));
 //
 //
 //                bestVisit.getVehicle().setVisit(bestVisit);
-//                System.out.println(" VEH: " + bestVisit.getVehicle().getVisit() + " - " + bestVisit.getClass());
+//                Logging.logger.info(" VEH: " + bestVisit.getVehicle().getVisit() + " - " + bestVisit.getClass());
 //                for (User visitUser: bestVisit.getRequests())
 //                    userVisitMap.put(visitUser, bestVisit);
 //
-//                System.out.println(userVisitMap);*/
+//                Logging.logger.info(userVisitMap);*/
 //            } else {
 //                result.accountRejected(u);
 //            }

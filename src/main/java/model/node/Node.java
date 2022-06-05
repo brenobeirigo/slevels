@@ -172,7 +172,7 @@ public abstract class Node implements Comparable<Node> {
 
     @Override
     public int hashCode() {
-        // System.out.println("Hash:" + this.id);
+        // Logging.logger.info("Hash:" + this.id);
         return this.id;
     }
 
@@ -223,11 +223,11 @@ public abstract class Node implements Comparable<Node> {
     }
 
     public double getLon() {
-        // System.out.println(networkId);
-        // System.out.println(this);
+        // Logging.logger.info(networkId);
+        // Logging.logger.info(this);
         // TODO where coordinates  come from?
         return Dao.getInstance().getLocation(networkId).getX();
-        //System.out.println(Node.nodeDic.keySet());
+        //Logging.logger.info(Node.nodeDic.keySet());
         //return Node.nodeDic.get(networkId)[1];
     }
 
@@ -237,7 +237,7 @@ public abstract class Node implements Comparable<Node> {
         if (this.urgent > that.urgent) return BEFORE;
         if (this.urgent < that.urgent) return AFTER;
 
-        // System.out.println("comparing " + this + " and " + that + "(" + this.getId() + ", "+ that.getId() + ")");
+        // Logging.logger.info("comparing " + this + " and " + that + "(" + this.getId() + ", "+ that.getId() + ")");
         if (hotSpot.get(this.networkId) < hotSpot.get(that.networkId)) return AFTER;
         if (hotSpot.get(this.networkId) > hotSpot.get(that.networkId)) return BEFORE;
         return EQUAL;

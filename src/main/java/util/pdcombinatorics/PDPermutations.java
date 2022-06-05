@@ -1,5 +1,6 @@
 package util.pdcombinatorics;
 
+import dao.Logging;
 import model.Vehicle;
 import model.node.Node;
 
@@ -35,7 +36,7 @@ public class PDPermutations implements PDGenerator {
         try {
             reader = Files.newBufferedReader(path);
 
-            System.out.print("#PUDOs  #DOs        #Permut.\n");
+            Logging.logger.info("#PUDOs  #DOs        #Permut.");
 
             String strCurrentLine;
             while ((strCurrentLine = reader.readLine()) != null) {
@@ -47,7 +48,7 @@ public class PDPermutations implements PDGenerator {
                 mapPUDO.putIfAbsent(nRequests, new HashMap<>());
                 mapPUDO.get(nRequests).put(nDropoffs, new int[nPermutations][]);
 
-                System.out.printf("%7d %7d %12d\n", nRequests, nDropoffs, nPermutations);
+                Logging.logger.info("{}", String.format("%7d %7d %12d", nRequests, nDropoffs, nPermutations));
                 for (int i = 0; i < nPermutations; i++) {
                     strCurrentLine = reader.readLine();
                     if (!strCurrentLine.equals("")){
@@ -57,7 +58,7 @@ public class PDPermutations implements PDGenerator {
                         mapPUDO.get(nRequests).get(nDropoffs)[i] = null;
                     }
 
-                    //System.out.println(Arrays.toString(mapPUDO.get(nRequests).get(nDropoffs)[i]));
+                    //Logging.logger.info(Arrays.toString(mapPUDO.get(nRequests).get(nDropoffs)[i]));
                 }
 
                 reader.readLine();

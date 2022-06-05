@@ -1,3 +1,5 @@
+import dao.Logging;
+
 import java.util.HashSet;
 import java.util.Set;
 
@@ -17,14 +19,15 @@ public class TestSets {
         setOfSet.add(s1);
         setOfSet.add(s2);
 
-        System.out.println(setOfSet);
+        Logging.logger.info(setOfSet.toString());
+
 
         Set<Integer> s3 = new HashSet<>();
         s3.add(3);
         s3.add(4);
 
         if (setOfSet.contains(s3)) {
-            System.out.println(s3 + " in " + setOfSet);
+            Logging.logger.info(s3 + " in " + setOfSet);
         }
     }
 

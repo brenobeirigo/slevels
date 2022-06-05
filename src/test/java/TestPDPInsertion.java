@@ -1,6 +1,7 @@
 import config.Config;
 import config.CustomerBaseConfig;
 import config.InstanceConfig;
+import dao.Logging;
 import model.User;
 import model.Vehicle;
 import org.testng.annotations.Test;
@@ -40,7 +41,7 @@ public class TestPDPInsertion {
             PDGeneratorSingleInsertion insert = new PDGeneratorSingleInsertion(u1, new ArrayList<>(Arrays.asList(u5.getNodePk(), u5.getNodeDp())));
 
             while (insert.hasNext()){
-                System.out.println(insert.next());
+                Logging.logger.info(Arrays.toString(insert.next()));
             }
         } catch (IOException e) {
             e.printStackTrace();

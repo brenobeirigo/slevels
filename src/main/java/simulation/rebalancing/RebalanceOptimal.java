@@ -1,6 +1,8 @@
 package simulation.rebalancing;
 
+import config.Config;
 import dao.Dao;
+import dao.Logging;
 import gurobi.*;
 import model.Vehicle;
 import model.Visit;
@@ -15,6 +17,25 @@ public class RebalanceOptimal implements RebalanceStrategy {
     public RebalanceOptimal() {
     }
 
+    private static GRBEnv env;
+
+    private void initGurobiEnv() {
+        if (env == null) {
+            // Model
+            try {
+                env = new GRBEnv();
+                if (Config.showRoundMIPInfo()) {
+                    env.set(GRB.IntParam.OutputFlag, 1);
+                } else {
+                    // Turn off logging
+                    env.set(GRB.IntParam.OutputFlag, 0);
+                }
+            } catch (GRBException e) {
+                e.printStackTrace();
+            }
+        }
+    }
+
     @Override
     public void rebalance(Set<Vehicle> idleVehicles, List<Node> targets, Rebalance config) {
 
@@ -24,17 +45,13 @@ public class RebalanceOptimal implements RebalanceStrategy {
             if (targets == null || targets.isEmpty())
                 return;
 
-            /*System.out.println("Targets: " + targets.size());
-            System.out.println("Vehicles: " + idleVehicles.size());
-            System.out.println("TARGETS=" + nTargets + " -- VEHICLES:" + nIdleVehicles);*/
+            /*Logging.logger.info("Targets: " + targets.size());
+            Logging.logger.info("Vehicles: " + idleVehicles.size());
+            Logging.logger.info("TARGETS=" + nTargets + " -- VEHICLES:" + nIdleVehicles);*/
+
 
             // Model
-            GRBEnv env = new GRBEnv();
-
-            if(!config.showInfo){
-                // Turn off logging
-                env.set(GRB.IntParam.OutputFlag, 0);
-            }
+            initGurobiEnv();
 
             GRBModel model = new GRBModel(env);
             model.set(GRB.StringAttr.ModelName, "assignment_vehicles_to_rejected");
@@ -91,13 +108,13 @@ public class RebalanceOptimal implements RebalanceStrategy {
             model.optimize();
             int status = model.get(GRB.IntAttr.Status);
             if (status == GRB.Status.UNBOUNDED) {
-                System.out.println("The model cannot be solved because it is unbounded");
+                Logging.logger.info("The model cannot be solved because it is unbounded");
                 return;
             }
             if (status == GRB.Status.OPTIMAL) {
                 if (config.showInfo) {
-                    System.out.println("The optimal objective is " + model.get(GRB.DoubleAttr.ObjVal));
-                    System.out.println("Optimal simulation.rebalancing:");
+                    Logging.logger.info("The optimal objective is " + model.get(GRB.DoubleAttr.ObjVal));
+                    Logging.logger.info("Optimal simulation.rebalancing:");
                 }
                 v = 0;
                 for (Vehicle vehicle : idleVehicles) {
@@ -111,11 +128,11 @@ public class RebalanceOptimal implements RebalanceStrategy {
                             if (vehicle.getLastVisitedNode().getNetworkId() != target.getNetworkId()) {
 
                                 vehicle.rebalanceTo(target);
-                                //System.out.println("-->>>>>" + label + " " + result + x[v][n] + " = " + distance + "distance2=" + distance2);
+                                //Logging.logger.info("-->>>>>" + label + " " + result + x[v][n] + " = " + distance + "distance2=" + distance2);
 
                             }
                             //else {
-                            //System.out.println("-->>>>>" + label + " " + result + names.get(v).get(n) + " = " + distance + "distance2=" + distance2);
+                            //Logging.logger.info("-->>>>>" + label + " " + result + names.get(v).get(n) + " = " + distance + "distance2=" + distance2);
                             //}
                         }
                         n++;
@@ -125,27 +142,27 @@ public class RebalanceOptimal implements RebalanceStrategy {
                 return;
             }
             if (status != GRB.Status.INF_OR_UNBD && status != GRB.Status.INFEASIBLE) {
-                System.out.println("Optimization was stopped with status " + status);
+                Logging.logger.info("Optimization was stopped with status " + status);
                 return;
             }
 
             // Compute IIS
-            System.out.println("The model is infeasible; computing IIS");
+            Logging.logger.info("The model is infeasible; computing IIS");
             model.computeIIS();
-            System.out.println("\nThe following constraint(s) "
+            Logging.logger.info("\nThe following constraint(s) "
                     + "cannot be satisfied:");
             for (GRBConstr c : model.getConstrs()) {
                 if (c.get(GRB.IntAttr.IISConstr) == 1) {
-                    System.out.println(c.get(GRB.StringAttr.ConstrName));
+                    Logging.logger.info(c.get(GRB.StringAttr.ConstrName));
                 }
             }
 
             // Dispose of model and environment
             model.dispose();
-            env.dispose();
+            // env.dispose();
 
         } catch (GRBException e) {
-            System.out.println("Error code: " + e.getErrorCode() + ". " +
+            Logging.logger.info("Error code: " + e.getErrorCode() + ". " +
                     e.getMessage());
         }
     }

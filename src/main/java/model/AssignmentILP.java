@@ -3,6 +3,7 @@ package model;
 import config.Config;
 import config.Qos;
 import dao.Dao;
+import dao.Logging;
 import gurobi.*;
 import helper.Runtime;
 import simulation.matching.Objective;
@@ -24,7 +25,7 @@ public class AssignmentILP {
     public double objValTotalServiced;
     public double objValueTotalWaiting;
     public double objValTotalServicedPlusVFs;
-    protected GRBEnv env;
+    public static GRBEnv env = null;
     protected GRBModel model;
     protected Set<VisitObj> visits;
     protected Set<User> requests;
@@ -43,7 +44,9 @@ public class AssignmentILP {
     ResultAssignment result;
     private String[] orderedListOfObjectiveLabels;
     private final int varVisitId = 0;
+
     public AssignmentILP(int currentTime, Map<Vehicle, Set<VisitObj>> vehicleVisitsMap, Map<User, Set<VisitObj>> userVisitsMap, boolean guaranteePreviouslyAssignedAreNotDisplaced) {
+        initGurobiEnv();
         this.currentTime = currentTime;
         this.penObjectives = new LinkedHashMap<>();
         this.vehicleVisitsMap = vehicleVisitsMap;
@@ -54,6 +57,23 @@ public class AssignmentILP {
         this.vehicleIds = new LinkedHashSet<>();
         this.vehicleIds.addAll(vehicleVisitsMap.keySet().stream().map(Vehicle::getId).toList());
         this.guaranteePreviouslyAssignedAreNotDisplaced = guaranteePreviouslyAssignedAreNotDisplaced;
+    }
+
+    private void initGurobiEnv() {
+        if (env == null) {
+            // Model
+            try {
+                env = new GRBEnv();
+                if (Config.showRoundMIPInfo()) {
+                    env.set(GRB.IntParam.OutputFlag, 1);
+                } else {
+                    // Turn off logging
+                    env.set(GRB.IntParam.OutputFlag, 0);
+                }
+            } catch (GRBException e) {
+                e.printStackTrace();
+            }
+        }
     }
 
     //    public AssignmentILP(int currentTime, Map<Integer, Set<VisitObj>> vehicleVisitsMap, Map<User, Set<VisitObj>> userVisitsMap) {
@@ -67,9 +87,87 @@ public class AssignmentILP {
 //        this.vehicleIds.addAll(vehicleVisitsMap.keySet());
 //    }
     public AssignmentILP(int currentTime, Map<Vehicle, Set<VisitObj>> vehicleVisitsMap, Set<User> requests, boolean guaranteePreviouslyAssignedAreNotDisplaced) {
-
+        initGurobiEnv();
         this.penObjectives = new LinkedHashMap<>();
         this.vehicleVisitsMap = vehicleVisitsMap;
+        int[] zone_ids = new int[]{105,
+                116,
+                152,
+                264,
+                305,
+                354,
+                372,
+                388,
+                592,
+                612,
+                806,
+                828,
+                845,
+                869,
+                885,
+                932,
+                986,
+                1005,
+                1008,
+                1044,
+                1085,
+                1189,
+                1219,
+                1237,
+                1242,
+                1269,
+                1422,
+                1564,
+                1587,
+                1641,
+                1789,
+                1941,
+                2056,
+                2246,
+                2249,
+                2335,
+                2343,
+                2405,
+                2424,
+                2462,
+                2500,
+                2608,
+                2731,
+                2740,
+                2944,
+                2957,
+                2992,
+                3018,
+                3153,
+                3176,
+                3218,
+                3221,
+                3248,
+                3251,
+                3387,
+                3511,
+                3746,
+                3788,
+                3838,
+                3848,
+                3953,
+                3978,
+                4059,
+                4097,
+                4357,
+                4362,
+                4419};
+
+//        for (int zone_id : zone_ids) {
+//            for (Vehicle vehicle : this.vehicleVisitsMap.keySet()) {
+//                if (vehicle.isParked()) {
+//                    NodeTargetRebalancing targetNode = new NodeTargetRebalancing(vehicle, zone_id);
+//                    VisitRelocation visit = new VisitRelocation(targetNode, vehicle);
+//                    this.vehicleVisitsMap.get(vehicle).add(visit);
+//                }
+//            }
+//
+//        }
         this.userVisitsMap = extractUserVisitsMap(vehicleVisitsMap, requests);
         this.currentTime = currentTime;
 
@@ -134,17 +232,16 @@ public class AssignmentILP {
     }
 
     protected void disposeModelEnvironmentAndSave() {
-
         if (Config.saveRoundMIPInfo())
             saveModel(currentTime);
 
         // Dispose of model and environment
-        model.dispose();
-        try {
-            env.dispose();
-        } catch (GRBException e) {
-            e.printStackTrace();
-        }
+         model.dispose();
+//        try {
+//            env.dispose();
+//        } catch (GRBException e) {
+//            e.printStackTrace();
+//        }
     }
 
     public ResultAssignment getResult() {
@@ -194,12 +291,12 @@ public class AssignmentILP {
             model.optimize();
             Dao.getInstance().getRunTimes().endTimerFor(Runtime.TIME_ILP_SOLVING);
 
-            System.out.printf("\n# Matching - ILP - Building time = %.2f", Dao.getInstance().getRunTimes().getExecutionTimeSecFor(Runtime.TIME_ILP_BUILDING));
-            System.out.printf("\n# Matching - ILP - Opt. time     = %.2f\n", Dao.getInstance().getRunTimes().getExecutionTimeSecFor(Runtime.TIME_ILP_SOLVING));
+            Logging.logger.info("# Matching - ILP - Building time = {}", Dao.getInstance().getRunTimes().getExecutionTimeSecFor(Runtime.TIME_ILP_BUILDING));
+            Logging.logger.info("# Matching - ILP - Opt. time     = {}", Dao.getInstance().getRunTimes().getExecutionTimeSecFor(Runtime.TIME_ILP_SOLVING));
             if (isModelOptimal() || isTimeLimitReached()) {
 
                 if (isTimeLimitReached()) {
-                    System.out.printf("## TIME LIMIT REACHED = %.2f seconds - Solution count: %s%n", mipTimeLimit, model.get(GRB.IntAttr.SolCount));
+                    Logging.logger.info("{}", String.format("## TIME LIMIT REACHED = %.2f seconds - Solution count: %s", mipTimeLimit, model.get(GRB.IntAttr.SolCount)));
                 }
 
                 extractResult();
@@ -212,7 +309,7 @@ public class AssignmentILP {
                 computeIIS();
             }
         } catch (GRBException e) {
-            System.out.println("# Matching - ILP - TIME IS OVER - No solution found, keep previous assignment. Gurobi error code: " + e.getErrorCode() + ". " + e.getMessage());
+            Logging.logger.info("# Matching - ILP - TIME IS OVER - No solution found, keep previous assignment. Gurobi error code: {}", e.getErrorCode() + ". " + e.getMessage());
             keepPreviousAssignment();
         } finally {
             disposeModelEnvironmentAndSave();
@@ -220,7 +317,7 @@ public class AssignmentILP {
 
 
         //this.runTimes.put(Solution.TIME_MATCHING, System.nanoTime() - this.runTimes.get(Solution.TIME_MATCHING));
-        //System.out.println(String.format("Users assigned (%.2f sec)", this.runTimes.get(Solution.TIME_MATCHING) / 1000000000.0));
+        //Logging.logger.info("{}", String.format("Users assigned (%.2f sec)", this.runTimes.get(Solution.TIME_MATCHING) / 1000000000.0));
 
         // Implement solutions
         //result.getVisitsOK().forEach(this::realizeVisit);
@@ -230,48 +327,48 @@ public class AssignmentILP {
         //assert eachUserIsAssignedToSingleVehicle() : "User is assigned to two different vehicles.";
         //assert allPassengersAreAssigned(): "Vehicle carrying passenger is not matched.";
 
-//        System.out.println("##### BEST VISIT");
+//        Logging.logger.info("##### BEST VISIT");
 //        for (VisitObj bestVisit:result.visitsOK) {
-//            System.out.println(bestVisit.getVehicleState());
-//            System.out.println("Request:" + bestVisit.getRequests().size());
-//            System.out.println("Request load:" + bestVisit.getRequestsTotalLoad());
+//            Logging.logger.info(bestVisit.getVehicleState());
+//            Logging.logger.info("Request:" + bestVisit.getRequests().size());
+//            Logging.logger.info("Request load:" + bestVisit.getRequestsTotalLoad());
 //        }
         return result;
     }
 
     public void printObj() {
-        System.out.println("## INPUT");
-        System.out.println("User count: " + this.userVisitsMap.keySet().size());
-        System.out.println("  Vehicles: " + this.vehicleVisitsMap.keySet().size());
+        Logging.logger.info("## INPUT");
+        Logging.logger.info("User count: {}", this.userVisitsMap.keySet().size());
+        Logging.logger.info("  Vehicles: {}", this.vehicleVisitsMap.keySet().size());
 
-        System.out.println("## OBJECTIVES");
+        Logging.logger.info("## OBJECTIVES");
         for (int i = 0; i < this.orderedListOfObjectiveLabels.length; i++) {
 
             if (orderedListOfObjectiveLabels[i].equals(Objective.TOTAL_REJECTION)) {
-                System.out.println(" - " + Objective.TOTAL_REJECTION + " = " + this.objValTotalRejected + " - Serviced = " + this.objValTotalServiced);
+                Logging.logger.info(" - {}", Objective.TOTAL_REJECTION + " = " + this.objValTotalRejected + " - Serviced = " + this.objValTotalServiced);
 
 
             } else if (orderedListOfObjectiveLabels[i].equals(Objective.TOTAL_REQUESTS)) {
-                System.out.println(" - " + Objective.TOTAL_REQUESTS + " = " + this.objValTotalServiced + " - Rejected = " + this.objValTotalRejected);
+                Logging.logger.info(" - {}", Objective.TOTAL_REQUESTS + " = " + this.objValTotalServiced + " - Rejected = " + this.objValTotalRejected);
 
 
             } else if (orderedListOfObjectiveLabels[i].equals(Objective.TOTAL_REQUESTS_PLUS_VFS)) {
-                System.out.println(" - " + Objective.TOTAL_REQUESTS + " = " + this.objValTotalServiced + " - Rejected = " + this.objValTotalRejected);
+                Logging.logger.info(" - {}", Objective.TOTAL_REQUESTS + " = " + this.objValTotalServiced + " - Rejected = " + this.objValTotalRejected);
 
 
             } else if (orderedListOfObjectiveLabels[i].equals(Objective.TOTAL_WAITING)) {
-                System.out.println(" - " + Objective.TOTAL_WAITING + " = " + this.objValueTotalWaiting);
+                Logging.logger.info(" - {}", Objective.TOTAL_WAITING + " = " + this.objValueTotalWaiting);
             }
         }
     }
 
     private void extractObj() throws GRBException {
 
-        // System.out.println("## OBJECTIVES");
+        // logger.info("## OBJECTIVES");
         for (int i = 0; i < this.orderedListOfObjectiveLabels.length; i++) {
             int idxObj = this.orderedListOfObjectiveLabels.length - i - 1;
             double valueObj = model.getObjective(idxObj).getValue();
-            // System.out.println(" - " + this.orderedListOfObjectiveLabels[i] + " = " + valueObj);
+            // logger.info(" - " + this.orderedListOfObjectiveLabels[i] + " = " + valueObj);
             switch (orderedListOfObjectiveLabels[i]) {
                 case Objective.TOTAL_REJECTION -> {
                     this.objValTotalRejected = valueObj;
@@ -327,12 +424,12 @@ public class AssignmentILP {
 
     protected void computeIIS() throws GRBException {
         // Compute IIS
-        //System.out.println(String.format("ROUND = %s - The model is infeasible; computing IIS", this.roundCount));
+        //logger.info("{}", String.format("ROUND = %s - The model is infeasible; computing IIS", this.roundCount));
         model.computeIIS();
-        System.out.println("\nThe following constraint(s) cannot be satisfied:");
+        Logging.logger.info("\nThe following constraint(s) cannot be satisfied:");
         for (GRBConstr c : model.getConstrs()) {
             if (c.get(GRB.IntAttr.IISConstr) == 1) {
-                System.out.println(c.get(GRB.StringAttr.ConstrName));
+                Logging.logger.info(c.get(GRB.StringAttr.ConstrName));
             }
         }
 
@@ -344,7 +441,7 @@ public class AssignmentILP {
 
     protected void computeIISReduceUntilCanBeSolved() throws GRBException {
         int status = 0;
-        System.out.println("The model is infeasible; computing IIS");
+        Logging.logger.info("The model is infeasible; computing IIS");
         LinkedList<String> removed = new LinkedList<String>();
 
         int count = 0;
@@ -352,10 +449,10 @@ public class AssignmentILP {
         while (true) {
             count++;
             model.computeIIS();
-            System.out.println("\nThe following constraint cannot be satisfied:");
+            Logging.logger.info("\nThe following constraint cannot be satisfied:");
             for (GRBConstr c : model.getConstrs()) {
                 if (c.get(GRB.IntAttr.IISConstr) == 1) {
-                    System.out.println(c.get(GRB.StringAttr.ConstrName));
+                    Logging.logger.info(c.get(GRB.StringAttr.ConstrName));
                     // Remove a single constraint from the model
                     removed.add(c.get(GRB.StringAttr.ConstrName));
                     model.remove(c);
@@ -363,15 +460,13 @@ public class AssignmentILP {
                 }
             }
 
-            System.out.println();
-
             model.write(String.format("IIS_assignment_%s_count_%d.lp", this, count));
 
             model.optimize();
             status = model.get(GRB.IntAttr.Status);
 
             if (status == GRB.Status.UNBOUNDED) {
-                System.out.println("The model cannot be solved "
+                Logging.logger.info("The model cannot be solved "
                         + "because it is unbounded");
                 return;
             }
@@ -380,19 +475,17 @@ public class AssignmentILP {
             }
             if (status != GRB.Status.INF_OR_UNBD &&
                     status != GRB.Status.INFEASIBLE) {
-                System.out.println("Optimization was stopped with status " +
+                Logging.logger.info("Optimization was stopped with status {}",
                         status);
                 return;
             }
         }
 
-        System.out.println("\nThe following constraints were removed "
+        Logging.logger.info("\nThe following constraints were removed "
                 + "to get a feasible LP:");
         for (String s : removed) {
-            System.out.print(s + " ");
+            Logging.logger.info(s + " ");
         }
-        System.out.println();
-
     }
 
     protected void addObjective(String objective) {
@@ -433,7 +526,7 @@ public class AssignmentILP {
         for (String objective : orderedListOfObjectiveLabels) {
             addObjective(objective);
         }
-        System.out.println("All objectives: " + penObjectives.keySet());
+        Logging.logger.info("All objectives: {}", penObjectives.keySet());
         addHierarchicalObjectivesToModel();
 
     }
@@ -598,21 +691,8 @@ public class AssignmentILP {
 
     protected void createGurobiModelAndEnvironment() throws GRBException {
 
-        // Model
-        env = new GRBEnv();
 
-        if (config.Config.showRoundMIPInfo()) {
-            env.set(GRB.IntParam.OutputFlag, 1);
-            model = new GRBModel(env);
-            model.set(GRB.IntParam.OutputFlag, 1);
-        } else {
-            // Turn off logging
-            env.set(GRB.IntParam.OutputFlag, 0);
-            model = new GRBModel(env);
-            model.set(GRB.IntParam.OutputFlag, 0);
-        }
-
-
+        model = new GRBModel(env);
         model.set(GRB.StringAttr.ModelName, "assignment_rtv");
         model.set(GRB.DoubleParam.TimeLimit, mipTimeLimit);
         model.set(GRB.DoubleParam.MIPGap, mipGap);

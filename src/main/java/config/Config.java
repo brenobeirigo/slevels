@@ -1,6 +1,7 @@
 package config;
 
 import dao.FileUtil;
+import dao.Logging;
 
 import java.io.IOException;
 import java.text.DateFormat;
@@ -50,9 +51,9 @@ public class Config {
         configInstance = FileUtil.getMapFrom(source);
         Config.infoHandling = configInstance.getInfoHandling();
 
-        System.out.printf("# Reading configuration from \"%s\"...%n", source);
-        System.out.println("# Executing configuration at \"" + configInstance.getInstanceFilePath() + "\"...");
-        System.out.println("# Round information level: " + configInstance.getInfoLevel());
+        Logging.logger.info("# Reading configuration from '{}'...", source);
+        Logging.logger.info("# Executing configuration at '{}'...", configInstance.getInstanceFilePath());
+        Logging.logger.info("# Round information level: {}", configInstance.getInfoLevel());
 
         return InstanceConfig.getInstance(configInstance.getInstanceFilePath());
     }
@@ -115,7 +116,7 @@ public class Config {
 
     public void printQosDic() {
         for (Map.Entry<String, Qos> e : qosDic.entrySet()) {
-            System.out.println(e.getKey() + " - " + e.getValue());
+            Logging.logger.info(e.getKey() + " - " + e.getValue());
         }
     }
 

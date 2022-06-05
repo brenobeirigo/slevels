@@ -8,6 +8,7 @@ import java.util.stream.Collectors;
 
 public class FleetStateActionSpaceObject {
     public static final int MAX_CAPACITY_VEHICLE = 4;
+    protected int id;
 
     // Tracking sequence
     protected Map<Integer,Integer> vehicle_decision_count;
@@ -40,7 +41,19 @@ public class FleetStateActionSpaceObject {
 
     @Override
     public int hashCode() {
-        return Objects.hashCode(obj_request_count, obj_total_delay, obj_total_delay_bonus, num_requests_input, delay_input, vehicle_capacity_input, current_time_input, other_agents_input, path_location_input, occupancy_input);
+        return Objects.hashCode(
+                obj_request_count,
+                obj_total_delay,
+                obj_total_delay_bonus,
+                num_requests_input,
+                delay_input,
+                vehicle_capacity_input,
+                current_time_input,
+                other_agents_input,
+                path_location_input,
+                occupancy_input);
+
+
     }
 
     public FleetStateActionSpaceObject(List<VehicleStateActionSpace> vehicleCandidateDecisions, boolean guaranteeStableArraySize) {
@@ -81,6 +94,8 @@ public class FleetStateActionSpaceObject {
 
             }
         }
+
+        this.id = this.hashCode();
     }
 
     /**

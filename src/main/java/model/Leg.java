@@ -136,7 +136,7 @@ public class Leg implements Comparable<Leg> {
                 if (nextNode instanceof NodePK) {
                     if (arrivalNext < nextNode.getEarliestDeparture()) {
                         this.idleness += nextNode.getEarliest() - arrivalNext;
-                        //System.out.printf("Idleness: %s - NextNode: %s - Arrival next: %s ", this.idleness, nextNode.getEarliest(), this.arrivalNext);
+                        //Logging.logger.info("{}", String.format("Idleness: %s - NextNode: %s - Arrival next: %s ", this.idleness, nextNode.getEarliest(), this.arrivalNext));
                         assert this.idleness == 0;
                     }
                     this.delayBonus += nextNode.getLatest() - arrivalNext;

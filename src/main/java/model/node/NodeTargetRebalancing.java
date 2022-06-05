@@ -8,7 +8,23 @@ public class NodeTargetRebalancing extends Node {
     private int vehicleId;
     private Node genNode;
 
+    public NodeTargetRebalancing(Vehicle vehicle, int networkId){
+        super(networkId);
+        this.tripId = -1;
+        this.load = 0;
+        int distToTarget = Dao.getInstance().getDistSec(vehicle.getLastVisitedNode().getNetworkId(), networkId);
+        this.earliest = vehicle.getEarliestDeparture() + distToTarget;
+        this.latest = Integer.MAX_VALUE;
+        this.earliestDeparture = earliest;
+        this.arrivalSoFar = earliest;
 
+        this.departure = null;
+
+        this.delay = 0;
+        this.maxDelay = 0;
+
+
+    }
     public NodeTargetRebalancing(Vehicle vehicle, Node target) {
         super(target.getId(), target.getNetworkId());
         this.tripId = target.getTripId();
@@ -21,8 +37,7 @@ public class NodeTargetRebalancing extends Node {
         this.earliestDeparture = earliest;
         this.arrivalSoFar = earliest;
 
-        this.arrival = null;
-        this.departure = null;
+         this.departure = null;
 
         this.urgent = target.urgent;
         this.hotness = target.hotness;

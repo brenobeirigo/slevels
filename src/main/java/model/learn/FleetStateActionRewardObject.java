@@ -1,5 +1,6 @@
 package model.learn;
 
+import dao.Logging;
 import model.User;
 import model.Vehicle;
 import model.VisitObj;
@@ -33,7 +34,7 @@ public class FleetStateActionRewardObject {
             if (bestVisit == null){
 
                 result.vehicleBestVisitMap.forEach((a,b)->
-                        System.out.println(a + "-" + b));
+                        Logging.logger.info(a + "-" + b));
             }
             this.vehicle_ids.add(v.getId());
             this.delay_earliest_arrival.add(bestVisit.getDelay());

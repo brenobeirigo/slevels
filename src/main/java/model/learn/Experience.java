@@ -1,5 +1,6 @@
 package model.learn;
 
+import dao.Logging;
 import model.Vehicle;
 import simulation.matching.ResultAssignment;
 
@@ -23,7 +24,7 @@ public class Experience {
         rewardRequest = new HashMap<>();
         rewardDelay = new HashMap<>();
         result.getVisitsOK().forEach(visitObj -> {
-            System.out.println(visitObj);
+            Logging.logger.info(visitObj.toString());
             postDecisionStateAction.put(visitObj.getVehicle(), (StateAction) visitObj);
             rewardDelay.put(visitObj.getVehicle(), visitObj.getDelay());
             rewardRequest.put(visitObj.getVehicle(), visitObj.getRequestsTotalLoad());
@@ -38,7 +39,7 @@ public class Experience {
         rewardRequest = new HashMap<>();
         rewardDelay = new HashMap<>();
         result.getVisitsOK().forEach(visitObj -> {
-            System.out.println(visitObj);
+            Logging.logger.info(visitObj.toString());
             postDecisionStateAction.put(visitObj.getVehicle(), (StateAction) visitObj);
             rewardDelay.put(visitObj.getVehicle(), visitObj.getDelay());
             rewardRequest.put(visitObj.getVehicle(), visitObj.getRequestsTotalLoad());

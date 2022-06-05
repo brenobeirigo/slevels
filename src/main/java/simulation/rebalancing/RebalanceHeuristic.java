@@ -1,6 +1,7 @@
 package simulation.rebalancing;
 
 import dao.Dao;
+import dao.Logging;
 import model.RebalanceEpisode;
 import model.User;
 import model.Vehicle;
@@ -59,7 +60,7 @@ public class RebalanceHeuristic implements RebalanceStrategy {
     @Override
     public void rebalance(Set<Vehicle> idleVehicles, List<Node> targets, Rebalance config) {
 
-        // System.out.println("Rebalancing");
+        // Logging.logger.info("Rebalancing");
 
         // Missed pickup nodes are sorted according to their attractiveness
         // 1st - Service level fail
@@ -67,7 +68,7 @@ public class RebalanceHeuristic implements RebalanceStrategy {
         Collections.sort(Vehicle.setOfHotPoints);
 
         if (config.showInfo)
-            System.out.println("Attractive points: " + Vehicle.setOfHotPoints);
+            Logging.logger.info("Attractive points: " + Vehicle.setOfHotPoints);
 
 
         while (!Vehicle.setOfHotPoints.isEmpty()) {
@@ -96,15 +97,15 @@ public class RebalanceHeuristic implements RebalanceStrategy {
                 // Vehicle is no longer idle
                 idleVehicles.remove(rebalancingVehicle);
 
-                //System.out.println(Node.tabu.size() + " - " +  Node.tabu);
+                //Logging.logger.info(Node.tabu.size() + " - " +  Node.tabu);
                 if (config.showInfo) {
                     String logRelocation = getRebalancingLog(idleVehicles, target, rebalancingVehicle);
-                    System.out.println(logRelocation);
+                    Logging.logger.info(logRelocation);
                 }
             }
 
         }
-        //System.out.println("Addressed: " + addressedHotNodes.size() + " - - Hot: " + Vehicle.setOfHotPoints.size());
+        //Logging.logger.info("Addressed: " + addressedHotNodes.size() + " - - Hot: " + Vehicle.setOfHotPoints.size());
         //Vehicle.setOfHotPoints.removeAll(addressedHotNodes);
     }
 
@@ -123,9 +124,9 @@ public class RebalanceHeuristic implements RebalanceStrategy {
                     .comparing(Vehicle::getRoundsIdle)
                     .thenComparing(a -> Dao.getInstance().getDistSec(hotPoint, a.getLastVisitedNode()), Comparator.reverseOrder())).get();
         }
-        /*System.out.println("FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFff");
+        /*Logging.logger.info("FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFff");
         for(Vehicle v:idleVehicles){
-            System.out.println(v + " - " + v.getRoundsIdle() + " - " + "urgent:"+ hotPoint.getUrgent() + " = " + Dao.getInstance().getDistSec(
+            Logging.logger.info(v + " - " + v.getRoundsIdle() + " - " + "urgent:"+ hotPoint.getUrgent() + " = " + Dao.getInstance().getDistSec(
                     hotPoint,
                     v.getLastVisitedNode()) + (v==idlestClosestVehicle? " ---- HERE":""));
         }*/
@@ -135,7 +136,7 @@ public class RebalanceHeuristic implements RebalanceStrategy {
         // If hotpoint is urgent, get closest
         /*if (hotPoint.getUrgent() > 0) {
 
-            //System.out.println("Addressing urgent...");
+            //Logging.logger.info("Addressing urgent...");
 
             while (it.hasNext()) {
 
@@ -231,7 +232,7 @@ public class RebalanceHeuristic implements RebalanceStrategy {
         if (this.reinsertTargets && !target.isReached()) {
 
             //TODO Does re-adding the node helps? It looks like YES!
-            //System.out.println("STOPPED REB.:" + target.getGenNode().getUrgent() + " - " + target.getGenNode().getArrival() + " :" + this.getSequenceVisits().getFirst() + "-"+target+"-" + target.getGenNode());
+            //Logging.logger.info("STOPPED REB.:" + target.getGenNode().getUrgent() + " - " + target.getGenNode().getArrival() + " :" + this.getSequenceVisits().getFirst() + "-"+target+"-" + target.getGenNode());
 
             // If a node was not reached, it means vehicles keep being assigned around its region.
             // The immediate demand factor is therefore incremented to keep attracting vehicles to this region
@@ -245,7 +246,7 @@ public class RebalanceHeuristic implements RebalanceStrategy {
         vehicle.stoppedRebalancingToPickup();
 
         if (middleNode == null)
-            System.out.println("Middle node");
+            Logging.logger.info("Middle node");
 
         double distTraveledKmCurrentMiddle = Dao.getInstance().getDistKm(currentNode, middleNode);
 
@@ -268,7 +269,7 @@ public class RebalanceHeuristic implements RebalanceStrategy {
                     roundsToFindUser);
 
             if (showInfo) {
-                System.out.println(r);
+                Logging.logger.info(r.toString());
             }
         }
     }

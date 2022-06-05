@@ -2,6 +2,7 @@ package simulation.matching;
 
 import config.Config;
 import config.Qos;
+import dao.Logging;
 import gurobi.GRB;
 import gurobi.GRBException;
 import gurobi.GRBLinExpr;
@@ -52,7 +53,7 @@ public class MatchingOptimalServiceLevel extends MatchingOptimal {
 
             if (isModelOptimal() || isTimeLimitReached()) {
                 if (isTimeLimitReached()) {
-                    System.out.printf("## TIME LIMIT REACHED = %.2f seconds // Solution count: %s%n", mipTimeLimit, model.get(GRB.IntAttr.SolCount));
+                    Logging.logger.info("{}", String.format("## TIME LIMIT REACHED = %.2f seconds // Solution count: %s", mipTimeLimit, model.get(GRB.IntAttr.SolCount)));
                 }
 
                 extractResultServiceLevel();
@@ -61,7 +62,7 @@ public class MatchingOptimalServiceLevel extends MatchingOptimal {
                 computeIISReduceUntilCanBeSolved();
             }
         } catch (GRBException e) {
-            System.out.println("TIME IS OVER - No solution found, keep previous assignment. Gurobi error code: " + e.getErrorCode() + ". " + e.getMessage());
+            Logging.logger.info("TIME IS OVER - No solution found, keep previous assignment. Gurobi error code: " + e.getErrorCode() + ". " + e.getMessage());
             keepPreviousAssignment();
         } finally {
             disposeModelEnvironmentAndSave();

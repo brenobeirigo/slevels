@@ -34,11 +34,11 @@ public class HIringFromCentersOfSingleMaxDistance implements Hiring{
         // Deadline is the delivery time of user who caused hiring
         if (contractDuration == Config.DURATION_SINGLE_RIDE) {
             contractDeadline += distOriginPkUser + distPkDp;
-            //System.out.println("  (single) Contract deadline: " + contractDeadline);
+            //Logging.logger.info("  (single) Contract deadline: " + contractDeadline);
 
         } else {
             contractDeadline += contractDuration;
-            //System.out.println("          Contract deadline: " + contractDeadline);
+            //Logging.logger.info("          Contract deadline: " + contractDeadline);
         }
 
         Vehicle hiredVehicle = new Vehicle(u.getNumPassengers(), closestRegionCenterId, currentTime, true, contractDeadline);

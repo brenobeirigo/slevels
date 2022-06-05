@@ -4,6 +4,7 @@ package model;
 import config.Config;
 import config.Qos;
 import dao.Dao;
+import dao.Logging;
 import model.node.Node;
 import model.node.NodeDP;
 import model.node.NodePK;
@@ -200,7 +201,7 @@ public class User implements Comparable<User> {
             targets.addAll(rejected);
             //Comparator<Node> comparator = Comparator.comparing(Node::getArrivalSoFar).reversed();
             //pickupUnmet.sort(comparator);
-            //System.out.println(" Pickup unmet = " + pickupUnmet  + " (" + Sets.intersection(new HashSet<>(targets), new HashSet<>(pickupUnmet)) + ")");
+            //Logging.logger.info(" Pickup unmet = " + pickupUnmet  + " (" + Sets.intersection(new HashSet<>(targets), new HashSet<>(pickupUnmet)) + ")");
 
 
         }
@@ -243,7 +244,7 @@ public class User implements Comparable<User> {
         this.sharingAllowed = Config.getInstance().qosDic.get(this.performanceClass).allowedSharing;
         this.qos = getInstance().qosDic.get(this.performanceClass);
 
-        //System.out.println(this.reqTime + "-" + pk_latest + ": " +  dp_earliest + ": " + " = " + dp_latest);
+        //Logging.logger.info(this.reqTime + "-" + pk_latest + ": " +  dp_earliest + ": " + " = " + dp_latest);
 
         // Start nodes
         this.nodePk = new NodePK(
@@ -387,7 +388,7 @@ public class User implements Comparable<User> {
 //        // Extra delay is equals to original pickup delay of customer class
 //        int maxDistance = Config.getInstance().qosDic.get(this.getPerformanceClass()).pkDelay;
 //
-//        System.out.println("Vehicle distances to " + this.getId());
+//        Logging.logger.info("Vehicle distances to " + this.getId());
 //        Set<Vehicle> listOfCloseVehicles = new TreeSet<>();
 //        Set<Visit> listOfVisits = new TreeSet<>();
 //
@@ -402,7 +403,7 @@ public class User implements Comparable<User> {
 //
 //                listOfCloseVehicles.add(v);
 //
-//                System.out.println(String.format("%s -> %s - %d - %s", v.getId(), this.getInfo(), dist, v.getInfo()));
+//                Logging.logger.info("{}", String.format("%s -> %s - %d - %s", v.getId(), this.getInfo(), dist, v.getInfo()));
 //
 //                Visit candidateVisit = v.getVisitWithInsertedUser(this, currentTime);
 //
@@ -419,7 +420,7 @@ public class User implements Comparable<User> {
 //                    listOfVisits.add(candidateVisit);
 //                }
 //
-//                System.out.println("##### ENROUTE");
+//                Logging.logger.info("##### ENROUTE");
 //                Visit visitNodesEnroute = v.getVisitWithEnroute();
 //            }
 //        }
@@ -579,7 +580,7 @@ public class User implements Comparable<User> {
 //        return bestVisit;
 //    }
     public void printDetailed() {
-        System.out.println(String.format("%s(%s) - %s[%d](%d << %d - %d << %d) -> %s[%d](%d << %d - %d << %d) - Distance(s): %d - Distance(km): %f -  #Passengers: %d",
+        Logging.logger.info("{}", String.format("%s(%s) - %s[%d](%d << %d - %d << %d) -> %s[%d](%d << %d - %d << %d) - Distance(s): %d - Distance(km): %f -  #Passengers: %d",
                 this,
                 this.performanceClass,
                 this.nodePk,

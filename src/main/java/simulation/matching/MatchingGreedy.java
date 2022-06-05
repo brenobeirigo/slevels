@@ -1,5 +1,6 @@
 package simulation.matching;
 
+import dao.Logging;
 import model.*;
 import model.VisitObj;
 import model.graph.StandardGraphRTV;
@@ -42,7 +43,7 @@ public class MatchingGreedy implements RideMatchingStrategy {
         Set<User> allPassengers = Vehicle.getAllPassengersFromVehicles(listVehicles);
 
         if (!vehiclesWithPassengers.isEmpty()) {
-            System.out.println("Vehicles with passenger: " + vehiclesWithPassengers.size());
+            Logging.logger.info("Vehicles with passenger: " + vehiclesWithPassengers.size());
         }
 
         // Setup visits of vehicle carrying passengers. Notice that many
@@ -69,31 +70,31 @@ public class MatchingGreedy implements RideMatchingStrategy {
             }
         }
 
-        System.out.println("#### Vehicles CARRYING passengers:");
-        System.out.println(String.format("         # Requests: %s", result.getRequestsOK()));
-        System.out.println(String.format("Passengers (before): %s", Vehicle.getAllPassengersFromVehicles(listVehicles)));
-        System.out.println(String.format("      (vehicles OK): %s", Vehicle.getAllPassengersFromVehicles(result.getVehiclesOK())));
-        System.out.println(String.format("         # Vehicles: %s", result.getVehiclesOK()));
-        System.out.println(String.format("           # Visits: %s", result.getVisitsOK().size()));
+        Logging.logger.info("#### Vehicles CARRYING passengers:");
+        Logging.logger.info("{}", String.format("         # Requests: %s", result.getRequestsOK()));
+        Logging.logger.info("{}", String.format("Passengers (before): %s", Vehicle.getAllPassengersFromVehicles(listVehicles)));
+        Logging.logger.info("{}", String.format("      (vehicles OK): %s", Vehicle.getAllPassengersFromVehicles(result.getVehiclesOK())));
+        Logging.logger.info("{}", String.format("         # Vehicles: %s", result.getVehiclesOK()));
+        Logging.logger.info("{}", String.format("           # Visits: %s", result.getVisitsOK().size()));
 
         // Some visits carrying passengers cannot be setup because the trips they
         Set<Vehicle> unmatchedVehiclesWithPassengers = new HashSet<>(vehiclesWithPassengers);
         unmatchedVehiclesWithPassengers.removeAll(result.getVehiclesOK());
-        System.out.println("# Unmatched: " + unmatchedVehiclesWithPassengers.size());
+        Logging.logger.info("# Unmatched: " + unmatchedVehiclesWithPassengers.size());
         assert unmatchedVehiclesWithPassengers.isEmpty() : String.format("There are still unmatched vehicles = %s", unmatchedVehiclesWithPassengers);
 
         /*for (Vehicle vehicleUnassignedAndCarrying : unmatchedVehiclesWithPassengers) {
-            System.out.println(String.format("Setting up vehicle with passenger. %s - VisitObj: %s", vehicleUnassignedAndCarrying.getVisit().getUserInfo(), vehicleUnassignedAndCarrying.getVisit()));
+            Logging.logger.info("{}", String.format("Setting up vehicle with passenger. %s - VisitObj: %s", vehicleUnassignedAndCarrying.getVisit().getUserInfo(), vehicleUnassignedAndCarrying.getVisit()));
 
             // Refurbishing user set (remove from visit user that have been serviced)
             Set<User> unassignedRequestFromVehicleCarrying = new HashSet<>(vehicleUnassignedAndCarrying.getVisit().getRequests());
             unassignedRequestFromVehicleCarrying.removeAll(requestsOK);
-            System.out.println("Unassigned requests from vehicle carrying: " + unassignedRequestFromVehicleCarrying);
+            Logging.logger.info("Unassigned requests from vehicle carrying: " + unassignedRequestFromVehicleCarrying);
 
             assert unassignedRequestFromVehicleCarrying.size() == 0 : "There are unassigned request from vehicle carrying " + unassignedRequestFromVehicleCarrying;
             // There should always exist a visit for a vehicle carrying passengers
 
-            System.out.println(String.format("Best visit %s", visitWithoutRequests));
+            Logging.logger.info("{}", String.format("Best visit %s", visitWithoutRequests));
             setupVisitAndUpdate(visitWithoutRequests);
         }*/
 
@@ -114,7 +115,7 @@ public class MatchingGreedy implements RideMatchingStrategy {
         List<Vehicle> vehiclesWithPassengers = Vehicle.getVehiclesServicing(listVehicles);
 
         if (!vehiclesWithPassengers.isEmpty()) {
-            System.out.println("Vehicles with passenger: " + vehiclesWithPassengers.size());
+            Logging.logger.info("Vehicles with passenger: " + vehiclesWithPassengers.size());
         }
 
         // Setup visits of vehicle carrying passengers. Notice that many
@@ -141,31 +142,31 @@ public class MatchingGreedy implements RideMatchingStrategy {
             }
         }
 
-        System.out.println("#### Vehicles CARRYING passengers:");
-        System.out.println(String.format("         # Requests: %s", result.getRequestsOK()));
-        System.out.println(String.format("Passengers (before): %s", Vehicle.getAllPassengersFromVehicles(listVehicles)));
-        System.out.println(String.format("      (vehicles OK): %s", Vehicle.getAllPassengersFromVehicles(result.getVehiclesOK())));
-        System.out.println(String.format("         # Vehicles: %s", result.getVehiclesOK()));
-        System.out.println(String.format("           # Visits: %s", result.getVisitsOK().size()));
+        Logging.logger.info("#### Vehicles CARRYING passengers:");
+        Logging.logger.info("{}", String.format("         # Requests: %s", result.getRequestsOK()));
+        Logging.logger.info("{}", String.format("Passengers (before): %s", Vehicle.getAllPassengersFromVehicles(listVehicles)));
+        Logging.logger.info("{}", String.format("      (vehicles OK): %s", Vehicle.getAllPassengersFromVehicles(result.getVehiclesOK())));
+        Logging.logger.info("{}", String.format("         # Vehicles: %s", result.getVehiclesOK()));
+        Logging.logger.info("{}", String.format("           # Visits: %s", result.getVisitsOK().size()));
 
         // Some visits carrying passengers cannot be setup because the trips they
         Set<Vehicle> unmatchedVehiclesWithPassengers = new HashSet<>(vehiclesWithPassengers);
         unmatchedVehiclesWithPassengers.removeAll(result.getVehiclesOK());
-        System.out.println("# Unmatched: " + unmatchedVehiclesWithPassengers.size());
+        Logging.logger.info("# Unmatched: " + unmatchedVehiclesWithPassengers.size());
         assert unmatchedVehiclesWithPassengers.isEmpty() : String.format("There are still unmatched vehicles = %s", unmatchedVehiclesWithPassengers);
 
         /*for (Vehicle vehicleUnassignedAndCarrying : unmatchedVehiclesWithPassengers) {
-            System.out.println(String.format("Setting up vehicle with passenger. %s - VisitObj: %s", vehicleUnassignedAndCarrying.getVisit().getUserInfo(), vehicleUnassignedAndCarrying.getVisit()));
+            Logging.logger.info("{}", String.format("Setting up vehicle with passenger. %s - VisitObj: %s", vehicleUnassignedAndCarrying.getVisit().getUserInfo(), vehicleUnassignedAndCarrying.getVisit()));
 
             // Refurbishing user set (remove from visit user that have been serviced)
             Set<User> unassignedRequestFromVehicleCarrying = new HashSet<>(vehicleUnassignedAndCarrying.getVisit().getRequests());
             unassignedRequestFromVehicleCarrying.removeAll(requestsOK);
-            System.out.println("Unassigned requests from vehicle carrying: " + unassignedRequestFromVehicleCarrying);
+            Logging.logger.info("Unassigned requests from vehicle carrying: " + unassignedRequestFromVehicleCarrying);
 
             assert unassignedRequestFromVehicleCarrying.size() == 0 : "There are unassigned request from vehicle carrying " + unassignedRequestFromVehicleCarrying;
             // There should always exist a visit for a vehicle carrying passengers
 
-            System.out.println(String.format("Best visit %s", visitWithoutRequests));
+            Logging.logger.info("{}", String.format("Best visit %s", visitWithoutRequests));
             setupVisitAndUpdate(visitWithoutRequests);
         }*/
 
@@ -186,10 +187,10 @@ public class MatchingGreedy implements RideMatchingStrategy {
             for (VisitObj visit : visitsLevelK) {
 
                 // VisitObj is only accepted if requests are not displaced
-                /*System.out.println("Requests (visit):" + visit.getRequests());
-                System.out.println("Vehicle:" + visit.getVehicle());
-                System.out.println("Vehicle.visit:" + visit.getVehicle().getVisit());
-                System.out.println("vehicle.visit.requests:" + visit.getVehicle().getVisit().getRequests());*/
+                /*Logging.logger.info("Requests (visit):" + visit.getRequests());
+                Logging.logger.info("Vehicle:" + visit.getVehicle());
+                Logging.logger.info("Vehicle.visit:" + visit.getVehicle().getVisit());
+                Logging.logger.info("vehicle.visit.requests:" + visit.getVehicle().getVisit().getRequests());*/
                 if (visit.getVehicle().getVisit() != null && !visit.getRequests().containsAll(visit.getVehicle().getVisit().getRequests())) {
                     continue;
                 }
@@ -235,14 +236,14 @@ public class MatchingGreedy implements RideMatchingStrategy {
         // Some vehicles might have lost users but were later associated to new visits (are in vehiclesOK).
         result.vehiclesDisrupted.removeAll(result.getVehiclesOK());
         assert displacedUsers.isEmpty() : "There are displaced users!";
-        System.out.println(String.format("\n\n# Assigned vehicles (%d): %s", result.getVehiclesOK().size(), result.getVehiclesOK()));
-        System.out.println(String.format("# Unassigned vehicles (%d): %s", unassignedVehicles.size(), unassignedVehicles));
-        System.out.println(String.format("# Unassigned users (%d): %s", unassignedUsers.size(), unassignedUsers));
-        System.out.println(String.format("# Displaced users (%d): %s", displacedUsers.size(), displacedUsers));
-        System.out.println(String.format("# Vehicles disrupted (%d) = %s", result.vehiclesDisrupted.size(), result.vehiclesDisrupted));
+        Logging.logger.info("{}", String.format("\n\n# Assigned vehicles (%d): %s", result.getVehiclesOK().size(), result.getVehiclesOK()));
+        Logging.logger.info("{}", String.format("# Unassigned vehicles (%d): %s", unassignedVehicles.size(), unassignedVehicles));
+        Logging.logger.info("{}", String.format("# Unassigned users (%d): %s", unassignedUsers.size(), unassignedUsers));
+        Logging.logger.info("{}", String.format("# Displaced users (%d): %s", displacedUsers.size(), displacedUsers));
+        Logging.logger.info("{}", String.format("# Vehicles disrupted (%d) = %s", result.vehiclesDisrupted.size(), result.vehiclesDisrupted));
 
         for (Vehicle vehicle : result.vehiclesDisrupted) {
-            System.out.println("####" + vehicle.getVisit());
+            Logging.logger.info("####" + vehicle.getVisit());
         }
 
         // Unassigned users cannot be unmatched
@@ -301,18 +302,18 @@ public class MatchingGreedy implements RideMatchingStrategy {
 
         ResultAssignment result = new ResultAssignment(currentTime);
 
-        System.out.println("Unassigned requests: " + unassignedRequests.size());
+        Logging.logger.info("Unassigned requests: " + unassignedRequests.size());
 
         if (unassignedRequests.isEmpty())
             return result;
 
-        System.out.println(graphRTV.getVisitCountSetVertex() + " = " + graphRTV.getFeasibleVisitCount());
+        Logging.logger.info(graphRTV.getVisitCountSetVertex() + " = " + graphRTV.getFeasibleVisitCount());
 
-        System.out.println("----------- Assigning vehicles carrying passengers");
+        Logging.logger.info("----------- Assigning vehicles carrying passengers");
         // Vehicles carrying passengers MUST continue carrying them.
         result = greedyAssignmentVehiclesCarryingPassengers(graphRTV, vehicles, result);
 
-        System.out.println("---------- Assigning flexible vehicles");
+        Logging.logger.info("---------- Assigning flexible vehicles");
         // Vehicles assigned to requests only are flexible to have their visits completely changed
         result = greedyAssignmentFlexibleVehicles(graphRTV, result);
 
@@ -332,7 +333,7 @@ public class MatchingGreedy implements RideMatchingStrategy {
         result.requestsDisplaced.forEach(user -> user.setCurrentVisit(null));
 
         if (!result.assignedAndUnassignedAreDisjoint()) {
-            System.out.println("Not Disjoint!");
+            Logging.logger.info("Not Disjoint!");
         }
         /*for (Qos qos : Config.getInstance().qosDic.values()) {
             result.unmetServiceLevelClass.put(qos, User.filterUsersOfQos(User.filterSecondTier(requests), qos).size());

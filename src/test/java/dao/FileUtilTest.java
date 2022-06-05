@@ -10,6 +10,6 @@ class FileUtilTest {
     void readJson() {
         String a = "D:\\projects\\dev\\slevels\\config.json";
         String d = FileUtil.readJson(a);
-        System.out.println(d);
+        Logging.logger.info(d);
     }
 }

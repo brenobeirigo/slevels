@@ -5,6 +5,7 @@ import com.google.common.collect.Sets;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import dao.Dao;
+import dao.Logging;
 import model.learn.StateAction;
 import model.node.*;
 import simulation.Simulation;
@@ -219,8 +220,8 @@ public class Visit implements Comparable<VisitObj>, VisitObj {
      * @return Last leg of visit.
      */
     public static Leg getDraftVisit(Vehicle vehicle, Node[] validPDSequence) {
-        //System.out.println("# Vehicle="+vehicle.getInfo());
-        //System.out.println(Arrays.toString(validPDSequence));
+        //Logging.logger.info("# Vehicle="+vehicle.getInfo());
+        //Logging.logger.info(Arrays.toString(validPDSequence));
 
         Leg currentLeg = new Leg(vehicle);
 
@@ -251,10 +252,10 @@ public class Visit implements Comparable<VisitObj>, VisitObj {
         }
         // Valid sequence = [1,1']
         // Vehicle sequence = [0,1,1']
-        //System.out.println(vehicle.getVisit());
+        //Logging.logger.info(vehicle.getVisit());
         for (Node node : validPDSequence) {
 
-            //System.out.printf("from= %s ### Arrival=%4d ### Delay=%4d\n", currentLeg.fromNode.getInfo(), currentLeg.arrivalNext, currentLeg.delay);
+            //Logging.logger.info("{}", String.format("from= %s ### Arrival=%4d ### Delay=%4d\n", currentLeg.fromNode.getInfo(), currentLeg.arrivalNext, currentLeg.delay));
             if (!currentLeg.updateNextNode(node)) {
                 return null;
             }
@@ -269,20 +270,20 @@ public class Visit implements Comparable<VisitObj>, VisitObj {
      * @return Last leg of visit.
      */
     public static Leg getDraftVisit(Node[] validPDSequence) {
-        //System.out.println("RR"+ Arrays.toString(validPDSequence));
+        //Logging.logger.info("RR"+ Arrays.toString(validPDSequence));
         Leg currentLeg = new Leg(validPDSequence[0]);
 
         assert validPDSequence[0].getLatest() >= Simulation.rightTW;
 
         for (int i = 1; i < validPDSequence.length; i++) {
             assert validPDSequence[i].getLatest() >= Simulation.rightTW;
-            //System.out.printf("from= %s ### Arrival=%4d ### Delay=%4d\n", currentLeg.fromNode.getInfo(), currentLeg.arrivalNext, currentLeg.delay);
+            //Logging.logger.info("{}", String.format("from= %s ### Arrival=%4d ### Delay=%4d\n", currentLeg.fromNode.getInfo(), currentLeg.arrivalNext, currentLeg.delay));
             if (!currentLeg.updateNextNode(validPDSequence[i])) {
                 return null;
             }
 
         }
-        //System.out.printf("%s %d %d\n", currentLeg.fromNode.getInfo(), currentLeg.arrivalNext, currentLeg.delay);
+        //Logging.logger.info("{}", String.format("%s %d %d\n", currentLeg.fromNode.getInfo(), currentLeg.arrivalNext, currentLeg.delay));
         return currentLeg;
     }
 
@@ -396,7 +397,7 @@ public class Visit implements Comparable<VisitObj>, VisitObj {
         // From user requires private ride?
         if (uFrom != null && fromNode instanceof NodePK && !uFrom.isSharingAllowed()) {
             if (fromNode.getTripId() != nextNode.getTripId()) {
-                //System.out.println(String.format("FR: Cannot go from %s(%s) to %s", fromNode, uFrom.getPerformanceClass(), nextNode));
+                //Logging.logger.info("{}", String.format("FR: Cannot go from %s(%s) to %s", fromNode, uFrom.getPerformanceClass(), nextNode));
                 return true;
             }
         }
@@ -405,7 +406,7 @@ public class Visit implements Comparable<VisitObj>, VisitObj {
         User uTo = User.mapOfUsers.get(nextNode.getTripId());
         if (uTo != null && nextNode instanceof NodeDP && !uTo.isSharingAllowed()) {
             if (fromNode.getTripId() != nextNode.getTripId()) {
-                //System.out.println(String.format("TO: Cannot go from %s(%s) to %s", fromNode, uFrom.getPerformanceClass(), nextNode));
+                //Logging.logger.info("{}", String.format("TO: Cannot go from %s(%s) to %s", fromNode, uFrom.getPerformanceClass(), nextNode));
                 return true;
             }
         }
@@ -434,7 +435,7 @@ public class Visit implements Comparable<VisitObj>, VisitObj {
         //      DPB ---> DPA
         //
         //if(uTo != null && !uTo.isSharingAllowed() && uFrom!=uTo && (fromNode instanceof NodePK)){
-        //    System.out.println(String.format("Cannot go from %s(%s) to %s(%s)", fromNode, uFrom.getPerformanceClass(), nextNode, uTo.getPerformanceClass()));
+        //    Logging.logger.info("{}", String.format("Cannot go from %s(%s) to %s(%s)", fromNode, uFrom.getPerformanceClass(), nextNode, uTo.getPerformanceClass()));
         //    return false;
         //}
 
@@ -588,36 +589,36 @@ public class Visit implements Comparable<VisitObj>, VisitObj {
         if (this.vehicle.isRebalancing()) {
 
             if (this.sequenceVisits != null) {
-                System.out.println("Vehicle is rebalancing but sequence is full!" + this);
+                Logging.logger.info("Vehicle is rebalancing but sequence is full!" + this);
                 return false;
             }
 
             if (!this.passengers.isEmpty() || !this.requests.isEmpty()) {
-                System.out.println("Vehicle is rebalancing but has users! " + this.getUserInfo() + " Visit: " + this);
+                Logging.logger.info("Vehicle is rebalancing but has users! " + this.getUserInfo() + " Visit: " + this);
                 return false;
             }
 
             if (!(this.getVehicle().getLastVisitedNode() instanceof NodeStop) && !(this.getTargetNode() instanceof NodeTargetRebalancing)) {
-                System.out.println("Vehicle is rebalancing but current node and target node are invalid! " + this.getUserInfo() + " Visit: " + this);
+                Logging.logger.info("Vehicle is rebalancing but current node and target node are invalid! " + this.getUserInfo() + " Visit: " + this);
                 return false;
             }
             return true;
         }
 
         if (this.sequenceVisits == null) {
-            System.out.println("Vehicle is not rebalancing but sequence is null!" + this);
+            Logging.logger.info("Vehicle is not rebalancing but sequence is null!" + this);
             return true;
         }
 
         if (this.isValidSequence() < 0) {
-            System.out.println("Invalid sequence! " + this.getUserInfo() + " - Visit: " + this + " - Target: " + this.getTargetNode() + " - Rebalancing: " + this.vehicle.isRebalancing());
+            Logging.logger.info("Invalid sequence! " + this.getUserInfo() + " - Visit: " + this + " - Target: " + this.getTargetNode() + " - Rebalancing: " + this.vehicle.isRebalancing());
             return false;
         }
 
         List<Integer> passengerIds = this.passengers.stream().map(User::getId).collect(Collectors.toList());
 
         if ((new HashSet<>(passengerIds)).size() != passengerIds.size()) {
-            System.out.println("Repeated passengers! " + passengerIds);
+            Logging.logger.info("Repeated passengers! " + passengerIds);
             return false;
         }
 
@@ -625,7 +626,7 @@ public class Visit implements Comparable<VisitObj>, VisitObj {
 
 
         if ((new HashSet<>(requestIds)).size() != requestIds.size()) {
-            System.out.println("Repeated requests!");
+            Logging.logger.info("Repeated requests!");
             return false;
         }
         List<Integer> pk = new ArrayList<>();
@@ -638,7 +639,7 @@ public class Visit implements Comparable<VisitObj>, VisitObj {
             pk.add(this.vehicle.getLastVisitedNode().getTripId());
 
         if (this.sequenceVisits == null) {
-            System.out.println("Sequence is null! " + this.getUserInfo() + " - Visit: " + this + " - Sequence: " + this.getSequenceVisits() + " (Rebalancing: " + this.vehicle.isRebalancing() + ")");
+            Logging.logger.info("Sequence is null! " + this.getUserInfo() + " - Visit: " + this + " - Sequence: " + this.getSequenceVisits() + " (Rebalancing: " + this.vehicle.isRebalancing() + ")");
             return false;
         }
 
@@ -648,7 +649,7 @@ public class Visit implements Comparable<VisitObj>, VisitObj {
 
             // Found first node different than middle
             if (i > 1 && node instanceof NodeMiddle) {
-                System.out.println("Node middle found in the middle of the sequence! " + this.getUserInfo() + " - Visit: " + this);
+                Logging.logger.info("Node middle found in the middle of the sequence! " + this.getUserInfo() + " - Visit: " + this);
                 return false;
             }
             if (node instanceof NodeDP)
@@ -660,22 +661,22 @@ public class Visit implements Comparable<VisitObj>, VisitObj {
 
         // Picked more than once
         if (pk.size() != new HashSet<>(pk).size()) {
-            System.out.println("Picked up more than once!" + this.getUserInfo() + " - PK nodes: " + pk + " - Visit: " + this);
+            Logging.logger.info("Picked up more than once!" + this.getUserInfo() + " - PK nodes: " + pk + " - Visit: " + this);
             return false;
         }
 
         // Dropped more than once
         if (dp.size() != new HashSet<>(dp).size()) {
-            System.out.println("Dropped of more than once!" + this.getUserInfo() + " - DP nodes: " + dp + " - Visit: " + this);
+            Logging.logger.info("Dropped of more than once!" + this.getUserInfo() + " - DP nodes: " + dp + " - Visit: " + this);
             return false;
         }
 
         if (!dp.containsAll(passengerIds)) {
-            System.out.println("There are dropoffs not included in passenger list! Users: " + this.getUserInfo() + " - Visit: " + this);
+            Logging.logger.info("There are dropoffs not included in passenger list! Users: " + this.getUserInfo() + " - Visit: " + this);
             return false;
         }
         if (!pk.containsAll(requestIds)) {
-            System.out.println("There are pickups not included in request list! Users: " + this.getUserInfo() + " - Visit: " + this);
+            Logging.logger.info("There are pickups not included in request list! Users: " + this.getUserInfo() + " - Visit: " + this);
             return false;
         }
 

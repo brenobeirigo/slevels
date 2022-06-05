@@ -6,6 +6,7 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.reflect.TypeToken;
 import dao.FileUtil;
+import dao.Logging;
 import simulation.Simulation;
 import simulation.matching.*;
 import simulation.rebalancing.Rebalance;
@@ -31,6 +32,8 @@ public class InstanceConfig {
     public static final String GEOJSON_TRACK_FOLDER = "geojson_track";
     // What has been learned each iteration
     public static final String EXPERIENCES_FOLDER = "experiences_track";
+    // Benchmark
+    public static final String TRAINTEST_FOLDER = "traintest_track";
     // Singleton
     private static InstanceConfig instance;
 
@@ -95,11 +98,14 @@ public class InstanceConfig {
     private String roundTrackFolder;
     private String requestTrackFolder;
     private String geojsonTrackFolder;
+    private String trainTestFolder;
     private String experiencesFolder;
     private int maxTimeToReachRegionCenter;
     private PDGeneratorFactory PDFactory;
 
     public class LearningConfig implements Iterator<LearningConfig.LearningSettings> {
+        public String[] arrayFilepathTrainingData;
+        public String[] arrayFilepathTestingData;
         public int currentRequestSamples;
         public int currentSizeExperienceReplayBatch;
         public int currentSizeExperienceReplayBuffer;
@@ -131,6 +137,7 @@ public class InstanceConfig {
         }
 
         public class LearningSettings {
+            public LearningConfig learningConfig;
             public int requestSamples;
             public int sizeExperienceReplayBatch;
             public int sizeExperienceReplayBuffer;
@@ -154,7 +161,7 @@ public class InstanceConfig {
             }
 
             public String getExperiencesFolder() {
-                String folder = String.format("%s/%s/experiences_%s", this.folderModels, this.modelInstanceLabel, this.getLabel());
+                String folder = String.format("%s/%s/experiences_%s", this.folderModels, this.learningConfig.modelInstanceLabel, this.getLabel());
                 return folder;
             }
 
@@ -180,7 +187,8 @@ public class InstanceConfig {
                                     int currentSizeExperienceReplayBuffer, Date currentEpisodeStartDatetime,
                                     int currentTargetNetworkUpdateFrequency, int currentTrainingFrequency,
                                     Double currentDiscountFactor, Double currentLearningRate, String folderModels,
-                                    String modelInstanceLabel, String experiencesFolder) {
+                                    String modelInstanceLabel, String experiencesFolder, LearningConfig learningConfig) {
+                this.learningConfig = learningConfig;
                 this.requestSamples = currentRequestSamples;
                 this.sizeExperienceReplayBatch = currentSizeExperienceReplayBatch;
                 this.sizeExperienceReplayBuffer = currentSizeExperienceReplayBuffer;
@@ -208,8 +216,10 @@ public class InstanceConfig {
 
         public LearningConfig(int[] requestSamples, int[] sizeExperienceReplayBatch, int[] sizeExperienceReplayBuffer
                 , String folderModels, List<Date> episodeStartTimestamps, List<Date> episodeStartDatetimeArrayTest, int[] targetNetworkUpdateFrequency,
-                              int[] trainingFrequency, double[] learningRateArray, double[] discountFactorArray) {
+                              int[] trainingFrequency, double[] learningRateArray, double[] discountFactorArray, String[] arrayFilepathTrainingData, String[] arrayFilepathTestingData) {
 
+            this.arrayFilepathTrainingData = arrayFilepathTrainingData;
+            this.arrayFilepathTestingData = arrayFilepathTestingData;
             this.folderModels = folderModels;
             this.modelInstanceLabel = getModelInstanceLabel();
 
@@ -266,7 +276,7 @@ public class InstanceConfig {
                                         currentSizeExperienceReplayBuffer, currentEpisodeStartDatetimeTraining,
                                         currentTargetNetworkUpdateFrequency, currentTrainingFrequency,
                                         currentDiscountFactor, currentLearningRate, folderModels,
-                                        modelInstanceLabel, experiencesFolder);
+                                        modelInstanceLabel, experiencesFolder, this);
 
                                 a.add(s);
 
@@ -303,13 +313,13 @@ public class InstanceConfig {
 
         @Override
         public boolean hasNext() {
-            return a.size() >0;
+            return a.size() > 0;
         }
 
 
         @Override
         public LearningSettings next() {
-         return a.pop();
+            return a.pop();
         }
     }
 
@@ -326,8 +336,8 @@ public class InstanceConfig {
             String inputSettings = new String(Files.readAllBytes(filePath));
 
             Map jsonConfig = gson.fromJson(inputSettings, Map.class);
-            System.out.printf("# Reading instance data from \"%s\"...%n", jsonFilePath);
-            System.out.printf("# JSON data: %s...%n", jsonConfig);
+            Logging.logger.info("# Reading instance data from '{}'...", jsonFilePath);
+            Logging.logger.info("# JSON data: {}...", jsonConfig);
 
             //Description
             this.instancesPath = Paths.get(jsonConfig.get("instances_folder").toString());
@@ -394,12 +404,16 @@ public class InstanceConfig {
                     }
                 }
 
+                String[] arrayFilepathTrainingData = gson.fromJson(training.get("data").getAsJsonArray(), String[].class);
+
+
                 JsonObject
                         testing =
                         gson.fromJson(element.get("testing_config"), JsonObject.class);
                 String[]
                         episodeStartDatetimeStrArrayTest =
                         gson.fromJson(testing.get("episode_start_datetime").getAsJsonArray(), String[].class);
+                String[] arrayFilepathTestingData = gson.fromJson(testing.get("data").getAsJsonArray(), String[].class);
 
                 List<Date> episodeStartDatetimeArrayTest = new ArrayList<>();
                 for (String episodeStartDatetimeStrTest : episodeStartDatetimeStrArrayTest) {
@@ -420,7 +434,9 @@ public class InstanceConfig {
                         targetNetworkUpdateFrequency,
                         trainingFrequency,
                         learningRateArray,
-                        discountFactorArray);
+                        discountFactorArray,
+                        arrayFilepathTrainingData,
+                        arrayFilepathTestingData);
 
 
                 learningConfigs.add(lc);
@@ -503,7 +519,7 @@ public class InstanceConfig {
                 }
             }
 
-            System.out.printf("# Max. time to reach classes (sec): %s%n", this.maxTimeHiringList);
+            Logging.logger.info("{}", String.format("# Max. time to reach classes (sec): %s", this.maxTimeHiringList));
 
             this.customerBaseSettingsArray = new ArrayList<>();
             // All service rate
@@ -561,7 +577,7 @@ public class InstanceConfig {
 
                 JsonObject element = gson.fromJson(matchingMethod, JsonObject.class);
                 String name = gson.fromJson(element.get("name"), String.class);
-                System.out.println("Processing " + name);
+                Logging.logger.info("Processing " + name);
 
                 if (Matching.METHOD_OPTIMAL_ENFORCE_SL_HIRE.equals(name)) {
 
@@ -594,7 +610,7 @@ public class InstanceConfig {
                     MatchingGreedy method = readMatchingGreedyParams(gson, element);
                     this.matchingMethods.add(method);
                 } else {
-                    System.out.println("NO METHOD");
+                    Logging.logger.info("NO METHOD");
                 }
             }
 
@@ -606,7 +622,7 @@ public class InstanceConfig {
 
                 JsonObject element = gson.fromJson(rebalanceStrategy, JsonObject.class);
                 String name = gson.fromJson(element.get("name"), String.class);
-                System.out.println("Rebalancing " + name);
+                Logging.logger.info("Rebalancing " + name);
                 if (Rebalance.METHOD_OPTIMAL.equals(name)) {
 
                     RebalanceOptimal method = new RebalanceOptimal();
@@ -653,10 +669,12 @@ public class InstanceConfig {
             this.requestTrackFolder = String.format("%s/%s", this.instancesPath, REQUEST_TRACK_FOLDER);
             this.geojsonTrackFolder = String.format("%s/%s", this.instancesPath, GEOJSON_TRACK_FOLDER);
             this.experiencesFolder = String.format("%s/%s", this.instancesPath, EXPERIENCES_FOLDER);
+            this.trainTestFolder = String.format("%s/%s", this.instancesPath, TRAINTEST_FOLDER);
             FileUtil.createDir(roundTrackFolder);
             FileUtil.createDir(requestTrackFolder);
             FileUtil.createDir(geojsonTrackFolder);
             FileUtil.createDir(experiencesFolder);
+            FileUtil.createDir(trainTestFolder);
 
         } catch (IOException e) {
             e.printStackTrace();
@@ -671,9 +689,9 @@ public class InstanceConfig {
                 "C:\\Users\\LocalAdmin\\IdeaProjects\\slevels\\src\\main\\resources" +
                         "\\instance_settings_test_rebalancing.json";
         InstanceConfig instanceConfig = new InstanceConfig(s);
-        System.out.println(instanceConfig);
-        System.out.println(instanceConfig.customerBaseSettingsArray);
-        System.out.println(instanceConfig.rebalancingMethods);
+        Logging.logger.info(instanceConfig.toString());
+        Logging.logger.info(instanceConfig.customerBaseSettingsArray.toString());
+        Logging.logger.info(instanceConfig.rebalancingMethods.toString());
     }
 
     public static InstanceConfig getInstance() {
@@ -968,6 +986,10 @@ public class InstanceConfig {
 
     public String getExperiencesFolder() {
         return experiencesFolder;
+    }
+
+    public String getTrainTestFolder() {
+        return trainTestFolder;
     }
 
     public String getInstanceName() {

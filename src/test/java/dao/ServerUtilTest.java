@@ -22,14 +22,14 @@ class ServerUtilTest {
 //    @Test
 //    public void post_simple_json() {
 //        String response = ServerUtil.postJsonAndReadResponse("{\"action\":\"hello\"}");
-//        System.out.println(response);
+//        Logging.logger.info(response);
 //    }
 
     @Test
     public void getPredictions(){
         String filepath = "D:\\mnt\\d\\projects\\dev\\slevels\\src\\main\\resources\\day\\experiences_track\\0030_post_decisions_step=0030.json";
         List<Double> predictions; // ServerUtil.getPredictionsFromJsonFile(filepath);
-        //System.out.println(predictions);
+        //Logging.logger.info(predictions);
     }
 
     @Test
@@ -43,7 +43,7 @@ class ServerUtilTest {
         String filepath = a;
 
         String response = ServerUtil.postJsonFileToURL(filepath, serverURL);
-        System.out.println(response);
+        Logging.logger.info(response);
     }
 
     @Test
@@ -59,8 +59,8 @@ class ServerUtilTest {
         HttpResponse<String> response = null;
         try {
             response = client.send(request, HttpResponse.BodyHandlers.ofString());
-            System.out.println(response.statusCode());
-            System.out.println(response.body());
+            // Logging.logger.info(response.statusCode());
+            Logging.logger.info(response.body());
 //            assertThat(response.statusCode()).isEqualTo(200);
 //            assertThat(response.body()).isEqualTo("{\"message\":\"ok\"}");
         } catch (InterruptedException e) {
@@ -99,7 +99,7 @@ class ServerUtilTest {
             while ((responseLine = br.readLine()) != null) {
                 response.append(responseLine.trim());
             }
-            System.out.println(response.toString());
+            Logging.logger.info(response.toString());
         }
     }
 
@@ -107,7 +107,7 @@ class ServerUtilTest {
     void postJsonObjectToURL() {
         Vehicle a = new Vehicle(4);
         String r = ServerUtil.postJsonObjectToURL(a, "http://localhost:5001/predict/");
-        System.out.println(r);
+        Logging.logger.info(r);
     }
 
 //    @Test
@@ -116,7 +116,7 @@ class ServerUtilTest {
 //
 //        String filepath = "D:\\mnt\\d\\projects\\dev\\slevels\\src\\main\\resources\\day\\experiences_track\\0930_post_decisions_step=0030.json";
 //        List<Double> list = ServerUtil.getPrediction("f");
-//        System.out.println(list);
+//        Logging.logger.info(list);
 //
 //        String query_url = "https://gurujsonrpc.appspot.com/guru";
 //        String json = "{ \"method\" : \"guru.test\", \"params\" : [ \"jinu awad\" ], \"id\" : 123 }";
@@ -133,17 +133,17 @@ class ServerUtilTest {
 //            os.close();
 //            // read the response
 //            InputStream in = new BufferedInputStream(conn.getInputStream());
-//            System.out.println(in);
+//            Logging.logger.info(in);
 ////            String result = IOUtils.toString(in, "UTF-8");
-////            System.out.println(result);
-////            System.out.println("result after Reading JSON Response");
+////            Logging.logger.info(result);
+////            Logging.logger.info("result after Reading JSON Response");
 ////            JSONObject myResponse = new Gson(result);
-////            System.out.println("jsonrpc- "+myResponse.getString("jsonrpc"));
-////            System.out.println("id- "+myResponse.getInt("id"));
-////            System.out.println("result- "+myResponse.getString("result"));
+////            Logging.logger.info("jsonrpc- "+myResponse.getString("jsonrpc"));
+////            Logging.logger.info("id- "+myResponse.getInt("id"));
+////            Logging.logger.info("result- "+myResponse.getString("result"));
 //            in.close();
 //            conn.disconnect();
 //        } catch (Exception e) {
-//            System.out.println(e);
+//            Logging.logger.info(e);
 //    }
 }

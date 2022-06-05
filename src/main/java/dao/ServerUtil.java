@@ -24,6 +24,7 @@ import java.util.stream.Collectors;
 
 public class ServerUtil {
 
+    public String rememberURL;
     //SERVER
     public String ADDRESS_SERVER;
     private String ADDRESS_ALLNODES = "%s/nodes/GPS";
@@ -34,19 +35,25 @@ public class ServerUtil {
     private String restSmoothDurations = "%s/sp_smooth/%d/%d/%d";
     private String restShortestPathCoords = "%s/sp_coords/%d/%d";
     private String restPredictPostDecisionSpace = "%s/predict/%s";
-    private String restPredictPostDecisionSpace2 = "%s/predict_detail/%s";
     private String restSaveModelFileName = "%s/savemodel/%s";
     private String restSaveModelAt = "%s/savemodelat/%s";
     private String restLoadModelFileName = "%s/loadmodel/%s";
     private String restLoadModelAt = "%s/loadmodelat/%s";
     private String restTrackExp = "%s/trackexpat/%s";
+    private String restUpdateTargetModel = "%s/updatetargetmodel/";
+
 
     private String restCanReachSet = "%s/can_reach/%d/%d";
+    public String predictURL;
     //http://TUD256023.tudelft.net:4999/sp_coords/1/2
 
 
     public ServerUtil(String ADDRESS_SERVER) {
+
         this.ADDRESS_SERVER = ADDRESS_SERVER;
+        this.predictURL = String.format(restPredictPostDecisionSpace, this.ADDRESS_SERVER, "");
+        this.rememberURL = this.ADDRESS_SERVER + "/remember/";
+
     }
 
     private static Map<String, HashMap<String, String>> styleNode = new HashMap<String, HashMap<String, String>>() {{
@@ -227,7 +234,7 @@ public class ServerUtil {
             BufferedReader br = new BufferedReader(in);
             result = br.readLine();
         } catch (Exception e) {
-            System.out.println(String.format("Requests %s - Exception in NetClientGet:- ", address) + e);
+            Logging.logger.info("{}", String.format("Requests %s - Exception in NetClientGet:- ", address) + e);
         } finally {
             return result;
         }
@@ -243,7 +250,7 @@ public class ServerUtil {
      */
     public String getGeoJsonSPBetweenODfromServer(Node o, Node d) {
         String lineType = "servicing";
-        System.out.println(o.getClass().getName() + " - " + d.getClass().getName());
+        Logging.logger.info(o.getClass().getName() + " - " + d.getClass().getName());
         if (d instanceof NodeTargetRebalancing) {
             lineType = "rebalancing";
         } else if ((o instanceof NodeOrigin || o instanceof NodeMiddle || o instanceof NodeStop) && d instanceof NodePK) {
@@ -259,7 +266,7 @@ public class ServerUtil {
                 styleEdge.get(lineType).get("stroke-width"),
                 styleEdge.get(lineType).get("stroke-opacity"));
 
-        System.out.println("Rest line:" + rest);
+        Logging.logger.info("Rest line:" + rest);
         String response = requestTo(rest);
         return response;
     }
@@ -272,8 +279,8 @@ public class ServerUtil {
      */
     public String getGeoJsonPointfromServer(Node n) {
 
-        System.out.println(n);
-        System.out.println(n.getNetworkId());
+        Logging.logger.info(n.toString());
+        Logging.logger.info("Id: {}", n.getNetworkId());
         String nodeType = n instanceof NodePK ?
                 "pickup_point" : n instanceof NodeDP ?
                 "destination_point" : n instanceof NodeMiddle ?
@@ -288,7 +295,7 @@ public class ServerUtil {
                 styleNode.get(nodeType).get("marker-size"),
                 styleNode.get(nodeType).get("marker-symbol"));
 
-        System.out.println(rest);
+        Logging.logger.info(rest);
         String response = null;
 
         try {
@@ -304,7 +311,7 @@ public class ServerUtil {
             response = br.readLine();
 
         } catch (Exception e) {
-            System.out.println(String.format("%d - Exception in NetClientGet:- ", n) + e);
+            Logging.logger.info("{}", String.format("%d - Exception in NetClientGet:- ", n) + e);
         }
 
         return response;
@@ -318,7 +325,7 @@ public class ServerUtil {
      * @return list of ids
      */
     public ArrayList<Integer> getShortestPathBetween(int o, int d) {
-        //System.out.println(o + " ->" + d);
+        //Logging.logger.info(o + " ->" + d);
         String rest = String.format(restShortestPath, this.ADDRESS_SERVER, o, d);
         ArrayList<Integer> list_ids = null;
         list_ids = (ArrayList) Arrays.asList(requestTo(rest).split(";")).stream().map(n -> Integer.valueOf(n)).collect(Collectors.toList());
@@ -374,24 +381,7 @@ public class ServerUtil {
      * @return Value functions
      */
     public Map<Integer, List<Double>> getPredictionsFromDecisionSpace(FleetStateActionSpaceObject obj) {
-        String url = String.format(restPredictPostDecisionSpace, this.ADDRESS_SERVER, "");
-        String response = Dao.getInstance().getServer().postJsonObjectToURL(obj, url);
-
-        Type t = new TypeToken<Map<Integer, List<Double>>>() {
-        }.getType();
-
-        Gson g = new Gson();
-        return g.fromJson(response, t);
-    }
-
-    /**
-     * Map o vfs per vehicle
-     * @param obj
-     * @return Value functions
-     */
-    public Map<Integer, List<Double>> getPredictionsFromDecisionSpace2(FleetStateActionSpaceObject obj) {
-        String url = String.format(restPredictPostDecisionSpace2, this.ADDRESS_SERVER, "");
-        String response = Dao.getInstance().getServer().postJsonObjectToURL(obj, url);
+        String response = postJsonObjectToURL(obj, this.predictURL);
 
         Type t = new TypeToken<Map<Integer, List<Double>>>() {
         }.getType();
@@ -406,8 +396,7 @@ public class ServerUtil {
      * @return Value functions
      */
     public ArrayList<Double> getPredictionsFromJsonFile(String stateSpaceJsonFilepath) {
-        String url = String.format(restPredictPostDecisionSpace, this.ADDRESS_SERVER, "");
-        String response = ServerUtil.postJsonFileToURL(stateSpaceJsonFilepath, url);
+        String response = ServerUtil.postJsonFileToURL(stateSpaceJsonFilepath, this.predictURL);
         ArrayList<Double> valueFunctionArray = null;
         valueFunctionArray = (ArrayList<Double>) Arrays.stream(response.split(";"))
                 .map(Double::valueOf)
@@ -450,12 +439,12 @@ public class ServerUtil {
     }
 
 
-    public void printGeoJsonJourney(Vehicle v) {
+    public void printGeoJsonJourney(Vehicle v, Date earliestTime) {
         /*
         List<String> listFeatures = new ArrayList<>();
-        System.out.println("size:"+ journey.size());
+        Logging.logger.info("size:"+ journey.size());
         if(journey.size() == 1){
-            System.out.println(getGeoJsonPointfromServer(journey.get(0)));
+            Logging.logger.info(getGeoJsonPointfromServer(journey.get(0)));
             return;
         }
 
@@ -465,7 +454,7 @@ public class ServerUtil {
             Node nodeO = journey.get(i);
             Node nodeD = journey.get(i + 1);
 
-            String o = GeoJsonUtil.getGeoJson(nodeO);
+            String o = GeoJsonUtil.getGeoJson(earliestDatetime,nodeO);
 
 
             String edge = getGeoJsonSPBetweenODfromServer(nodeO, nodeD);
@@ -473,22 +462,22 @@ public class ServerUtil {
             listFeatures.add(edge);
         }
 
-        String d = GeoJsonUtil.getGeoJson(journey.get(journey.size()-1));
+        String d = GeoJsonUtil.getGeoJson(earliestDatetime,journey.get(journey.size()-1));
         listFeatures.add(d);
 
         GeoJsonUtil.getJourneyInfo(journey);
         */
-        //System.out.println("POINTS:" + String.join(",\n", GeoJsonUtil.getJourneyInfo(journey)));
-        //System.out.println("LINES:" + String.join(",\n", GeoJsonUtil.getJourneyInfoLines(journey)));
+        //Logging.logger.info("POINTS:" + String.join(",\n", GeoJsonUtil.getJourneyInfo(journey)));
+        //Logging.logger.info("LINES:" + String.join(",\n", GeoJsonUtil.getJourneyInfoLines(journey)));
 
 
         String geojson = String.format("{\n" +
                 "    \"type\": \"FeatureCollection\",\n" +
-                "    \"features\": %s\n}", String.join(",\n", GeoJsonUtil.getJourneyComplete(v)));
+                "    \"features\": %s\n}", String.join(",\n", GeoJsonUtil.getJourneyComplete(earliestTime, v)));
 
         GeoJsonUtil.saveGeoJson("teste", geojson);
 
-        System.out.println("GEOJSON" + geojson);
+        Logging.logger.info("GEOJSON" + geojson);
 
     }
 
@@ -515,5 +504,11 @@ public class ServerUtil {
         String fileName = UriUtils.encode(experiencesFolder, "UTF-8");
         return requestTo(String.format(restTrackExp, this.ADDRESS_SERVER, fileName));
     }
+
+    public String updateTargetModel() {
+        return requestTo(String.format(restUpdateTargetModel, this.ADDRESS_SERVER));
+    }
+
+
 
 }

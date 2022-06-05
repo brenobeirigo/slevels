@@ -42,7 +42,7 @@ public class ParseJsonUtil {
 
             nodes.put(id, node);
         }
-        System.out.printf("# %d nodes read.\n", nodes.size());
+        Logging.logger.info("{}", String.format("# %d nodes read.\n", nodes.size()));
         return nodes;
     }
 }

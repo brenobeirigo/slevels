@@ -106,7 +106,7 @@ public class MatchingFCFS implements RideMatchingStrategy {
         // Get service rate of user u
         double serviceRate = Config.getInstance().qosDic.get(u.getPerformanceClass()).serviceRate;
 
-        //System.out.print(String.format("\n2) %f <= %f : User: %s", draw, serviceRate, u));
+        //Logging.logger.info("{}", String.format("\n2) %f <= %f : User: %s", draw, serviceRate, u));
 
         // E.g., B - 0.8 <= 1? Yes! Add vehicle and try again to service customer
         // E.g., A - 1.0 <= 1? Yes! Add vehicle and try again to service customer

@@ -78,7 +78,7 @@ public class PDGeneratorInsertion implements PDGenerator {
     private void popExhaustedInsertionGenerators() {
         while (!pdPartialInsertionList.isEmpty() && !pdPartialInsertionList.getLast().hasNext()) {
             PDGeneratorSingleInsertion exhaustedPUDOGenerator = pdPartialInsertionList.removeLast();
-            // System.out.println(pdPartialInsertionList.getLast().user +" - "+pdPartialInsertionList.getLast().sequence);
+            // Logging.logger.info(pdPartialInsertionList.getLast().user +" - "+pdPartialInsertionList.getLast().sequence);
             sortedRequests.add(exhaustedPUDOGenerator.user);
         }
     }
@@ -119,7 +119,7 @@ public class PDGeneratorInsertion implements PDGenerator {
         while (!sortedRequests.isEmpty()) {
             ArrayList<Node> sequence = new ArrayList<>(List.of(pdPartialInsertionList.getLast().next()));
             PDGeneratorSingleInsertion PDSingleInsertion = new PDGeneratorSingleInsertion(sortedRequests.removeFirst(), sequence);
-            // System.out.println(PDSingleInsertion.user +" - "+PDSingleInsertion.sequence);
+            // Logging.logger.info(PDSingleInsertion.user +" - "+PDSingleInsertion.sequence);
             pdPartialInsertionList.add(PDSingleInsertion);
         }
     }

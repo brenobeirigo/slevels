@@ -1,4 +1,5 @@
 import dao.Dao;
+import dao.Logging;
 
 import java.util.stream.Collectors;
 
@@ -9,7 +10,7 @@ public class TestGetIntermediateNode {
     public static void testPair(int from, int to, int elapsed) {
         int intermediate = dao.getIntermediateNodeNetworkId(from, to, (short) elapsed);
         String sp = dao.getShortestPathBetween(from, to).stream().map(p -> String.format("%5d", p)).collect(Collectors.joining());
-        System.out.println(String.format("Dist. %5d --> %5d/%5d --> %5d [%5d] (%s)", from, elapsed, dao.getDistSec(from, to), to, intermediate, sp));
+        Logging.logger.info("{}", String.format("Dist. %5d --> %5d/%5d --> %5d [%5d] (%s)", from, elapsed, dao.getDistSec(from, to), to, intermediate, sp));
     }
 
     public static void main(String[] a) {
@@ -39,7 +40,7 @@ public class TestGetIntermediateNode {
 
 
         int intermediate = dao.getDistSec(3682, 4327);
-        System.out.println("THE FUCK:" + intermediate);
+        Logging.logger.info("THE FUCK:" + intermediate);
         /*
         TODO fi94x nodes with zero distance
 
@@ -63,7 +64,7 @@ public class TestGetIntermediateNode {
 
 
                 if(dao.getDistSec(i,j)==0){
-                    System.out.println(i + " - " + j);
+                    Logging.logger.info(i + " - " + j);
                 }
 
                 }catch(IndexOutOfBoundsException e){

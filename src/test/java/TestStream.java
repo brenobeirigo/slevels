@@ -1,3 +1,4 @@
+import dao.Logging;
 import model.graph.GraphRV;
 
 import java.util.ArrayList;
@@ -24,17 +25,17 @@ public class TestStream {
         long s1 = System.nanoTime();
         List<String>  a = IntStream.range(0, n-1).boxed().flatMap(i->IntStream.range(i+1, n).boxed().map(j->String.valueOf(i)+ String.valueOf(j))).collect(Collectors.toList());
         long s2 = System.nanoTime();
-        System.out.println(s2-s1);
+        Logging.logger.info("{}",s2-s1);
 
         long s3 = System.nanoTime();
         List<String>  b = IntStream.range(0, n-1).boxed().flatMap(i->IntStream.range(i+1, n).boxed().parallel().map(j->String.valueOf(i)+ String.valueOf(j))).collect(Collectors.toList());
         long s4 = System.nanoTime();
-        System.out.println(s4-s3);
+        Logging.logger.info("{}",s4-s3);
 
         long s5 = System.nanoTime();
         List<String>  c = IntStream.range(0, n-1).boxed().parallel().flatMap(i->IntStream.range(i+1, n).boxed().map(j->String.valueOf(i)+ String.valueOf(j))).collect(Collectors.toList());
         long s6 = System.nanoTime();
-        System.out.println(s6-s5);
+        Logging.logger.info("{}",s6-s5);
 
         long s7 = System.nanoTime();
         List<String>  d = new ArrayList<>();
@@ -44,7 +45,7 @@ public class TestStream {
             }
         }
         long s8 = System.nanoTime();
-        System.out.println(s8-s7);
+        Logging.logger.info("{}",s8-s7);
 
 
     }

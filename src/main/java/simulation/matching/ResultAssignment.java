@@ -3,6 +3,7 @@ package simulation.matching;
 import com.google.common.base.Objects;
 import config.Config;
 import config.Qos;
+import dao.Logging;
 import model.*;
 import model.node.Node;
 
@@ -178,35 +179,36 @@ public class ResultAssignment {
     }
 
     public void printRoundResult() {
-        System.out.println("######## Round current time: " + this.currentTime);
-        System.out.printf("\n\n# Assigned vehicles  (%d)  = %s%n", vehiclesOK.size(), vehiclesOK);
-        System.out.printf("# Unassigned users   (%d)  = %s%n", requestsUnassigned.size(), requestsUnassigned);
-        System.out.printf("# Unmet s. levels    (%d)  = %s%n", getUnmetServiceLevelRequests().size(), getUnmetServiceLevelRequests());
-        System.out.printf("# Assigned users     (%d)  = %s%n", requestsOK.size(), requestsOK);
-        System.out.printf("# Displaced users    (%d)  = %s%n", requestsDisplaced.size(), requestsDisplaced);
-        System.out.printf("# Class service quality    = \n%s%n", overallServiceLevelDistribution());
-        System.out.printf("# Vehicles disrupted (%d)  = %s%n", vehiclesDisrupted.size(), vehiclesDisrupted);
-        System.out.printf("# Vehicles hired           = %s%n", getVehiclesHired().size());
+        Logging.logger.info("######## Round current time: {}", this.currentTime);
+        Logging.logger.info("# Assigned vehicles  ({})  = {}", vehiclesOK.size(), vehiclesOK);
+        Logging.logger.info("# Unassigned users   ({})  = {}", requestsUnassigned.size(), requestsUnassigned);
+        Logging.logger.info("# Unmet s. levels    ({})  = {}", getUnmetServiceLevelRequests().size(), getUnmetServiceLevelRequests());
+        Logging.logger.info("# Assigned users     ({})  = {}", requestsOK.size(), requestsOK);
+        Logging.logger.info("# Displaced users    ({})  = {}", requestsDisplaced.size(), requestsDisplaced);
+        Logging.logger.info("# Class service quality    = {}", overallServiceLevelDistribution());
+        Logging.logger.info("# Vehicles disrupted ({})  = {}", vehiclesDisrupted.size(), vehiclesDisrupted);
+        Logging.logger.info("# Vehicles hired           = {}", getVehiclesHired().size());
+
         for (Vehicle vehicle : vehiclesDisrupted) {
-            System.out.println("#### Disrupted = " + vehicle.getVisit());
+            Logging.logger.info("#### Disrupted = " + vehicle.getVisit());
         }
     }
 
     public void printRoundResultSummary(String label) {
 
-        System.out.printf("######## [%s] Round current time=%s:\n", label, this.currentTime);
-        System.out.printf("# Assigned vehicles = %d%n", vehiclesOK.size());
-        System.out.printf("# Unassigned users  = %d%n", requestsUnassigned.size());
-        System.out.printf("# Unmet s. levels   = %d%n", getUnmetServiceLevelRequests().size());
-        System.out.printf("# Assigned users    = %d%n", requestsOK.size());
-        System.out.printf("# Displaced users   = %d%n", requestsDisplaced.size());
-        System.out.printf("# Class service quality: \n%s%n", overallServiceLevelDistribution());
-        System.out.printf("# Disrupted         = %d%n", vehiclesDisrupted.size());
-        System.out.printf("# Vehicles hired    = %s%n", getVehiclesHired().size());
-        System.out.printf("# Obj. vfs          = %s%n", getTotalVFs());
-        System.out.printf("# Obj. total delay  = %s%n", getTotalDelay());
-        System.out.printf("# Obj. reqs. + vfs  = %s%n", objValRequestsPlusVFs);
-        System.out.printf("# Obj. reqs         = %s%n", objValTotalServiced);
+        Logging.logger.info("######## [{}] Round current time= {}", label, this.currentTime);
+        Logging.logger.info("# Assigned vehicles    = {}", vehiclesOK.size());
+        Logging.logger.info("# Unassigned users     = {}", requestsUnassigned.size());
+        Logging.logger.info("# Unmet s. levels      = {}", getUnmetServiceLevelRequests().size());
+        Logging.logger.info("# Assigned users       = {}", requestsOK.size());
+        Logging.logger.info("# Displaced users      = {}", requestsDisplaced.size());
+        Logging.logger.info("# Class service quality: {}", overallServiceLevelDistribution());
+        Logging.logger.info("# Disrupted            = {}", vehiclesDisrupted.size());
+        Logging.logger.info("# Vehicles hired       = {}", getVehiclesHired().size());
+        Logging.logger.info("# Obj. vfs             = {}", getTotalVFs());
+        Logging.logger.info("# Obj. total delay     = {}", getTotalDelay());
+        Logging.logger.info("# Obj. reqs. + vfs     = {}", objValRequestsPlusVFs);
+        Logging.logger.info("# Obj. reqs            = {}", objValTotalServiced);
 
 
     }
@@ -271,11 +273,11 @@ public class ResultAssignment {
     }
 
     private void printCurrentStatus() {
-        System.out.printf("# Requests (%d): %s%n", this.requestsOK.size(), this.requestsOK);
-        System.out.printf("# Vehicles (%d): %s%n", this.vehiclesOK.size(), this.vehiclesOK);
-        System.out.printf("# Disrupted (%d): %s%n", this.vehiclesDisrupted.size(), this.vehiclesDisrupted);
-        System.out.printf("# Visits: %d%n", this.visitsOK.size());
-        System.out.println("# QoS unmet");
+        Logging.logger.info("{}", String.format("# Requests (%d): %s", this.requestsOK.size(), this.requestsOK));
+        Logging.logger.info("{}", String.format("# Vehicles (%d): %s", this.vehiclesOK.size(), this.vehiclesOK));
+        Logging.logger.info("{}", String.format("# Disrupted (%d): %s", this.vehiclesDisrupted.size(), this.vehiclesDisrupted));
+        Logging.logger.info("{}", String.format("# Visits: %d", this.visitsOK.size()));
+        Logging.logger.info("# QoS unmet");
     }
 
     private void unassignedUsersCannotBeServiced() {
@@ -337,7 +339,7 @@ public class ResultAssignment {
         // Are all requests serviced in another visits?
         if (requestsServicedByDifferentVehicles.size() != requestsFormerlyServicedByDisruptedVehicle.size()) {
             requestsFormerlyServicedByDisruptedVehicle.removeAll(requestsServicedByDifferentVehicles);
-            System.out.printf(" - Users %s from vehicle %s were left unmatched%n", requestsFormerlyServicedByDisruptedVehicle, vehicleDisrupted);
+            Logging.logger.info("{}", String.format(" - Users %s from vehicle %s were left unmatched", requestsFormerlyServicedByDisruptedVehicle, vehicleDisrupted));
             return false;
         }
 
@@ -466,7 +468,7 @@ public class ResultAssignment {
         List<User> listAssigned = getSortedListOfAssignedUsers();
         for (User user : listAssigned) {
             if (!user.isFirstTier())
-                System.out.println(user.getCurrentAssigmentInfo());
+                Logging.logger.info(user.getCurrentAssigmentInfo());
         }
     }
 
@@ -474,7 +476,7 @@ public class ResultAssignment {
         List<User> listAssigned = getSortedListOfAssignedUsers();
         for (User user : listAssigned) {
             if (user.isFirstTier())
-                System.out.println(user.getCurrentAssigmentInfo());
+                Logging.logger.info(user.getCurrentAssigmentInfo());
         }
     }
 

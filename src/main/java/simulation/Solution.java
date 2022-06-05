@@ -5,6 +5,7 @@ import config.InstanceConfig;
 import config.Qos;
 import dao.Dao;
 import dao.FileUtil;
+import dao.Logging;
 import helper.HelperIO;
 import helper.Runtime;
 import model.User;
@@ -278,7 +279,7 @@ public class Solution {
 
     public void saveRoundInfo() {
 
-        System.out.println(">>>>>>> Round log: " + this.outputFile);
+        Logging.logger.info(">>>>>>> Round log: " + this.outputFile);
 
         try {
             writer = Files.newBufferedWriter(outputFile);
@@ -311,7 +312,7 @@ public class Solution {
      * @param vehicleList
      */
     public void saveGeoJsonPerVehicle(Date earliestDatetime, Set<Vehicle> vehicleList) {
-        System.out.println("Saving geojson vehicle traces...");
+        Logging.logger.info("Saving geojson vehicle traces...");
 
 
         // Create a folder for test case
@@ -372,7 +373,7 @@ public class Solution {
 
     public void saveUserInfo(Map<Integer, User> listOfServicedUsers) {
 
-        System.out.println(">>>>>>> User service log: " + this.outputFileUsers);
+        Logging.logger.info(">>>>>>> User service log: " + this.outputFileUsers);
 
         List<User> sortedUsersPk = new ArrayList<>(listOfServicedUsers.values());
         sortedUsersPk.sort(comparingInt(o -> o.getNodePk().getEarliest()));
@@ -797,14 +798,14 @@ public class Solution {
 
     public void printAllJourneys(Set<Vehicle> listVehicles) {
 
-        System.out.println(HelperIO.printJourneys(listVehicles));
-        System.out.println("GEOJSON DATA");
+        Logging.logger.info(HelperIO.printJourneys(listVehicles));
+        Logging.logger.info("GEOJSON DATA");
         // Dao dao = Dao.getInstance();
         for (Vehicle v : listVehicles) {
-            System.out.println(v.getOrigin().getNetworkId());
-            //System.out.println(v.getInfo());
+            Logging.logger.info("{}->{}", v, v.getOrigin().getNetworkId());
+            //Logging.logger.info(v.getInfo());
 
-            //System.out.println(v.getJourneyInfo());
+            //Logging.logger.info(v.getJourneyInfo());
             //ServerUtil.printGeoJsonJourney(v, Simulation.);
         }
     }

@@ -3,6 +3,7 @@ package simulation.matching;
 import com.google.common.collect.Sets;
 import config.Config;
 import config.Qos;
+import dao.Logging;
 import gurobi.GRB;
 import gurobi.GRBException;
 import gurobi.GRBLinExpr;
@@ -52,7 +53,7 @@ public class MatchingOptimalServiceLevelAndHire extends MatchingOptimalServiceLe
 
             if (isModelOptimal() || isTimeLimitReached()) {
                 if (isTimeLimitReached()) {
-                    System.out.printf("## TIME LIMIT REACHED = %.2f seconds // Solution count: %s%n", mipTimeLimit, model.get(GRB.IntAttr.SolCount));
+                    Logging.logger.info("{}", String.format("## TIME LIMIT REACHED = %.2f seconds // Solution count: %s", mipTimeLimit, model.get(GRB.IntAttr.SolCount)));
                 }
 
                 extractResultServiceLevel();
@@ -62,7 +63,7 @@ public class MatchingOptimalServiceLevelAndHire extends MatchingOptimalServiceLe
             }
 
         } catch (GRBException e) {
-            System.out.println("TIME IS OVER - No solution found, keep previous assignment. Gurobi error code: " + e.getErrorCode() + ". " + e.getMessage());
+            Logging.logger.info("TIME IS OVER - No solution found, keep previous assignment. Gurobi error code: " + e.getErrorCode() + ". " + e.getMessage());
             keepPreviousAssignment();
         } finally {
             disposeModelEnvironmentAndSave();
@@ -132,7 +133,7 @@ public class MatchingOptimalServiceLevelAndHire extends MatchingOptimalServiceLe
             }
         }
 
-        System.out.println("HIRED CURRENT PERIOD:" + hiredCurrentPeriod);
+        Logging.logger.info("HIRED CURRENT PERIOD:" + hiredCurrentPeriod);
         MapUtils.debugPrint(System.out, "QOSVEHICLES", qosVehicles);
     }
 
@@ -166,7 +167,7 @@ public class MatchingOptimalServiceLevelAndHire extends MatchingOptimalServiceLe
             }
         }
 
-        System.out.println("HIRED CURRENT PERIOD:" + hiredCurrentPeriod);
+        Logging.logger.info("HIRED CURRENT PERIOD:" + hiredCurrentPeriod);
         MapUtils.debugPrint(System.out, "QOSVEHICLES", qosVehicles);
     }
 
@@ -314,7 +315,7 @@ public class MatchingOptimalServiceLevelAndHire extends MatchingOptimalServiceLe
 
     public void printAllVehiclesVisits() {
         Map<Vehicle, String> visitsVehicle = new HashMap<>();
-        System.out.printf("## Vehicle count = %d", graphRTV.getListVehicles().size());
+        Logging.logger.info("{}", String.format("## Vehicle count = %d", graphRTV.getListVehicles().size()));
         for (Vehicle vehicle : graphRTV.getListVehicles()) {
             visitsVehicle.put(vehicle, "");
         }
@@ -332,9 +333,9 @@ public class MatchingOptimalServiceLevelAndHire extends MatchingOptimalServiceLe
         visitsVehicle.forEach((vehicle, s) ->
         {
             if (hiredCurrentPeriod.contains(vehicle)) {
-                System.out.printf("\n# === %s --- %s", vehicle, s);
+                Logging.logger.info("{}", String.format("\n# === %s --- %s", vehicle, s));
             } else {
-                System.out.printf("\n# %s --- %s", vehicle, s);
+                Logging.logger.info("{}", String.format("\n# %s --- %s", vehicle, s));
             }
         });
     }
@@ -343,7 +344,7 @@ public class MatchingOptimalServiceLevelAndHire extends MatchingOptimalServiceLe
     private void printListOfCandidateVehiclesEachRequest() {
         Map<User, Set<Vehicle>> usersVehicle = new HashMap<>();
 
-        System.out.printf("#Visits: %d\n", visits.size());
+        Logging.logger.info("{}", String.format("#Visits: %d\n", visits.size()));
         for (VisitObj visit : visits) {
             Set<User> users = visit.getUsers();
             for (User user : users) {
@@ -355,7 +356,7 @@ public class MatchingOptimalServiceLevelAndHire extends MatchingOptimalServiceLe
         usersVehicle.forEach((user, vehicles1) -> {
             List<Vehicle> vehicles = new ArrayList<>(vehicles1);
             vehicles.sort(Comparator.comparing(Vehicle::toString));
-            System.out.printf("%s (vehicles = %4d)=%s\n", user, vehicles1.size(), vehicles);
+            Logging.logger.info("{}", String.format("%s (vehicles = %4d)=%s\n", user, vehicles1.size(), vehicles));
         });
     }
 
@@ -366,7 +367,7 @@ public class MatchingOptimalServiceLevelAndHire extends MatchingOptimalServiceLe
     private boolean allRoundRequestsCanBePickedUp() {
 
         for (Vehicle vehicle : hiredCurrentPeriod) {
-            //System.out.println(vehicle + " - " + graphRTV.getListOfVisitsFromVehicle(vehicle));
+            //Logging.logger.info(vehicle + " - " + graphRTV.getListOfVisitsFromVehicle(vehicle));
             boolean atLeastOneVisitHasFAVUnser = false;
             for (VisitObj visit : graphRTV.getListOfVisitsFromVehicle(vehicle)) {
                 if (visit.getRequests().contains(vehicle.getUserHiredMustPickup())) {
@@ -375,7 +376,7 @@ public class MatchingOptimalServiceLevelAndHire extends MatchingOptimalServiceLe
                 }
             }
             if (!atLeastOneVisitHasFAVUnser) {
-                System.out.println(vehicle + " - " + vehicle.getUserHiredMustPickup() + " - Visits:" + graphRTV.getListOfVisitsFromVehicle(vehicle));
+                Logging.logger.info(vehicle + " - " + vehicle.getUserHiredMustPickup() + " - Visits:" + graphRTV.getListOfVisitsFromVehicle(vehicle));
                 return false;
             }
         }

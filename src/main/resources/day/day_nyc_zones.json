@@ -1,6 +1,6 @@
 {
   "instance_description": "Tests cases currently used in paper (with more flexible time cuts and larger graphs), 1h from 18h, region centers from max waiting (150)",
-  "instance_name": "RELU1H128LSTM",
+  "instance_name": "RELU1H128LSTMEMBEDSIMPLE100weightsSmallLogsavexp3",
   "server_url": "http://localhost:5001",
   "result_folder": "./analysis/data/results/NYCZONESXPTARGET100/",
   "instances_folder": "./analysis/data/results/NYCZONESXPTARGET100/",
@@ -19,9 +19,9 @@
       "discount_factor": [
         0.5
       ],
-      "request_samples": [50],
+      "request_samples": [200],
       "request_samples_doc": "Number of times requests are sampled (n. of episodes = request_samples * len(episode_start_time))",
-      "training_frequency": [30],
+      "training_frequency": [120],
       "training_frequency_doc": "Execute experience replay every 'training_frequency' number of new experiences collected",
       "experience_replay": {
         "size_experience_replay_buffer": [1500],
@@ -29,7 +29,7 @@
         "size_experience_replay_batch": [128]
       },
       "target_network": {
-        "update_frequency": [1],
+        "update_frequency": [120],
         "update_frequency_doc": "Model is updated after 'update_frequency' number of experiences collected."
       },
       "training_config": {
@@ -54,17 +54,27 @@
           "2019-02-26 16:00:00",
           "2019-02-27 16:00:00"
         ],
+        "data": [
+          "./data/nyc/processed/trip_records/20190204170000-20190204190000_2019-2-yellow-Manhattan-00-00-00-23-59-59.csv",
+          "./data/nyc/processed/trip_records/20190205170000-20190205190000_2019-2-yellow-Manhattan-00-00-00-23-59-59.csv",
+          "./data/nyc/processed/trip_records/20190206170000-20190206190000_2019-2-yellow-Manhattan-00-00-00-23-59-59.csv",
+          "./data/nyc/processed/trip_records/20190207170000-20190207190000_2019-2-yellow-Manhattan-00-00-00-23-59-59.csv",
+          "./data/nyc/processed/trip_records/20190208170000-20190208190000_2019-2-yellow-Manhattan-00-00-00-23-59-59.csv"
+        ],
         "episode_start_datetime": [
-          "2019-02-04 00:00:00",
-          "2019-02-05 00:00:00",
-          "2019-02-06 00:00:00",
-          "2019-02-07 00:00:00",
-          "2019-02-08 00:00:00"
+          "2019-02-05 17:00:00",
+          "2019-02-06 17:00:00",
+          "2019-02-07 17:00:00",
+          "2019-02-04 17:00:00",
+          "2019-02-08 17:00:00"
         ]
       },
       "testing_config": {
         "episode_start_datetime": [
-          "2019-02-20 00:00:00"
+          "2019-02-20 17:00:00"
+        ],
+        "data": [
+          "./data/nyc/processed/trip_records/20190220170000-20190220190000_2019-2-yellow-Manhattan-00-00-00-23-59-59.csv"
         ]
       }
     }
@@ -78,8 +88,8 @@
     ],
     "time_config": [
       {
-        "request_sampling_horizon": 1800,
-        "total_simulation_horizon": 1800
+        "request_sampling_horizon": 7200,
+        "total_simulation_horizon": 7200
       }
     ],
     "max_time_to_reach_region_center": 150,
@@ -87,13 +97,13 @@
       10
     ],
     "percentage_requests": [
-      0.2
+      0.02
     ],
     "shortest_path_method": [
       "shortest_path_astar"
     ],
     "initial_fleet": [
-      100
+      20
     ],
     "max_capacity": [
       4
