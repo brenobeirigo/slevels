@@ -17,6 +17,7 @@ import org.jgrapht.alg.interfaces.AStarAdmissibleHeuristic;
 import org.jgrapht.alg.interfaces.ShortestPathAlgorithm;
 import org.jgrapht.alg.shortestpath.AStarShortestPath;
 import org.jgrapht.alg.shortestpath.DijkstraShortestPath;
+import org.jgrapht.alg.util.Pair;
 import org.jgrapht.graph.DefaultWeightedEdge;
 import org.jgrapht.graph.SimpleDirectedWeightedGraph;
 import org.slf4j.Logger;
@@ -37,6 +38,8 @@ import static util.pdcombinatorics.PDPermutations.loadPrecalculatedPermutationsP
 
 
 public class Dao {
+
+    public static final int[] ZONE_IDS = new int[]{105, 116, 152, 264, 305, 354, 372, 388, 592, 612, 806, 828, 845, 869, 885, 932, 986, 1005, 1008, 1044, 1085, 1189, 1219, 1237, 1242, 1269, 1422, 1564, 1587, 1641, 1789, 1941, 2056, 2246, 2249, 2335, 2343, 2405, 2424, 2462, 2500, 2608, 2731, 2740, 2944, 2957, 2992, 3018, 3153, 3176, 3218, 3221, 3248, 3251, 3387, 3511, 3746, 3788, 3838, 3848, 3953, 3978, 4059, 4097, 4357, 4362, 4419};
 
     public static Map<Date, Map<String, Map<Integer, Map<Integer, List<String>>>>> requestDataMap = new HashMap<>();
 
@@ -79,6 +82,7 @@ public class Dao {
     public static int numberOfNodes;
     private static Dao ourInstance = new Dao();
     public final long SEED = 0;
+    public Map<Integer, List<Integer>> closestZones;
     public Random rand;
     protected ShortestPathAlgorithm<Integer, DefaultWeightedEdge> shortestPath;
     protected ArrayList<ArrayList<List<Integer>>> shortestPathsNodeIds;
@@ -152,6 +156,7 @@ public class Dao {
 
             //distMatrix = getDistanceMatrixFrom(pathDistanceMatrix);
             distMatrix = getDistanceMatrixFrom(pathDurationsMatrix, false);
+            this.closestZones = this.closestZones(4);
 //            distMatrixMeters = getDistanceMatrixMeters(pathDistanceMatrix);
 
             Logging.logger.info("# Reading precalculated PUDO data from '{}'...", pathPrecalculatedPermutations);
@@ -1051,6 +1056,27 @@ public class Dao {
         Logging.logger.info((shortestPathDistances.get(o).size()) + "--" + spArrivals);
     }
 
+    public Map<Integer, List<Integer>> closestZones(int maxNumberClosestZones) {
+        Map<Integer, List<Pair<Integer, Integer>>> dists = new HashMap<>();
+        for (int z0 = 0; z0 <this.distMatrix.length; z0++) {
+            dists.put(z0, new ArrayList<>());
+            for (int z1 : ZONE_IDS) {
+                if (z0 != z1) {
+                    int dist = this.distMatrix[z0][z1];
+                    dists.get(z0).add(new Pair<>(z1, dist));
+                }
+            }
+        }
+        dists.forEach((integer, pairs) -> pairs.sort((o1, o2) -> o1.getSecond().compareTo(o2.getSecond())));
+        Map<Integer, List<Integer>> closestZoneIds = new HashMap<>();
+
+        dists.forEach((integer, pairs) -> {
+
+            List<Integer> targets = pairs.stream().limit(maxNumberClosestZones).map(Pair::getFirst).toList();
+            closestZoneIds.put(integer, targets);
+        });
+        return closestZoneIds;
+    }
 
     /**
      * Get the network id of the node in the shortest path connecting two other nodes.
