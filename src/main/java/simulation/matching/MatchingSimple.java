@@ -137,10 +137,12 @@ public class MatchingSimple implements RideMatchingStrategy {
 
         sampledExperiences.stream()
                 .limit(this.learningSettings.sizeExperienceReplayBatch)
-                .forEach(xp-> {
-                    ExperienceObject replayedExperienceObject = getReplayedExperienceObject(xp);
-                    String msg = replayedExperienceObject.remember(this.learningSettings);
-                    Logging.logger.info(msg);});
+                .parallel().map(this::getReplayedExperienceObject).toList().forEach(xp -> {
+                    // Sequential because model cannot be updated in sequence
+                    // TODO Submit batch
+                    String msg = xp.remember(this.learningSettings);
+                    Logging.logger.info(msg);
+                });
     }
 
     private ExperienceObject getReplayedExperienceObject(FleetStateActionSpace fleetStateActionSpace) {
