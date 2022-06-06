@@ -90,84 +90,8 @@ public class AssignmentILP {
         initGurobiEnv();
         this.penObjectives = new LinkedHashMap<>();
         this.vehicleVisitsMap = vehicleVisitsMap;
-        int[] zone_ids = new int[]{105,
-                116,
-                152,
-                264,
-                305,
-                354,
-                372,
-                388,
-                592,
-                612,
-                806,
-                828,
-                845,
-                869,
-                885,
-                932,
-                986,
-                1005,
-                1008,
-                1044,
-                1085,
-                1189,
-                1219,
-                1237,
-                1242,
-                1269,
-                1422,
-                1564,
-                1587,
-                1641,
-                1789,
-                1941,
-                2056,
-                2246,
-                2249,
-                2335,
-                2343,
-                2405,
-                2424,
-                2462,
-                2500,
-                2608,
-                2731,
-                2740,
-                2944,
-                2957,
-                2992,
-                3018,
-                3153,
-                3176,
-                3218,
-                3221,
-                3248,
-                3251,
-                3387,
-                3511,
-                3746,
-                3788,
-                3838,
-                3848,
-                3953,
-                3978,
-                4059,
-                4097,
-                4357,
-                4362,
-                4419};
 
-//        for (int zone_id : zone_ids) {
-//            for (Vehicle vehicle : this.vehicleVisitsMap.keySet()) {
-//                if (vehicle.isParked()) {
-//                    NodeTargetRebalancing targetNode = new NodeTargetRebalancing(vehicle, zone_id);
-//                    VisitRelocation visit = new VisitRelocation(targetNode, vehicle);
-//                    this.vehicleVisitsMap.get(vehicle).add(visit);
-//                }
-//            }
-//
-//        }
+
         this.userVisitsMap = extractUserVisitsMap(vehicleVisitsMap, requests);
         this.currentTime = currentTime;
 
@@ -236,7 +160,7 @@ public class AssignmentILP {
             saveModel(currentTime);
 
         // Dispose of model and environment
-         model.dispose();
+        model.dispose();
 //        try {
 //            env.dispose();
 //        } catch (GRBException e) {
