@@ -417,7 +417,7 @@ public class StateAction implements Comparable<StateAction>, VisitObj {
     }
 
     private double getOccupancyRate(int load) {
-        return Double.valueOf(load) / this.visit.getVehicle().getCapacity();
+        return (double) load / this.visit.getVehicle().getCapacity();
     }
 
     private void processNextDestination() {

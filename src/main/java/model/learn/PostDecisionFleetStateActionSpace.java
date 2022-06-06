@@ -33,7 +33,11 @@ public class PostDecisionFleetStateActionSpace extends FleetStateActionSpace {
     }
 
     public PostDecisionFleetStateActionSpace(FleetStateActionSpace fleetStateActionSpace, int elapsed) {
-        super(fleetStateActionSpace.vehicles, fleetStateActionSpace.requests, fleetStateActionSpace.timeStep, fleetStateActionSpace.timeHorizon);
+        super(
+                fleetStateActionSpace.vehicles,
+                fleetStateActionSpace.requests,
+                fleetStateActionSpace.timeStep,
+                fleetStateActionSpace.timeHorizon);
         this.vehicleVisitMap = fleetStateActionSpace.vehicleVisitMap;
         this.fleetStateActionSpace = fleetStateActionSpace;
         this.elapsed = elapsed;
