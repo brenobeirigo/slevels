@@ -133,8 +133,9 @@ public abstract class Node implements Comparable<Node> {
 
     public String getInfo() {
         return String.format(
-                "[timestep=%4d] %7s (earliest=%4s, ear. dep=%4s, departure=%4s, arrival=%4s, latest=%4s) [delay=%4s] %s",
+                "[timestep=%4d, Network id=%d] %7s (earliest=%4s, ear. dep=%4s, departure=%4s, arrival=%4s, latest=%4s) [delay=%4s] %s",
                 Simulation.rightTW,
+                this.networkId,
                 this,
                 String.valueOf(this.getEarliest()),
                 String.valueOf(this.getEarliestDeparture()),

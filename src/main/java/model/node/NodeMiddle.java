@@ -75,6 +75,6 @@ public class NodeMiddle extends Node {
 
     @Override
     public String toString() {
-        return String.format("%10s", "MI" + String.valueOf(Math.abs(this.networkId)));
+        return String.format("%10s -[%s -> %s]", "MI" + String.valueOf(Math.abs(this.networkId)), this.nodeFrom, this.nodeTo);
     }
 }
