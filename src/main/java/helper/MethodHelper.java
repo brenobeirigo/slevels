@@ -49,11 +49,11 @@ public class MethodHelper {
             }
 
             //
-            short randomOrigin = (short) (seed.nextDouble() * maxFleetSize);
+            short randomOrigin = (short) (seed.nextDouble() * Dao.ZONE_IDS.length);
 
             //Logging.logger.info("Vehicles:" + randomOrigin + "-" + Dao.getInstance().getDistMatrix().length);
             //Logging.logger.info(randomOrigin);
-            listVehicle.add(new Vehicle(vSize, randomOrigin, currentTime));
+            listVehicle.add(new Vehicle(vSize, Dao.ZONE_IDS[randomOrigin], currentTime));
         }
         //Logging.logger.info(listVehicle.size() + " vehicles created.");
         return listVehicle;
