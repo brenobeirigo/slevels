@@ -125,8 +125,9 @@ public class Leg implements Comparable<Leg> {
         if (distFromTo >= 0) {
             // Time vehicle arrives at next node (can be earlier or later)
             // If distance is zero, arrival next MUST be at least earliest time at next node
-            this.arrivalNext = this.arrivalNext + distFromTo;
-            assert this.arrivalNext >= Simulation.rightTW : String.format("From=%s / To=%s / Middle=%s / Simulation=%s / Arrival=%s", fromNode.getInfo(), nextNode.getInfo(), vehicle.getMiddleNode() != null ? vehicle.getMiddleNode().getInfo() : "null", Simulation.rightTW, arrivalNext);
+            // Must be always later than current decision time!
+            this.arrivalNext = Math.max(this.arrivalNext + distFromTo, Simulation.rightTW);
+            assert this.arrivalNext >= Simulation.rightTW : String.format("\nFrom=%s / \nTo=%s / \nMiddle=%s / \nSimulation=%s / \nArrival=%s / \nDist=%s/\nVisit=%s/\nSeq=%s/\nTarget=%s\nTrack=%s, \nJourney=%s", fromNode.getInfo(), nextNode.getInfo(), vehicle.getMiddleNode() != null ? vehicle.getMiddleNode().getInfo() : "null", Simulation.rightTW, arrivalNext, distFromTo, vehicle.getVisit(), vehicle.getVisit().getSequenceVisits(), vehicle.getVisit().getTargetNode().getInfo(), vehicle.visitTrack, vehicle.getJourney());
 
             // If request is known, the system only knows about it after earliest departure
             if (this.arrivalNext >= nextNode.getEarliestDeparture() && this.arrivalNext <= nextNode.getLatest()) {
