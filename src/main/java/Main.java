@@ -16,6 +16,7 @@ import simulation.rebalancing.Rebalance;
 import simulation.rebalancing.RebalanceStrategy;
 
 import java.io.IOException;
+import java.util.Arrays;
 import java.util.Date;
 import java.util.Random;
 
@@ -167,12 +168,14 @@ public class Main {
 
                         simulation.run();
 
+                        String headerStates = String.join(";", Vehicle.STATES);
+                        String states = String.join(";", Arrays.stream(Vehicle.STATES).map(s -> simulation.getSol().statusVehicles.get(s).toString()).toList());
 
                         // Saving episode
-                        String headers = "type;config;method;episode;" + "earliest;n_vehicles;n_requests;n_finished;service_rate;max_rounds;round_count;total_delay;distance_empty;distance_loaded;runtime_sec";
+                        String headers = "type;config;method;episode;" + "earliest;n_vehicles;n_requests;n_finished;service_rate;max_rounds;round_count;total_delay;distance_empty;distance_loaded;runtime_sec;" + headerStates;
                         String episodeInfo = simulation.getSummary(iSample);
                         Logging.logger.info(episodeInfo);
-                        HelperIO.saveDataWithHeaders(fileName + ".csv", "train;" + learningSettings.getLabel() + ";" + episodeInfo, headers, true);
+                        HelperIO.saveDataWithHeaders(fileName + ".csv", "train;" + learningSettings.getLabel() + ";" + episodeInfo + ";" + states, headers, true);
                         if (iEpisode % 100 == 0) {
                             Logging.logger.info("Saving model...");
                             String msg = Dao.getInstance().getServer().saveModelAt(modelFilePath);
@@ -246,10 +249,13 @@ public class Main {
 
 
                     // Saving episode
-                    String headers = "type;config;method;episode;" + "earliest;n_vehicles;n_requests;n_finished;service_rate;max_rounds;round_count;total_delay;distance_empty;distance_loaded;runtime_sec";
+                    String headerStates = String.join(";", Vehicle.STATES);
+                    String states = String.join(";", Arrays.stream(Vehicle.STATES).map(s -> simulation.getSol().statusVehicles.get(s).toString()).toList());
+
+                    String headers = "type;config;method;episode;" + "earliest;n_vehicles;n_requests;n_finished;service_rate;max_rounds;round_count;total_delay;distance_empty;distance_loaded;runtime_sec;" + headerStates;
                     String episodeInfo = simulation.getSummary(iEpisode);
                     Logging.logger.info(episodeInfo);
-                    HelperIO.saveDataWithHeaders(fileName + ".csv", "test;-;" + episodeInfo, headers, true);
+                    HelperIO.saveDataWithHeaders(fileName + ".csv", "test;-;" + episodeInfo + ";" + states, headers, true);
 
                 }
                 // Reset classes for next iteration

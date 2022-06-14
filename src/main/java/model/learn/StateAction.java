@@ -66,7 +66,11 @@ public class StateAction implements Comparable<StateAction>, VisitObj {
 
         if (visit != null) {
             if (visit instanceof VisitRelocation || visit instanceof VisitDisplaceAndStop || visit instanceof VisitStop) {
-                processNextDestination();
+
+                if (visit instanceof VisitRelocation)
+                    processDestinationSequence();
+                else
+                    processNextDestination();
 
             } else {
                 processDestinationSequence();
@@ -93,7 +97,7 @@ public class StateAction implements Comparable<StateAction>, VisitObj {
         this.delays = new ArrayList<>();
         this.delayBonuses = new ArrayList<>();
         this.normalPostDecisionTime = Double.valueOf(this.postDecisionTimeStep) / this.timeHorizon;
-        assert this.normalPostDecisionTime<=1:String.format("%s/%s", Double.valueOf(this.postDecisionTimeStep) , this.timeHorizon);
+        assert this.normalPostDecisionTime <= 1 : String.format("%s/%s", Double.valueOf(this.postDecisionTimeStep), this.timeHorizon);
         this.normalArrivalDelays = new ArrayList<>();
         this.normalOccupancyRates = new ArrayList<>();
         this.vehicleCapacity = null;
@@ -274,7 +278,7 @@ public class StateAction implements Comparable<StateAction>, VisitObj {
         vs.requestCount = visit.getRequests().size();
         vs.totalDelay = visit.getDelay();
         vs.totalDelayBonus = visit.getDelayBonus();
-        assert vs.totalDelayBonus != null: visit;
+        assert vs.totalDelayBonus != null : visit;
 
 //        # Normalising Inputs
 //        current_time_input = (current_time - self.envt.START_EPOCH) / (self.envt.STOP_EPOCH - self.envt.START_EPOCH)
@@ -288,7 +292,10 @@ public class StateAction implements Comparable<StateAction>, VisitObj {
 
 
             if (visit instanceof VisitRelocation || visit instanceof VisitDisplaceAndStop || visit instanceof VisitStop) {
-                vs.processNextDestination();
+                if (visit instanceof VisitRelocation)
+                    vs.processDestinationSequence();
+                else
+                    vs.processNextDestination();
             } else {
 
                 Node originNode = visit.getVehicle().getLastVisitedNode();
@@ -384,7 +391,7 @@ public class StateAction implements Comparable<StateAction>, VisitObj {
     private void processDestinationSequence() {
 
         int departureTime = this.visit.getVehicle().getEarliestDeparture();
-        assert java.util.Objects.equals(this.visit.getVehicle().getEarliestDeparture(), this.visit.getDeparture());
+        assert java.util.Objects.equals(this.visit.getVehicle().getEarliestDeparture(), this.visit.getDeparture()): String.format("%s \n %s \n %s \n %s" , this.visit, this.visit.getVehicle().getEarliestDeparture(), this.vehicle.getJourney(), this.vehicle.getVisitTrack());
         Node originNode = this.visit.getVehicle().getLastVisitedNode();
         int currentLoad = this.visit.getVehicle().getCurrentLoad();
 
@@ -468,6 +475,7 @@ public class StateAction implements Comparable<StateAction>, VisitObj {
     @Override
     public String toString() {
         return "VisitSnapShot{" +
+                "\n type=" + this.visit.getType() +
                 "\n request count=" + this.getRequests().size() +
                 String.format(",\n vf=%6.4f", this.vf) +
                 ",\n        length=" + nodeArrivals.size() +
@@ -502,18 +510,22 @@ public class StateAction implements Comparable<StateAction>, VisitObj {
         this.shareOfSurroundingVehicles = shareOfSurroundingVehicles;
     }
 
-    @Override
-    public boolean equals(Object o) {
-        if (this == o) return true;
-        if (o == null || getClass() != o.getClass()) return false;
-        StateAction that = (StateAction) o;
-        return timeStep == that.timeStep && timeHorizon == that.timeHorizon && Objects.equal(networkIds, that.networkIds) && Objects.equal(nodeArrivals, that.nodeArrivals) && Objects.equal(vehicleCountAtOrigin, that.vehicleCountAtOrigin) && Objects.equal(vehicleCapacity, that.vehicleCapacity) && Objects.equal(postDecisionTimeStep, that.postDecisionTimeStep) && Objects.equal(loads, that.loads) && Objects.equal(delays, that.delays) && Objects.equal(shareOfSurroundingVehicles, that.shareOfSurroundingVehicles);
-    }
+//    @Override
+//    public boolean equals(Object o) {
+//        if (this == o) return true;
+//        if (o == null || getClass() != o.getClass()) return false;
+//        StateAction that = (StateAction) o;
+//        return timeStep == that.timeStep && timeHorizon == that.timeHorizon && Objects.equal(networkIds, that.networkIds) && Objects.equal(nodeArrivals, that.nodeArrivals) && Objects.equal(vehicleCountAtOrigin, that.vehicleCountAtOrigin) && Objects.equal(vehicleCapacity, that.vehicleCapacity) && Objects.equal(postDecisionTimeStep, that.postDecisionTimeStep) && Objects.equal(loads, that.loads) && Objects.equal(delays, that.delays) && Objects.equal(shareOfSurroundingVehicles, that.shareOfSurroundingVehicles);
+//    }
+//
+//    @Override
+//    public int hashCode() {
+//        return this.visit.hashCode();
+//        //return Objects.hashCode(networkIds, nodeArrivals, vehicleCountAtOrigin, vehicleCapacity, postDecisionTime, loads, delays, shareOfSurroundingVehicles, preDecisionTime, totalTimeHorizon);
+//    }
 
-    @Override
-    public int hashCode() {
-        return this.visit.hashCode();
-        //return Objects.hashCode(networkIds, nodeArrivals, vehicleCountAtOrigin, vehicleCapacity, postDecisionTime, loads, delays, shareOfSurroundingVehicles, preDecisionTime, totalTimeHorizon);
+    public int getStateId(){
+        return Objects.hashCode(getVehicle().getLastVisitedNode().getNetworkId(), getRequests(), getPassengers(), networkIds, nodeArrivals, requestCount, getDeparture(), vehicleCountAtOrigin, vehicleCapacity, loads, timeStep);
     }
 
     @Override
@@ -678,5 +690,9 @@ public class StateAction implements Comparable<StateAction>, VisitObj {
         int delayV1_V2 = Dao.getInstance().getDistSec(v1PostNextNode, v2PreNextNode);
         int delayV2_V1 = Dao.getInstance().getDistSec(v2PreNextNode, v1PostNextNode);
         return delayV1_V2 <= MAX_PICKUP_DELAY || delayV2_V1 <= MAX_PICKUP_DELAY;
+    }
+
+    public String getType(){
+        return this.visit.getClass().getSimpleName();
     }
 }
