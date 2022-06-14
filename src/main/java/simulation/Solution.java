@@ -43,6 +43,7 @@ public class Solution {
     private boolean allowVehicleCreation;
     private boolean allowDelayExtension;
     private Map<String, Map<String, Integer>> sLevelsClass;
+    public Map<String, Integer> statusVehicles;
     /* Rebalancing */
     private boolean allowRebalancing;
 
@@ -78,6 +79,11 @@ public class Solution {
                     int deactivationFactor,
                     boolean allowVehicleCreation,
                     boolean allowDelayExtension) {
+
+        this.statusVehicles = new TreeMap<>();
+        for (String vehicleState : Vehicle.STATES) {
+            this.statusVehicles.put(vehicleState, 0);
+        }
 
         this.methodName = methodName;
         this.maxTimeToReachRegionCenter = maxTimeToReachRegionCenter;
@@ -390,15 +396,15 @@ public class Solution {
             for (User u : sortedUsersPk) {
                 int minDistSec = Dao.getInstance().getDistSec(u.getNodePk(), u.getNodeDp());
                 List<String> entry = new ArrayList<>();
-                entry.add(Config.sec2Datetime(earliestDatetime,u.getNodePk().getEarliest()));
-                entry.add(u.isRejected() ? Config.sec2Datetime(earliestDatetime,u.getDropoutTime()) : "na");
+                entry.add(Config.sec2Datetime(earliestDatetime, u.getNodePk().getEarliest()));
+                entry.add(u.isRejected() ? Config.sec2Datetime(earliestDatetime, u.getDropoutTime()) : "na");
                 entry.add(String.valueOf(u.getId()));
                 entry.add(String.valueOf(u.getPerformanceClass()));
                 entry.add(u.isRejected() ? "na" : String.valueOf(u.getNodePk().getDelay()));
                 entry.add(u.isRejected() ? "na" : String.valueOf(u.inVehicleDelay()));
                 entry.add(u.isRejected() ? "na" : String.valueOf(u.getNodeDp().getDelay()));
-                entry.add(u.isRejected() ? "na" : Config.sec2Datetime(earliestDatetime,u.getNodePk().getArrival()));
-                entry.add(u.isRejected() ? "na" : Config.sec2Datetime(earliestDatetime,u.getNodeDp().getArrival()));
+                entry.add(u.isRejected() ? "na" : Config.sec2Datetime(earliestDatetime, u.getNodePk().getArrival()));
+                entry.add(u.isRejected() ? "na" : Config.sec2Datetime(earliestDatetime, u.getNodeDp().getArrival()));
                 entry.add(String.valueOf(u.getNodePk().getNetworkId()));
                 entry.add(String.valueOf(u.getNodeDp().getNetworkId()));
                 entry.add(String.valueOf(minDistSec));
@@ -587,6 +593,13 @@ public class Solution {
             }
 
         }
+
+        statusVehicles.put(Vehicle.STATE_REBALANCING, statusVehicles.getOrDefault(Vehicle.STATE_REBALANCING, 0) + nOfSeatsRebalancing);
+        statusVehicles.put(Vehicle.STATE_CRUISING, statusVehicles.getOrDefault(Vehicle.STATE_CRUISING, 0) + nOfVehiclesCruisingToPickup);
+        statusVehicles.put(Vehicle.STATE_SERVICING, statusVehicles.getOrDefault(Vehicle.STATE_SERVICING, 0) + nOfVehiclesServicingUsers);
+        statusVehicles.put(Vehicle.STATE_PARKED, statusVehicles.getOrDefault(Vehicle.STATE_PARKED, 0) + nOfVehiclesParked);
+        statusVehicles.put(Vehicle.STATE_ATORIGIN, statusVehicles.getOrDefault(Vehicle.STATE_ATORIGIN, 0) + nOfVehiclesDwellingInOrigin);
+        statusVehicles.put(Vehicle.STATE_STOPPED_REBALANCING, statusVehicles.getOrDefault(Vehicle.STATE_STOPPED_REBALANCING, 0) + nOfVehiclesStoppedRebalancing);
 
         // Percentage requests finished, denied, waiting, assigned
         double finishedRequestsPercentage = (double) finishedRequests.size() / allRequests.size();

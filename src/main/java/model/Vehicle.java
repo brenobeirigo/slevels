@@ -3,7 +3,9 @@ package model;
 import dao.Dao;
 import dao.Logging;
 import model.node.*;
+import org.apache.commons.collections4.queue.CircularFifoQueue;
 import simulation.Method;
+import simulation.Simulation;
 
 import java.util.*;
 import java.util.stream.Collectors;
@@ -16,6 +18,22 @@ public class Vehicle implements Comparable<Vehicle>, Cloneable {
     public static final byte ARRIVAL = 0;
     public static final byte LOAD = 1;
     public static final byte DELAY = 2;
+
+    public static final String STATE_REBALANCING = "Rebalancing";
+    public static final String STATE_PARKED = "Parked last destination";
+    public static final String STATE_CRUISING = "Cruising to pickup";
+    public static final String STATE_ATORIGIN = "At origin";
+    public static final String STATE_SERVICING = "Servicing";
+    public static final String STATE_STOPPED_REBALANCING = "Stopped rebalancing";
+    public static final String[] STATES = new String[]{
+            Vehicle.STATE_ATORIGIN,
+            Vehicle.STATE_REBALANCING,
+            Vehicle.STATE_STOPPED_REBALANCING,
+            Vehicle.STATE_CRUISING,
+            Vehicle.STATE_SERVICING,
+            Vehicle.STATE_PARKED,
+    };
+    public static final int MAX_SIZE_JOURNEY = 10;
 
 
     /* Class attributes */
@@ -30,7 +48,7 @@ public class Vehicle implements Comparable<Vehicle>, Cloneable {
     private int contractedDuration; // How many rounds vehicle is allowed to work?
 
     //TODO Stop tracking for speed
-    List<VisitObj> visitTrack;
+    CircularFifoQueue<String> visitTrack;
     /* Vehicle status */
     private Integer currentLoad; // Current vehicle currentLoad
     private VisitObj visit; // Passengers, Node sequence, etc.
@@ -38,14 +56,14 @@ public class Vehicle implements Comparable<Vehicle>, Cloneable {
     private boolean hired; // Was this vehicle hired on the fly?
     private int roundsIdle; // How many rounds this vehicle is idle?
     private Node middleNode; // Where vehicle is now?
-    private int distMiddleNode;
+    public int distMiddleNode;
     private int activeRounds;
     private int contractDeadline;
     private double distanceTraveledRebalancing;
     private double distanceTraveledEmpty;
     private double distanceTraveledLoaded;
     /* Historical data */
-    private List<Node> journey; // List of nodes visited by vehicle
+    private CircularFifoQueue<Node> journey; // List of nodes visited by vehicle
     private List<User> servicedUsers; // List of users picked up (can't change vehicle after pick up)
     private boolean stoppedRebalanceToPickup;
     private User userHiredMustPickup;
@@ -65,11 +83,11 @@ public class Vehicle implements Comparable<Vehicle>, Cloneable {
 
     public Vehicle(int capacity) {
         ++count;
-        visitTrack = new ArrayList<>();
+        visitTrack = new CircularFifoQueue<>(MAX_SIZE_JOURNEY);
         this.id = count;
         this.capacity = capacity;
         this.servicedUsers = new ArrayList<>();
-        this.journey = new ArrayList<>();
+        this.journey = new CircularFifoQueue<>(MAX_SIZE_JOURNEY);
         this.currentLoad = 0;
         this.hired = false;
         // Vehicle stays until the end
@@ -776,11 +794,12 @@ public class Vehicle implements Comparable<Vehicle>, Cloneable {
     }
 
     public boolean isRebalancing() {
-        return this.visit != null && (this.visit instanceof VisitRelocation);
+        return this.visit != null && (this.visit instanceof VisitRelocation || this.visit instanceof VisitDisplaceAndStop);
     }
 
     /**
      * Departure time of last visited node.
+     *
      * @return Time vehicle left previous node
      */
     public Integer getDepartureCurrent() {
@@ -809,7 +828,7 @@ public class Vehicle implements Comparable<Vehicle>, Cloneable {
         if (visit != null) {
             this.getLastVisitedNode().setDeparture(visit.getDeparture());
         }
-        visitTrack.add(visit);
+        //visitTrack.add(visit != null ? visit.toString() : " Stopped.");
     }
 
     public Node getLastVisitedNode() {
@@ -822,7 +841,7 @@ public class Vehicle implements Comparable<Vehicle>, Cloneable {
 
     public void printVisitTrack() {
         Logging.logger.info("# VISIT TRACK " + this);
-        for (VisitObj v : visitTrack) {
+        for (String v : visitTrack) {
             if (v != null) {
                 Logging.logger.info("  - " + v.getClass() + "=" + v);
             } else {
@@ -1180,14 +1199,13 @@ public class Vehicle implements Comparable<Vehicle>, Cloneable {
     /**
      * Update the intermediate position (middle node) of vehicle given current time.
      * If:
-     *  - Vehicle is parked -> return null (no middle)
-     *  - Vehicle has been assigned to a visit, but did not leave origin node -> return origin node
-     *  - Vehicle has been assigned to a visit, but left origin node -> return closest middle, for example:
-     *        Origin--> currentTime --> M1 --------------> M2 -----> Destination --------------- (return M1)
-     *        Origin------------------> M1 --currentTime-> M2 -----> Destination --------------- (return M2)
-     *        Origin------------------> M1 --------------> M2 -----> Destination ----currentTime (return Destination)
-     *        Origin-------------------------currentTime-----------> Destination --------------- (return Destination)
-     *
+     * - Vehicle is parked -> return null (no middle)
+     * - Vehicle has been assigned to a visit, but did not leave origin node -> return origin node
+     * - Vehicle has been assigned to a visit, but left origin node -> return closest middle, for example:
+     * Origin--> currentTime --> M1 --------------> M2 -----> Destination --------------- (return M1)
+     * Origin------------------> M1 --currentTime-> M2 -----> Destination --------------- (return M2)
+     * Origin------------------> M1 --------------> M2 -----> Destination ----currentTime (return Destination)
+     * Origin-------------------------currentTime-----------> Destination --------------- (return Destination)
      *
      * @param currentTime
      */
@@ -1206,9 +1224,9 @@ public class Vehicle implements Comparable<Vehicle>, Cloneable {
                     elapsedTimeSinceLeftLastNode);
 
             // Distance from current to middle node
-            this.distMiddleNode = Dao.getInstance().getDistSec(
+            this.distMiddleNode = Math.max(elapsedTimeSinceLeftLastNode, Dao.getInstance().getDistSec(
                     this.getLastVisitedNode().getNetworkId(),
-                    networkIdWaypointNode);
+                    networkIdWaypointNode));
 
             Node middle = new NodeMiddle(
                     networkIdWaypointNode,
@@ -1217,6 +1235,8 @@ public class Vehicle implements Comparable<Vehicle>, Cloneable {
                     this.distMiddleNode);
 
             this.setMiddleNode(middle);
+
+            assert Simulation.rightTW <= middle.getEarliest() : String.format("\nNode=%s\nVisit=%s, \nMiddle=%s \nElapsed:%s \nDist: %s", this.getLastVisitedNode().getInfo(), this.visit, middle.getInfo(), elapsedTimeSinceLeftLastNode, this.distMiddleNode);
         }
     }
 
@@ -1264,7 +1284,7 @@ public class Vehicle implements Comparable<Vehicle>, Cloneable {
         return this.visit != null && !this.visit.getPassengers().isEmpty();
     }
 
-    public List<Node> getJourney() {
+    public CircularFifoQueue<Node> getJourney() {
         return journey;
     }
 
@@ -1310,6 +1330,7 @@ public class Vehicle implements Comparable<Vehicle>, Cloneable {
 
     /**
      * Stop visit for vehicles rebalancing, cruising, and parked.
+     *
      * @return Stop visit, or null if vehicle is carrying passengers (can't stop)
      */
     public Visit getStopVisit() {
@@ -1335,6 +1356,7 @@ public class Vehicle implements Comparable<Vehicle>, Cloneable {
 
     /**
      * Indicates when an empty vehicle is moving to pickup up passengers.
+     *
      * @return True, if vehicle has no passengers and has been assigned to users.
      */
     public boolean isCruisingToPickup() {
@@ -1437,13 +1459,14 @@ public class Vehicle implements Comparable<Vehicle>, Cloneable {
     /**
      * If vehicle is parked, then return earliest departure.
      * If vehicle is moving, then return departure.
+     *
      * @return Earliest time vehicle can departure from last visited node.
      */
     public Integer getEarliestDeparture() {
         return this.lastVisitedNode.getDeparture() != null ? this.lastVisitedNode.getDeparture() : this.lastVisitedNode.getEarliestDeparture();
     }
 
-    public List<VisitObj> getVisitTrack() {
+    public CircularFifoQueue<String> getVisitTrack() {
         return visitTrack;
     }
 
