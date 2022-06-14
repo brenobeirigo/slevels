@@ -70,4 +70,6 @@ public interface VisitObj {
     double getVF();
 
     void setDeparture(int arrivalNextNode);
+
+    String getType();
 }

@@ -9,6 +9,7 @@ import model.node.Node;
 import model.node.NodeDP;
 import model.node.NodePK;
 import model.node.NodeTargetRebalancing;
+import org.apache.commons.collections4.queue.CircularFifoQueue;
 
 import java.awt.geom.Point2D;
 import java.io.BufferedWriter;
@@ -111,7 +112,7 @@ public class GeoJsonUtil {
 
     public static String getJourneyComplete(Date earliestDatetime, Vehicle v) {
 
-        List<Node> journey = v.getJourney();
+        CircularFifoQueue<Node> journey = v.getJourney();
 
         List<String> listFeatures = new ArrayList<>();
         int load = 0;

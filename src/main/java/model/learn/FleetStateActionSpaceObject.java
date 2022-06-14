@@ -11,7 +11,7 @@ public class FleetStateActionSpaceObject {
     protected int id;
 
     // Tracking sequence
-    protected Map<Integer,Integer> vehicle_decision_count;
+    public Map<Integer,Integer> vehicle_decision_count;
 
     // Reward data
     protected List<List<Integer>> obj_request_count;

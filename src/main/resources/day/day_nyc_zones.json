@@ -1,9 +1,9 @@
 {
-  "instance_description": "Tests cases currently used in paper (with more flexible time cuts and larger graphs), 1h from 18h, region centers from max waiting (150)",
-  "instance_name": "RELU1H128LSTMEMBEDSIMPLE100weightsSmallLogsavexp3",
+  "instance_description": "Tests cases currently used in paper (with more flexible time cuts and larger graphs), 1h from 18h, region centers from max waiting (150). RELU - 128 hidden layers, simple embedding with 100 it, rebal4",
+  "instance_name": "RELUsaved",
   "server_url": "http://localhost:5001",
-  "result_folder": "./analysis/data/results/NYCZONESXPTARGET100/",
-  "instances_folder": "./analysis/data/results/NYCZONESXPTARGET100/",
+  "result_folder": "./analysis/data/results/ELU1X/",
+  "instances_folder": "./analysis/data/results/ELU1X/",
   "distances_file": "./data/nyc/processed/network/distance/dist_matrix_m.csv",
   "durations_file": "./data/nyc/processed/network/distance/dist_matrix_duration_s.csv",
   "adjacency_matrix_file": "./data/nyc/processed/network/adjacency_matrix.csv",
@@ -19,17 +19,17 @@
       "discount_factor": [
         0.5
       ],
-      "request_samples": [200],
+      "request_samples": [0],
       "request_samples_doc": "Number of times requests are sampled (n. of episodes = request_samples * len(episode_start_time))",
-      "training_frequency": [120],
+      "training_frequency": [30],
       "training_frequency_doc": "Execute experience replay every 'training_frequency' number of new experiences collected",
       "experience_replay": {
-        "size_experience_replay_buffer": [1500],
+        "size_experience_replay_buffer": [500],
         "size_experience_replay_buffer_doc": "An experience is collected at each time step. Then, 5 dates x 10 request samples x 30 steps = 1500 experiences",
-        "size_experience_replay_batch": [128]
+        "size_experience_replay_batch": [32]
       },
       "target_network": {
-        "update_frequency": [120],
+        "update_frequency": [30],
         "update_frequency_doc": "Model is updated after 'update_frequency' number of experiences collected."
       },
       "training_config": {
@@ -62,10 +62,10 @@
           "./data/nyc/processed/trip_records/20190208170000-20190208190000_2019-2-yellow-Manhattan-00-00-00-23-59-59.csv"
         ],
         "episode_start_datetime": [
+          "2019-02-04 17:00:00",
           "2019-02-05 17:00:00",
           "2019-02-06 17:00:00",
           "2019-02-07 17:00:00",
-          "2019-02-04 17:00:00",
           "2019-02-08 17:00:00"
         ]
       },
@@ -88,8 +88,8 @@
     ],
     "time_config": [
       {
-        "request_sampling_horizon": 7200,
-        "total_simulation_horizon": 7200
+        "request_sampling_horizon": 3600,
+        "total_simulation_horizon": 3600
       }
     ],
     "max_time_to_reach_region_center": 150,
@@ -97,7 +97,7 @@
       10
     ],
     "percentage_requests": [
-      0.02
+      0.08
     ],
     "shortest_path_method": [
       "shortest_path_astar"
@@ -168,13 +168,6 @@
         "obj_requests_plus_vfs",
         "obj_total_waiting"
       ]
-    },
-    {
-      "name": "method_fcfs",
-      "max_permutations": 100,
-      "all_permutations": true,
-      "stop_at_first_best": false,
-      "check_in_parallel": false
     },
     {
       "name": "method_optimal",

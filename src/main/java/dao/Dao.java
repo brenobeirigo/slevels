@@ -40,6 +40,8 @@ import static util.pdcombinatorics.PDPermutations.loadPrecalculatedPermutationsP
 public class Dao {
 
     public static final int[] ZONE_IDS = new int[]{105, 116, 152, 264, 305, 354, 372, 388, 592, 612, 806, 828, 845, 869, 885, 932, 986, 1005, 1008, 1044, 1085, 1189, 1219, 1237, 1242, 1269, 1422, 1564, 1587, 1641, 1789, 1941, 2056, 2246, 2249, 2335, 2343, 2405, 2424, 2462, 2500, 2608, 2731, 2740, 2944, 2957, 2992, 3018, 3153, 3176, 3218, 3221, 3248, 3251, 3387, 3511, 3746, 3788, 3838, 3848, 3953, 3978, 4059, 4097, 4357, 4362, 4419};
+    public static final Set<Integer> ZONE_ID_SET = new HashSet<>(Arrays.stream(ZONE_IDS).boxed().toList());
+    public static final  double SPEED_FACTOR = 0.3;
 
     public static Map<Date, Map<String, Map<Integer, Map<Integer, List<String>>>>> requestDataMap = new HashMap<>();
 
@@ -417,21 +419,21 @@ public class Dao {
      */
     public List<Integer> getShortestPathBetween(int o, int d) {
 
-        if (shortestPathsNodeIds.get(o).get(d) == null) {
-            //Instant a = Instant.now();
             List<Integer> sp = shortestPath.getPath(o, d).getVertexList();
-//            Instant b = Instant.now();
-//            List<Integer> sp2 = aStarShortestPath.getPath(o, d).getVertexList();
-//            Instant c = Instant.now();
-//            Duration d1 = Duration.between(a, b);
-//            Duration d2 = Duration.between(b, c);
-
-//            Logging.logger.info(sp + "-" + d1.toMillis());
-//            Logging.logger.info(sp2 + "-" + d2.toMinutes());
-            //Logging.logger.info("{}", String.format("%d -> %d\n s%\n %s \n\n", o, d, String.valueOf(sp), String.valueOf(sp2)));
-            shortestPathsNodeIds.get(o).set(d, sp);
-        }
-        return shortestPathsNodeIds.get(o).get(d);
+//        if (shortestPathsNodeIds.get(o).get(d) == null) {
+//            //Instant a = Instant.now();
+////            Instant b = Instant.now();
+////            List<Integer> sp2 = aStarShortestPath.getPath(o, d).getVertexList();
+////            Instant c = Instant.now();
+////            Duration d1 = Duration.between(a, b);
+////            Duration d2 = Duration.between(b, c);
+//
+////            Logging.logger.info(sp + "-" + d1.toMillis());
+////            Logging.logger.info(sp2 + "-" + d2.toMinutes());
+//            //Logging.logger.info("{}", String.format("%d -> %d\n s%\n %s \n\n", o, d, String.valueOf(sp), String.valueOf(sp2)));
+//            shortestPathsNodeIds.get(o).set(d, sp);
+        //}
+        return sp;
     }
 
     /**
@@ -657,7 +659,11 @@ public class Dao {
                         dist_matrix[row][col] = sec;
                         distMatrixMeters[row][col] = meters;
                     } else {
-                        dist_matrix[row][col] = Short.valueOf(r);
+                        dist_matrix[row][col] = (short) (Double.parseDouble(r) * SPEED_FACTOR);
+                        if (dist_matrix[row][col]==0 && row!= col){
+                            dist_matrix[row][col] = 1;
+                            //System.out.printf("%s-%s (%s) %s%n", row, col, r,dist_matrix[row][col] );
+                        }
                     }
                     // TODO Reachable within 300s
                     int maxPickupDelay = 300;
@@ -1096,12 +1102,13 @@ public class Dao {
         List<Integer> sp = getShortestPathBetween(o, d);
         assert sp != null && !sp.isEmpty() : String.format("NULL" + o + " - " + d);
 
-        if (shortestPathDistances.get(o).get(d) == null) {
-            List<Integer> spArrivals = getSpNodeArrivals(sp);
-            shortestPathDistances.get(o).set(d, spArrivals);
-        }
+        List<Integer> spArrivals = getSpNodeArrivals(sp);
+//        if (shortestPathDistances.get(o).get(d) == null) {
+//            List<Integer> spArrivals = getSpNodeArrivals(sp);
+//            shortestPathDistances.get(o).set(d, spArrivals);
+//        }
 
-        List<Integer> intermediateArrivalsList = shortestPathDistances.get(o).get(d);
+        List<Integer> intermediateArrivalsList = spArrivals;
         assert !intermediateArrivalsList.isEmpty();
 
         int insertionPoint = getInsertionPoint(elapsedTime, intermediateArrivalsList);
@@ -1109,6 +1116,7 @@ public class Dao {
         if (insertionPoint == sp.size()) {
             return d;
         }
+//        System.out.println(intermediateArrivalsList + "--" + insertionPoint + "");
 
         return sp.get(insertionPoint);
     }

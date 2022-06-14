@@ -7,7 +7,6 @@ import helper.Runtime;
 import model.User;
 import model.Vehicle;
 import model.VisitObj;
-import model.VisitObj;
 import org.jgrapht.graph.DefaultWeightedEdge;
 import org.jgrapht.graph.SimpleWeightedGraph;
 import simulation.Method;

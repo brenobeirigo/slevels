@@ -193,6 +193,7 @@ public class ParallelGraphRTV implements GraphRTV {
             //**********************************************************************************************************
 
             VisitObj noRequestsVisit = null;
+
             if (vehicle.isParked() || vehicle.isRebalancing()) {
                 // Vehicle continues its path (dummy "do nothing" visit i.e., visit is null)
                 // TODO passthrough visit (keep current visit)
@@ -207,8 +208,12 @@ public class ParallelGraphRTV implements GraphRTV {
                 noRequestsVisit = Method.getBestVisitFromPDPermutationsSummarized(vehicle, new HashSet<>());
             }
 
-            this.feasibleTrips.get(0).add(noRequestsVisit);
-            this.computeVisit(noRequestsVisit);
+            assert noRequestsVisit != null;
+            // Quick fix
+//            if (noRequestsVisit != null){
+//                this.feasibleTrips.get(0).add(noRequestsVisit);
+//                this.computeVisit(noRequestsVisit);
+//            }
 
 
             for (int i = 0; i < levelVisits.size(); i++) {

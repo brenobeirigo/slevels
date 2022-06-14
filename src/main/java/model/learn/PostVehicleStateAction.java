@@ -2,6 +2,7 @@ package model.learn;
 
 import dao.Dao;
 import model.User;
+import model.VisitRelocation;
 import model.node.*;
 
 import java.util.HashSet;
@@ -9,9 +10,11 @@ import java.util.HashSet;
 class PostVehicleStateAction extends StateAction {
     protected StateAction preStateAction;
     protected int indexInsertionArrival;
+    protected int elapsedTime;
 
     public PostVehicleStateAction(StateAction preStateAction, int elapsedTime) {
         super(preStateAction.timeStep, elapsedTime, preStateAction.timeHorizon);
+        this.elapsedTime = elapsedTime;
         this.preStateAction = preStateAction;
         this.vehicle = preStateAction.vehicle;
         this.vehicleCapacity = preStateAction.vehicleCapacity;
@@ -158,8 +161,10 @@ class PostVehicleStateAction extends StateAction {
     }
 
     private void keepNodesToVisitFromIndex() {
-        for (int pos = indexInsertionArrival; pos < preStateAction.nodeArrivals.size(); pos++) {
-            String nodeLabel = preStateAction.nodeLabels.get(pos);
+        // If relocation visit, keep only the target into sequence
+        if (this.visit instanceof VisitRelocation) {
+            int pos = preStateAction.nodeArrivals.size() - 1;
+            String nodeLabel2 = preStateAction.nodeLabels.get(pos);
             this.nodeArrivals.add(preStateAction.nodeArrivals.get(pos));
             this.delays.add(preStateAction.delays.get(pos));
             this.delayBonuses.add(preStateAction.delayBonuses.get(pos));
@@ -167,9 +172,23 @@ class PostVehicleStateAction extends StateAction {
             this.remaining.add(preStateAction.remaining.get(pos));
             this.loads.add(preStateAction.loads.get(pos));
             this.networkIds.add(preStateAction.networkIds.get(pos));
-            this.nodeLabels.add(nodeLabel);
+            this.nodeLabels.add(nodeLabel2);
             this.nodes.add(preStateAction.nodes.get(pos));
             this.normalOccupancyRates.add(preStateAction.normalOccupancyRates.get(pos));
+        } else {
+            for (int pos = indexInsertionArrival; pos < preStateAction.nodeArrivals.size(); pos++) {
+                String nodeLabel = preStateAction.nodeLabels.get(pos);
+                this.nodeArrivals.add(preStateAction.nodeArrivals.get(pos));
+                this.delays.add(preStateAction.delays.get(pos));
+                this.delayBonuses.add(preStateAction.delayBonuses.get(pos));
+                this.normalArrivalDelays.add(preStateAction.normalArrivalDelays.get(pos));
+                this.remaining.add(preStateAction.remaining.get(pos));
+                this.loads.add(preStateAction.loads.get(pos));
+                this.networkIds.add(preStateAction.networkIds.get(pos));
+                this.nodeLabels.add(nodeLabel);
+                this.nodes.add(preStateAction.nodes.get(pos));
+                this.normalOccupancyRates.add(preStateAction.normalOccupancyRates.get(pos));
+            }
         }
     }
 }

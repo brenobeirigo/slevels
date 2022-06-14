@@ -12,6 +12,7 @@ import model.User;
 import model.Vehicle;
 import model.node.Node;
 import simulation.matching.Matching;
+import simulation.matching.MatchingSimple;
 import simulation.matching.ResultAssignment;
 import simulation.rebalancing.Rebalance;
 import simulation.rebalancing.RebalanceHeuristic;
@@ -325,7 +326,8 @@ public abstract class Simulation {
                         vehicle.endRebalancing(rightTW);
                         vehicle.createNodeStopAndFinishVisitAt(rightTW);
                     } else {
-                        activeFleet = true;
+                        vehicle.getServicedUsersUntil(rightTW);
+                        //activeFleet = true;
                     }
                 } else if (vehicle.isServicing()) {
 
@@ -428,10 +430,16 @@ public abstract class Simulation {
                 // Rebalance idle vehicles
 
                 runTimes.startTimerFor(Runtime.TIME_REBALANCING_FLEET);
-                Set<Vehicle> idleVehicles = Vehicle.getIdleVehiclesFrom(listVehicles);
-                Logging.logger.info("  Rebal. Idle = " + idleVehicles.size());
-                List<Node> targets = getRebalancingTargets();
-                rebalanceUtil.executeStrategy(idleVehicles, targets);
+//                if (!(this.matching.getRideMatchingStrategy() instanceof MatchingSimple)) {
+
+
+                    Set<Vehicle> idleVehicles = Vehicle.getIdleVehiclesFrom(listVehicles);
+                    Logging.logger.info("  Rebal. Idle = " + idleVehicles.size());
+                    List<Node> targets = getRebalancingTargets();
+                    rebalanceUtil.executeStrategy(idleVehicles, targets);
+//                } else {
+//                    Logging.logger.info("Skipping rebalancing...");
+//                }
                 runTimes.endTimerFor(Runtime.TIME_REBALANCING_FLEET);
             }
 

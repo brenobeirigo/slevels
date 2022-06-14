@@ -53,8 +53,7 @@ public class Visit implements Comparable<VisitObj>, VisitObj {
     public Visit(LinkedList<Node> sequenceVisits, int delay, int idle) {
         this.sequenceVisits = sequenceVisits;
         this.delay = delay;
-        this.delayBonus =
-        this.idle = idle;
+        this.delayBonus = this.idle = idle;
         this.passengers = new HashSet<>();
         this.requests = new HashSet<>();
     }
@@ -115,8 +114,8 @@ public class Visit implements Comparable<VisitObj>, VisitObj {
     }
 
     public Visit(Node[] sequencePD, int delay, int delayBonus, int idleness, Vehicle vehicle, Set<User> requests) {
-    this(sequencePD,delay, idleness, vehicle, requests);
-    this.delayBonus = delayBonus;
+        this(sequencePD, delay, idleness, vehicle, requests);
+        this.delayBonus = delayBonus;
     }
 
     public Visit(Node[] sequencePD, int delay, int idleness, Vehicle vehicle, Set<User> requests) {
@@ -181,9 +180,10 @@ public class Visit implements Comparable<VisitObj>, VisitObj {
      * valid regarding:
      * - Load (vehicle load is lower than vehicle capacity at any leg)
      * - TWs (arrival at nodes are within respective TWs)
-     *
+     * <p>
      * - Warning! Make sure the sequence is valid!
-     * @param validPDSequence Valid PD sequence
+     *
+     * @param validPDSequence          Valid PD sequence
      * @param departureTimeFromVehicle
      * @param load
      * @param maxCapacity
@@ -215,7 +215,8 @@ public class Visit implements Comparable<VisitObj>, VisitObj {
 
     /**
      * Construct visit sequence node by node.
-     * @param vehicle Vehicle carrying out visit
+     *
+     * @param vehicle         Vehicle carrying out visit
      * @param validPDSequence Valid pickup and delivery sequence
      * @return Last leg of visit.
      */
@@ -287,7 +288,8 @@ public class Visit implements Comparable<VisitObj>, VisitObj {
         return currentLeg;
     }
 
-    /** Check if pickup-and-delivery sequence is valid regarding:
+    /**
+     * Check if pickup-and-delivery sequence is valid regarding:
      * - Node precedence (PU before DO)
      * - Load (vehicle load is lower than vehicle capacity at any leg)
      * - TWs (arrival at nodes are within respective TWs)
@@ -470,7 +472,7 @@ public class Visit implements Comparable<VisitObj>, VisitObj {
     }
 
 
-    public Visit getVisit(){
+    public Visit getVisit() {
         return this;
     }
 
@@ -546,6 +548,7 @@ public class Visit implements Comparable<VisitObj>, VisitObj {
 
     /**
      * Check if vehicle is carrying out this visit
+     *
      * @return True, if visit is assigned to its vehicle
      */
     public boolean isSetup() {
@@ -572,9 +575,16 @@ public class Visit implements Comparable<VisitObj>, VisitObj {
         this.departure = departure;
     }
 
-    public Node getLastVisitedNode(){
+    @Override
+    public String getType() {
+        return this.getClass().getSimpleName();
+
+    }
+
+    public Node getLastVisitedNode() {
         return this.vehicle.getLastVisitedNode();
     }
+
     public int isValidSequence() {
 
         LinkedList<Node> allNodes = new LinkedList<>(Arrays.asList(this.vehicle.getLastVisitedNode()));
@@ -706,6 +716,7 @@ public class Visit implements Comparable<VisitObj>, VisitObj {
 
     /**
      * Get the pickup delays of each user for the current visit
+     *
      * @return (User, Pickup delay) pairs.
      */
     public Map<User, Integer> getUserPickupDelayMap() {
@@ -751,7 +762,7 @@ public class Visit implements Comparable<VisitObj>, VisitObj {
      * @return target node
      */
     public Node getTargetNode() {
-        return this.sequenceVisits.isEmpty()? null : this.sequenceVisits.getFirst();
+        return this.sequenceVisits.isEmpty() ? null : this.sequenceVisits.getFirst();
     }
 
     public Set<User> getRequests() {
@@ -792,6 +803,7 @@ public class Visit implements Comparable<VisitObj>, VisitObj {
     /**
      * This method is called when a visit is chosen to be the best match for a vehicle.
      * The vehicle is updated with the information of a visit.
+     *
      * @return String with visit info
      */
     public String getInfo() {
@@ -806,6 +818,7 @@ public class Visit implements Comparable<VisitObj>, VisitObj {
 
     /**
      * Transform visit to json object.
+     *
      * @return String with json representation of object.
      */
     public String toJson() {
@@ -816,6 +829,7 @@ public class Visit implements Comparable<VisitObj>, VisitObj {
 
     /**
      * Return a string featuring detailed information about users (ids, passengers, requests)
+     *
      * @return String with user information
      */
     public String getUserInfo() {
@@ -895,9 +909,10 @@ public class Visit implements Comparable<VisitObj>, VisitObj {
 
         //
         return String.format(
-                "%s (departure=%7d, target=%10s) :::%s%s%s%s:::",
+                "%s (departure=%7d, visit dep.=%7d, target=%10s) :::%s%s%s%s:::",
                 (this.vehicle.isRebalancing() ? "--RE--" : "--ST--"),
                 this.vehicle.getLastVisitedNode().getDeparture(),
+                this.getDeparture(),
                 this.getTargetNode(),
                 legInfo(
                         this.vehicle.getLastVisitedNode(),
@@ -910,12 +925,13 @@ public class Visit implements Comparable<VisitObj>, VisitObj {
                 this.vehicle.getMiddleNode() == null ? "-------" : this.vehicle.getMiddleNode(),
                 getDistanceLegInfoFromNodes(
                         this.vehicle.getMiddleNode(),
-                        sequenceNodesToVisit.isEmpty()? null : sequenceNodesToVisit.get(0))
+                        sequenceNodesToVisit.isEmpty() ? null : sequenceNodesToVisit.get(0))
         );
     }
 
     /**
      * Summary of vehicle status.
+     *
      * @return Vehicle data (id, passengers, requests, etc.)
      */
     private String getVehicleInfo() {
@@ -941,7 +957,8 @@ public class Visit implements Comparable<VisitObj>, VisitObj {
     /**
      * Detailed information of visit leg.
      * Example:
-     *  --> { 183} -->DP2164916[ 1] (earliest=  1, departure=     453,   arrival=0, latest=419)
+     * --> { 183} -->DP2164916[ 1] (earliest=  1, departure=     453,   arrival=0, latest=419)
+     *
      * @param currentNode
      * @param loadVehicleAtCurrentNode
      * @param arrivalAtCurrentNode
@@ -950,17 +967,18 @@ public class Visit implements Comparable<VisitObj>, VisitObj {
      */
     private String legInfo(Node currentNode, int loadVehicleAtCurrentNode, Integer arrivalAtCurrentNode, int distBetweenPreviousAndCurrentNodes) {
         return String.format(
-                "%s%s[%2d/%2d] (e=%7s, a=%7s, l=%7s / Δe=%3s, Δa=%3s, Δl=%3s)",
+                "%s%s(%s)[%2d/%2d] (e=%7s, a=%7s, l=%7s / Δe=%3s, Δa=%3s, Δl=%3s)",
                 distBetweenPreviousAndCurrentNodes == Integer.MIN_VALUE ? "" : String.format("--> {%4s} -->", distBetweenPreviousAndCurrentNodes),
                 currentNode,
+                currentNode.getNetworkId(),
                 loadVehicleAtCurrentNode,
                 vehicle.getCapacity(),
                 currentNode.getEarliest(),
-                arrivalAtCurrentNode == null ? "INF":arrivalAtCurrentNode,
+                arrivalAtCurrentNode == null ? "INF" : arrivalAtCurrentNode,
                 currentNode.getLatest() == Integer.MAX_VALUE ? "INF" : currentNode.getLatest(),
-                currentNode.getEarliest() == 0 || arrivalAtCurrentNode == null? "-" : arrivalAtCurrentNode - currentNode.getEarliest(),
+                currentNode.getEarliest() == 0 || arrivalAtCurrentNode == null ? "-" : arrivalAtCurrentNode - currentNode.getEarliest(),
                 currentNode.getArrivalSoFar() == null || arrivalAtCurrentNode == null ? "INF" : currentNode.getArrivalSoFar() - arrivalAtCurrentNode,
-                currentNode.getLatest() == Integer.MAX_VALUE || arrivalAtCurrentNode == null? "INF" : currentNode.getLatest() - arrivalAtCurrentNode
+                currentNode.getLatest() == Integer.MAX_VALUE || arrivalAtCurrentNode == null ? "INF" : currentNode.getLatest() - arrivalAtCurrentNode
         );
     }
 

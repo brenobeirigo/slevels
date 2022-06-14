@@ -228,8 +228,16 @@ public class MatchingSimple implements RideMatchingStrategy {
             FleetStateActionSpaceObject postDecisionStateSpaceObj =
                     postDecisionFleetStateActionSpace.getDecisionSpaceObject();
 
-            preDecisionFleetStateActionSpace.addPostDecisionStateActionObj(postDecisionStateSpaceObj);
+//            Map<Integer, Integer> count = new HashMap<>();
+//            preDecisionFleetStateActionSpace.getVehicleStateActionMap().forEach((key, value) -> count.put(key.getId(),value.size()));
+//            System.out.println("Pre-decision=" + count.entrySet());
 
+//            Map<Integer, Integer> countPost = new HashMap<>();
+//            postDecisionFleetStateActionSpace.getVehicleStateActionMap().forEach((key, value) -> countPost.put(key.getId(),value.size()));
+//            System.out.println("Post-decision=" + countPost.entrySet());
+
+//            System.out.println("Post-decision obj.=" + postDecisionStateSpaceObj.vehicle_decision_count.entrySet());
+            preDecisionFleetStateActionSpace.addPostDecisionStateActionObj(postDecisionStateSpaceObj);
 
             Map<Integer, List<Double>> vehicleIdVFVisitsMap = getVFsFromFleetStateActionSpaceObject(postDecisionStateSpaceObj);
             vehiclePreDecisionsObjMap = getVisitObjMap(vehiclePreDecisionsMap, vehicleIdVFVisitsMap);
@@ -392,20 +400,23 @@ public class MatchingSimple implements RideMatchingStrategy {
     }
 
     private void addRebalancingVisits() {
-        int[] zone_ids = new int[]{105, 116, 152, 264, 305, 354, 372, 388, 592, 612, 806, 828, 845, 869, 885, 932, 986, 1005, 1008, 1044, 1085, 1189, 1219, 1237, 1242, 1269, 1422, 1564, 1587, 1641, 1789, 1941, 2056, 2246, 2249, 2335, 2343, 2405, 2424, 2462, 2500, 2608, 2731, 2740, 2944, 2957, 2992, 3018, 3153, 3176, 3218, 3221, 3248, 3251, 3387, 3511, 3746, 3788, 3838, 3848, 3953, 3978, 4059, 4097, 4357, 4362, 4419};
-        for (int zone_id : zone_ids) {
-            for (Vehicle vehicle : this.vehicleVisitsMap.keySet()) {
 
-                boolean vehicleNotInTargetZone = vehicle.getLastVisitedNode().getNetworkId() != zone_id;
-                if (vehicle.isParked() && vehicleNotInTargetZone) {
-                    NodeTargetRebalancing targetNode = new NodeTargetRebalancing(vehicle, zone_id);
+        for (Vehicle vehicle : this.vehicleVisitsMap.keySet()) {
+
+            if (vehicle.isParked()) {
+                int vehicleNetworkId = vehicle.getLastVisitedNode().getNetworkId();
+                List<Integer> closestZoneIds = Dao.getInstance().closestZones.get(vehicleNetworkId);
+                for (int zone_id : closestZoneIds) {
+                    NodeTargetRebalancing targetNode = new NodeTargetRebalancing(zone_id);
                     VisitRelocation visit = new VisitRelocation(targetNode, vehicle);
                     this.vehicleVisitsMap.get(vehicle).add(visit);
                     this.visits.add(visit);
                 }
+
             }
         }
     }
+
 
     private boolean isLearning() {
         return this.learningSettings != null;
