@@ -4,12 +4,12 @@ import com.google.common.collect.Sets;
 import dao.Dao;
 import dao.Logging;
 import helper.Runtime;
-import model.User;
 import model.Vehicle;
-import model.VisitObj;
+import model.demand.User;
+import model.visit.VisitObj;
 import org.jgrapht.graph.DefaultWeightedEdge;
 import org.jgrapht.graph.SimpleWeightedGraph;
-import simulation.Method;
+import simulation.Environment;
 import simulation.matching.ResultAssignment;
 
 import java.util.*;
@@ -17,6 +17,7 @@ import java.util.stream.Collectors;
 
 public class StandardGraphRTV implements GraphRTV {
 
+    private final Environment env;
     // Populate list of feasible trips with current trips
     private List<List<VisitObj>> feasibleTrips;
     private SimpleWeightedGraph<Object, DefaultWeightedEdge> graphRTV;
@@ -25,6 +26,7 @@ public class StandardGraphRTV implements GraphRTV {
     private Set<User> allRequests;
     private GraphRV graphRV;
     private long timeout;
+    private int currentTime;
 
     public Map<Vehicle, Set<VisitObj>> getVehicleVisitsMap() {
         return null;
@@ -35,10 +37,10 @@ public class StandardGraphRTV implements GraphRTV {
         return null;
     }
 
-    public StandardGraphRTV(Set<User> allRequests, Set<Vehicle> listVehicles, int maxVehicleCapacity, double timeout, int maxVehReqEdges, int maxReqReqEdges) {
+    public StandardGraphRTV(Set<User> allRequests, Set<Vehicle> listVehicles, int maxVehicleCapacity, double timeout, int maxVehReqEdges, int maxReqReqEdges, Environment env) {
         Logging.logger.info("{}", String.format("# Matching - RTV - Graph (VR=%d,RR=%d) - #Requests: %d  / #Vehicles: %d (%d) - timeout: %.2f sec", maxVehReqEdges, maxReqReqEdges, allRequests.size(), listVehicles.size(), maxVehicleCapacity, timeout));
         this.timeout = (long) (timeout * 1000000000);
-
+        this.env = env;
         // Populate list of feasible trips with current trips
         this.feasibleTrips = new ArrayList<>();
         this.maxVehicleCapacity = maxVehicleCapacity;
@@ -50,7 +52,7 @@ public class StandardGraphRTV implements GraphRTV {
         // REQUEST - VEHICLE (RV) //////////////////////////////////////////////////////////////////////////////////////
 
         Dao.getInstance().getRunTimes().startTimerFor(Runtime.TIME_CREATE_RV);
-        this.graphRV = new GraphRV(allRequests, listVehicles, maxVehicleCapacity, maxVehReqEdges, maxReqReqEdges);
+        this.graphRV = new GraphRV(allRequests, listVehicles, maxVehicleCapacity, maxVehReqEdges, maxReqReqEdges, env, currentTime);
         Dao.getInstance().getRunTimes().endTimerFor(Runtime.TIME_CREATE_RV);
 
         //graphRV.printRVEdges();
@@ -134,9 +136,9 @@ public class StandardGraphRTV implements GraphRTV {
     /**
      * Add vertices and edges to RTV graph.
      * Add:
-     *  - ( visit : vehicle ) edge
-     *  - ( request : visit ) edges for each request covered by the visit. These edges have weights equal to user
-     *    pickup delays.
+     * - ( visit : vehicle ) edge
+     * - ( request : visit ) edges for each request covered by the visit. These edges have weights equal to user
+     * pickup delays.
      *
      * @param visit VisitObj (vehicle, route, requests, passengers)
      */
@@ -147,7 +149,7 @@ public class StandardGraphRTV implements GraphRTV {
         if (graphRTV.addVertex(visit)) {
             graphRTV.addEdge(visit, visit.getVehicle());
 
-            Map<User, Integer> userDelayMap = visit.getUserPickupDelayMap();
+            Map<User, Integer> userDelayMap = visit.getUserPickupDelayMap(this.env);
 
             for (User request : visit.getRequests()) {
                 DefaultWeightedEdge requestVisitEdge = graphRTV.addEdge(request, visit);
@@ -169,7 +171,7 @@ public class StandardGraphRTV implements GraphRTV {
         graphRTV.addVertex(visit);
         graphRTV.addEdge(visit, vehicle);
 
-        Map<User, Integer> userDelayMap = visit.getUserPickupDelayMap();
+        Map<User, Integer> userDelayMap = visit.getUserPickupDelayMap(this.env);
 
         for (User request : requests) {
 
@@ -245,10 +247,11 @@ public class StandardGraphRTV implements GraphRTV {
             // Add dummy stop visit to assure every vehicle can be assigned to a visit *********************************
             //**********************************************************************************************************
 
-                    for (int i = 0; i < levelVisits.size(); i++) {
-                        levelVisits.get(i).forEach(this::addRequestTripVehicleEdges);
-                        this.feasibleTrips.get(i).addAll(levelVisits.get(i));
-                    }});
+            for (int i = 0; i < levelVisits.size(); i++) {
+                levelVisits.get(i).forEach(this::addRequestTripVehicleEdges);
+                this.feasibleTrips.get(i).addAll(levelVisits.get(i));
+            }
+        });
         Dao.getInstance().getRunTimes().endTimerFor(Runtime.TIME_RTV_POPULATE_GRAPH);
 
         Logging.logger.info("{}", String.format("    - %6.2f s - Finding feasible trips\n    - %6.2f s - Populating graph\n",
@@ -393,15 +396,16 @@ public class StandardGraphRTV implements GraphRTV {
      * - Trip (u1, u2) is feasible
      * - Trip (u1, u3) is feasible
      * - Trip (u2, u3) is feasible
-     *  A trip is feasible, if there is any visit where users can be successfully picked up and delivered.
-     *  Example:
-     *  Trip (u1, u2) is feasible if there is a feasible visit in:
-     *   - 1,1',2,2'
-     *   - 1,2,1',2'
-     *   ...
-     *   - 2,2',1,1'
+     * A trip is feasible, if there is any visit where users can be successfully picked up and delivered.
+     * Example:
+     * Trip (u1, u2) is feasible if there is a feasible visit in:
+     * - 1,1',2,2'
+     * - 1,2,1',2'
+     * ...
+     * - 2,2',1,1'
+     *
      * @param usersFeasibleTripsPreviousLevel Set of feasible trips of size $k-1$.
-     * @param usersCandidateTripCurrentLevel Candidate trip of size $k$.
+     * @param usersCandidateTripCurrentLevel  Candidate trip of size $k$.
      * @return true if all sub-trips of candidate trip are feasible (i.e., featured in previous level)
      */
     private boolean allSubTripsAreFeasible(Set<Set<User>> usersFeasibleTripsPreviousLevel, Set<User> usersCandidateTripCurrentLevel) {
@@ -429,7 +433,7 @@ public class StandardGraphRTV implements GraphRTV {
 
     private void addOnlyPassengerVisitOfOnDutyVehicle(Vehicle vehicle, List<List<VisitObj>> feasibleVisitsCurrentVehicleAtLevel) {
         if (vehicle.isCarryingPassengers()) {
-            VisitObj visitWithoutRequests = Method.getBestVisitFromPDPermutationsSummarized(vehicle, new HashSet<>());
+            VisitObj visitWithoutRequests = Environment.getBestVisitFromPDPermutationsSummarized(vehicle, new HashSet<>(), env);
 
             // Add best visit to RTV graph
             assert visitWithoutRequests != null : String.format("Cannot find visit for vehicle %s (carrying passengers) with current visit = %s", vehicle, vehicle.getVisit());
@@ -442,13 +446,14 @@ public class StandardGraphRTV implements GraphRTV {
 
     /**
      * Add RTV Edge with best visit found for vehicle and requests.
+     *
      * @param vehicle
      * @param requests
      * @param feasibleVisitsCurrentVehicleAtLevel
      * @return True, if there is a feasible visit where requests can be picked up by the vehicle.
      */
     private boolean addRTVEdgeAtLevel(Vehicle vehicle, Set<User> requests, List<VisitObj> feasibleVisitsCurrentVehicleAtLevel) {
-        VisitObj bestVisit = Method.getBestVisitFromPDPermutationsSummarized(vehicle, requests);
+        VisitObj bestVisit = Environment.getBestVisitFromPDPermutationsSummarized(vehicle, requests, env);
 
         if (bestVisit != null) {
             feasibleVisitsCurrentVehicleAtLevel.add(bestVisit);
@@ -481,7 +486,7 @@ public class StandardGraphRTV implements GraphRTV {
     }
 
     @Override
-    public Map<Integer, Integer> getPickupLocationCandidateVehicleCountMap(){
+    public Map<Integer, Integer> getPickupLocationCandidateVehicleCountMap() {
         Map<Integer, Integer> pickupLocationCandidateVehicleCountMap = new HashMap<>();
         for (User user : allRequests) {
             graphRV.getVehiclesFromVREdgesOfRequest(user);
@@ -489,6 +494,7 @@ public class StandardGraphRTV implements GraphRTV {
         }
         return pickupLocationCandidateVehicleCountMap;
     }
+
     @Override
     public GraphRV getGraphRV() {
         return this.graphRV;
@@ -508,12 +514,12 @@ public class StandardGraphRTV implements GraphRTV {
 
     public double getWeightFromRequestVisitEdge(User request, VisitObj visit) {
         double weight = this.graphRTV.getEdgeWeight(this.graphRTV.getEdge(request, visit));
-        assert Double.compare(weight, getWeightFromRequestVisitEdge2(request, visit))==0;
+        assert Double.compare(weight, getWeightFromRequestVisitEdge2(request, visit)) == 0;
         return weight;
     }
 
     public double getWeightFromRequestVisitEdge2(User request, VisitObj visit) {
-        return visit.getUserPickupDelayMap().get(request);
+        return visit.getUserPickupDelayMap(this.env).get(request);
     }
 
     public Set<VisitObj> getListOfVisitsFromUser(User request) {

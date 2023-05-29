@@ -1,7 +1,7 @@
 package dao;
 
 import com.google.gson.Gson;
-import config.ConfigInstance;
+import experiment.LoggingConfig;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -29,12 +29,12 @@ public class FileUtil {
         return inputSettings;
     }
 
-    public static ConfigInstance getMapFrom(String jsonFilePath) throws IOException {
+    public static LoggingConfig getMapFrom(String jsonFilePath) throws IOException {
         // Reading input settings
         Path filePath = Paths.get(jsonFilePath);
         String inputSettings = new String(Files.readAllBytes(filePath));
         Gson gson = new Gson();
-        return gson.fromJson(inputSettings, ConfigInstance.class);
+        return gson.fromJson(inputSettings, LoggingConfig.class);
     }
 
     public static void createDir(String dir) {

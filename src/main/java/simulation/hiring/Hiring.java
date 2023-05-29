@@ -1,10 +1,9 @@
 package simulation.hiring;
 
-import model.User;
+import model.demand.User;
 import model.Vehicle;
 
 import java.util.Collection;
-import java.util.List;
 import java.util.Set;
 
 public interface Hiring {

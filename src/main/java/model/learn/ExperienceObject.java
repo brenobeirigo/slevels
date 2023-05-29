@@ -1,6 +1,5 @@
 package model.learn;
 
-import config.InstanceConfig;
 import dao.Dao;
 import dao.ServerUtil;
 import model.Vehicle;
@@ -39,14 +38,14 @@ public class ExperienceObject {
         this.state_action_reward = state_action_reward;
     }
 
-    public String rememberFile(InstanceConfig.LearningConfig.LearningSettings learningSettings) {
+    public String rememberFile(LearningSettings learningSettings) {
         String url = Dao.getInstance().getServer().ADDRESS_SERVER + "/remember/" + UriUtils.encode(learningSettings.getExperiencesFolder(), "UTF-8");
         String msg = ServerUtil.postJsonObjectToURL(this, url);
         return msg;
     }
 
 
-    public String remember(InstanceConfig.LearningConfig.LearningSettings learningSettings) {
+    public String remember(LearningSettings learningSettings) {
         String msg = ServerUtil.postJsonObjectToURL(this, Dao.getInstance().getServer().rememberURL);
         return msg;
     }

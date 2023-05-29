@@ -1,9 +1,9 @@
 package util.pdcombinatorics;
 
 import dao.Logging;
-import model.User;
+import model.demand.User;
 import model.Vehicle;
-import model.Visit;
+import model.visit.Visit;
 import model.node.Node;
 
 import java.util.*;

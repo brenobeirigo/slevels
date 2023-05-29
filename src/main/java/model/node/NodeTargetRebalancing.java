@@ -2,6 +2,7 @@ package model.node;
 
 import dao.Dao;
 import model.Vehicle;
+import simulation.Environment;
 
 public class NodeTargetRebalancing extends Node {
 
@@ -25,17 +26,17 @@ public class NodeTargetRebalancing extends Node {
 
 
     }
-    public NodeTargetRebalancing(Vehicle vehicle, Node target) {
+    public NodeTargetRebalancing(Vehicle vehicle, Node target, Environment env) {
         super(target.getId(), target.getNetworkId());
         this.tripId = target.getTripId();
 
         this.load = 0;
         int distToTarget = 0;
         if (vehicle.isParked())
-            distToTarget = Dao.getInstance().getDistSec(vehicle.getLastVisitedNode(), target);
+            distToTarget = env.getNetwork().getDistSec(vehicle.getLastVisitedNode().getNetworkId(), target.getNetworkId());
         else {
-            int distOM = Dao.getInstance().getDistSec(vehicle.getLastVisitedNode(), vehicle.getMiddleNode());
-            int distMT = Dao.getInstance().getDistSec(vehicle.getMiddleNode(), target);
+            int distOM = env.getNetwork().getDistSec(vehicle.getLastVisitedNode().getNetworkId(), vehicle.getMiddleNode().getNetworkId());
+            int distMT = env.getNetwork().getDistSec(vehicle.getMiddleNode().getNetworkId(), target.getNetworkId());
             distToTarget = distMT + distOM;
         }
         this.earliest = vehicle.getEarliestDeparture() + distToTarget;

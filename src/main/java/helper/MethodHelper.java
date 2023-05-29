@@ -1,11 +1,7 @@
 package helper;
 
 import dao.Dao;
-import dao.Logging;
-import model.User;
 import model.Vehicle;
-import model.node.Node;
-import simulation.Method;
 
 import java.util.*;
 
@@ -21,42 +17,6 @@ public class MethodHelper {
     public static Vehicle createVehicleAtRandomPosition(int capacity, int currentTime, int numberOfContractedRounds) {
         short randomOrigin = (short) (Dao.getInstance().rand.nextDouble() * Dao.getInstance().getDistMatrix().length);
         return new Vehicle(capacity, randomOrigin, currentTime, true, numberOfContractedRounds);
-    }
-
-    public static Set<Vehicle> createListVehicles(int n, int size, boolean uniqueSize, int currentTime, Random seed, int maxFleetSize) {
-
-        //Logging.logger.info("Creating vehicles...");
-        Set<Vehicle> listVehicle = new HashSet<>();
-
-        //TODO: initial distribution (vsize = [1,2,3,4,...,n]
-
-        int nPerSize = n / size;
-        int vSize = 0;
-
-        //TODO: Scatter origins (hotpoints)
-        for (int i = 0; i < n; i++) {
-
-            if (!uniqueSize) {
-                //Increment vehicle size
-                if (i % nPerSize == 0 && vSize < size) {
-                    vSize++;
-                }
-            } else {
-
-                // Unique size
-
-                vSize = size;
-            }
-
-            //
-            short randomOrigin = (short) (seed.nextDouble() * Dao.ZONE_IDS.length);
-
-            //Logging.logger.info("Vehicles:" + randomOrigin + "-" + Dao.getInstance().getDistMatrix().length);
-            //Logging.logger.info(randomOrigin);
-            listVehicle.add(new Vehicle(vSize, Dao.ZONE_IDS[randomOrigin], currentTime));
-        }
-        //Logging.logger.info(listVehicle.size() + " vehicles created.");
-        return listVehicle;
     }
 
 
@@ -103,19 +63,19 @@ public class MethodHelper {
         return lo;
     }
 
-
-    public static void main(String[] str) {
-        Logging.logger.info("Getting latest distances...");
-        for (int i = 0; i < 1000; i++) {
-            for (int j = 0; j < 1000; j++) {
-                int latest = Method.getEarliestDp(0, i, j, "A");
-                Logging.logger.info("Earliest:" + 0 + " - Latest time: " + latest);
-            }
-        }
-
-        for (int i = 0; i < Node.MAX_NUMBER_NODES; i++) {
-            Logging.logger.info(User.status[i][0] + " - " + User.status[i][1] + " - " + User.status[i][2]);
-
-        }
-    }
+//
+//    public static void main(String[] str) {
+//        Logging.logger.info("Getting latest distances...");
+//        for (int i = 0; i < 1000; i++) {
+//            for (int j = 0; j < 1000; j++) {
+//                int latest = Method.getEarliestDp(0, i, j, "A");
+//                Logging.logger.info("Earliest:" + 0 + " - Latest time: " + latest);
+//            }
+//        }
+//
+//        for (int i = 0; i < Node.MAX_NUMBER_NODES; i++) {
+//            Logging.logger.info(User.status[i][0] + " - " + User.status[i][1] + " - " + User.status[i][2]);
+//
+//        }
+//    }
 }

@@ -9,6 +9,11 @@ import gurobi.GRBException;
 import gurobi.GRBLinExpr;
 import gurobi.GRBVar;
 import model.*;
+import model.demand.User;
+import model.visit.VisitDisplaceAndStop;
+import model.visit.VisitObj;
+import model.visit.VisitRelocation;
+import model.visit.VisitStop;
 import org.apache.commons.collections4.MapUtils;
 
 import java.util.*;

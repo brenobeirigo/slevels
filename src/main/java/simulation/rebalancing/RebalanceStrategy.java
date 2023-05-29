@@ -1,7 +1,6 @@
 package simulation.rebalancing;
 
 import model.Vehicle;
-import model.Visit;
 import model.node.Node;
 
 import java.util.List;

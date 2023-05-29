@@ -1,11 +1,9 @@
 import dao.Dao;
 import dao.Logging;
-import model.User;
 import model.Vehicle;
 
 import java.util.List;
 import java.util.Scanner;
-import java.util.Set;
 
 public class TestFCFS {
 

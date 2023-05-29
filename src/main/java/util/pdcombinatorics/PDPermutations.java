@@ -11,7 +11,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.*;
 
-import model.User;
+import model.demand.User;
 
 public class PDPermutations implements PDGenerator {
 

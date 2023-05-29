@@ -1,9 +1,9 @@
 package util.pdcombinatorics;
 
-import model.User;
+import model.demand.User;
 import model.Vehicle;
 import model.node.Node;
-import model.node.NodeMiddle;
+import model.node.NodeWaypoint;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -40,7 +40,7 @@ public class PDGeneratorSingleInsertion implements Iterator<Node[]> {
         this.sequence = vehicle.isServicing() ? new ArrayList<>(vehicle.getVisit().getSequenceVisits()) : new ArrayList<>();
 
         // Remove middle node from insertion sequence
-        if (!this.sequence.isEmpty() && this.sequence.get(0) instanceof NodeMiddle) {
+        if (!this.sequence.isEmpty() && this.sequence.get(0) instanceof NodeWaypoint) {
             this.sequence.remove(0);
         }
         this.user = request;

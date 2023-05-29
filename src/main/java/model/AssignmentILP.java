@@ -6,6 +6,8 @@ import dao.Dao;
 import dao.Logging;
 import gurobi.*;
 import helper.Runtime;
+import model.demand.User;
+import model.visit.VisitObj;
 import simulation.matching.Objective;
 import simulation.matching.ResultAssignment;
 
@@ -187,13 +189,13 @@ public class AssignmentILP {
 //
 //        assert vehiclesVisitsSameOrder(vehicleVisitsMap, preDecisionStateSpace.getVehicleDecisionsMap());
 //
-//        int timestepSec = Simulation.timeWindow;
+//        int timestepSec = Environment.timeWindowSec;
 //        PostDecisionStateSpace postDecisionStateSpace = new PostDecisionStateSpace(preDecisionStateSpace, timestepSec);
 //        DecisionSpaceObject postDecisionSpaceObj = postDecisionStateSpace.getStateObject();
 //
 //
-//        HelperIO.saveJSON(preDecisionSpaceObj, String.format("Input%04d.json", Simulation.rightTW));
-//        HelperIO.saveJSON(postDecisionSpaceObj, String.format("Output%04d.json", Simulation.rightTW));
+//        HelperIO.saveJSON(preDecisionSpaceObj, String.format("Input%04d.json", Environment.rightTW));
+//        HelperIO.saveJSON(postDecisionSpaceObj, String.format("Output%04d.json", Environment.rightTW));
 
         try {
             ////////////////////////////////////////////////////////////////////////////////////////////////////////////

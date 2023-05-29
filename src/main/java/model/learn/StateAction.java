@@ -1,18 +1,23 @@
 package model.learn;
 
 import com.google.common.base.Objects;
-import dao.Dao;
 import model.*;
+import model.demand.User;
 import model.node.Node;
-import model.node.NodeDP;
-import model.node.NodePK;
+import model.node.NodeDropoff;
+import model.node.NodePickup;
+import model.visit.VisitDisplaceAndStop;
+import model.visit.VisitObj;
+import model.visit.VisitRelocation;
+import model.visit.VisitStop;
+import simulation.Environment;
 
 import java.util.*;
 import java.util.stream.Collectors;
 
 public class StateAction implements Comparable<StateAction>, VisitObj {
 
-    private static final int MAX_PICKUP_DELAY = 300;
+    protected Environment env;
     protected Vehicle vehicle;
     private double vf;
 
@@ -51,7 +56,8 @@ public class StateAction implements Comparable<StateAction>, VisitObj {
     protected int timeHorizon;
 
 
-    public StateAction(VisitObj visit, int timeStep, int timeHorizon, int timestepInterval) {
+    public StateAction(VisitObj visit, int timeStep, int timeHorizon, int timestepInterval, Environment env) {
+        this.env = env;
         this.init(timeStep, timestepInterval, timeHorizon);
         this.visit = visit;
         this.departure = visit.getVehicle().getEarliestDeparture();
@@ -116,7 +122,7 @@ public class StateAction implements Comparable<StateAction>, VisitObj {
 
 
     public PostVehicleStateAction stepForward(int timeStep) {
-        return new PostVehicleStateAction(this, timeStep);
+        return new PostVehicleStateAction(this, timeStep, env);
     }
 
     //    public static VehicleState realize(VehicleState preVehicleState, int timestepInterval) {
@@ -202,7 +208,7 @@ public class StateAction implements Comparable<StateAction>, VisitObj {
 //            int arrivalAtWaypoint = vehicleOriginDeparture + distOriginWaypoint;
 //            Node nextNode = preVehicleState.nodes.get(indexInsertionArrival);
 //
-//            NodeMiddle earliestMiddleNode = new NodeMiddle(
+//            NodeWaypoint earliestMiddleNode = new NodeWaypoint(
 //                    waypointNetworkId,
 //                    arrivalAtWaypoint,
 //                    previousNode,
@@ -227,13 +233,13 @@ public class StateAction implements Comparable<StateAction>, VisitObj {
 //
 //            Node servicedNode = preVehicleState.nodes.get(idxNode);
 //
-//            if (servicedNode instanceof NodePK) {
+//            if (servicedNode instanceof NodeSource) {
 //                User user = User.mapOfUsers.get(servicedNode.getTripId());
 //                postVehicleState.passengers.add(user);
 //                postVehicleState.requests.remove(user);
 //            }
 //
-//            if (servicedNode instanceof NodeDP) {
+//            if (servicedNode instanceof NodeDropoff) {
 //                User user = User.mapOfUsers.get(servicedNode.getTripId());
 //                postVehicleState.requests.remove(user);
 //                postVehicleState.passengers.remove(user);
@@ -260,15 +266,15 @@ public class StateAction implements Comparable<StateAction>, VisitObj {
 //    }
 //
 //
-    public static StateAction getVisitState(Vehicle v, int preDecisionTime, int elapsed, int totalTimeHorizon) {
+    public static StateAction getVisitState(Environment env, Vehicle v, int preDecisionTime, int elapsed, int totalTimeHorizon) {
         if (v.getVisit() != null) {
-            return StateAction.getVisitState(v.getVisit(), preDecisionTime, elapsed, totalTimeHorizon);
+            return StateAction.getVisitState(env, v.getVisit(), preDecisionTime, elapsed, totalTimeHorizon);
         } else {
-            return StateAction.getVisitState(new VisitStop(v), preDecisionTime, elapsed, totalTimeHorizon);
+            return StateAction.getVisitState(env, new VisitStop(v), preDecisionTime, elapsed, totalTimeHorizon);
         }
     }
 
-    public static StateAction getVisitState(VisitObj visit, int preDecisionTime, int elapsed, int totalTimeHorizon) {
+    public static StateAction getVisitState(Environment env, VisitObj visit, int preDecisionTime, int elapsed, int totalTimeHorizon) {
 
         StateAction vs = new StateAction(preDecisionTime, elapsed, totalTimeHorizon);
         vs.visit = visit;
@@ -307,7 +313,7 @@ public class StateAction implements Comparable<StateAction>, VisitObj {
 
                 for (Node destinationNode : visit.getSequenceVisits()) {
 
-                    int distanceLeg = Dao.getInstance().getDistSec(originNode, destinationNode);
+                    int distanceLeg = env.getNetwork().getDistSec(originNode.getNetworkId(), destinationNode.getNetworkId());
                     //Logging.logger.info("{}", String.format("%s -> %s -> %s - Arrival: %s", originNode, distanceLeg, destinationNode, arrivalTime));
                     if (distanceLeg == 0) {
                         int indexLastNode = vs.nodeArrivals.size() - 1;
@@ -381,7 +387,7 @@ public class StateAction implements Comparable<StateAction>, VisitObj {
     }
 
     private static boolean isPickupOrDeliveryNode(Node n) {
-        return n instanceof NodeDP || n instanceof NodePK;
+        return n instanceof NodeDropoff || n instanceof NodePickup;
     }
 
     public Vehicle getVehicle() {
@@ -397,7 +403,7 @@ public class StateAction implements Comparable<StateAction>, VisitObj {
 
         for (Node destinationNode : this.visit.getSequenceVisits()) {
 
-            int distanceLeg = Dao.getInstance().getDistSec(originNode, destinationNode);
+            int distanceLeg = env.getNetwork().getDistSec(originNode.getNetworkId(), destinationNode.getNetworkId());
 
             networkIds.add(destinationNode.getNetworkId());
             nodeLabels.add(destinationNode.toString());
@@ -548,24 +554,25 @@ public class StateAction implements Comparable<StateAction>, VisitObj {
         return 0;
     }
 
-    @Override
-    public boolean isValid() {
-        return false;
-    }
+//    @Override
+//    public boolean isValid() {
+//        return false;
+//    }
 
     @Override
-    public void genUserPickupDelayMap() {
+    public void genUserPickupDelayMap(Environment env) {
 
     }
 
-    @Override
-    public Map<User, Integer> getUserPickupDelayMap() {
-        return null;
-    }
 
     @Override
     public void discountDelay(int delayServicedUser) {
 
+    }
+
+    @Override
+    public Map<User, Integer> getUserPickupDelayMap(Environment environment) {
+        return null;
     }
 
     @Override
@@ -630,15 +637,6 @@ public class StateAction implements Comparable<StateAction>, VisitObj {
         return this.departure;
     }
 
-    @Override
-    public void updateArrivalSoFarAtVisitNodes() {
-
-    }
-
-    @Override
-    public int getArrivalTimeAtNext() {
-        return 0;
-    }
 
     @Override
     public Node getLastVisitedNode() {
@@ -678,18 +676,6 @@ public class StateAction implements Comparable<StateAction>, VisitObj {
 
     public int getCapacity() {
         return this.vehicleCapacity;
-    }
-
-    public static boolean vehicleCanReach(StateAction v1VisitPostState, Vehicle v2PreDecision) {
-        // Next node post decision
-        Node v1PostNextNode = v1VisitPostState.getNextNode();
-
-        // Next node a vehicle will visit (pre-decision)
-        // The assumption is that since the step is small, this holds
-        Node v2PreNextNode = v2PreDecision.getTargetNode();
-        int delayV1_V2 = Dao.getInstance().getDistSec(v1PostNextNode, v2PreNextNode);
-        int delayV2_V1 = Dao.getInstance().getDistSec(v2PreNextNode, v1PostNextNode);
-        return delayV1_V2 <= MAX_PICKUP_DELAY || delayV2_V1 <= MAX_PICKUP_DELAY;
     }
 
     public String getType(){

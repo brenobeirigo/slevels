@@ -1,7 +1,7 @@
 package model.graph;
 
 import com.google.common.base.Objects;
-import model.User;
+import model.demand.User;
 
 class EdgeRR implements EdgeRV {
 

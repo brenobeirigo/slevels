@@ -3,13 +3,14 @@ package simulation.matching;
 import com.google.common.collect.Iterables;
 import config.Config;
 import dao.Dao;
-import model.User;
+import model.demand.User;
 import model.Vehicle;
-import model.Visit;
-import model.VisitObj;
+import model.visit.Visit;
+import model.visit.VisitBuilder;
+import model.visit.VisitObj;
 import model.node.Node;
-import simulation.Simulation;
-import simulation.hiring.HiringFromCenters;
+import simulation.Environment;
+//import simulation.hiring.HiringFromCenters;
 import simulation.rebalancing.Rebalance;
 
 import java.nio.file.Path;
@@ -25,12 +26,19 @@ public class MatchingFCFS implements RideMatchingStrategy {
     private boolean stopAtFirstBest;
     private boolean checkInParallel;
     private Path outputFile;
+    private Environment env;
+    private VisitBuilder visitBuilder;
 
     public MatchingFCFS(int maxPermutationsFCFS, boolean allPermutations, boolean stopAtFirstBest, boolean checkInParallel) {
         this.maxPermutationsFCFS = maxPermutationsFCFS;
         this.allPermutations = allPermutations;
         this.stopAtFirstBest = stopAtFirstBest;
         this.checkInParallel = checkInParallel;
+    }
+
+    public void setEnv(Environment env){
+        this.env = env;
+        this.visitBuilder = new VisitBuilder(env);
     }
 
     @Override
@@ -56,7 +64,7 @@ public class MatchingFCFS implements RideMatchingStrategy {
             // If request was assigned to another vehicle, remove it from there
             if (request.getCurrentVehicle() != null && !request.getCurrentVehicle().equals(visit.getVehicle())) {
                 Vehicle vehiclePreviouslyAssignedToRequest = request.getCurrentVehicle();
-                Visit visitWithoutRequest = vehiclePreviouslyAssignedToRequest.getVisitWithoutRequest(request);
+                Visit visitWithoutRequest = visitBuilder.getVisitWithoutRequest(vehiclePreviouslyAssignedToRequest, request);
                 vehiclePreviouslyAssignedToRequest.setVisit(visitWithoutRequest);
 
                 // Assign visit without requests to its users
@@ -75,12 +83,13 @@ public class MatchingFCFS implements RideMatchingStrategy {
         }
 
         // Go through nodes and update arrival so far
-        visit.updateArrivalSoFarAtVisitNodes();
+        env.updateArrivalSoFarAtVisitNodes(visit);
 
         // Vehicle is not idle
         visit.getVehicle().setRoundsIdle(0);
 
-        visit.getVehicle().updateMiddle(Simulation.rightTW);
+        //TODO WARNING!!!!!!!!!!! FIX
+//        env.updateMiddle(Environment.currentTime, visit.getVehicle());
 
     }
 
@@ -136,33 +145,33 @@ public class MatchingFCFS implements RideMatchingStrategy {
             Vehicle.setOfHotPoints.add(pk);
         }
     }
-
-
-    private Visit getVisitHiredVehicleUser(User u, int currentTime, Matching configMatching) {
-
-        // The draw was successful, vehicle will be hired immediately
-        Vehicle v = null;
-
-        Visit candidateVisitHiredVehicle = null;
-
-        // Find freelance vehicle around user area
-        while (candidateVisitHiredVehicle == null) {
-
-            // For the sake of fairness, position is left to chance
-            v = HiringFromCenters.createVehicleAtClosestRegionalCenter(
-                    u,
-                    currentTime,
-                    configMatching.contractDuration); // List of vehicles
-
-
-            //##########################################################################################
-            // Try to get a valid visit by inserting user "u" in newly created vehicle "v"
-            candidateVisitHiredVehicle = v.getVisitWithInsertedUser(u, currentTime);
-            //##########################################################################################
-        }
-
-        return candidateVisitHiredVehicle;
-    }
+//
+//
+//    private Visit getVisitHiredVehicleUser(User u, int currentTime, Matching configMatching) {
+//
+//        // The draw was successful, vehicle will be hired immediately
+//        Vehicle v = null;
+//
+//        Visit candidateVisitHiredVehicle = null;
+//
+//        // Find freelance vehicle around user area
+//        while (candidateVisitHiredVehicle == null) {
+//
+//            // For the sake of fairness, position is left to chance
+//            v = HiringFromCenters.createVehicleAtClosestRegionalCenter(
+//                    u,
+//                    currentTime,
+//                    configMatching.contractDuration); // List of vehicles
+//
+//
+//            //##########################################################################################
+//            // Try to get a valid visit by inserting user "u" in newly created vehicle "v"
+//            candidateVisitHiredVehicle = v.getVisitWithInsertedUser(u, currentTime);
+//            //##########################################################################################
+//        }
+//
+//        return candidateVisitHiredVehicle;
+//    }
 
     /**
      * Try to insert a user in every vehicle, and return the set of users inserted.
@@ -185,15 +194,16 @@ public class MatchingFCFS implements RideMatchingStrategy {
 
         Map<User, Visit> userVisitMap = new HashMap<>();
         Map<Vehicle, Visit> vehicleOriginalVisit = new HashMap<>();
-
+        VisitBuilder b = new VisitBuilder(env);
         // Loop users
         for (User u : unassignedRequests) {
 
             // Aux. best visit for comparison
-            VisitObj bestVisit = u.getBestVisitByInsertion(
+            VisitObj bestVisit = b.getBestVisitByInsertion(
                     listVehicles,
                     currentTime,
-                    stopAtFirstBest);
+                    stopAtFirstBest,
+            u);
 
             if (bestVisit != null) {
                 realizeVisit(bestVisit);

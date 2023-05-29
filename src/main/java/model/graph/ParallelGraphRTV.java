@@ -4,11 +4,11 @@ import com.google.common.collect.Sets;
 import dao.Dao;
 import dao.Logging;
 import helper.Runtime;
-import model.User;
 import model.Vehicle;
-import model.VisitObj;
+import model.demand.User;
+import model.visit.VisitObj;
 import org.jgrapht.graph.DefaultWeightedEdge;
-import simulation.Method;
+import simulation.Environment;
 
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
@@ -16,6 +16,7 @@ import java.util.stream.Collectors;
 
 public class ParallelGraphRTV implements GraphRTV {
 
+    private final Environment environment;
     // Populate list of feasible trips with current trips
     private List<List<VisitObj>> feasibleTrips;
     private int maxVehicleCapacity;
@@ -60,10 +61,10 @@ public class ParallelGraphRTV implements GraphRTV {
 
     }
 
-    public ParallelGraphRTV(Set<User> allRequests, Set<Vehicle> listVehicles, int maxVehicleCapacity, double timeout, int maxVehReqEdges, int maxReqReqEdges) {
+    public ParallelGraphRTV(Set<User> allRequests, Set<Vehicle> listVehicles, int maxVehicleCapacity, double timeout, int maxVehReqEdges, int maxReqReqEdges, Environment env, int currentTime) {
         Logging.logger.info("{}", String.format("# Matching - RTV - Graph (VR=%d,RR=%d) - #Requests: %d  / #Vehicles: %d (%d) - timeout: %.2f sec", maxVehReqEdges, maxReqReqEdges, allRequests.size(), listVehicles.size(), maxVehicleCapacity, timeout));
         this.timeout = (long) (timeout * 1000000000);
-
+        this.environment = env;
         // Populate list of feasible trips with current trips
         this.feasibleTrips = new ArrayList<>();
         this.maxVehicleCapacity = maxVehicleCapacity;
@@ -78,7 +79,7 @@ public class ParallelGraphRTV implements GraphRTV {
         // REQUEST - VEHICLE (RV) //////////////////////////////////////////////////////////////////////////////////////
 
         Dao.getInstance().getRunTimes().startTimerFor(Runtime.TIME_CREATE_RV);
-        this.graphRV = new GraphRV(allRequests, listVehicles, maxVehicleCapacity, maxVehReqEdges, maxReqReqEdges);
+        this.graphRV = new GraphRV(allRequests, listVehicles, maxVehicleCapacity, maxVehReqEdges, maxReqReqEdges, env, currentTime);
         Dao.getInstance().getRunTimes().endTimerFor(Runtime.TIME_CREATE_RV);
 
         //graphRV.printRVEdges();
@@ -201,11 +202,11 @@ public class ParallelGraphRTV implements GraphRTV {
 
             } else if (vehicle.isCruisingToPickup()) {
                 // Interrupt cruising, drop requests, and rebalance to closest middle
-                noRequestsVisit = vehicle.getVisitRelocationToMiddle();
+                noRequestsVisit = this.environment.getVisitRelocationToMiddle(vehicle);
 
             } else if (vehicle.isCarryingPassengers()) {
                 // Only passengers are kept
-                noRequestsVisit = Method.getBestVisitFromPDPermutationsSummarized(vehicle, new HashSet<>());
+                noRequestsVisit = Environment.getBestVisitFromPDPermutationsSummarized(vehicle, new HashSet<>(), environment);
             }
 
             assert noRequestsVisit != null;
@@ -357,15 +358,16 @@ public class ParallelGraphRTV implements GraphRTV {
      * - Trip (u1, u2) is feasible
      * - Trip (u1, u3) is feasible
      * - Trip (u2, u3) is feasible
-     *  A trip is feasible, if there is any visit where users can be successfully picked up and delivered.
-     *  Example:
-     *  Trip (u1, u2) is feasible if there is a feasible visit in:
-     *   - 1,1',2,2'
-     *   - 1,2,1',2'
-     *   ...
-     *   - 2,2',1,1'
+     * A trip is feasible, if there is any visit where users can be successfully picked up and delivered.
+     * Example:
+     * Trip (u1, u2) is feasible if there is a feasible visit in:
+     * - 1,1',2,2'
+     * - 1,2,1',2'
+     * ...
+     * - 2,2',1,1'
+     *
      * @param usersFeasibleTripsPreviousLevel Set of feasible trips of size $k-1$.
-     * @param usersCandidateTripCurrentLevel Candidate trip of size $k$.
+     * @param usersCandidateTripCurrentLevel  Candidate trip of size $k$.
      * @return true if all sub-trips of candidate trip are feasible (i.e., featured in previous level)
      */
     private boolean allSubTripsAreFeasible(Set<Set<User>> usersFeasibleTripsPreviousLevel, Set<User> usersCandidateTripCurrentLevel) {
@@ -392,7 +394,7 @@ public class ParallelGraphRTV implements GraphRTV {
 
     private void addOnlyPassengerVisitOfOnDutyVehicle(Vehicle vehicle, List<List<VisitObj>> feasibleVisitsCurrentVehicleAtLevel) {
         if (vehicle.isCarryingPassengers()) {
-            VisitObj visitWithoutRequests = Method.getBestVisitFromPDPermutationsSummarized(vehicle, new HashSet<>());
+            VisitObj visitWithoutRequests = Environment.getBestVisitFromPDPermutationsSummarized(vehicle, new HashSet<>(), environment);
 
             // Add best visit to RTV graph
             assert visitWithoutRequests != null : String.format("Cannot find visit for vehicle %s (carrying passengers) with current visit = %s", vehicle, vehicle.getVisit());
@@ -404,13 +406,14 @@ public class ParallelGraphRTV implements GraphRTV {
 
     /**
      * Add RTV Edge with best visit found for vehicle and requests.
+     *
      * @param vehicle
      * @param requests
      * @param feasibleVisitsCurrentVehicleAtLevel
      * @return True, if there is a feasible visit where requests can be picked up by the vehicle.
      */
     private boolean addRTVEdgeAtLevel(Vehicle vehicle, Set<User> requests, List<VisitObj> feasibleVisitsCurrentVehicleAtLevel) {
-        VisitObj bestVisit = Method.getBestVisitFromPDPermutationsSummarized(vehicle, requests);
+        VisitObj bestVisit = Environment.getBestVisitFromPDPermutationsSummarized(vehicle, requests, environment);
 
         if (bestVisit != null) {
             feasibleVisitsCurrentVehicleAtLevel.add(bestVisit);
@@ -423,7 +426,7 @@ public class ParallelGraphRTV implements GraphRTV {
     private void computeVisit(VisitObj visit) {
         allVisits.add(visit);
         mapVehicleVisits.get(visit.getVehicle()).add(visit);
-        visit.genUserPickupDelayMap();
+        visit.genUserPickupDelayMap(environment);
         visit.getRequests().stream().forEach(user -> {
             mapUserVisits.get(user).add(visit);
             mapUserVehicles.get(user).add(visit.getVehicle());
@@ -458,22 +461,22 @@ public class ParallelGraphRTV implements GraphRTV {
 //                }
 
 //                Logging.logger.info("**********************************************************************");
-//                VehicleState vSnap = new VehicleState(visit, Simulation.rightTW,  Simulation.timeHorizon, 0);
+//                VehicleState vSnap = new VehicleState(visit, Environment.rightTW,  Environment.timeHorizon, 0);
 //                Logging.logger.info("  Construct:" + vSnap);
 //                Logging.logger.info("----------------------------------------------------------------------");
-//                //Logging.logger.info("       Post:" + VehicleState.realize(vSnap, Simulation.timeWindow));
+//                //Logging.logger.info("       Post:" + VehicleState.realize(vSnap, Environment.timeWindowSec));
 //                Logging.logger.info("----------------------------------------------------------------------");
-//                VehicleState vSnapShort = VehicleState.getVisitState(visit, Simulation.rightTW, Simulation.timeWindow, Simulation.timeHorizon);
+//                VehicleState vSnapShort = VehicleState.getVisitState(visit, Environment.rightTW, Environment.timeWindowSec, Environment.timeHorizon);
 //
 //                Logging.logger.info("     Static:" + vSnapShort);
 //                Logging.logger.info("----------------------------------------------------------------------");
-//                Logging.logger.info("1xTW Static:" + VehicleState.realize(vSnapShort, Simulation.rightTW, 1 * Simulation.timeWindow, pickupLocationCandidateVehicleCountMap));
+//                Logging.logger.info("1xTW Static:" + VehicleState.realize(vSnapShort, Environment.rightTW, 1 * Environment.timeWindowSec, pickupLocationCandidateVehicleCountMap));
 //                Logging.logger.info("----------------------------------------------------------------------");
-//                Logging.logger.info("2xTW Static:" + VehicleState.realize(vSnapShort, Simulation.rightTW, 2 * Simulation.timeWindow, pickupLocationCandidateVehicleCountMap));
+//                Logging.logger.info("2xTW Static:" + VehicleState.realize(vSnapShort, Environment.rightTW, 2 * Environment.timeWindowSec, pickupLocationCandidateVehicleCountMap));
 //                Logging.logger.info("----------------------------------------------------------------------");
-//                Logging.logger.info("3xTW Static:" + VehicleState.realize(vSnapShort, Simulation.rightTW, 3 * Simulation.timeWindow, pickupLocationCandidateVehicleCountMap));
+//                Logging.logger.info("3xTW Static:" + VehicleState.realize(vSnapShort, Environment.rightTW, 3 * Environment.timeWindowSec, pickupLocationCandidateVehicleCountMap));
 //                Logging.logger.info("----------------------------------------------------------------------");
-//                Logging.logger.info("4xTW Static:" + VehicleState.realize(vSnapShort, Simulation.rightTW,4 * Simulation.timeWindow, pickupLocationCandidateVehicleCountMap));
+//                Logging.logger.info("4xTW Static:" + VehicleState.realize(vSnapShort, Environment.rightTW,4 * Environment.timeWindowSec, pickupLocationCandidateVehicleCountMap));
             }
         }
     }
@@ -491,7 +494,7 @@ public class ParallelGraphRTV implements GraphRTV {
 //    }
 
     public double getWeightFromRequestVisitEdge(User request, VisitObj visit) {
-        return visit.getUserPickupDelayMap().get(request);
+        return visit.getUserPickupDelayMap(this.environment).get(request);
     }
 
     public Set<VisitObj> getListOfVisitsFromUser(User request) {

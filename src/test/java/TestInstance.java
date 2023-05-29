@@ -17,7 +17,7 @@ public class TestInstance {
 //        Config.getInstance().qosDic.put("B", qos2);
 //        Config.getInstance().qosDic.put("C", qos3);
 
-        /*Simulation fcfs = new SimulationFCFS(
+        /*Environment fcfs = new EnvironmentFCFS(
                 "test_reb_nocleant",
                 1000,
                 6,

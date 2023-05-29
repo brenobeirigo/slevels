@@ -1,9 +1,10 @@
 package model.learn;
 
 import dao.Dao;
-import model.User;
+import model.demand.User;
 import model.Vehicle;
-import model.VisitObj;
+import model.visit.VisitObj;
+import simulation.Environment;
 
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
@@ -12,6 +13,7 @@ import java.util.stream.Collectors;
 
 public class FleetStateActionSpace {
 
+    protected Environment env;
     protected Dao environment;
     protected Map<Vehicle, Set<VisitObj>> vehicleVisitMap;
     protected Map<Vehicle, StateAction> vehicleCurrentStateMap;
@@ -105,7 +107,7 @@ public class FleetStateActionSpace {
     private Set<StateAction> getDecisionSetFromVisits(Set<VisitObj> visits) {
         Set<StateAction> stateActions = new HashSet<>();
         for (VisitObj visit : visits) {
-            StateAction stateAction = StateAction.getVisitState(visit, this.timeStep, this.elapsed, this.timeHorizon);
+            StateAction stateAction = StateAction.getVisitState(this.env, visit, this.timeStep, this.elapsed, this.timeHorizon);
             setNumberOfSurroundingVehiclesAtNextLocation(stateAction);
             stateActions.add(stateAction);
             //visit.setVehicleState(vehicleState);
@@ -130,7 +132,8 @@ public class FleetStateActionSpace {
      * @param timeStep
      * @param timeHorizon
      */
-    public FleetStateActionSpace(Set<Vehicle> vehicles, Set<User> requests, Map<Vehicle, Set<VisitObj>> vehicleVisitMap, int timeStep, int timeHorizon) {
+    public FleetStateActionSpace(Set<Vehicle> vehicles, Set<User> requests, Map<Vehicle, Set<VisitObj>> vehicleVisitMap, int timeStep, int timeHorizon, Environment env) {
+        this.env = env;
         this.vehicles = vehicles;
         this.requests = requests;
         this.timeStep = timeStep;
@@ -140,7 +143,7 @@ public class FleetStateActionSpace {
 
         this.vehicleCurrentStateMap = new ConcurrentHashMap<>();
         for (Vehicle vehicle : vehicles) {
-            StateAction currentState = StateAction.getVisitState(vehicle, timeStep, 0, timeHorizon);
+            StateAction currentState = StateAction.getVisitState(env, vehicle, timeStep, 0, timeHorizon);
             setNumberOfSurroundingVehiclesAtNextLocation(currentState);
             vehicleCurrentStateMap.put(vehicle, currentState);
         }
@@ -151,7 +154,7 @@ public class FleetStateActionSpace {
         int nOfSurroundingVehicles = 0;
         for (Vehicle otherVehicle : this.vehicles) {
             if (!otherVehicle.equals(state.vehicle))
-                if (StateAction.vehicleCanReach(state, otherVehicle)) {
+                if (env.vehicleCanReach(state, otherVehicle)) {
                     nOfSurroundingVehicles++;
                 }
         }

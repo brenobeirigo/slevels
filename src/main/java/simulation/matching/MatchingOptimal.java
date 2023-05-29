@@ -9,14 +9,15 @@ import dao.Logging;
 import gurobi.*;
 import helper.Runtime;
 import model.*;
+import model.demand.User;
 import model.graph.GraphRTV;
 import model.graph.ParallelGraphRTV;
 import model.learn.StateAction;
 import model.node.Node;
+import model.visit.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import simulation.Method;
-import simulation.Simulation;
+import simulation.Environment;
 
 import java.util.*;
 import java.util.stream.Collectors;
@@ -57,6 +58,7 @@ public class MatchingOptimal implements RideMatchingStrategy {
     ResultAssignment result;
     public Map<Vehicle, Set<VisitObj>> vehicleVisitsMap;
     public Map<User, Set<VisitObj>> userVisitsMap;
+    private Environment environment;
 
     public MatchingOptimal(int maxVehicleCapacityRTV, double mipTimeLimit, double timeoutVehicleRTV, double mipGap, int maxEdgesRV, int maxEdgesRR, int rejectionPenalty, String[] orderedListOfObjectiveLabels, String PDVisitGenerator) {
         this.maxVehicleCapacityRTV = maxVehicleCapacityRTV;
@@ -69,6 +71,10 @@ public class MatchingOptimal implements RideMatchingStrategy {
         this.orderedListOfObjectiveLabels = orderedListOfObjectiveLabels;
         this.penObjectives = new LinkedHashMap<>();
         this.PDVisitGenerator = PDVisitGenerator;
+    }
+
+    public void setEnvironment(Environment environment){
+        this.environment = environment;
     }
 
     @Override
@@ -104,7 +110,7 @@ public class MatchingOptimal implements RideMatchingStrategy {
         }
 
         // Go through nodes and update arrival so far
-        visit.updateArrivalSoFarAtVisitNodes();
+        environment.updateArrivalSoFarAtVisitNodes(visit);
 
         // Vehicle is not idle
         visit.getVehicle().setRoundsIdle(0);
@@ -169,50 +175,50 @@ public class MatchingOptimal implements RideMatchingStrategy {
         return this.result;
     }
 
-    private boolean assertConsecutiveAssignmentsProduceSameResults(Set<User> unassignedRequests, Map<User, Set<VisitObj>> userVisitMapRTV, Map<Vehicle, Set<VisitObj>> vehicleVisitMapRTV) {
-        AssignmentILP a = new AssignmentILP(Simulation.rightTW, vehicleVisitMapRTV, userVisitMapRTV, true);
-        AssignmentILP that = new AssignmentILP(Simulation.rightTW, vehicleVisitMapRTV, unassignedRequests, true);
-        for (User u : a.userVisitsMap.keySet()) {
-            if (!a.userVisitsMap.get(u).isEmpty() && !a.userVisitsMap.get(u).containsAll(that.userVisitsMap.get(u))) {
-                logger.info("{}", a.userVisitsMap.get(u));
-                logger.info("{}", that.userVisitsMap.get(u));
-                return false;
-            }
-        }
-        for (Vehicle v : a.vehicleVisitsMap.keySet()) {
-            if (!a.vehicleVisitsMap.get(v).isEmpty() && !a.vehicleVisitsMap.get(v).containsAll(that.vehicleVisitsMap.get(v))) {
-                return false;
-            }
-        }
-        a.run(new String[]{Objective.TOTAL_REJECTION, Objective.TOTAL_WAITING});
-        that.run(new String[]{Objective.TOTAL_REJECTION, Objective.TOTAL_WAITING});
-        if (!a.getResult().equals(that.getResult())) {
-
-            logger.info("# A:");
-            a.printObj();
-            logger.info("# B:");
-            that.printObj();
-
-            //Objects.equal(unmetServiceLevelClass, that.getResult().unmetServiceLevelClass) &&
-            //Objects.equal(nOfRequestsClass, that.getResult().nOfRequestsClass) &&
-            //Objects.equal(rejectedServiceLevelClass, that.getResult().rejectedServiceLevelClass &&
-            //&& violationCountClassServiceLevel.equals(that.getResult().violationCountClassServiceLevel) &&
-            logger.info("{}\n", a.getResult().requestsServicedLevelAchieved.equals(that.getResult().requestsServicedLevelAchieved));
-            logger.info("{}\n", a.getResult().requestsServicedLevelNotAchieved.equals(that.getResult().requestsServicedLevelNotAchieved));
-            logger.info("{}\n", a.getResult().requestsDisplaced.equals(that.getResult().requestsDisplaced));
-            logger.info("{}\n", a.getResult().getVehiclesDisrupted().equals(that.getResult().getVehiclesDisrupted()));
-            logger.info("{}\n", a.getResult().roundPrivateRides.equals(that.getResult().roundPrivateRides));
-            logger.info("{}\n", a.getResult().getRequestsOK().equals(that.getResult().getRequestsOK()));
-            logger.info("{}\n", a.getResult().getVehiclesOK().equals(that.getResult().getVehiclesOK()));
-            logger.info("{}\n", a.getResult().getVisitsOK().equals(that.getResult().getVisitsOK()));
-            logger.info("{}\n", Sets.difference(a.getResult().getVisitsOK(), that.getResult().getVisitsOK()));
-            logger.info("{}\n", a.getResult().getRequestsUnassigned().equals(that.getResult().getRequestsUnassigned()));
-            logger.info("{}\n", Sets.difference(a.getResult().getRequestsUnassigned(), that.getResult().getRequestsUnassigned()));
-            logger.info("{}\n", a.getResult().getVehiclesHired().equals(that.getResult().getVehiclesHired()));
-            return false;
-        }
-        return true;
-    }
+//    private boolean assertConsecutiveAssignmentsProduceSameResults(Set<User> unassignedRequests, Map<User, Set<VisitObj>> userVisitMapRTV, Map<Vehicle, Set<VisitObj>> vehicleVisitMapRTV) {
+//        AssignmentILP a = new AssignmentILP(Environment.currentTime, vehicleVisitMapRTV, userVisitMapRTV, true);
+//        AssignmentILP that = new AssignmentILP(Environment.currentTime, vehicleVisitMapRTV, unassignedRequests, true);
+//        for (User u : a.userVisitsMap.keySet()) {
+//            if (!a.userVisitsMap.get(u).isEmpty() && !a.userVisitsMap.get(u).containsAll(that.userVisitsMap.get(u))) {
+//                logger.info("{}", a.userVisitsMap.get(u));
+//                logger.info("{}", that.userVisitsMap.get(u));
+//                return false;
+//            }
+//        }
+//        for (Vehicle v : a.vehicleVisitsMap.keySet()) {
+//            if (!a.vehicleVisitsMap.get(v).isEmpty() && !a.vehicleVisitsMap.get(v).containsAll(that.vehicleVisitsMap.get(v))) {
+//                return false;
+//            }
+//        }
+//        a.run(new String[]{Objective.TOTAL_REJECTION, Objective.TOTAL_WAITING});
+//        that.run(new String[]{Objective.TOTAL_REJECTION, Objective.TOTAL_WAITING});
+//        if (!a.getResult().equals(that.getResult())) {
+//
+//            logger.info("# A:");
+//            a.printObj();
+//            logger.info("# B:");
+//            that.printObj();
+//
+//            //Objects.equal(unmetServiceLevelClass, that.getResult().unmetServiceLevelClass) &&
+//            //Objects.equal(nOfRequestsClass, that.getResult().nOfRequestsClass) &&
+//            //Objects.equal(rejectedServiceLevelClass, that.getResult().rejectedServiceLevelClass &&
+//            //&& violationCountClassServiceLevel.equals(that.getResult().violationCountClassServiceLevel) &&
+//            logger.info("{}\n", a.getResult().requestsServicedLevelAchieved.equals(that.getResult().requestsServicedLevelAchieved));
+//            logger.info("{}\n", a.getResult().requestsServicedLevelNotAchieved.equals(that.getResult().requestsServicedLevelNotAchieved));
+//            logger.info("{}\n", a.getResult().requestsDisplaced.equals(that.getResult().requestsDisplaced));
+//            logger.info("{}\n", a.getResult().getVehiclesDisrupted().equals(that.getResult().getVehiclesDisrupted()));
+//            logger.info("{}\n", a.getResult().roundPrivateRides.equals(that.getResult().roundPrivateRides));
+//            logger.info("{}\n", a.getResult().getRequestsOK().equals(that.getResult().getRequestsOK()));
+//            logger.info("{}\n", a.getResult().getVehiclesOK().equals(that.getResult().getVehiclesOK()));
+//            logger.info("{}\n", a.getResult().getVisitsOK().equals(that.getResult().getVisitsOK()));
+//            logger.info("{}\n", Sets.difference(a.getResult().getVisitsOK(), that.getResult().getVisitsOK()));
+//            logger.info("{}\n", a.getResult().getRequestsUnassigned().equals(that.getResult().getRequestsUnassigned()));
+//            logger.info("{}\n", Sets.difference(a.getResult().getRequestsUnassigned(), that.getResult().getRequestsUnassigned()));
+//            logger.info("{}\n", a.getResult().getVehiclesHired().equals(that.getResult().getVehiclesHired()));
+//            return false;
+//        }
+//        return true;
+//    }
 
     private boolean assertRTVUserVisitMapCanBeReconstructedFromVehicleVisitMap(Set<User> unassignedRequests, Map<User, Set<VisitObj>> userVisitMapRTV, Map<Vehicle, Set<VisitObj>> vehicleVisitMapRTV) {
         Map<User, Set<VisitObj>> userVisitMap = AssignmentILP.extractUserVisitsMap(vehicleVisitMapRTV, unassignedRequests);
@@ -244,6 +250,7 @@ public class MatchingOptimal implements RideMatchingStrategy {
         this.requests = userVisitsMap.keySet();
         this.vehicles = vehicleVisitsMap.keySet();
         this.result = new ResultAssignment(currentTime);
+        this.currentTime = currentTime;
 
         try {
             ////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -364,7 +371,7 @@ public class MatchingOptimal implements RideMatchingStrategy {
     protected void buildGraphRTV(Set<User> unassignedRequests, Set<Vehicle> listVehicles, int maxVehicleCapacity, double timeoutVehicle, int maxVehReqEdges, int maxReqReqEdges) {
 
         // BUILDING GRAPH STRUCTURE ////////////////////////////////////////////////////////////////////////////////////
-        this.graphRTV = new ParallelGraphRTV(unassignedRequests, listVehicles, maxVehicleCapacity, timeoutVehicle, maxVehReqEdges, maxReqReqEdges);
+        this.graphRTV = new ParallelGraphRTV(unassignedRequests, listVehicles, maxVehicleCapacity, timeoutVehicle, maxVehReqEdges, maxReqReqEdges, this.environment, currentTime);
     }
 
     protected void computeIIS() throws GRBException {
@@ -767,39 +774,39 @@ public class MatchingOptimal implements RideMatchingStrategy {
         assert eachUserIsAssignedToSingleVehicle() : "User is assigned to two different vehicles.";
     }*/
 
+//
+//    protected boolean userCannotBePickedUpByIdleVehicles(GraphRTV graphRTV, Set<Vehicle> unassignedVehicles, User u) {
+//
+//        for (VisitObj visit : this.getListOfVisitsFromUser(u)) {
+//            Vehicle v = visit.getVehicle();
+//            if (unassignedVehicles.contains(v)) {
+//                logger.info("{}", unassignedVehicles);
+//                Logging.logger.info("{}", String.format("Free vehicle %s can service request %s: VisitObj = %s", v, u, v.getVisit()));
+//                return false;
+//            }
+//        }
+//
+//        for (Vehicle v : unassignedVehicles) {
+//            VisitObj candidateVisit = Method.getBestVisitFromPDPermutations(v, new HashSet<>(Arrays.asList(u)));
+//            if (candidateVisit != null) {
+//                Logging.logger.info("{}", String.format("(CANDIDATE VISIT) Free vehicle %s can service request %s: VisitObj = %s", v, u, candidateVisit));
+//                return false;
+//            }
+//        }
+//        return true;
+//    }
 
-    protected boolean userCannotBePickedUpByIdleVehicles(GraphRTV graphRTV, Set<Vehicle> unassignedVehicles, User u) {
 
-        for (VisitObj visit : this.getListOfVisitsFromUser(u)) {
-            Vehicle v = visit.getVehicle();
-            if (unassignedVehicles.contains(v)) {
-                logger.info("{}", unassignedVehicles);
-                Logging.logger.info("{}", String.format("Free vehicle %s can service request %s: VisitObj = %s", v, u, v.getVisit()));
-                return false;
-            }
-        }
-
-        for (Vehicle v : unassignedVehicles) {
-            VisitObj candidateVisit = Method.getBestVisitFromPDPermutations(v, new HashSet<>(Arrays.asList(u)));
-            if (candidateVisit != null) {
-                Logging.logger.info("{}", String.format("(CANDIDATE VISIT) Free vehicle %s can service request %s: VisitObj = %s", v, u, candidateVisit));
-                return false;
-            }
-        }
-        return true;
-    }
-
-
-    protected boolean usersAreNotDisplaced(List<User> unassignedUsers) {
-        List<User> displacedUsers = unassignedUsers.stream().filter(user -> user.getCurrentVisit() != null).collect(Collectors.toList());
-        if (!displacedUsers.isEmpty()) {
-            for (User displacedUser : displacedUsers) {
-                logger.info(displacedUser + " - " + displacedUser.getCurrentVisit());
-            }
-            return false;
-        }
-        return true;
-    }
+//    protected boolean usersAreNotDisplaced(List<User> unassignedUsers) {
+//        List<User> displacedUsers = unassignedUsers.stream().filter(user -> user.getCurrentVisit() != null).collect(Collectors.toList());
+//        if (!displacedUsers.isEmpty()) {
+//            for (User displacedUser : displacedUsers) {
+//                logger.info(displacedUser + " - " + displacedUser.getCurrentVisit());
+//            }
+//            return false;
+//        }
+//        return true;
+//    }
 
     public boolean vehiclesVisitsSameOrder(Map<Vehicle, Set<VisitObj>> a, Map<Vehicle, Set<StateAction>> b) {
         if (a.size() != b.size()) return false;

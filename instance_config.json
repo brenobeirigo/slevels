@@ -1,0 +1,205 @@
+{
+  "instance_description": "New instance file",
+  "label": "TEST",
+  "logging": {
+    "info_level": "print_summary_round_info",
+    "info_handling": {
+      "save_vehicle_round_geojson": false,
+      "save_experiences": false,
+      "save_request_info_csv": false,
+      "save_round_info_csv": false,
+      "save_round_mip_info_lp": false,
+      "show_all_vehicle_journeys": false,
+      "show_round_fleet_status": false,
+      "show_round_info": true,
+      "show_round_mip_info": false
+    },
+    "instances_folder": "./analysis/data/results/"
+  },
+  "time": {
+    "start_datetime": "2019-02-20 16:00:00",
+    "total_simulation_horizon_sec": 3600,
+    "time_window_sec": 60
+  },
+  "network": {
+    "distances_file": "./data/nyc/processed/network/distance/dist_matrix_m.csv",
+    "zone_data_file": "./data/nyc/processed/taxi_zones/manhattan_taxi_zones.csv",
+    "network_node_info_file": "./data/nyc/processed/network/nodeset_gps.json",
+    "adjacency_matrix_file": "./data/nyc/processed/network/adjacency_matrix.csv",
+    "shortest_path_method": "shortest_path_astar",
+    "avg_speed_km_hour": 30
+  },
+  "demand": {
+    "requests_file": "./data/nyc/processed/trip_records/20190220170000-20190220190000_2019-2-yellow-Manhattan-00-00-00-23-59-59.csv",
+    "percentage_requests": 0.08,
+    "service_rate": {
+        "B": 1.0
+    },
+    "customer_segmentation": {
+        "B": 1
+    },
+    "allow_request_displacement": true,
+    "service_level": {
+      "B": {
+        "label": "B",
+        "priority": 2,
+        "pickup_delay_sec": 300,
+        "trip_delay_sec": 300,
+        "sharing_preference": true
+      }
+    }
+  },
+  "fleet": {
+    "vehicles": [
+      {
+        "n_vehicles": 20,
+        "capacity": 4
+      },
+      {
+        "n_vehicles": 20,
+        "capacity": 2
+      }
+    ],
+    "rebalance": true
+  },
+  "routing": {
+    "name": "optlearn",
+    "rtv_max_vehicle_capacity": 4,
+    "mip_time_limit": 240,
+    "rtv_vehicle_timeout": 0.01,
+    "mip_gap": 0.01,
+    "max_edges_rv": 5,
+    "max_edges_rr": 5,
+    "rejection_penalty": 5,
+    "objectives": [
+      "obj_requests_plus_vfs",
+      "obj_total_waiting"
+    ],
+    "pd_generation_strategy": {
+      "name": "pd_permutation",
+      "precalculated_permutations_file": "./data/permutations/processed/precalculated_pudo_permutations_requests=4_passengers=4.dat",
+      "max_sequences": 150
+    }
+  },
+  "learning_config": [
+    {
+      "model": {
+        "server_url": "http://localhost:5001"
+      },
+      "result_folder": "./analysis/data/results/ELU1X/",
+      "folder_models": "mnt/d/projects/dev/mobio/notebooks/nyc/model/nn/saved_models",
+      "learning_rate": [
+        0.1
+      ],
+      "discount_factor": [
+        0.5
+      ],
+      "request_samples": [
+        0
+      ],
+      "request_samples_doc": "Number of times a subset of requests are sampled from shuffled request records (n. of episodes = request_samples * len(episode_start_time))",
+      "training_frequency": 30,
+      "training_frequency_doc": "Execute experience replay every 'training_frequency' number of new experiences collected",
+      "experience_replay": {
+        "size_experience_replay_buffer": 500,
+        "size_experience_replay_buffer_doc": "An experience is collected at each time step. Then, 5 dates x 10 request samples x 30 steps = 1500 experiences",
+        "size_experience_replay_batch": 32
+      },
+      "target_network": {
+        "update_frequency": [
+          30
+        ],
+        "update_frequency_doc": "Model is updated after 'update_frequency' number of experiences collected."
+      },
+      "training_config": {
+        "data": [
+          "./data/nyc/processed/trip_records/20190204170000-20190204190000_2019-2-yellow-Manhattan-00-00-00-23-59-59.csv",
+          "./data/nyc/processed/trip_records/20190205170000-20190205190000_2019-2-yellow-Manhattan-00-00-00-23-59-59.csv",
+          "./data/nyc/processed/trip_records/20190206170000-20190206190000_2019-2-yellow-Manhattan-00-00-00-23-59-59.csv",
+          "./data/nyc/processed/trip_records/20190207170000-20190207190000_2019-2-yellow-Manhattan-00-00-00-23-59-59.csv",
+          "./data/nyc/processed/trip_records/20190208170000-20190208190000_2019-2-yellow-Manhattan-00-00-00-23-59-59.csv"
+        ],
+        "episode_start_datetime": [
+          "2019-02-04 17:00:00",
+          "2019-02-05 17:00:00",
+          "2019-02-06 17:00:00",
+          "2019-02-07 17:00:00",
+          "2019-02-08 17:00:00"
+        ]
+      },
+      "testing_config": {
+        "episode_start_datetime": [
+          "2019-02-20 17:00:00"
+        ],
+        "data": [
+          "./data/nyc/processed/trip_records/20190220170000-20190220190000_2019-2-yellow-Manhattan-00-00-00-23-59-59.csv"
+        ]
+      }
+    }
+  ],
+  "docs": {
+    "logging": {
+      "info_level_options": [
+        "print_summary_round_info",
+        "print_all_round_info",
+        "print_no_round_info"
+      ]
+    },
+    "objective_options": [
+      "obj_number_of_hired_and_violations",
+      "obj_hierarchical_rejection",
+      "obj_hierarchical_slack",
+      "obj_hierarchical_rejection_service_level",
+      "obj_hierarchical_hiring_and_rejection_service_level",
+      "obj_number_of_hired",
+      "obj_hierarchical_service_level",
+      "obj_total_waiting",
+      "obj_rejection",
+      "obj_hierarchical_waiting_and_rejection",
+      "obj_hierarchical_waiting",
+      "obj_total_waiting_and_rejection",
+      "obj_requests_plus_vfs"
+    ],
+    "shortest_path_method_options": [
+      "shortest_path_dijkstra",
+      "shortest_path_astar"
+    ],
+    "method_options": [
+      "method_optimal",
+      "method_greedy",
+      "method_fsfc",
+      "method_optimal_enforce_sl",
+      "method_optimal_enforce_sl_and_hire"
+    ],
+    "rebalancing_config": [
+      {
+        "name": "rebalance_optimal_alonso_mora"
+      }
+    ],
+    "labels": {
+      "BA": "batch_duration",
+      "RH": "request_sampling_horizon",
+      "ST": "simulation_time",
+      "MR": "max_requests",
+      "PR": "percentage_requests",
+      "IF": "initial_fleet",
+      "MC": "max_capacity",
+      "RE": "rebalance",
+      "CD": "contract_duration",
+      "SD": "allow_service_deterioration",
+      "VH": "allow_vehicle_hiring",
+      "SR": "service_rate",
+      "CS": "customer_segmentation",
+      "MO": "allow_many_to_one",
+      "RT": "reinsert_targets",
+      "CT": "clear_target_list_every_round",
+      "UR": "allow_urgent_relocation",
+      "IN": "instance_name",
+      "ID": "instance_description",
+      "HE": "rebalance_heuristic",
+      "OPT": "matching",
+      "HC": "maximal_hiring_delay",
+      "DT": "start_datetime"
+    }
+  }
+}

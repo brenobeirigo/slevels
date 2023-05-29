@@ -7,9 +7,9 @@ import gurobi.GRB;
 import gurobi.GRBException;
 import gurobi.GRBLinExpr;
 import gurobi.GRBVar;
-import model.User;
+import model.demand.User;
 import model.Vehicle;
-import model.VisitObj;
+import model.visit.VisitObj;
 
 import java.util.HashSet;
 import java.util.List;

@@ -5,16 +5,18 @@ import dao.Dao;
 import dao.Logging;
 import gurobi.*;
 import model.Vehicle;
-import model.Visit;
 import model.node.Node;
-import model.node.NodeTargetRebalancing;
+import simulation.Environment;
 
 import java.util.List;
 import java.util.Set;
 
 public class RebalanceOptimal implements RebalanceStrategy {
 
+    private Environment environment;
+
     public RebalanceOptimal() {
+
     }
 
     private static GRBEnv env;
@@ -71,7 +73,9 @@ public class RebalanceOptimal implements RebalanceStrategy {
 
                 for (Node target : targets) {
 
-                    double distance_vehicle_target = Dao.getInstance().getDistKm(vehicle.getLastVisitedNode(), target);
+                    double distance_vehicle_target = environment.getNetwork().getDistSec(
+                            vehicle.getLastVisitedNode().getNetworkId(), target.getNetworkId());
+
                     //String label = String.format("%d_%d_%d_%d", v ,vehicle.getId(), n ,target.getTripId());
                     String label = String.format("%d_%d", v, n);
                     x[v][n] = model.addVar(0, 1, distance_vehicle_target, GRB.BINARY, label);
@@ -127,7 +131,7 @@ public class RebalanceOptimal implements RebalanceStrategy {
                             // Make vehicle move to target
                             if (vehicle.getLastVisitedNode().getNetworkId() != target.getNetworkId()) {
 
-                                vehicle.rebalanceTo(target);
+                                vehicle.rebalanceTo(target, this.environment);
                                 //Logging.logger.info("-->>>>>" + label + " " + result + x[v][n] + " = " + distance + "distance2=" + distance2);
 
                             }
@@ -177,7 +181,7 @@ public class RebalanceOptimal implements RebalanceStrategy {
 
         assert middleNode != null;
 
-        double distTraveledKmCurrentMiddle = Dao.getInstance().getDistKm(currentNode, middleNode);
+        double distTraveledKmCurrentMiddle = this.environment.getNetwork().getDistSec(currentNode.getNetworkId(), middleNode.getNetworkId());
 
         vehicle.increaseDistanceTraveledRebalancing(distTraveledKmCurrentMiddle);
 

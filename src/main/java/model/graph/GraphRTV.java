@@ -1,8 +1,8 @@
 package model.graph;
 
-import model.User;
+import model.demand.User;
 import model.Vehicle;
-import model.VisitObj;
+import model.visit.VisitObj;
 
 import java.util.*;
 

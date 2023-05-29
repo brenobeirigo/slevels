@@ -1,6 +1,6 @@
 package model.learn;
 
-import model.User;
+import model.demand.User;
 import model.Vehicle;
 
 import java.util.*;

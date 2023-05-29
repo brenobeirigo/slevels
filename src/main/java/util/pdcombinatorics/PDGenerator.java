@@ -1,6 +1,6 @@
 package util.pdcombinatorics;
 
-import model.User;
+import model.demand.User;
 import model.Vehicle;
 import model.node.Node;
 

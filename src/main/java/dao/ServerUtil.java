@@ -253,7 +253,7 @@ public class ServerUtil {
         Logging.logger.info(o.getClass().getName() + " - " + d.getClass().getName());
         if (d instanceof NodeTargetRebalancing) {
             lineType = "rebalancing";
-        } else if ((o instanceof NodeOrigin || o instanceof NodeMiddle || o instanceof NodeStop) && d instanceof NodePK) {
+        } else if ((o instanceof NodeOrigin || o instanceof NodeWaypoint || o instanceof NodeStop) && d instanceof NodePickup) {
             lineType = "cruising";
         }
 
@@ -281,9 +281,9 @@ public class ServerUtil {
 
         Logging.logger.info(n.toString());
         Logging.logger.info("Id: {}", n.getNetworkId());
-        String nodeType = n instanceof NodePK ?
-                "pickup_point" : n instanceof NodeDP ?
-                "destination_point" : n instanceof NodeMiddle ?
+        String nodeType = n instanceof NodePickup ?
+                "pickup_point" : n instanceof NodeDropoff ?
+                "destination_point" : n instanceof NodeWaypoint ?
                 "middle_point" : n instanceof NodeOrigin ?
                 "origin_point" : n instanceof NodeTargetRebalancing ?
                 "target_point" : "stop_point";
@@ -420,14 +420,14 @@ public class ServerUtil {
                 .collect(Collectors.toList());
         return valueFunctionArray;
     }
-
-    public List<String> getShortestPathCoordsBetween(int o, int d) {
-        String rest = String.format(restShortestPathCoords, this.ADDRESS_SERVER, o, d);
-        List<String> listCoords = null;
-        listCoords = Dao.getInstance().getLonLatList(Dao.getInstance().getShortestPathBetween(o, d));
-
-        return listCoords;
-    }
+//
+//    public List<String> getShortestPathCoordsBetween(int o, int d) {
+//        String rest = String.format(restShortestPathCoords, this.ADDRESS_SERVER, o, d);
+//        List<String> listCoords = null;
+//        listCoords = Dao.getInstance().getLonLatList(Dao.getInstance().getShortestPathBetween(o, d));
+//
+//        return listCoords;
+//    }
 
     /**
      * Get all nodes from transportation network (ids and coordinates)
@@ -438,48 +438,48 @@ public class ServerUtil {
         return requestTo(String.format(ADDRESS_ALLNODES, this.ADDRESS_SERVER));
     }
 
-
-    public void printGeoJsonJourney(Vehicle v, Date earliestTime) {
-        /*
-        List<String> listFeatures = new ArrayList<>();
-        Logging.logger.info("size:"+ journey.size());
-        if(journey.size() == 1){
-            Logging.logger.info(getGeoJsonPointfromServer(journey.get(0)));
-            return;
-        }
-
-        //journey = journey.stream().filter(n -> n instanceof NodeDP).collect(Collectors.toList());
-
-        for (int i = 0; i < journey.size() - 1; i++) {
-            Node nodeO = journey.get(i);
-            Node nodeD = journey.get(i + 1);
-
-            String o = GeoJsonUtil.getGeoJson(earliestDatetime,nodeO);
-
-
-            String edge = getGeoJsonSPBetweenODfromServer(nodeO, nodeD);
-            listFeatures.add(o);
-            listFeatures.add(edge);
-        }
-
-        String d = GeoJsonUtil.getGeoJson(earliestDatetime,journey.get(journey.size()-1));
-        listFeatures.add(d);
-
-        GeoJsonUtil.getJourneyInfo(journey);
-        */
-        //Logging.logger.info("POINTS:" + String.join(",\n", GeoJsonUtil.getJourneyInfo(journey)));
-        //Logging.logger.info("LINES:" + String.join(",\n", GeoJsonUtil.getJourneyInfoLines(journey)));
-
-
-        String geojson = String.format("{\n" +
-                "    \"type\": \"FeatureCollection\",\n" +
-                "    \"features\": %s\n}", String.join(",\n", GeoJsonUtil.getJourneyComplete(earliestTime, v)));
-
-        GeoJsonUtil.saveGeoJson("teste", geojson);
-
-        Logging.logger.info("GEOJSON" + geojson);
-
-    }
+//
+//    public void printGeoJsonJourney(Vehicle v, Date earliestTime) {
+//        /*
+//        List<String> listFeatures = new ArrayList<>();
+//        Logging.logger.info("size:"+ journey.size());
+//        if(journey.size() == 1){
+//            Logging.logger.info(getGeoJsonPointfromServer(journey.get(0)));
+//            return;
+//        }
+//
+//        //journey = journey.stream().filter(n -> n instanceof NodeDropoff).collect(Collectors.toList());
+//
+//        for (int i = 0; i < journey.size() - 1; i++) {
+//            Node nodeO = journey.get(i);
+//            Node nodeD = journey.get(i + 1);
+//
+//            String o = GeoJsonUtil.getGeoJson(earliestDatetime,nodeO);
+//
+//
+//            String edge = getGeoJsonSPBetweenODfromServer(nodeO, nodeD);
+//            listFeatures.add(o);
+//            listFeatures.add(edge);
+//        }
+//
+//        String d = GeoJsonUtil.getGeoJson(earliestDatetime,journey.get(journey.size()-1));
+//        listFeatures.add(d);
+//
+//        GeoJsonUtil.getJourneyInfo(journey);
+//        */
+//        //Logging.logger.info("POINTS:" + String.join(",\n", GeoJsonUtil.getJourneyInfo(journey)));
+//        //Logging.logger.info("LINES:" + String.join(",\n", GeoJsonUtil.getJourneyInfoLines(journey)));
+//
+//
+//        String geojson = String.format("{\n" +
+//                "    \"type\": \"FeatureCollection\",\n" +
+//                "    \"features\": %s\n}", String.join(",\n", GeoJsonUtil.getJourneyComplete(earliestTime, v)));
+//
+//        GeoJsonUtil.saveGeoJson("teste", geojson);
+//
+//        Logging.logger.info("GEOJSON" + geojson);
+//
+//    }
 
 
     public String saveModelWithLabel(String fileName) {

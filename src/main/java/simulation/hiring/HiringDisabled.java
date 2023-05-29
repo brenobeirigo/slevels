@@ -1,6 +1,6 @@
 package simulation.hiring;
 
-import model.User;
+import model.demand.User;
 import model.Vehicle;
 
 import java.util.Collection;

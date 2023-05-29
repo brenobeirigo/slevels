@@ -1,5 +1,5 @@
 //import config.Config;
-//import simulation.Simulation;
+//import simulation.Environment;
 //import simulation.SimulationRTV;
 //
 //public class TestRTV {
@@ -14,14 +14,14 @@
 //        Config.getInstance().qosDic.put("B", qos2);
 //        Config.getInstance().qosDic.put("C", qos3);
 //
-//        Simulation rtv = new SimulationRTV(0,
+//        Environment rtv = new SimulationRTV(0,
 //                4,
 //                1000,
 //                30,
 //                24 * 3600,
 //                "S1",
 //                "C");
-//        rtv.run(Simulation.ROUND_INFO);
+//        rtv.run(Environment.ROUND_INFO);
 //
 //    }
 //}

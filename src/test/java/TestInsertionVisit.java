@@ -1,7 +1,7 @@
 //import dao.Dao;
-//import model.User;
+//import model.demand.User;
 //import model.Vehicle;
-//import model.Visit;
+//import model.visit.Visit;
 //import simulation.Method;
 //
 //import java.util.HashSet;

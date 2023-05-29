@@ -49,8 +49,8 @@ public class FleetStateActionSpaceObject {
                 delay_input,
                 vehicle_capacity_input,
                 current_time_input,
-                other_agents_input,
                 path_location_input,
+                other_agents_input,
                 occupancy_input);
 
 

@@ -1,7 +1,7 @@
 package util;
 
 import dao.Logging;
-import model.User;
+import model.demand.User;
 import model.Vehicle;
 import org.testng.annotations.Test;
 import util.pdcombinatorics.PDGeneratorInsertion;

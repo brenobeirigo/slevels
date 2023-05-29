@@ -5,6 +5,7 @@
   "result_folder": "./analysis/data/results/ELU1X/",
   "instances_folder": "./analysis/data/results/ELU1X/",
   "distances_file": "./data/nyc/processed/network/distance/dist_matrix_m.csv",
+  "zone_data_file": "./data/nyc/processed/taxi_zones/manhattan_taxi_zones.csv",
   "durations_file": "./data/nyc/processed/network/distance/dist_matrix_duration_s.csv",
   "adjacency_matrix_file": "./data/nyc/processed/network/adjacency_matrix.csv",
   "requests_file": "./data/nyc/processed/trip_records/2019-2-yellow-Manhattan-00-00-00-23-59-59.csv",
@@ -89,7 +90,8 @@
     "time_config": [
       {
         "request_sampling_horizon": 3600,
-        "total_simulation_horizon": 3600
+        "total_simulation_horizon": 3600,
+        "time_window": 60
       }
     ],
     "max_time_to_reach_region_center": 150,
@@ -147,7 +149,7 @@
   ],
   "matching_config": [
     {
-      "name": "method_optimal_learn",
+      "name": "optlearn",
       "pd_generation_strategy": {
         "name": "pd_permutation",
         "max_sequences": 150

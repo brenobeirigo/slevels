@@ -5,12 +5,13 @@ import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.reflect.TypeToken;
+import dao.DateUtil;
 import dao.FileUtil;
 import dao.Logging;
-import simulation.Simulation;
+import model.learn.LearningConfig;
 import simulation.matching.*;
 import simulation.rebalancing.Rebalance;
-import simulation.rebalancing.RebalanceHeuristic;
+//import simulation.rebalancing.RebalanceHeuristic;
 import simulation.rebalancing.RebalanceOptimal;
 import simulation.rebalancing.RebalanceStrategy;
 import util.pdcombinatorics.PDGeneratorFactory;
@@ -36,20 +37,17 @@ public class InstanceConfig {
     public static final String TRAINTEST_FOLDER = "traintest_track";
     // Singleton
     private static InstanceConfig instance;
+    private Double speedKmHour;
 
     public List<LearningConfig> getLearningConfigs() {
         return this.learningConfigs;
     }
 
-    public class TimeConfig {
-        public int request_sampling_horizon;
-        public int total_simulation_horizon;
-
-        public TimeConfig(int request_sampling_horizon, int total_simulation_horizon) {
-            this.request_sampling_horizon = request_sampling_horizon;
-            this.total_simulation_horizon = total_simulation_horizon;
-        }
+    public Double getSpeedKmHour() {
+        return speedKmHour;
     }
+
+    ;
 
     private List<String> spMethodArray;
     private ArrayList<Date> earliestTimeArray;
@@ -89,6 +87,7 @@ public class InstanceConfig {
     private Path resultPath;
     private Path distancesPath;
     private Path durationsPath;
+    private Path zoneDataPath;
     private Path adjacencyMatrixPath;
     private Path networkNodeInfoPath;
     private Path requestsPath;
@@ -103,227 +102,7 @@ public class InstanceConfig {
     private int maxTimeToReachRegionCenter;
     private PDGeneratorFactory PDFactory;
 
-    public class LearningConfig implements Iterator<LearningConfig.LearningSettings> {
-        public String[] arrayFilepathTrainingData;
-        public String[] arrayFilepathTestingData;
-        public int currentRequestSamples;
-        public int currentSizeExperienceReplayBatch;
-        public int currentSizeExperienceReplayBuffer;
-        public Date currentEpisodeStartDatetimeTraining;
-        public int currentTargetNetworkUpdateFrequency;
-        public int currentTrainingFrequency;
-        public Double currentDiscountFactor;
-        public Double currentLearningRate;
-        public String folderModels;
-        public String modelInstanceLabel;
-        public String experiencesFolder;
-        private Date currentStartDatetimeTesting;
-        private Date episodeStartDatetimeTesting;
-
-        public List<Date> episodeStartDatetimeListTest;
-        public List<Date> episodeStartDatetimeList;
-        public double[] discountFactorArray;
-        public double[] learningRateArray;
-        public int[] requestSamples;
-        public int[] sizeExperienceReplayBatch;
-        public int[] sizeExperienceReplayBuffer;
-        public int[] targetNetworkUpdateFrequency;
-        public int[] trainingFrequencyArray;
-        private int[] idx;
-        private LinkedList<LearningSettings> a;
-
-        public LearningSettings top() {
-            return a.get(0);
-        }
-
-        public class LearningSettings {
-            public LearningConfig learningConfig;
-            public int requestSamples;
-            public int sizeExperienceReplayBatch;
-            public int sizeExperienceReplayBuffer;
-            public Date episodeStartDatetimeTraining;
-            private Date currentEpisodeStartDatetimeTesting;
-
-            public int targetNetworkUpdateFrequency;
-            public int trainingFrequency;
-            public Double discountFactor;
-            public Double learningRate;
-            public String folderModels;
-            public String modelInstanceLabel;
-            public String experiencesFolder;
-
-            public String getLabel() {
-                return String.format("RS-%s_BA-%s_BU-%s_TAR-%s_FR-%s", requestSamples, sizeExperienceReplayBatch, sizeExperienceReplayBuffer, targetNetworkUpdateFrequency, trainingFrequency);
-            }
-
-            public String getModelFilePath(String modelInstanceLabel) {
-                return String.format("%s/%s/model_%s.h5", folderModels, modelInstanceLabel, getLabel());
-            }
-
-            public String getExperiencesFolder() {
-                String folder = String.format("%s/%s/experiences_%s", this.folderModels, this.learningConfig.modelInstanceLabel, this.getLabel());
-                return folder;
-            }
-
-            @Override
-            public String toString() {
-                return "LearningSettings{" +
-                        "requestSamples=" + requestSamples +
-                        ", sizeExperienceReplayBatch=" + sizeExperienceReplayBatch +
-                        ", sizeExperienceReplayBuffer=" + sizeExperienceReplayBuffer +
-                        ", episodeStartDatetimeTraining=" + episodeStartDatetimeTraining +
-                        ", currentEpisodeStartDatetimeTesting=" + currentEpisodeStartDatetimeTesting +
-                        ", targetNetworkUpdateFrequency=" + targetNetworkUpdateFrequency +
-                        ", trainingFrequency=" + trainingFrequency +
-                        ", discountFactor=" + discountFactor +
-                        ", learningRate=" + learningRate +
-                        ", folderModels='" + folderModels + '\'' +
-                        ", modelInstanceLabel='" + modelInstanceLabel + '\'' +
-                        ", experiencesFolder='" + experiencesFolder + '\'' +
-                        '}';
-            }
-
-            public LearningSettings(int currentRequestSamples, int currentSizeExperienceReplayBatch,
-                                    int currentSizeExperienceReplayBuffer, Date currentEpisodeStartDatetime,
-                                    int currentTargetNetworkUpdateFrequency, int currentTrainingFrequency,
-                                    Double currentDiscountFactor, Double currentLearningRate, String folderModels,
-                                    String modelInstanceLabel, String experiencesFolder, LearningConfig learningConfig) {
-                this.learningConfig = learningConfig;
-                this.requestSamples = currentRequestSamples;
-                this.sizeExperienceReplayBatch = currentSizeExperienceReplayBatch;
-                this.sizeExperienceReplayBuffer = currentSizeExperienceReplayBuffer;
-                this.episodeStartDatetimeTraining = currentEpisodeStartDatetime;
-                this.targetNetworkUpdateFrequency = currentTargetNetworkUpdateFrequency;
-                this.trainingFrequency = currentTrainingFrequency;
-                this.discountFactor = currentDiscountFactor;
-                this.learningRate = currentLearningRate;
-                this.folderModels = folderModels;
-                this.modelInstanceLabel = modelInstanceLabel;
-                this.experiencesFolder = experiencesFolder;
-            }
-        }
-
-        public Iterator<Double> discountFactorIt;
-        public Iterator<Integer> targetNetworkUpdateFrequencyIt;
-        public Iterator<Integer> trainingFrequencyIt;
-        public Iterator<Double> learningRateIt;
-        public Iterator<Date> episodeStartDatetimeTrainingIt;
-        public Iterator<Date> episodeStartDatetimeTestingIt;
-        public Iterator<Integer> sizeExperienceReplayBufferIt;
-        public Iterator<Integer> sizeExperienceReplayBatchIt;
-        public Iterator<Integer> requestSamplesIt;
-
-
-        public LearningConfig(int[] requestSamples, int[] sizeExperienceReplayBatch, int[] sizeExperienceReplayBuffer
-                , String folderModels, List<Date> episodeStartTimestamps, List<Date> episodeStartDatetimeArrayTest, int[] targetNetworkUpdateFrequency,
-                              int[] trainingFrequency, double[] learningRateArray, double[] discountFactorArray, String[] arrayFilepathTrainingData, String[] arrayFilepathTestingData) {
-
-            this.arrayFilepathTrainingData = arrayFilepathTrainingData;
-            this.arrayFilepathTestingData = arrayFilepathTestingData;
-            this.folderModels = folderModels;
-            this.modelInstanceLabel = getModelInstanceLabel();
-
-            this.requestSamples = requestSamples;
-            this.requestSamplesIt = Arrays.stream(this.requestSamples).iterator();
-            this.currentRequestSamples = this.requestSamplesIt.next();
-
-
-            this.sizeExperienceReplayBatch = sizeExperienceReplayBatch;
-            this.sizeExperienceReplayBatchIt = Arrays.stream(this.sizeExperienceReplayBatch).iterator();
-            this.currentSizeExperienceReplayBatch = this.sizeExperienceReplayBatchIt.next();
-
-
-            this.sizeExperienceReplayBuffer = sizeExperienceReplayBuffer;
-            this.sizeExperienceReplayBufferIt = Arrays.stream(this.sizeExperienceReplayBuffer).iterator();
-            this.currentSizeExperienceReplayBuffer = this.sizeExperienceReplayBufferIt.next();
-
-            this.episodeStartDatetimeList = episodeStartTimestamps;
-            this.episodeStartDatetimeListTest = episodeStartDatetimeArrayTest;
-//            this.episodeStartDatetimeTrainingIt      = this.episodeStartDatetimeList.iterator();
-//            this.currentEpisodeStartDatetimeTraining = this.episodeStartDatetimeTrainingIt.next();
-
-            this.targetNetworkUpdateFrequency = targetNetworkUpdateFrequency;
-            this.targetNetworkUpdateFrequencyIt = Arrays.stream(this.targetNetworkUpdateFrequency).iterator();
-            this.currentTargetNetworkUpdateFrequency = this.targetNetworkUpdateFrequencyIt.next();
-
-            this.trainingFrequencyArray = trainingFrequency;
-            this.trainingFrequencyIt = Arrays.stream(this.trainingFrequencyArray).iterator();
-            //this.currentTrainingFrequency = trainingFrequencyIt.next();
-
-            this.discountFactorArray = discountFactorArray;
-            this.discountFactorIt = Arrays.stream(this.discountFactorArray).iterator();
-            this.currentDiscountFactor = discountFactorIt.next();
-
-            this.learningRateArray = learningRateArray;
-            this.learningRateIt = Arrays.stream(this.learningRateArray).iterator();
-            this.currentLearningRate = learningRateIt.next();
-
-
-            this.a = new LinkedList<LearningSettings>();
-
-            for (int j = 0; j < this.targetNetworkUpdateFrequency.length; j++) {
-                for (int k = 0; k < this.requestSamples.length; k++) {
-                    for (int l = 0; l < this.sizeExperienceReplayBuffer.length; l++) {
-                        for (int m = 0; m < this.sizeExperienceReplayBatch.length; m++) {
-                            for (int n = 0; n < this.trainingFrequencyArray.length; n++) {
-                                currentRequestSamples = this.requestSamples[k];
-                                currentTargetNetworkUpdateFrequency = this.targetNetworkUpdateFrequency[j];
-                                currentSizeExperienceReplayBatch = this.sizeExperienceReplayBatch[m];
-                                currentSizeExperienceReplayBuffer = this.sizeExperienceReplayBuffer[l];
-                                currentTrainingFrequency = this.trainingFrequencyArray[n];
-
-                                LearningSettings s = new LearningSettings(currentRequestSamples, currentSizeExperienceReplayBatch,
-                                        currentSizeExperienceReplayBuffer, currentEpisodeStartDatetimeTraining,
-                                        currentTargetNetworkUpdateFrequency, currentTrainingFrequency,
-                                        currentDiscountFactor, currentLearningRate, folderModels,
-                                        modelInstanceLabel, experiencesFolder, this);
-
-                                a.add(s);
-
-
-                            }
-
-                        }
-
-                    }
-
-                }
-
-            }
-        }
-
-
-        public void setModelInstanceLabel(String modelInstanceLabel) {
-            this.modelInstanceLabel = modelInstanceLabel;
-        }
-
-        public String getModelInstanceLabel() {
-            return modelInstanceLabel;
-        }
-
-
-        public String getExperiencesFolder() {
-            String folder = String.format("%s/%s/experiences", this.folderModels, this.modelInstanceLabel);
-            return folder;
-        }
-
-        public static boolean isNotTerminal(int timeStep) {
-            return timeStep < Simulation.timeHorizon;
-        }
-
-        @Override
-        public boolean hasNext() {
-            return a.size() > 0;
-        }
-
-
-        @Override
-        public LearningSettings next() {
-            return a.pop();
-        }
-    }
-
-    private InstanceConfig(String jsonFilePath) {
+    public InstanceConfig(String jsonFilePath) {
 
         this.instanceFilePath = jsonFilePath;
 
@@ -345,6 +124,7 @@ public class InstanceConfig {
                     Paths.get(jsonConfig.get("precalculated_permutations_file").toString());
             this.resultPath = Paths.get(jsonConfig.get("result_folder").toString());
             this.distancesPath = Paths.get(jsonConfig.get("distances_file").toString());
+            this.zoneDataPath = Paths.get(jsonConfig.get("zone_data_file").toString());
             this.durationsPath = Paths.get(jsonConfig.get("durations_file").toString());
             this.adjacencyMatrixPath = Paths.get(jsonConfig.get("adjacency_matrix_file").toString());
             this.networkNodeInfoPath = Paths.get(jsonConfig.get("network_node_info_file").toString());
@@ -352,6 +132,7 @@ public class InstanceConfig {
             this.requestsPath = Paths.get(jsonConfig.get("requests_file").toString());
             this.instanceDescription = jsonConfig.get("instance_description").toString();
             this.instanceName = jsonConfig.get("instance_name").toString();
+            this.speedKmHour = Double.valueOf(jsonConfig.get("speed_km_hour").toString());
 
             this.learningConfigs = new ArrayList<>();
             JsonArray learning = gson.toJsonTree(jsonConfig.get("learning_config")).getAsJsonArray();
@@ -393,12 +174,12 @@ public class InstanceConfig {
                         gson.fromJson(element.get("training_config"), JsonObject.class);
                 String[]
                         episodeStartDatetimeStrArray =
-                        gson.fromJson(training.get("episode_start_datetime").getAsJsonArray(), String[].class);
+                        gson.fromJson(training.get("startDateTime").getAsJsonArray(), String[].class);
 
                 List<Date> episodeStartDatetimeArray = new ArrayList<>();
                 for (String episodeStartDatetimeStr : episodeStartDatetimeStrArray) {
                     try {
-                        episodeStartDatetimeArray.add(Config.formatter_date_time.parse(episodeStartDatetimeStr));
+                        episodeStartDatetimeArray.add(DateUtil.formatter_date_time.parse(episodeStartDatetimeStr));
                     } catch (ParseException e) {
                         e.printStackTrace();
                     }
@@ -412,13 +193,13 @@ public class InstanceConfig {
                         gson.fromJson(element.get("testing_config"), JsonObject.class);
                 String[]
                         episodeStartDatetimeStrArrayTest =
-                        gson.fromJson(testing.get("episode_start_datetime").getAsJsonArray(), String[].class);
+                        gson.fromJson(testing.get("startDateTime").getAsJsonArray(), String[].class);
                 String[] arrayFilepathTestingData = gson.fromJson(testing.get("data").getAsJsonArray(), String[].class);
 
                 List<Date> episodeStartDatetimeArrayTest = new ArrayList<>();
                 for (String episodeStartDatetimeStrTest : episodeStartDatetimeStrArrayTest) {
                     try {
-                        episodeStartDatetimeArrayTest.add(Config.formatter_date_time.parse(episodeStartDatetimeStrTest));
+                        episodeStartDatetimeArrayTest.add(DateUtil.formatter_date_time.parse(episodeStartDatetimeStrTest));
                     } catch (ParseException e) {
                         e.printStackTrace();
                     }
@@ -463,7 +244,7 @@ public class InstanceConfig {
             this.earliestTimeArray = new ArrayList<>();
             for (String earliestTime : earliestTimes) {
                 try {
-                    this.earliestTimeArray.add(Config.formatter_date_time.parse(earliestTime));
+                    this.earliestTimeArray.add(DateUtil.formatter_date_time.parse(earliestTime));
                 } catch (ParseException e) {
                     e.printStackTrace();
                 }
@@ -606,18 +387,16 @@ public class InstanceConfig {
                     MatchingFCFS method = readMatchingFCFSParams(gson, element);
                     this.matchingMethods.add(method);
 
-                } else if (Matching.METHOD_GREEDY.equals(name)) {
-                    MatchingGreedy method = readMatchingGreedyParams(gson, element);
-                    this.matchingMethods.add(method);
+//                } else if (Matching.METHOD_GREEDY.equals(name)) {
+//                    MatchingGreedy method = readMatchingGreedyParams(gson, element);
+//                    this.matchingMethods.add(method);
                 } else {
                     Logging.logger.info("NO METHOD");
                 }
             }
 
             this.rebalancingMethods = new ArrayList<>();
-            JsonArray
-                    rebalancingConfigurations =
-                    gson.toJsonTree(jsonConfig.get("rebalancing_config")).getAsJsonArray();
+            JsonArray rebalancingConfigurations = gson.toJsonTree(jsonConfig.get("rebalancing_config")).getAsJsonArray();
             for (JsonElement rebalanceStrategy : rebalancingConfigurations) {
 
                 JsonObject element = gson.fromJson(rebalanceStrategy, JsonObject.class);
@@ -628,37 +407,37 @@ public class InstanceConfig {
                     RebalanceOptimal method = new RebalanceOptimal();
                     this.rebalancingMethods.add(method);
 
-                } else if (Rebalance.METHOD_HEURISTIC.equals(name)) {
-
-                    // Rebalancing configuration
-                    JsonObject rebalancingConfig = gson.fromJson(rebalanceStrategy, JsonObject.class);
-                    boolean[]
-                            allowManyToOneTarget =
-                            gson.fromJson(rebalancingConfig.get("allow_many_to_one")
-                                    .getAsJsonArray(), boolean[].class);// Each round has TW seconds
-                    boolean[]
-                            reinsertTargets =
-                            gson.fromJson(rebalancingConfig.get("reinsert_targets")
-                                    .getAsJsonArray(), boolean[].class);// Each round has TW seconds
-                    boolean[]
-                            clearTargetListEveryRound =
-                            gson.fromJson(rebalancingConfig.get("clear_target_list_every_round")
-                                    .getAsJsonArray(), boolean[].class);// Each round has TW seconds
-                    boolean[]
-                            useUrgentKey =
-                            gson.fromJson(rebalancingConfig.get("allow_urgent_relocation")
-                                    .getAsJsonArray(), boolean[].class);// Each round has TW seconds
-
-                    for (boolean n1 : allowManyToOneTarget) {
-                        for (boolean reinsert : reinsertTargets) {
-                            for (boolean clear : clearTargetListEveryRound) {
-                                for (boolean useUrg : useUrgentKey) {
-                                    RebalanceStrategy method = new RebalanceHeuristic(n1, reinsert, clear, useUrg);
-                                    rebalancingMethods.add(method);
-                                }
-                            }
-                        }
-                    }
+//                } else if (Rebalance.METHOD_HEURISTIC.equals(name)) {
+//
+//                    // Rebalancing configuration
+//                    JsonObject rebalancingConfig = gson.fromJson(rebalanceStrategy, JsonObject.class);
+//                    boolean[]
+//                            allowManyToOneTarget =
+//                            gson.fromJson(rebalancingConfig.get("allow_many_to_one")
+//                                    .getAsJsonArray(), boolean[].class);// Each round has TW seconds
+//                    boolean[]
+//                            reinsertTargets =
+//                            gson.fromJson(rebalancingConfig.get("reinsert_targets")
+//                                    .getAsJsonArray(), boolean[].class);// Each round has TW seconds
+//                    boolean[]
+//                            clearTargetListEveryRound =
+//                            gson.fromJson(rebalancingConfig.get("clear_target_list_every_round")
+//                                    .getAsJsonArray(), boolean[].class);// Each round has TW seconds
+//                    boolean[]
+//                            useUrgentKey =
+//                            gson.fromJson(rebalancingConfig.get("allow_urgent_relocation")
+//                                    .getAsJsonArray(), boolean[].class);// Each round has TW seconds
+//
+//                    for (boolean n1 : allowManyToOneTarget) {
+//                        for (boolean reinsert : reinsertTargets) {
+//                            for (boolean clear : clearTargetListEveryRound) {
+//                                for (boolean useUrg : useUrgentKey) {
+//                                    RebalanceStrategy method = new RebalanceHeuristic(n1, reinsert, clear, useUrg);
+//                                    rebalancingMethods.add(method);
+//                                }
+//                            }
+//                        }
+//                    }
                 } else {
                     // No rebalancing
                     rebalancingMethods.add(null);
@@ -771,20 +550,20 @@ public class InstanceConfig {
 
         MatchingSimple
                 m =
-                new MatchingSimple(maxVehicleCapacityRTV, timeLimit, timeoutVehicle, mipGap, maxEdgesRV, maxEdgesRR,
-                        rejectionPenalty, objectives, pdGeneratorMethodStrategyName);
+                new MatchingSimple("xxx", maxVehicleCapacityRTV, timeLimit, timeoutVehicle, mipGap, maxEdgesRV, maxEdgesRR,
+                        rejectionPenalty, objectives, null);
         return m;
     }
 
-    private MatchingGreedy readMatchingGreedyParams(Gson gson, JsonObject element) {
-        int maxEdgesRV = gson.fromJson(element.get("max_edges_rv"), int.class);
-        int maxEdgesRR = gson.fromJson(element.get("max_edges_rr"), int.class);
-        int maxVehicleCapacityRTV = gson.fromJson(element.get("rtv_max_vehicle_capacity"), int.class);
-        double timeoutVehicle = gson.fromJson(element.get("rtv_vehicle_timeout"), double.class);
-        double timeLimit = gson.fromJson(element.get("mip_time_limit"), double.class);
-        double mipGap = gson.fromJson(element.get("mip_gap"), double.class);
-        return new MatchingGreedy(maxVehicleCapacityRTV, timeLimit, timeoutVehicle, mipGap, maxEdgesRV, maxEdgesRR);
-    }
+//    private MatchingGreedy readMatchingGreedyParams(Gson gson, JsonObject element) {
+//        int maxEdgesRV = gson.fromJson(element.get("max_edges_rv"), int.class);
+//        int maxEdgesRR = gson.fromJson(element.get("max_edges_rr"), int.class);
+//        int maxVehicleCapacityRTV = gson.fromJson(element.get("rtv_max_vehicle_capacity"), int.class);
+//        double timeoutVehicle = gson.fromJson(element.get("rtv_vehicle_timeout"), double.class);
+//        double timeLimit = gson.fromJson(element.get("mip_time_limit"), double.class);
+//        double mipGap = gson.fromJson(element.get("mip_gap"), double.class);
+//        return new MatchingGreedy(maxVehicleCapacityRTV, timeLimit, timeoutVehicle, mipGap, maxEdgesRV, maxEdgesRR);
+//    }
 
     private MatchingFCFS readMatchingFCFSParams(Gson gson, JsonObject element) {
         int maxPermutationsFCFS = gson.fromJson(element.get("max_permutations"), int.class);
@@ -844,6 +623,10 @@ public class InstanceConfig {
         return distancesPath;
     }
 
+    public Path getZoneDataPath() {
+        return zoneDataPath;
+    }
+
     public Path getAdjacencyMatrixPath() {
         return adjacencyMatrixPath;
     }
@@ -858,7 +641,7 @@ public class InstanceConfig {
 
     @Override
     public String toString() {
-        return "################## Instance Config ###################################" +
+        return "################## InstanceOld Config ###################################" +
                 "\ntimeWindowArray=" + Arrays.toString(timeWindowArray) +
                 "\ntimeHorizonArray=" + Arrays.toString(timeHorizonArray) +
                 "\nmaxRequestsIterationArray=" + Arrays.toString(maxRequestsIterationArray) +
@@ -1031,6 +814,7 @@ public class InstanceConfig {
     public void setPrecalculatedPermutationsPath(Path precalculatedPermutationsPath) {
         this.precalculatedPermutationsPath = precalculatedPermutationsPath;
     }
+
 }
 
 

@@ -1,9 +1,8 @@
 package simulation.matching;
 
-import model.User;
+import model.demand.User;
 import model.Vehicle;
-import model.Visit;
-import model.VisitObj;
+import model.visit.VisitObj;
 
 
 import java.util.Set;

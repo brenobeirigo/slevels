@@ -1,9 +1,11 @@
 package model.learn;
 
 import dao.Dao;
-import model.User;
-import model.VisitRelocation;
+import model.demand.User;
+import model.route.RouteUtil;
+import model.visit.VisitRelocation;
 import model.node.*;
+import simulation.Environment;
 
 import java.util.HashSet;
 
@@ -12,7 +14,7 @@ class PostVehicleStateAction extends StateAction {
     protected int indexInsertionArrival;
     protected int elapsedTime;
 
-    public PostVehicleStateAction(StateAction preStateAction, int elapsedTime) {
+    public PostVehicleStateAction(StateAction preStateAction, int elapsedTime, Environment env) {
         super(preStateAction.timeStep, elapsedTime, preStateAction.timeHorizon);
         this.elapsedTime = elapsedTime;
         this.preStateAction = preStateAction;
@@ -25,14 +27,14 @@ class PostVehicleStateAction extends StateAction {
         this.totalDelay = preStateAction.totalDelay;
         this.totalDelayBonus = preStateAction.totalDelayBonus;
 
-        this.indexInsertionArrival = Dao.getInstance().getInsertionPoint(
+        this.indexInsertionArrival = RouteUtil.getInsertionPoint(
                 this.postDecisionTimeStep,
                 preStateAction.nodeArrivals);
 
-        this.stepForward();
+        this.stepForward(env);
     }
 
-    private void stepForward() {
+    private void stepForward(Environment env) {
 
         boolean vehicleHasVisitedAllNodes = indexInsertionArrival == preStateAction.nodeArrivals.size();
         boolean vehicleWasStopped = preStateAction.nodeArrivals.size() == 1;
@@ -41,7 +43,7 @@ class PostVehicleStateAction extends StateAction {
             stopVehicleAtLastVisitedNode();
         } else {
 
-            updateLastVisitedNode();
+            updateLastVisitedNode(env);
 
             // Simulate pickup and delivery of users up to the insertion index
             processVisitedNodesUntilIndex();
@@ -74,12 +76,12 @@ class PostVehicleStateAction extends StateAction {
         this.normalOccupancyRates.add(0.0);
     }
 
-    private void updateLastVisitedNode() {
+    private void updateLastVisitedNode(Environment env) {
 
         // Vehicle is stopped at last visited location or continues stopped
         Node previousNode = preStateAction.nodes.get(indexInsertionArrival - 1);
 
-        int waypointNetworkId = this.getWayPointNetworkId();
+        int waypointNetworkId = this.getWayPointNetworkId(env);
         int vehicleOriginNetworkId = preStateAction.networkIds.get(indexInsertionArrival - 1);
         int vehicleOriginDeparture = preStateAction.nodeArrivals.get(indexInsertionArrival - 1);
         int vehicleDestinationNetworkId = preStateAction.networkIds.get(indexInsertionArrival);
@@ -90,11 +92,11 @@ class PostVehicleStateAction extends StateAction {
 
         if (waypointIsNotOrigin && waypointIsNotDestination) {
 
-            int distOriginWaypoint = Dao.getInstance().getDistSec(vehicleOriginNetworkId, waypointNetworkId);
+            int distOriginWaypoint = env.getNetwork().getDistSec(vehicleOriginNetworkId, waypointNetworkId);
             int arrivalAtWaypoint = vehicleOriginDeparture + distOriginWaypoint;
             Node nextNode = preStateAction.nodes.get(indexInsertionArrival);
 
-            NodeMiddle earliestMiddleNode = new NodeMiddle(
+            NodeWaypoint earliestMiddleNode = new NodeWaypoint(
                     waypointNetworkId,
                     arrivalAtWaypoint,
                     previousNode,
@@ -120,13 +122,13 @@ class PostVehicleStateAction extends StateAction {
     }
 
 
-    private int getWayPointNetworkId() {
+    private int getWayPointNetworkId(Environment env) {
         // Find waypoint between last visited node and next destination node
         int vehicleOriginNetworkId = preStateAction.networkIds.get(indexInsertionArrival - 1);
         int vehicleOriginDeparture = preStateAction.nodeArrivals.get(indexInsertionArrival - 1);
         int vehicleDestinationNetworkId = preStateAction.networkIds.get(indexInsertionArrival);
 
-        int waypointNetworkId = Dao.getInstance().getIntermediateNodeNetworkId(
+        int waypointNetworkId = env.getNetwork().getIntermediateNodeNetworkId(
                 vehicleOriginNetworkId,
                 vehicleDestinationNetworkId,
                 this.postDecisionTimeStep - vehicleOriginDeparture);
@@ -139,7 +141,7 @@ class PostVehicleStateAction extends StateAction {
 
             Node servicedNode = preStateAction.nodes.get(idxNode);
 
-            if (servicedNode instanceof NodePK) {
+            if (servicedNode instanceof NodePickup) {
                 User user = User.mapOfUsers.get(servicedNode.getTripId());
                 this.passengers.add(user);
                 this.requests.remove(user);
@@ -149,7 +151,7 @@ class PostVehicleStateAction extends StateAction {
                 this.totalDelayBonus -= preStateAction.delayBonuses.get(idxNode);
             }
 
-            if (servicedNode instanceof NodeDP) {
+            if (servicedNode instanceof NodeDropoff) {
                 User user = User.mapOfUsers.get(servicedNode.getTripId());
                 this.passengers.remove(user);
 

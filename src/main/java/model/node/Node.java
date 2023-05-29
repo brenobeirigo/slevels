@@ -1,8 +1,9 @@
 package model.node;
 
 import dao.Dao;
-import model.User;
-import simulation.Simulation;
+import dao.Logging;
+import model.demand.User;
+import simulation.Environment;
 
 import java.awt.geom.Point2D;
 import java.util.HashMap;
@@ -98,6 +99,7 @@ public abstract class Node implements Comparable<Node> {
     }
 
     public static void reset() {
+        Logging.logger.info("Resetting node");
         /* Reset user */
         Node.nodeDic = new HashMap<>();
         Node.tabu = new HashSet<>();
@@ -129,21 +131,6 @@ public abstract class Node implements Comparable<Node> {
 
     public void increaseHotness() {
         Node.hotSpot.compute(this.networkId, (tokenKey, oldValue) -> oldValue == null ? 1 : oldValue + 1);
-    }
-
-    public String getInfo() {
-        return String.format(
-                "[timestep=%4d, Network id=%d] %7s (earliest=%4s, ear. dep=%4s, departure=%4s, arrival=%4s, latest=%4s) [delay=%4s] %s",
-                Simulation.rightTW,
-                this.networkId,
-                this,
-                String.valueOf(this.getEarliest()),
-                String.valueOf(this.getEarliestDeparture()),
-                String.valueOf(this.getDeparture()),
-                String.valueOf(this.getArrival()),
-                String.valueOf(this instanceof NodePK || this instanceof NodeDP ? this.getLatest() : "----"),
-                String.valueOf(this.getArrival()!=null? this.getArrival() - getEarliest() : "----"),
-                String.valueOf(this instanceof NodePK? String.format("(dist. DP=%4d)", Dao.getInstance().getDistSec(this, User.mapOfUsers.get(this.tripId).getNodeDp())): ""));
     }
 
     public Integer getDelay() {
@@ -218,19 +205,19 @@ public abstract class Node implements Comparable<Node> {
 
 
 
-    public double getLat() {
-        //return Node.nodeDic.get(networkId)[0];
-        return Dao.getInstance().getLocation(networkId).getY();
-    }
-
-    public double getLon() {
-        // Logging.logger.info(networkId);
-        // Logging.logger.info(this);
-        // TODO where coordinates  come from?
-        return Dao.getInstance().getLocation(networkId).getX();
-        //Logging.logger.info(Node.nodeDic.keySet());
-        //return Node.nodeDic.get(networkId)[1];
-    }
+//    public double getLat() {
+//        //return Node.nodeDic.get(networkId)[0];
+//        return Dao.getInstance().getLocation(networkId).getY();
+//    }
+//
+//    public double getLon() {
+//        // Logging.logger.info(networkId);
+//        // Logging.logger.info(this);
+//        // TODO where coordinates  come from?
+//        return Dao.getInstance().getLocation(networkId).getX();
+//        //Logging.logger.info(Node.nodeDic.keySet());
+//        //return Node.nodeDic.get(networkId)[1];
+//    }
 
     @Override
     public int compareTo(Node that) {

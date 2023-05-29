@@ -1,18 +1,19 @@
 package model;
 
-import dao.Dao;
 import dao.Logging;
+import model.demand.User;
+import model.network.TransportNetwork;
 import model.node.*;
+import model.visit.*;
 import org.apache.commons.collections4.queue.CircularFifoQueue;
-import simulation.Method;
-import simulation.Simulation;
+import simulation.Environment;
 
 import java.util.*;
 import java.util.stream.Collectors;
 
 import static config.Config.*;
 
-public class Vehicle implements Comparable<Vehicle>, Cloneable {
+public class Vehicle implements Comparable<Vehicle> {
 
     // Cumulative leg info saved in array[3] used to build legs step by step (i.e., each od segment at a time)
     public static final byte ARRIVAL = 0;
@@ -52,9 +53,9 @@ public class Vehicle implements Comparable<Vehicle>, Cloneable {
     /* Vehicle status */
     private Integer currentLoad; // Current vehicle currentLoad
     private VisitObj visit; // Passengers, Node sequence, etc.
-    private Node lastVisitedNode; // Node where vehicle is, or from where vehicle left
+    public Node lastVisitedNode; // Node where vehicle is, or from where vehicle left
     private boolean hired; // Was this vehicle hired on the fly?
-    private int roundsIdle; // How many rounds this vehicle is idle?
+    public int roundsIdle; // How many rounds this vehicle is idle?
     private Node middleNode; // Where vehicle is now?
     public int distMiddleNode;
     private int activeRounds;
@@ -64,6 +65,11 @@ public class Vehicle implements Comparable<Vehicle>, Cloneable {
     private double distanceTraveledLoaded;
     /* Historical data */
     private CircularFifoQueue<Node> journey; // List of nodes visited by vehicle
+
+    public List<User> getServicedUsers() {
+        return servicedUsers;
+    }
+
     private List<User> servicedUsers; // List of users picked up (can't change vehicle after pick up)
     private boolean stoppedRebalanceToPickup;
     private User userHiredMustPickup;
@@ -141,6 +147,7 @@ public class Vehicle implements Comparable<Vehicle>, Cloneable {
     }
 
     public static void reset() {
+        Logging.logger.info("Resetting vehicle");
         count = Node.MAX_NUMBER_NODES * 2; // Starting index of vehicles
         Vehicle.setOfHotPoints = new LinkedList<>();
     }
@@ -228,45 +235,45 @@ public class Vehicle implements Comparable<Vehicle>, Cloneable {
     public static Set<Node> getLastVisitedNodeFrom(Set<Vehicle> vehicles) {
         return vehicles.stream().map(Vehicle::getLastVisitedNode).collect(Collectors.toSet());
     }
-
-    public int isValidSequence(LinkedList<Node> sequence) {
-
-        // All valid trips finish at delivery nodes
-        if (!(sequence.getLast() instanceof NodeDP)) {
-            return -1;
-        }
-
-        // If a pickup node is visited after its destination, trip is invalid
-        Map<Integer, Boolean> destinationAlreadyVisited = new HashMap<>();
-
-        // Data passed over legs
-        int[] cumulativeLegPK = new int[]{
-                this.getDepartureCurrent(),
-                this.currentLoad,
-                0};
-
-
-        for (int i = 0; i < sequence.size() - 1; i++) {
-
-            // Mark trip id all destinations visited
-            if (sequence.get(i) instanceof NodeDP)
-                destinationAlreadyVisited.put(sequence.get(i).getTripId(), true);
-
-            // If pickup from same trip id is visited and destination have been marked, trip is invalid
-            if (sequence.get(i) instanceof NodePK && destinationAlreadyVisited.containsKey(sequence.get(i).getTripId()))
-                return -1;
-
-            if (Visit.isLegInvalid(sequence.get(i), sequence.get(i + 1), cumulativeLegPK, this.capacity)) {
-                return -1;
-            }
-
-            if (cumulativeLegPK[Vehicle.ARRIVAL] > this.getContractDeadline()) {
-                return -1;
-            }
-        }
-
-        return cumulativeLegPK[Vehicle.DELAY];
-    }
+//
+//    public int isValidSequence(LinkedList<Node> sequence) {
+//
+//        // All valid trips finish at delivery nodes
+//        if (!(sequence.getLast() instanceof NodeDropoff)) {
+//            return -1;
+//        }
+//
+//        // If a pickup node is visited after its destination, trip is invalid
+//        Map<Integer, Boolean> destinationAlreadyVisited = new HashMap<>();
+//
+//        // Data passed over legs
+//        int[] cumulativeLegPK = new int[]{
+//                this.getDepartureCurrent(),
+//                this.currentLoad,
+//                0};
+//
+//
+//        for (int i = 0; i < sequence.size() - 1; i++) {
+//
+//            // Mark trip id all destinations visited
+//            if (sequence.get(i) instanceof NodeDropoff)
+//                destinationAlreadyVisited.put(sequence.get(i).getTripId(), true);
+//
+//            // If pickup from same trip id is visited and destination have been marked, trip is invalid
+//            if (sequence.get(i) instanceof NodeSource && destinationAlreadyVisited.containsKey(sequence.get(i).getTripId()))
+//                return -1;
+//
+//            if (Visit.isLegInvalid(sequence.get(i), sequence.get(i + 1), cumulativeLegPK, this.capacity)) {
+//                return -1;
+//            }
+//
+//            if (cumulativeLegPK[Vehicle.ARRIVAL] > this.getContractDeadline()) {
+//                return -1;
+//            }
+//        }
+//
+//        return cumulativeLegPK[Vehicle.DELAY];
+//    }
 
     public void increaseActiveRounds() {
         this.activeRounds++;
@@ -305,7 +312,7 @@ public class Vehicle implements Comparable<Vehicle>, Cloneable {
      * @param currentSimulationTime current time
      * @return Set of users serviced until current time
      */
-    public Set<User> getServicedUsersUntil(int currentSimulationTime) {
+    public Set<User> getServicedUsersUntil(int currentSimulationTime, TransportNetwork network) {
 
         // Round [last current time, current time]
         Set<User> servicedUsersInRound = new HashSet<>();
@@ -315,7 +322,9 @@ public class Vehicle implements Comparable<Vehicle>, Cloneable {
         for (Node nextNode : visit.getSequenceVisits()) {
 
             // Get arrival time at first node of visit sequenceVisits
-            int arrivalNextNode = lastVisitedNode.getDeparture() + Dao.getInstance().getDistSec(lastVisitedNode, nextNode);
+            int arrivalNextNode = lastVisitedNode.getDeparture() + network.getDistSec(
+                    lastVisitedNode.getNetworkId(),
+                    nextNode.getNetworkId());
 
             // Sometimes, distance is zero, therefore the arrival should be earliest time
             arrivalNextNode = Math.max(arrivalNextNode, nextNode.getEarliest());
@@ -325,7 +334,9 @@ public class Vehicle implements Comparable<Vehicle>, Cloneable {
 
                 nOfVisitedNodesInSequence++;
 
-                double legDistanceTraveledKm = Dao.getInstance().getDistKm(this.lastVisitedNode, nextNode);
+                double legDistanceTraveledKm = network.getDistance(
+                        this.lastVisitedNode.getNetworkId(),
+                        nextNode.getNetworkId());
 
                 if (this.currentLoad == 0) {
                     this.distanceTraveledEmpty += legDistanceTraveledKm;
@@ -348,11 +359,11 @@ public class Vehicle implements Comparable<Vehicle>, Cloneable {
                 User currentUser = User.mapOfUsers.get(lastVisitedNode.getTripId());
 
                 // If DP node is visited, it means request is finished
-                if (lastVisitedNode instanceof NodeDP) {
+                if (lastVisitedNode instanceof NodeDropoff) {
                     this.dropoff(currentUser);
                     servicedUsersInRound.add(currentUser);
 
-                } else if (lastVisitedNode instanceof NodePK) {
+                } else if (lastVisitedNode instanceof NodePickup) {
 
                     // Request become passenger
                     this.pickup(currentUser);
@@ -426,40 +437,6 @@ public class Vehicle implements Comparable<Vehicle>, Cloneable {
     }
 
     /**
-     * End rebalancing if target node was reached.
-     * t is important to add rebalancing target to journey because:
-     * - legs (NodeStop, NodeTargetRebalancing) indicate rebalancing
-     * - legs (NodeTargetRebalancing, NodeStop) indicate waiting
-     *
-     * @param currentSimulationTime current execution time of the simulation
-     */
-    public void endRebalancing(int currentSimulationTime) {
-
-        this.distanceTraveledRebalancing += Dao.getInstance().getDistKm(
-                this.lastVisitedNode,
-                this.visit.getTargetNode());
-
-        this.roundsIdle = roundsIdle + 1;
-
-        this.lastVisitedNode = this.visit.getTargetNode();
-        this.lastVisitedNode.setArrival(this.visit.getArrivalTimeAtNext());
-        // Min. departure is arrival time
-        this.lastVisitedNode.setEarliestDeparture(this.visit.getArrivalTimeAtNext());
-
-        // Vehicle has been recently rebalanced, worth keeping in the fleet
-        this.setRoundsIdle(0);
-
-        // Node can become a rebalancing target again
-        Node.tabu.remove(lastVisitedNode.getNetworkId());
-
-        journey.add(lastVisitedNode);
-    }
-
-    public boolean hasFinishedRebalancing(int currentSimulationTime) {
-        return currentSimulationTime >= this.visit.getArrivalTimeAtNext();
-    }
-
-    /**
      * Compute last drop off upon finishing the visit.
      *
      * @param currentTime
@@ -516,10 +493,10 @@ public class Vehicle implements Comparable<Vehicle>, Cloneable {
      *
      * @param targetNode
      */
-    public void rebalanceTo(Node targetNode) {
+    public void rebalanceTo(Node targetNode, Environment env) {
 
         // Visit is comprised of single node
-        Visit visitRelocation = new VisitRelocation(targetNode, this);
+        Visit visitRelocation = new VisitRelocation(targetNode, this, env);
 
         this.setVisit(visitRelocation);
 
@@ -528,258 +505,256 @@ public class Vehicle implements Comparable<Vehicle>, Cloneable {
         Node.tabu.add(targetNode.getNetworkId());
     }
 
-    /**
-     * Try to create a visit out of a single user (called when vehicle is empty)
-     *
-     * @param candidateRequest
-     * @param iterationTime    Simulation current time
-     * @return Visit containing pk and dp nodes of user "candidateRequest", or null if visit can't be created
-     */
-    public Visit getVisitFromEmptyVehicle(User candidateRequest, int iterationTime) {
+//    /**
+//     * Try to create a visit out of a single user (called when vehicle is empty)
+//     *
+//     * @param candidateRequest
+//     * @param iterationTime    Environment current time
+//     * @return Visit containing pk and dp nodes of user "candidateRequest", or null if visit can't be created
+//     */
+//    public Visit getVisitFromEmptyVehicle(User candidateRequest, int iterationTime) {
+//
+//        int departureTime;
+//        Node departureNode;
+//
+//        if (this.isRebalancing()) {
+//
+//            //CURRENT TO MIDDLE
+//            Node middle = this.getMiddleNode();
+//
+//            if (middle == null) {
+//                return null;
+//            }
+//
+//            // Time vehicle arrives at the middle node where trip will ACTUALLY start
+//            departureTime = this.getDepartureCurrent() + this.distMiddleNode;
+//            departureNode = middle;
+//
+//        } else {
+//            departureTime = iterationTime;
+//            departureNode = this.getLastVisitedNode();
+//        }
+//
+//        int[] cumulativeLeg = new int[]{departureTime, 0, 0};
+//
+//        // From vehicle current node to user pk
+//        if (this.isLegInvalid(departureNode, candidateRequest.getNodePk(), cumulativeLeg))
+//            return null;
+//
+//        // From user pk to user dp
+//        if (this.isLegInvalid(candidateRequest.getNodePk(), candidateRequest.getNodeDp(), cumulativeLeg))
+//            return null;
+//
+//        // Create linked list (fast adds and removals)
+//        LinkedList<Node> visitSequence = new LinkedList<>();
+//
+//        if (isRebalancing())
+//            visitSequence.add(departureNode);
+//
+//        visitSequence.add(candidateRequest.getNodePk());
+//        visitSequence.add(candidateRequest.getNodeDp());
+//
+//        Visit first = new Visit(visitSequence, cumulativeLeg[DELAY], this, candidateRequest);
+//
+//        return first;
+//    }
 
-        int departureTime;
-        Node departureNode;
 
-        if (this.isRebalancing()) {
-
-            //CURRENT TO MIDDLE
-            Node middle = this.getMiddleNode();
-
-            if (middle == null) {
-                return null;
-            }
-
-            // Time vehicle arrives at the middle node where trip will ACTUALLY start
-            departureTime = this.getDepartureCurrent() + this.distMiddleNode;
-            departureNode = middle;
-
-        } else {
-            departureTime = iterationTime;
-            departureNode = this.getLastVisitedNode();
-        }
-
-        int[] cumulativeLeg = new int[]{departureTime, 0, 0};
-
-        // From vehicle current node to user pk
-        if (this.isLegInvalid(departureNode, candidateRequest.getNodePk(), cumulativeLeg))
-            return null;
-
-        // From user pk to user dp
-        if (this.isLegInvalid(candidateRequest.getNodePk(), candidateRequest.getNodeDp(), cumulativeLeg))
-            return null;
-
-        // Create linked list (fast adds and removals)
-        LinkedList<Node> visitSequence = new LinkedList<>();
-
-        if (isRebalancing())
-            visitSequence.add(departureNode);
-
-        visitSequence.add(candidateRequest.getNodePk());
-        visitSequence.add(candidateRequest.getNodeDp());
-
-        Visit first = new Visit(visitSequence, cumulativeLeg[DELAY], this, candidateRequest);
-
-        return first;
-    }
-
-    public VisitObj getValidVisitForUser(User candidateRequest) {
-        return Method.getBestVisitFromInsertion(this, candidateRequest);
-    }
 
     /**
      * Get best insertion of candidate user in vehicle at current time.
      */
-    public Visit getVisitWithInsertedUser(User candidateRequest, int currentTime) {
-
-        ////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-        // Vehicle has NO visit ////////////////////////////////////////////////////////////////////////////////////////
-        ////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-        if (this.getVisit() == null || this.isRebalancing()) {
-
-            // Try to create a one user visit
-            return getVisitFromEmptyVehicle(candidateRequest, currentTime);
-        }
-
-        ////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-        // Vehicle has a visit /////////////////////////////////////////////////////////////////////////////////////////
-        ////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-        // First best including new users is initiated blank
-        Visit bestVisit = new Visit();
-
-        // Copy elements in vehicle visit to candidate sequence that will be formed
-        List<Node> visitsVehicle = this.getVisit().getSequenceVisits();
-
-        //------------------------------------------------------------------------------------------------------------//
-        //------ Loop pk positions -----------------------------------------------------------------------------------//
-        //------------------------------------------------------------------------------------------------------------//
-
-        pkcontinue:
-        for (int pkPos = 0; pkPos <= visitsVehicle.size(); pkPos++) {
-
-            //int currentLoad = this.getLastVisitedNode().getCurrentLoad();
-
-            int currentLoad = this.currentLoad;
-
-            int departureTimeFromVehicle = this.getDepartureCurrent();
-
-            // Status throughout sequence (arrival, currentLoad, delay, idle)
-            int[] cumulativeLegPK = new int[]{
-                    departureTimeFromVehicle,
-                    currentLoad,
-                    0};
-
-            // Current node is vehicle
-            Node currentPK = this.getLastVisitedNode();
-
-            // Check if first leg will be changed. If so, departure time from vehicle is current simulation time
-            Node middle = null;
-
-            if (pkPos == 0) {
-
-                //CURRENT TO MIDDLE
-                middle = this.getMiddleNode();
-
-                // Can't move to a middle node, go to next pk
-                if (middle == null) {
-                    continue;
-                }
-
-                // Update arrival in middle
-                cumulativeLegPK[ARRIVAL] += this.distMiddleNode;
-                currentPK = middle;
-
-                /*
-
-                Logging.logger.info("{}", String.format("Shortest path between %s(%d) and %s(%d): %s",
-                        this.getLastVisitedNode(),
-                        this.getLastVisitedNode().getNetworkId(),
-                        visitsVehicle.get(pkPos),
-                        visitsVehicle.get(pkPos).getNetworkId(),
-                        Dao.getInstance().getShortestPathBetween(
-                                this.getLastVisitedNode().getNetworkId(),
-                                visitsVehicle.get(pkPos).getNetworkId())));
-                */
-            }
-
-            // #### Before PK ##########################################################################################
-            for (int i = 0; i < pkPos; i++) {
-
-                // Get next in sequence
-                Node next = visitsVehicle.get(i);
-
-                // Check if it is possible to go from current to next
-                if (this.isLegInvalid(currentPK, next, cumulativeLegPK)) {
-                    continue pkcontinue;
-                }
-
-                // Update current
-                currentPK = next;
-            }
-
-            // #### PK #################################################################################################
-            if (this.isLegInvalid(currentPK, candidateRequest.getNodePk(), cumulativeLegPK)) {
-                continue;
-            }
-
-            // Update current
-            currentPK = candidateRequest.getNodePk();
-
-            dpcontinue:
-            for (int dpPos = pkPos; dpPos <= visitsVehicle.size(); dpPos++) {
-
-                // Go back to last configuration
-                int[] cumulativeLeg = cumulativeLegPK.clone();
-                Node current = currentPK;
-
-                // #### Between PK and DP ##############################################################################
-                for (int i = pkPos; i < dpPos; i++) {
-
-                    // Get next in sequence
-                    Node next = visitsVehicle.get(i);
-
-                    // Check if it is possible to go from current to next
-                    if (this.isLegInvalid(current, next, cumulativeLeg)) {
-                        continue dpcontinue;
-                    }
-
-                    // Update current
-                    current = next;
-                }
-
-                // #### DP #############################################################################################
-                if (this.isLegInvalid(current, candidateRequest.getNodeDp(), cumulativeLeg)) {
-                    continue;
-                }
-
-                // Update current
-                current = candidateRequest.getNodeDp();
-
-                // #### After DP #######################################################################################
-                for (int i = dpPos; i < visitsVehicle.size(); i++) {
-
-                    // Get next in sequence
-                    Node next = visitsVehicle.get(i);
-
-                    // Check if it is possible to go from current to next
-                    if (this.isLegInvalid(current, next, cumulativeLeg)) {
-
-                        continue dpcontinue;
-                    }
-
-                    // Update current
-                    current = next;
-
-                }
-
-                // Create linked list (fast adds and removals)
-                LinkedList<Node> newSequence = new LinkedList<>(visitsVehicle);
-                newSequence.add(dpPos, candidateRequest.getNodeDp());
-                newSequence.add(pkPos, candidateRequest.getNodePk());
-
-                // Insert middle node in first leg
-                if (pkPos == 0) {
-                    newSequence.add(0, middle);
-                }
-
-                Visit candidateVisit = new Visit(
-                        newSequence,
-                        cumulativeLeg[DELAY]);
-
-                candidateVisit.setVehicle(this);
-
-                /*
-                Logging.logger.info("{}", String.format("Insert %d and %d -%s %s (%s)", pkPos, dpPos, candidateRequest, newSequence, candidateVisit));
-                Logging.logger.info("VISITS = " + visitsVehicle + " - " + candidateRequest.getNodePk() + "-->" + candidateRequest.getNodeDp());
-                Logging.logger.info("#######" + bestVisit);
-                Logging.logger.info("-------" + candidateVisit + "--" + candidateVisit.getSequenceVisits());
-                 */
-                // Update best visit (Compare delay)
-                if (bestVisit.compareTo(candidateVisit) > 0) {
-                    bestVisit = candidateVisit;
-                }
-            }
-        }
-
-        // If best visit was not found
-        if (bestVisit.getSequenceVisits() == null) {
-            return null;
-        }
-
-        // Assign vehicle to best
-        bestVisit.setVehicle(this);
-
-        // New visit contains vehicle users and new inserted request
-        Set<User> requests = new HashSet<>(this.visit.getRequests());
-        requests.add(candidateRequest);
-        bestVisit.setRequests(requests);
-
-        // New visit contains the vehicle passengers
-        bestVisit.setPassengers(new HashSet<>(this.visit.getPassengers()));
-
-        return bestVisit;
-    }
+//    public Visit getVisitWithInsertedUser(User candidateRequest, int currentTime) {
+//
+//        ////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//        // Vehicle has NO visit ////////////////////////////////////////////////////////////////////////////////////////
+//        ////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//
+//        if (this.getVisit() == null || this.isRebalancing()) {
+//
+//            // Try to create a one user visit
+//            return getVisitFromEmptyVehicle(candidateRequest, currentTime);
+//        }
+//
+//        ////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//        // Vehicle has a visit /////////////////////////////////////////////////////////////////////////////////////////
+//        ////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//
+//        // First best including new users is initiated blank
+//        Visit bestVisit = new Visit();
+//
+//        // Copy elements in vehicle visit to candidate sequence that will be formed
+//        List<Node> visitsVehicle = this.getVisit().getSequenceVisits();
+//
+//        //------------------------------------------------------------------------------------------------------------//
+//        //------ Loop pk positions -----------------------------------------------------------------------------------//
+//        //------------------------------------------------------------------------------------------------------------//
+//
+//        pkcontinue:
+//        for (int pkPos = 0; pkPos <= visitsVehicle.size(); pkPos++) {
+//
+//            //int currentLoad = this.getLastVisitedNode().getCurrentLoad();
+//
+//            int currentLoad = this.currentLoad;
+//
+//            int departureTimeFromVehicle = this.getDepartureCurrent();
+//
+//            // Status throughout sequence (arrival, currentLoad, delay, idle)
+//            int[] cumulativeLegPK = new int[]{
+//                    departureTimeFromVehicle,
+//                    currentLoad,
+//                    0};
+//
+//            // Current node is vehicle
+//            Node currentPK = this.getLastVisitedNode();
+//
+//            // Check if first leg will be changed. If so, departure time from vehicle is current simulation time
+//            Node middle = null;
+//
+//            if (pkPos == 0) {
+//
+//                //CURRENT TO MIDDLE
+//                middle = this.getMiddleNode();
+//
+//                // Can't move to a middle node, go to next pk
+//                if (middle == null) {
+//                    continue;
+//                }
+//
+//                // Update arrival in middle
+//                cumulativeLegPK[ARRIVAL] += this.distMiddleNode;
+//                currentPK = middle;
+//
+//                /*
+//
+//                Logging.logger.info("{}", String.format("Shortest path between %s(%d) and %s(%d): %s",
+//                        this.getLastVisitedNode(),
+//                        this.getLastVisitedNode().getNetworkId(),
+//                        visitsVehicle.get(pkPos),
+//                        visitsVehicle.get(pkPos).getNetworkId(),
+//                        Dao.getInstance().getShortestPathBetween(
+//                                this.getLastVisitedNode().getNetworkId(),
+//                                visitsVehicle.get(pkPos).getNetworkId())));
+//                */
+//            }
+//
+//            // #### Before PK ##########################################################################################
+//            for (int i = 0; i < pkPos; i++) {
+//
+//                // Get next in sequence
+//                Node next = visitsVehicle.get(i);
+//
+//                // Check if it is possible to go from current to next
+//                if (this.isLegInvalid(currentPK, next, cumulativeLegPK)) {
+//                    continue pkcontinue;
+//                }
+//
+//                // Update current
+//                currentPK = next;
+//            }
+//
+//            // #### PK #################################################################################################
+//            if (this.isLegInvalid(currentPK, candidateRequest.getNodePk(), cumulativeLegPK)) {
+//                continue;
+//            }
+//
+//            // Update current
+//            currentPK = candidateRequest.getNodePk();
+//
+//            dpcontinue:
+//            for (int dpPos = pkPos; dpPos <= visitsVehicle.size(); dpPos++) {
+//
+//                // Go back to last configuration
+//                int[] cumulativeLeg = cumulativeLegPK.clone();
+//                Node current = currentPK;
+//
+//                // #### Between PK and DP ##############################################################################
+//                for (int i = pkPos; i < dpPos; i++) {
+//
+//                    // Get next in sequence
+//                    Node next = visitsVehicle.get(i);
+//
+//                    // Check if it is possible to go from current to next
+//                    if (this.isLegInvalid(current, next, cumulativeLeg)) {
+//                        continue dpcontinue;
+//                    }
+//
+//                    // Update current
+//                    current = next;
+//                }
+//
+//                // #### DP #############################################################################################
+//                if (this.isLegInvalid(current, candidateRequest.getNodeDp(), cumulativeLeg)) {
+//                    continue;
+//                }
+//
+//                // Update current
+//                current = candidateRequest.getNodeDp();
+//
+//                // #### After DP #######################################################################################
+//                for (int i = dpPos; i < visitsVehicle.size(); i++) {
+//
+//                    // Get next in sequence
+//                    Node next = visitsVehicle.get(i);
+//
+//                    // Check if it is possible to go from current to next
+//                    if (this.isLegInvalid(current, next, cumulativeLeg)) {
+//
+//                        continue dpcontinue;
+//                    }
+//
+//                    // Update current
+//                    current = next;
+//
+//                }
+//
+//                // Create linked list (fast adds and removals)
+//                LinkedList<Node> newSequence = new LinkedList<>(visitsVehicle);
+//                newSequence.add(dpPos, candidateRequest.getNodeDp());
+//                newSequence.add(pkPos, candidateRequest.getNodePk());
+//
+//                // Insert middle node in first leg
+//                if (pkPos == 0) {
+//                    newSequence.add(0, middle);
+//                }
+//
+//                Visit candidateVisit = new Visit(
+//                        newSequence,
+//                        cumulativeLeg[DELAY]);
+//
+//                candidateVisit.setVehicle(this);
+//
+//                /*
+//                Logging.logger.info("{}", String.format("Insert %d and %d -%s %s (%s)", pkPos, dpPos, candidateRequest, newSequence, candidateVisit));
+//                Logging.logger.info("VISITS = " + visitsVehicle + " - " + candidateRequest.getNodePk() + "-->" + candidateRequest.getNodeDp());
+//                Logging.logger.info("#######" + bestVisit);
+//                Logging.logger.info("-------" + candidateVisit + "--" + candidateVisit.getSequenceVisits());
+//                 */
+//                // Update best visit (Compare delay)
+//                if (bestVisit.compareTo(candidateVisit) > 0) {
+//                    bestVisit = candidateVisit;
+//                }
+//            }
+//        }
+//
+//        // If best visit was not found
+//        if (bestVisit.getSequenceVisits() == null) {
+//            return null;
+//        }
+//
+//        // Assign vehicle to best
+//        bestVisit.setVehicle(this);
+//
+//        // New visit contains vehicle users and new inserted request
+//        Set<User> requests = new HashSet<>(this.visit.getRequests());
+//        requests.add(candidateRequest);
+//        bestVisit.setRequests(requests);
+//
+//        // New visit contains the vehicle passengers
+//        bestVisit.setPassengers(new HashSet<>(this.visit.getPassengers()));
+//
+//        return bestVisit;
+//    }
 
     public int getRoundsIdle() {
         return roundsIdle;
@@ -854,85 +829,11 @@ public class Vehicle implements Comparable<Vehicle>, Cloneable {
         return capacity;
     }
 
-    public String getStats() {
-
-        // Initial time at origin
-        int startTime = origin.getArrival();
-
-        // Last arrival
-        int endTime = journey.get(journey.size() - 1).getArrival();
-
-        // Total operating time
-        int operatingTW = endTime - startTime;
-
-        // Delays
-        int delayPK = 0, delayDP = 0;
-
-        for (User u : servicedUsers) {
-            delayPK += u.getNodePk().getDelay();
-            delayDP += u.getNodeDp().getDelay();
-        }
-
-        // Operating time
-        int operatingTime = 0;
-        for (int i = 0; i < journey.size() - 1; i++) {
-            int fromId = journey.get(i).getNetworkId();
-            int toId = journey.get(i + 1).getNetworkId();
-            int tripDuration = Dao.getInstance().getDistSec(fromId, toId);
-            operatingTime += tripDuration;
-        }
-
-        // Set up total waiting time
-        int totalWaiting = operatingTW - operatingTime;
-
-        return String.format("###### %4s [%4s,%4s] => %4s (work) + %4s (wait) = %4s (%.2f%%) #### PK:%6s  DP:%6s",
-                this,
-                startTime,
-                endTime,
-                operatingTime,
-                totalWaiting,
-                operatingTW,
-                (double) operatingTime * 100 / operatingTW,
-                delayPK,
-                delayDP);
-    }
 
     @Override
     public String toString() {
         // Print H if vehicle is hired and V otherwise (plus vehicle Id)
         return String.format("%12s", (this.isHired() ? String.format("H(t=%4d)", this.contractDeadline) : "V") + (id - Node.MAX_NUMBER_NODES * 2));
-    }
-
-
-    public String getJourneyInfo() {
-
-        StringBuilder str = new StringBuilder();
-        StringBuilder strCoord = new StringBuilder();
-        str.append("\n########################################################################################");
-        str.append("\n" + getStats());
-        str.append("\n########################################################################################");
-
-
-        List<String> coordJourney = new ArrayList<>();
-
-        for (int i = 0; i < journey.size() - 1; i++) {
-            int fromId = journey.get(i).getNetworkId();
-            coordJourney.add(String.format("[%f, %f]", journey.get(i).getLon(), journey.get(i).getLat()));
-            int toId = journey.get(i + 1).getNetworkId();
-            coordJourney.add(String.format("[%f, %f]", journey.get(i + 1).getLon(), journey.get(i + 1).getLat()));
-            int dist = Dao.getInstance().getDistSec(fromId, toId);
-            int waiting = journey.get(i + 1).getArrival() - dist - journey.get(i).getDeparture();
-            str.append("\n" + journey.get(i).getInfo());
-            str.append(String.format("\nTravel time: %7s", dist));
-            str.append(String.format("\n    Waiting: %7s", waiting));
-
-        }
-
-        // Print last node
-        str.append("\n" + journey.get(journey.size() - 1).getInfo());
-        String journeyCoord = String.join(",", coordJourney);
-        str.append("\n Path: [" + journeyCoord + "]");
-        return str.toString();
     }
 
     /**
@@ -992,253 +893,210 @@ public class Vehicle implements Comparable<Vehicle>, Cloneable {
         Vehicle vehicle = (Vehicle) o;
         return getId() == vehicle.getId();
     }
+//
+//    /**
+//     * Get best insertion of candidate user in vehicle at current time.
+//     *
+//     * @param candidateUser
+//     * @param currentTime
+//     * @return Best visit or null
+//     */
+//    public Visit getBestInsertionOld(User candidateUser, int currentTime) {
+//
+//        if (this.isRebalancing()) return null;
+//
+//        // First best including new users is initiated blank
+//        Visit bestVisit = new Visit();
+//
+//        List<Node> visitSequence;
+//
+//        // If vehicle has NO visits, return visit containing single user (can be null)
+//        if (this.getVisit() == null ||
+//                this.getVisit().getSequenceVisits() == null ||
+//                this.getVisit().getSequenceVisits().isEmpty()) {
+//
+//            visitSequence = new ArrayList<>();
+//        } else {
+//
+//            // Candidate sequence that will be formed
+//            visitSequence = new ArrayList<>(this.getVisit().getSequenceVisits());
+//        }
+//
+//        // Loop all insertion positions
+//        for (int pkPos = 0; pkPos <= visitSequence.size(); pkPos++) {
+//            for (int dpPos = pkPos; dpPos <= visitSequence.size(); dpPos++) {
+//
+//                // Try to get a visit by inserting candidate user in sequence
+//                Visit candidateVisit = this.getVisitByInsertPositionOld(candidateUser,
+//                        visitSequence,
+//                        pkPos,
+//                        dpPos,
+//                        currentTime);
+//
+//                //Logging.logger.info("{}", String.format("Insert %d and %d -%s %s (%s)", pkPos, dpPos, candidateUser, visitSequence, candidateVisit));
+//
+//                // Update best visit (Compare delay)
+//                if (bestVisit.compareTo(candidateVisit) > 0) {
+//                    bestVisit = candidateVisit;
+//
+//                }
+//            }
+//        }
+//
+//        // If best visit was not found
+//        if (bestVisit.getSequenceVisits() == null) {
+//            return null;
+//        }
+//
+//        // Assign vehicle to best
+//        bestVisit.setVehicle(this);
+//
+//
+//        return bestVisit;
+//    }
 
-    /**
-     * Get best insertion of candidate user in vehicle at current time.
-     *
-     * @param candidateUser
-     * @param currentTime
-     * @return Best visit or null
-     */
-    public Visit getBestInsertionOld(User candidateUser, int currentTime) {
+//    /**
+//     * Try to insert user pickup and drop-off point in base visit sequence occurring in vehicle.
+//     *
+//     * @param insertedUser User who is being inserted
+//     * @param baseSequence Visit sequence being modified
+//     * @param pkPos        Pickup point insert position
+//     * @param dpPos        Drop-off point insert position
+//     * @param currentTime  Time vehicle is leaving vehicle current node
+//     * @return Visit with user "insertedUser" inserted in base visit sequence OR null if visit not found
+//     */
+//    public Visit getVisitByInsertPositionOld(User insertedUser,
+//                                             List<Node> baseSequence,
+//                                             int pkPos,
+//                                             int dpPos,
+//                                             int currentTime) {
+//
+//        // cumulativeLeg[ARRIVAL] - Integer arrivalFrom
+//        // cumulativeLeg[LOAD] - Integer loadFrom
+//        // cumulativeLeg[DELAY] - Integer totalDelay
+//
+//        // Status throughout sequence (arrival, currentLoad, delay, idle)
+//        int[] cumulativeLeg = new int[3];
+//
+//        // Arrival time of vehicle current node (if first node in visit sequence does not change).
+//        // Otherwise, current time.
+//        //TODO vehicle is going back to departure node if better visit is found in first leg, in reality, it is in the middle of the leg
+//
+//        // If first leg of vehicle trips is kept, the original visit start time can be maintained.
+//        // In fact, only nodes after the first leg will be modified.
+//        if (pkPos > 0 && this.getVisit() != null && baseSequence.get(0) == this.getVisit().getSequenceVisits().getFirst()) {
+//
+//            // Departure time of vehicle original visit may remain the same since node "pkPos" can still be visited
+//            cumulativeLeg[ARRIVAL] = this.getDepartureCurrent();
+//
+//        } else {
+//            // If first leg will be changed, the earliest arrival time at vehicle
+//            // current node shall be updated to current time
+//            cumulativeLeg[ARRIVAL] = currentTime;
+//        }
+//
+//        // Load
+//        cumulativeLeg[LOAD] = this.getLastVisitedNode().getLoad();
+//
+//        // Current node is vehicle
+//        Node current = this.getLastVisitedNode();
+//
+//        // #### Before PK ##############################################################################################
+//
+//
+//        for (int i = 0; i < pkPos; i++) {
+//
+//            // Get next in sequence
+//            Node next = baseSequence.get(i);
+//
+//            // Check if it is possible to go from current to next
+//            if (this.isLegInvalid(current, next, cumulativeLeg)) {
+//                return null;
+//            }
+//
+//            // Update current
+//            current = next;
+//            //newSequence.add(current);
+//        }
+//
+//        // #### PK #####################################################################################################
+//        if (this.isLegInvalid(current, insertedUser.getNodePk(), cumulativeLeg)) {
+//            return null;
+//        }
+//
+//        // Update current
+//        current = insertedUser.getNodePk();
+//        //newSequence.add(current);
+//
+//        // #### Between PK and DP ######################################################################################
+//        for (int i = pkPos; i < dpPos; i++) {
+//
+//            // Get next in sequence
+//            Node next = baseSequence.get(i);
+//
+//            // Check if it is possible to go from current to next
+//            if (this.isLegInvalid(current, next, cumulativeLeg)) {
+//                return null;
+//            }
+//
+//            // Update current
+//            current = next;
+//            //newSequence.add(current);
+//        }
+//
+//        // #### DP #####################################################################################################
+//        if (this.isLegInvalid(current, insertedUser.getNodeDp(), cumulativeLeg))
+//            return null;
+//
+//        // Update current
+//        current = insertedUser.getNodeDp();
+//
+//        // #### After DP ###############################################################################################
+//        for (int i = dpPos; i < baseSequence.size(); i++) {
+//
+//            // Get next in sequence
+//            Node next = baseSequence.get(i);
+//
+//            // Check if it is possible to go from current to next
+//            if (this.isLegInvalid(current, next, cumulativeLeg)) {
+//                return null;
+//            }
+//
+//            // Update current
+//            current = next;
+//        }
+//
+//        // Create linked list (fast adds and removals)
+//        LinkedList<Node> newSequence2 = new LinkedList<>(baseSequence);
+//        newSequence2.add(dpPos, insertedUser.getNodeDp());
+//        newSequence2.add(pkPos, insertedUser.getNodePk());
+//
+//        Visit visit = new Visit(newSequence2,
+//                cumulativeLeg[DELAY]);
+//
+//        return visit;
+//    }
 
-        if (this.isRebalancing()) return null;
-
-        // First best including new users is initiated blank
-        Visit bestVisit = new Visit();
-
-        List<Node> visitSequence;
-
-        // If vehicle has NO visits, return visit containing single user (can be null)
-        if (this.getVisit() == null ||
-                this.getVisit().getSequenceVisits() == null ||
-                this.getVisit().getSequenceVisits().isEmpty()) {
-
-            visitSequence = new ArrayList<>();
-        } else {
-
-            // Candidate sequence that will be formed
-            visitSequence = new ArrayList<>(this.getVisit().getSequenceVisits());
-        }
-
-        // Loop all insertion positions
-        for (int pkPos = 0; pkPos <= visitSequence.size(); pkPos++) {
-            for (int dpPos = pkPos; dpPos <= visitSequence.size(); dpPos++) {
-
-                // Try to get a visit by inserting candidate user in sequence
-                Visit candidateVisit = this.getVisitByInsertPositionOld(candidateUser,
-                        visitSequence,
-                        pkPos,
-                        dpPos,
-                        currentTime);
-
-                //Logging.logger.info("{}", String.format("Insert %d and %d -%s %s (%s)", pkPos, dpPos, candidateUser, visitSequence, candidateVisit));
-
-                // Update best visit (Compare delay)
-                if (bestVisit.compareTo(candidateVisit) > 0) {
-                    bestVisit = candidateVisit;
-
-                }
-            }
-        }
-
-        // If best visit was not found
-        if (bestVisit.getSequenceVisits() == null) {
-            return null;
-        }
-
-        // Assign vehicle to best
-        bestVisit.setVehicle(this);
-
-
-        return bestVisit;
-    }
-
-    /**
-     * Try to insert user pickup and drop-off point in base visit sequence occurring in vehicle.
-     *
-     * @param insertedUser User who is being inserted
-     * @param baseSequence Visit sequence being modified
-     * @param pkPos        Pickup point insert position
-     * @param dpPos        Drop-off point insert position
-     * @param currentTime  Time vehicle is leaving vehicle current node
-     * @return Visit with user "insertedUser" inserted in base visit sequence OR null if visit not found
-     */
-    public Visit getVisitByInsertPositionOld(User insertedUser,
-                                             List<Node> baseSequence,
-                                             int pkPos,
-                                             int dpPos,
-                                             int currentTime) {
-
-        // cumulativeLeg[ARRIVAL] - Integer arrivalFrom
-        // cumulativeLeg[LOAD] - Integer loadFrom
-        // cumulativeLeg[DELAY] - Integer totalDelay
-
-        // Status throughout sequence (arrival, currentLoad, delay, idle)
-        int[] cumulativeLeg = new int[3];
-
-        // Arrival time of vehicle current node (if first node in visit sequence does not change).
-        // Otherwise, current time.
-        //TODO vehicle is going back to departure node if better visit is found in first leg, in reality, it is in the middle of the leg
-
-        // If first leg of vehicle trips is kept, the original visit start time can be maintained.
-        // In fact, only nodes after the first leg will be modified.
-        if (pkPos > 0 && this.getVisit() != null && baseSequence.get(0) == this.getVisit().getSequenceVisits().getFirst()) {
-
-            // Departure time of vehicle original visit may remain the same since node "pkPos" can still be visited
-            cumulativeLeg[ARRIVAL] = this.getDepartureCurrent();
-
-        } else {
-            // If first leg will be changed, the earliest arrival time at vehicle
-            // current node shall be updated to current time
-            cumulativeLeg[ARRIVAL] = currentTime;
-        }
-
-        // Load
-        cumulativeLeg[LOAD] = this.getLastVisitedNode().getLoad();
-
-        // Current node is vehicle
-        Node current = this.getLastVisitedNode();
-
-        // #### Before PK ##############################################################################################
-
-
-        for (int i = 0; i < pkPos; i++) {
-
-            // Get next in sequence
-            Node next = baseSequence.get(i);
-
-            // Check if it is possible to go from current to next
-            if (this.isLegInvalid(current, next, cumulativeLeg)) {
-                return null;
-            }
-
-            // Update current
-            current = next;
-            //newSequence.add(current);
-        }
-
-        // #### PK #####################################################################################################
-        if (this.isLegInvalid(current, insertedUser.getNodePk(), cumulativeLeg)) {
-            return null;
-        }
-
-        // Update current
-        current = insertedUser.getNodePk();
-        //newSequence.add(current);
-
-        // #### Between PK and DP ######################################################################################
-        for (int i = pkPos; i < dpPos; i++) {
-
-            // Get next in sequence
-            Node next = baseSequence.get(i);
-
-            // Check if it is possible to go from current to next
-            if (this.isLegInvalid(current, next, cumulativeLeg)) {
-                return null;
-            }
-
-            // Update current
-            current = next;
-            //newSequence.add(current);
-        }
-
-        // #### DP #####################################################################################################
-        if (this.isLegInvalid(current, insertedUser.getNodeDp(), cumulativeLeg))
-            return null;
-
-        // Update current
-        current = insertedUser.getNodeDp();
-
-        // #### After DP ###############################################################################################
-        for (int i = dpPos; i < baseSequence.size(); i++) {
-
-            // Get next in sequence
-            Node next = baseSequence.get(i);
-
-            // Check if it is possible to go from current to next
-            if (this.isLegInvalid(current, next, cumulativeLeg)) {
-                return null;
-            }
-
-            // Update current
-            current = next;
-        }
-
-        // Create linked list (fast adds and removals)
-        LinkedList<Node> newSequence2 = new LinkedList<>(baseSequence);
-        newSequence2.add(dpPos, insertedUser.getNodeDp());
-        newSequence2.add(pkPos, insertedUser.getNodePk());
-
-        Visit visit = new Visit(newSequence2,
-                cumulativeLeg[DELAY]);
-
-        return visit;
-    }
-
-    /**
-     * Check if there is a valid trip between "fromNode" and "toNode" occurring in vehicle "v".
-     * If true, update trip intermediate status to reflect the addition of leg checked
-     *
-     * @param fromNode      Origin node
-     * @param nextNode      Destination node
-     * @param cumulativeLeg Precedent status to update
-     * @return true, if there is a valid trip, and false, otherwise.
-     */
-    public boolean isLegInvalid(Node fromNode,
-                                Node nextNode,
-                                int[] cumulativeLeg) {
-
-        return Visit.isLegInvalid(fromNode, nextNode, cumulativeLeg, this.capacity);
-    }
+//    /**
+//     * Check if there is a valid trip between "fromNode" and "toNode" occurring in vehicle "v".
+//     * If true, update trip intermediate status to reflect the addition of leg checked
+//     *
+//     * @param fromNode      Origin node
+//     * @param nextNode      Destination node
+//     * @param cumulativeLeg Precedent status to update
+//     * @return true, if there is a valid trip, and false, otherwise.
+//     */
+//    public boolean isLegInvalid(Node fromNode,
+//                                Node nextNode,
+//                                int[] cumulativeLeg) {
+//
+//        return Visit.isLegInvalid(fromNode, nextNode, cumulativeLeg, this.capacity);
+//    }
 
     public void updateEarliestDeparture(int currentTime) {
         this.lastVisitedNode.setEarliestDeparture(Math.max(this.getEarliestDeparture(), currentTime));
     }
 
-    /**
-     * Update the intermediate position (middle node) of vehicle given current time.
-     * If:
-     * - Vehicle is parked -> return null (no middle)
-     * - Vehicle has been assigned to a visit, but did not leave origin node -> return origin node
-     * - Vehicle has been assigned to a visit, but left origin node -> return closest middle, for example:
-     * Origin--> currentTime --> M1 --------------> M2 -----> Destination --------------- (return M1)
-     * Origin------------------> M1 --currentTime-> M2 -----> Destination --------------- (return M2)
-     * Origin------------------> M1 --------------> M2 -----> Destination ----currentTime (return Destination)
-     * Origin-------------------------currentTime-----------> Destination --------------- (return Destination)
-     *
-     * @param currentTime
-     */
-    public void updateMiddle(int currentTime) {
-
-        if (this.isParked()) {
-            this.setMiddleNode(null);
-            this.distMiddleNode = 0;
-        } else {
-
-            int elapsedTimeSinceLeftLastNode = currentTime - this.getEarliestDeparture();
-
-            int networkIdWaypointNode = Dao.getInstance().getNodeBetweenAndExtraDelay(
-                    this.getLastVisitedNode(),
-                    this.visit.getTargetNode(),
-                    elapsedTimeSinceLeftLastNode);
-
-            // Distance from current to middle node
-            this.distMiddleNode = Math.max(elapsedTimeSinceLeftLastNode, Dao.getInstance().getDistSec(
-                    this.getLastVisitedNode().getNetworkId(),
-                    networkIdWaypointNode));
-
-            Node middle = new NodeMiddle(
-                    networkIdWaypointNode,
-                    this.getLastVisitedNode(),
-                    this.visit.getTargetNode(),
-                    this.distMiddleNode);
-
-            this.setMiddleNode(middle);
-
-            assert Simulation.rightTW <= middle.getEarliest() : String.format("\nNode=%s\nVisit=%s, \nMiddle=%s \nElapsed:%s \nDist: %s", this.getLastVisitedNode().getInfo(), this.visit, middle.getInfo(), elapsedTimeSinceLeftLastNode, this.distMiddleNode);
-        }
-    }
 
     public double getDistanceTraveledRebalancing() {
         return distanceTraveledRebalancing;
@@ -1296,24 +1154,24 @@ public class Vehicle implements Comparable<Vehicle>, Cloneable {
         this.middleNode = middleNode;
     }
 
-    /**
-     * When vehicle is disrupted, users are discarded and it rebalances to the closest node (middle).
-     * 1 - Make a stop node out of the last visited node.
-     * 2 - Rebalance to middle
-     */
-    public void rebalanceToClosestNode() {
-
-        assert !(this.lastVisitedNode instanceof NodePK) : "Last visited is not DP" + this.visit;
-
-        // For the sake of correctness, vehicle has to depart from a stop node created from last visited node.
-        if (this.lastVisitedNode instanceof NodeDP)
-            this.createNodeStopAndFinishVisitAt(this.lastVisitedNode.getArrival());
-
-        // Middle node between last visited and target (if null, middle = target)
-        Node middle = this.getMiddleNode();
-        Logging.logger.info(this + " rebalance to closest node " + middle + ". Visit=" + this.getVisit());
-        this.rebalanceTo(middle);
-    }
+//    /**
+//     * When vehicle is disrupted, users are discarded and it rebalances to the closest node (middle).
+//     * 1 - Make a stop node out of the last visited node.
+//     * 2 - Rebalance to middle
+//     */
+//    public void rebalanceToClosestNode() {
+//
+//        assert !(this.lastVisitedNode instanceof NodeSource) : "Last visited is not DP" + this.visit;
+//
+//        // For the sake of correctness, vehicle has to depart from a stop node created from last visited node.
+//        if (this.lastVisitedNode instanceof NodeDropoff)
+//            this.createNodeStopAndFinishVisitAt(this.lastVisitedNode.getArrival());
+//
+//        // Middle node between last visited and target (if null, middle = target)
+//        Node middle = this.getMiddleNode();
+//        Logging.logger.info(this + " rebalance to closest node " + middle + ". Visit=" + this.getVisit());
+//        this.rebalanceTo(middle);
+//    }
 
     public int getContractDeadline() {
         return contractDeadline;
@@ -1328,31 +1186,31 @@ public class Vehicle implements Comparable<Vehicle>, Cloneable {
         return this.getId();
     }
 
-    /**
-     * Stop visit for vehicles rebalancing, cruising, and parked.
-     *
-     * @return Stop visit, or null if vehicle is carrying passengers (can't stop)
-     */
-    public Visit getStopVisit() {
-
-        Visit stop = null;
-
-        if (isParked()) {
-            // Vehicle stays parked
-            stop = getVisitStop();
-
-        } else if (isRebalancing()) {
-            // Vehicle can rebalance to:
-            // - Middle node (all requests are displaced)
-            // - Hotspot (a denied location)
-            stop = getVisitStop();
-
-        } else if (isCruisingToPickup()) {
-            // Interrupt cruising, drop requests, and rebalance to closest middle
-            stop = this.getVisitRelocationToMiddle();
-        }
-        return stop;
-    }
+//    /**
+//     * Stop visit for vehicles rebalancing, cruising, and parked.
+//     *
+//     * @return Stop visit, or null if vehicle is carrying passengers (can't stop)
+//     */
+//    public Visit getStopVisit() {
+//
+//        Visit stop = null;
+//
+//        if (isParked()) {
+//            // Vehicle stays parked
+//            stop = getVisitStop();
+//
+//        } else if (isRebalancing()) {
+//            // Vehicle can rebalance to:
+//            // - Middle node (all requests are displaced)
+//            // - Hotspot (a denied location)
+//            stop = getVisitStop();
+//
+//        } else if (isCruisingToPickup()) {
+//            // Interrupt cruising, drop requests, and rebalance to closest middle
+//            stop = this.getVisitRelocationToMiddle();
+//        }
+//        return stop;
+//    }
 
     /**
      * Indicates when an empty vehicle is moving to pickup up passengers.
@@ -1367,10 +1225,6 @@ public class Vehicle implements Comparable<Vehicle>, Cloneable {
         return new VisitStop(this);
     }
 
-    public VisitDisplaceAndStop getVisitRelocationToMiddle() {
-        Node middle = this.getMiddleNode();
-        return new VisitDisplaceAndStop(middle, this);
-    }
 
     public void addUserHiredMustPickup(User user) {
         this.userHiredMustPickup = user;
@@ -1403,54 +1257,11 @@ public class Vehicle implements Comparable<Vehicle>, Cloneable {
         return this.getTargetNode().getNetworkId() == node.getNetworkId();
     }
 
-    public void removeRequests(Collection<User> request) {
-        Set<User> requests = new HashSet<>(this.getVisit().getRequests());
-        requests.removeAll(request);
-        Visit bestVisit = Method.getBestVisitFromPDPermutationsSummarized(this, requests);
-
-    }
-
-    public Visit getVisitWithoutRequest(User request) {
-
-        // Create request set out of one request
-        Set<User> requestsWithoutUser = new HashSet<>(this.visit.getRequests());
-        requestsWithoutUser.remove(request);
-
-        // Remove request from current sequence
-        List<Node> sequenceWithoutRequest = new LinkedList<Node>(this.visit.getSequenceVisits());
-        sequenceWithoutRequest.remove(request.getNodePk());
-        sequenceWithoutRequest.remove(request.getNodeDp());
-
-        Visit visit;
-
-        // Vehicle only had this request. Therefore, removing it means rebalancing vehicle to closest middle node
-        // in the path to picking up this request.
-        if (sequenceWithoutRequest.isEmpty()) {
-            visit = this.getVisitRelocationToMiddle();
-        } else {
-            // There is a visit where vehicle's remaining requests and passengers will be picked up
-            Node[] sequence = sequenceWithoutRequest.toArray(new Node[sequenceWithoutRequest.size()]);
-            Leg draftVisit = Visit.getDraftVisit(this, sequence);
-            visit = new Visit(sequence, draftVisit.delay, draftVisit.idleness, this, requestsWithoutUser);
-        }
-
-        visit.setVehicle(this);
-        return visit;
-    }
-
-    public Visit getBestVisitWithoutRequest(User request) {
-        Set<User> requests = new HashSet<>(this.getVisit().getRequests());
-        requests.remove(request);
-        // Find best visit without removed request
-        Visit bestVisit = Method.getBestVisitFromPDPermutationsSummarized(this, requests);
-
-        // When bestVisit is null, it means there are no requests or passengers
-        if (bestVisit == null) {
-            bestVisit = this.getVisitRelocationToMiddle();
-        }
-
-        return bestVisit;
-    }
+//    public void removeRequests(Collection<User> request) {
+//        Set<User> requests = new HashSet<>(this.getVisit().getRequests());
+//        requests.removeAll(request);
+//        Visit bestVisit = VisitBuilder.getBestVisitFromPDPermutationsSummarized(this, requests);
+//    }
 
     public boolean hasAlreadyBeenAssignedToUser(User user) {
         return this.isServicing() && this.visit.getRequests().contains(user);

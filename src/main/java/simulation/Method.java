@@ -1,33 +1,19 @@
 package simulation;
 
-import config.Config;
-import dao.Dao;
 import dao.Logging;
 import model.*;
+import model.demand.User;
 import model.node.Node;
+import model.visit.Visit;
 import org.paukov.combinatorics.CombinatoricsVector;
 import org.paukov.combinatorics.Generator;
 import org.paukov.combinatorics.ICombinatoricsVector;
-import util.pdcombinatorics.PDGeneratorSingleInsertion;
-import util.pdcombinatorics.PDPermutations;
 
 import java.util.*;
 
 import static org.paukov.combinatorics.CombinatoricsFactory.createPermutationGenerator;
 
 public class Method {
-
-    public static int getEarliestDp(int earliest, int from, int to, String qos) {
-        return earliest + Dao.getInstance().getDistSec(from, to);
-    }
-
-    public static int getLatestDp(int earliest, int from, int to, String qos) {
-        return earliest + Dao.getInstance().getDistSec(from, to) + Config.getInstance().qosDic.get(qos).dpDelay;
-    }
-
-    public static int getLatestPK(int earliest, String qos) {
-        return earliest + Config.getInstance().qosDic.get(qos).pkDelay;
-    }
 
     /**
      * Returns a PK or DP node depending on the position of a user id in the sequence
@@ -55,144 +41,144 @@ public class Method {
             // Second time id appears return DP
             return u.getNodeDp();
     }
-
-
-    public static boolean feasibleSequence(Node[] sequenceNodes) {
-
-
-        // Model.Vehicle node data
-        Node fromNode = sequenceNodes[0];
-        int arrivalFrom = fromNode.getEarliest();
-        Node toNode;
-
-        // Loop elements in tuple
-        for (int i = 1; i < sequenceNodes.length; i++) {
-
-            // Add load
-            toNode = sequenceNodes[i];
-
-            /////////////////////////* VIABLE NEXT */////////////////////////////////////
-            int distFromTo = Dao.getInstance()
-                    .getDistSec(
-                            fromNode.getNetworkId(),
-                            toNode.getNetworkId());
-
-            // No path available
-            if (distFromTo < 0)
-                return false;
-
-            // Time vehicle arrives at next node (can be earlier or later)
-            int arrivalTo = arrivalFrom + distFromTo;
-
-            // Arrival cannot be later than latest time in node
-            if (arrivalTo > toNode.getLatest())
-                return false;
-
-            // Update arrival time at next node to >= earliest time of next node
-            arrivalTo = Math.max(arrivalTo, toNode.getEarliest());
-
-            // Update
-            fromNode = toNode;
-            arrivalFrom = arrivalTo;
-        }
-
-        // Return visit
-        return true;
-    }
-
-    /**
-     * Verify if sequence is valid. If so, returns delay. Otherwise returns the highest integer (MAX_VALUE)
-     *
-     * @param sequenceNodes
-     * @return Total delay of sequence of nodes (Integer.MAX_VALUE if sequence is invalid)
-     */
-    public static int getDelayFrom(Node[] sequenceNodes) {
-
-
-        // Model.Vehicle node data
-        Node fromNode = sequenceNodes[0];
-        int arrivalFrom = fromNode.getEarliest();
-        int delay = 0;
-        Node toNode;
-
-        // Loop elements in tuple
-        for (int i = 1; i < sequenceNodes.length; i++) {
-
-            // Add load
-            toNode = sequenceNodes[i];
-
-            /////////////////////////* VIABLE NEXT */////////////////////////////////////
-            int distFromTo = Dao.getInstance()
-                    .getDistSec(
-                            fromNode.getNetworkId(),
-                            toNode.getNetworkId());
-
-            // No path available
-            if (distFromTo < 0)
-                return Integer.MAX_VALUE;
-
-            // Time vehicle arrives at next node (can be earlier or later)
-            int arrivalTo = arrivalFrom + distFromTo;
-
-            // Arrival cannot be later than latest time in node
-            if (arrivalTo > toNode.getLatest())
-                return Integer.MAX_VALUE;
-
-            // Update arrival time at next node to >= earliest time of next node
-            arrivalTo = Math.max(arrivalTo, toNode.getEarliest());
-
-            // Update delay
-            delay += arrivalTo - toNode.getEarliest();
-
-            // Update
-            fromNode = toNode;
-            arrivalFrom = arrivalTo;
-        }
-
-        // Return visit
-        return delay;
-    }
-
-    /* TODO: Use hash memo_dic hits */
-    public static int[] feasibleTrip(Node o, Node d, int arrivalO) {
-
-        // Arrival and delay (if negative, it means idleness)
-        int[] delays = {-1, -1};
-
-        // Get travel time between origin and destination
-        int ttOD = Dao.getInstance().getDistSec(o.getNetworkId(), d.getNetworkId());
-
-        // No path between nodes
-        if (ttOD < 0)
-            return delays;
-
-        // if arrival at origin node "o" is not provided, arrival is equal to earliest arrival at "o"
-        if (arrivalO < 0)
-            arrivalO = o.getEarliest();
-
-        // Time vehicle arrives at next node
-        int arrivalD = arrivalO + ttOD;
-
-        // Arrival cannot be later than latest time in destination node "d"
-        if (arrivalD > d.getLatest())
-            return delays;
-
-        // Arrival at destination must be >= earliest arrival (it can arrive before and wait)
-        int noWaitArrivalD = Math.max(arrivalD, d.getEarliest());
-
-        // TODO In this sequence, one of the customers was already scheduled earlier.
-        // The new journey must decrease waiting time of all passengers.
-        //if( previous_arrival >= 0 && next_node in previous_arrival and previous_arrival[next_node]<arrival_next){
-        //    Model.Node.Model.Node.memo_dic[id_viable] = (None,None)
-        //    return delays;
-
-        // Delay in seconds
-        int delay = arrivalD - d.getEarliest();
-        delays[0] = noWaitArrivalD;
-        delays[1] = delay;
-
-        return delays;
-    }
+//
+//
+//    public static boolean feasibleSequence(Node[] sequenceNodes) {
+//
+//
+//        // Model.Vehicle node data
+//        Node fromNode = sequenceNodes[0];
+//        int arrivalFrom = fromNode.getEarliest();
+//        Node toNode;
+//
+//        // Loop elements in tuple
+//        for (int i = 1; i < sequenceNodes.length; i++) {
+//
+//            // Add load
+//            toNode = sequenceNodes[i];
+//
+//            /////////////////////////* VIABLE NEXT */////////////////////////////////////
+//            int distFromTo = Dao.getInstance()
+//                    .getDistSec(
+//                            fromNode.getNetworkId(),
+//                            toNode.getNetworkId());
+//
+//            // No path available
+//            if (distFromTo < 0)
+//                return false;
+//
+//            // Time vehicle arrives at next node (can be earlier or later)
+//            int arrivalTo = arrivalFrom + distFromTo;
+//
+//            // Arrival cannot be later than latest time in node
+//            if (arrivalTo > toNode.getLatest())
+//                return false;
+//
+//            // Update arrival time at next node to >= earliest time of next node
+//            arrivalTo = Math.max(arrivalTo, toNode.getEarliest());
+//
+//            // Update
+//            fromNode = toNode;
+//            arrivalFrom = arrivalTo;
+//        }
+//
+//        // Return visit
+//        return true;
+//    }
+//
+//    /**
+//     * Verify if sequence is valid. If so, returns delay. Otherwise returns the highest integer (MAX_VALUE)
+//     *
+//     * @param sequenceNodes
+//     * @return Total delay of sequence of nodes (Integer.MAX_VALUE if sequence is invalid)
+//     */
+//    public static int getDelayFrom(Node[] sequenceNodes) {
+//
+//
+//        // Model.Vehicle node data
+//        Node fromNode = sequenceNodes[0];
+//        int arrivalFrom = fromNode.getEarliest();
+//        int delay = 0;
+//        Node toNode;
+//
+//        // Loop elements in tuple
+//        for (int i = 1; i < sequenceNodes.length; i++) {
+//
+//            // Add load
+//            toNode = sequenceNodes[i];
+//
+//            /////////////////////////* VIABLE NEXT */////////////////////////////////////
+//            int distFromTo = Dao.getInstance()
+//                    .getDistSec(
+//                            fromNode.getNetworkId(),
+//                            toNode.getNetworkId());
+//
+//            // No path available
+//            if (distFromTo < 0)
+//                return Integer.MAX_VALUE;
+//
+//            // Time vehicle arrives at next node (can be earlier or later)
+//            int arrivalTo = arrivalFrom + distFromTo;
+//
+//            // Arrival cannot be later than latest time in node
+//            if (arrivalTo > toNode.getLatest())
+//                return Integer.MAX_VALUE;
+//
+//            // Update arrival time at next node to >= earliest time of next node
+//            arrivalTo = Math.max(arrivalTo, toNode.getEarliest());
+//
+//            // Update delay
+//            delay += arrivalTo - toNode.getEarliest();
+//
+//            // Update
+//            fromNode = toNode;
+//            arrivalFrom = arrivalTo;
+//        }
+//
+//        // Return visit
+//        return delay;
+//    }
+//
+//    /* TODO: Use hash memo_dic hits */
+//    public static int[] feasibleTrip(Node o, Node d, int arrivalO) {
+//
+//        // Arrival and delay (if negative, it means idleness)
+//        int[] delays = {-1, -1};
+//
+//        // Get travel time between origin and destination
+//        int ttOD = Dao.getInstance().getDistSec(o.getNetworkId(), d.getNetworkId());
+//
+//        // No path between nodes
+//        if (ttOD < 0)
+//            return delays;
+//
+//        // if arrival at origin node "o" is not provided, arrival is equal to earliest arrival at "o"
+//        if (arrivalO < 0)
+//            arrivalO = o.getEarliest();
+//
+//        // Time vehicle arrives at next node
+//        int arrivalD = arrivalO + ttOD;
+//
+//        // Arrival cannot be later than latest time in destination node "d"
+//        if (arrivalD > d.getLatest())
+//            return delays;
+//
+//        // Arrival at destination must be >= earliest arrival (it can arrive before and wait)
+//        int noWaitArrivalD = Math.max(arrivalD, d.getEarliest());
+//
+//        // TODO In this sequence, one of the customers was already scheduled earlier.
+//        // The new journey must decrease waiting time of all passengers.
+//        //if( previous_arrival >= 0 && next_node in previous_arrival and previous_arrival[next_node]<arrival_next){
+//        //    Model.Node.Model.Node.memo_dic[id_viable] = (None,None)
+//        //    return delays;
+//
+//        // Delay in seconds
+//        int delay = arrivalD - d.getEarliest();
+//        delays[0] = noWaitArrivalD;
+//        delays[1] = delay;
+//
+//        return delays;
+//    }
 
     /**
      * Create a sequence of trip ids to be permuted.
@@ -228,57 +214,57 @@ public class Method {
     }
 
 
-    public static Vehicle getBestVehicleToServiceTarget(List<Vehicle> listIdle, Node hotPoint) {
-
-        // Closest vehicle to candidate hot point (a previous miss)
-        Vehicle idlestClosestVehicle = listIdle.get(0);
-
-        // If hotpoint is urgent, get closest
-        if (hotPoint.getUrgent() > 0) {
-
-            //Logging.logger.info("Addressing urgent...");
-
-            for (int i = 1; i < listIdle.size(); i++) {
-
-                Vehicle candidateRebalancingVehicle = listIdle.get(i);
-
-                // Untie using shortest distance
-                int distanceCandidate = Dao.getInstance().getDistSec(hotPoint, candidateRebalancingVehicle.getLastVisitedNode());
-                int distanceIncumbent = Dao.getInstance().getDistSec(hotPoint, idlestClosestVehicle.getLastVisitedNode());
-
-                // Untie with distance
-                if (distanceCandidate < distanceIncumbent && distanceCandidate > 0) {
-                    idlestClosestVehicle = candidateRebalancingVehicle;
-                }
-            }
-        } else {
-            for (int i = 1; i < listIdle.size(); i++) {
-
-                Vehicle candidateRebalancingVehicle = listIdle.get(i);
-
-                // Get the idlest and closest vehicle to hot point
-                if (candidateRebalancingVehicle.getRoundsIdle() >= idlestClosestVehicle.getRoundsIdle()) {
-
-                    if (candidateRebalancingVehicle.getRoundsIdle() == idlestClosestVehicle.getRoundsIdle()) {
-
-                        // Untie using shortest distance
-                        int distanceCandidate = Dao.getInstance().getDistSec(hotPoint, candidateRebalancingVehicle.getLastVisitedNode());
-                        int distanceIncumbent = Dao.getInstance().getDistSec(hotPoint, idlestClosestVehicle.getLastVisitedNode());
-
-                        // Untie with distance
-                        if (distanceCandidate < distanceIncumbent && distanceCandidate > 0) {
-                            idlestClosestVehicle = candidateRebalancingVehicle;
-                        }
-                    } else {
-                        idlestClosestVehicle = candidateRebalancingVehicle;
-                    }
-                }
-            }
-        }
-
-        return idlestClosestVehicle;
-
-    }
+//    public static Vehicle getBestVehicleToServiceTarget(List<Vehicle> listIdle, Node hotPoint) {
+//
+//        // Closest vehicle to candidate hot point (a previous miss)
+//        Vehicle idlestClosestVehicle = listIdle.get(0);
+//
+//        // If hotpoint is urgent, get closest
+//        if (hotPoint.getUrgent() > 0) {
+//
+//            //Logging.logger.info("Addressing urgent...");
+//
+//            for (int i = 1; i < listIdle.size(); i++) {
+//
+//                Vehicle candidateRebalancingVehicle = listIdle.get(i);
+//
+//                // Untie using shortest distance
+//                int distanceCandidate = Dao.getInstance().getDistSec(hotPoint, candidateRebalancingVehicle.getLastVisitedNode());
+//                int distanceIncumbent = Dao.getInstance().getDistSec(hotPoint, idlestClosestVehicle.getLastVisitedNode());
+//
+//                // Untie with distance
+//                if (distanceCandidate < distanceIncumbent && distanceCandidate > 0) {
+//                    idlestClosestVehicle = candidateRebalancingVehicle;
+//                }
+//            }
+//        } else {
+//            for (int i = 1; i < listIdle.size(); i++) {
+//
+//                Vehicle candidateRebalancingVehicle = listIdle.get(i);
+//
+//                // Get the idlest and closest vehicle to hot point
+//                if (candidateRebalancingVehicle.getRoundsIdle() >= idlestClosestVehicle.getRoundsIdle()) {
+//
+//                    if (candidateRebalancingVehicle.getRoundsIdle() == idlestClosestVehicle.getRoundsIdle()) {
+//
+//                        // Untie using shortest distance
+//                        int distanceCandidate = Dao.getInstance().getDistSec(hotPoint, candidateRebalancingVehicle.getLastVisitedNode());
+//                        int distanceIncumbent = Dao.getInstance().getDistSec(hotPoint, idlestClosestVehicle.getLastVisitedNode());
+//
+//                        // Untie with distance
+//                        if (distanceCandidate < distanceIncumbent && distanceCandidate > 0) {
+//                            idlestClosestVehicle = candidateRebalancingVehicle;
+//                        }
+//                    } else {
+//                        idlestClosestVehicle = candidateRebalancingVehicle;
+//                    }
+//                }
+//            }
+//        }
+//
+//        return idlestClosestVehicle;
+//
+//    }
 
     /**
      * Add last visited node to the start of the sequence and subsequent breakpoint IF:
@@ -319,7 +305,7 @@ public class Method {
         } else if (vehicle.isServicing() && vehicle.getVisit().getTargetNode() != sequenceWithVehicleNode.getFirst()) {
 
             // TODO If next in sequence is middle, is it worth it breaking again???
-            //assert !(vehicle.getVisit().getTargetNode() instanceof NodeMiddle) : String.format("First is middle (current middle = %s) - Visit: %s", middle, vehicle.getVisit());
+            //assert !(vehicle.getVisit().getTargetNode() instanceof NodeWaypoint) : String.format("First is middle (current middle = %s) - Visit: %s", middle, vehicle.getVisit());
 
             // Assumption: Vehicle can take a turn at the location of the next node
             // Why? Because ANOTHER vehicle can pick-up that user
@@ -370,267 +356,182 @@ public class Method {
         return createPermutationGenerator(vector);
     }
 
-
-    /**
-     * Find the best itinerary (over all possible PU/DO permutations) for a vehicle to service all requests.
-     * TODO: If n. of requests > 4, many combinations are possible.
-     *
-     * @param vehicle Vehicle carrying out the visit
-     * @param requests Candidate requests to build a visiting sequence
-     * @return Best visiting sequence or null if visit does not exist
-     */
-    public static Visit getBestVisitFromPDPermutations(Vehicle vehicle, Set<User> requests) {
-
-        // A single request can be inserted in a vehicle in multiple ways. Only the best (i.e., the lowest delay)
-        // visit is inserted in the RTV graph.
-
-        Visit visit = null;
-        int lowestDelay = Integer.MAX_VALUE;
-        LinkedList<Node> lowestDelaySequence = null;
-
-        // Create request set out of one request
-        PDPermutations perms = new PDPermutations(requests, vehicle);
-
-        while (perms.hasNext()) {
-
-            List<Node> sequencePickupsAndDeliveries = List.of(perms.next());
-
-            LinkedList<Node> sequenceFromVehiclePositionToLastDelivery = Method.addLastVisitedAndMiddleNodesToStart(sequencePickupsAndDeliveries, vehicle);
-
-            if (sequenceFromVehiclePositionToLastDelivery == null)
-                continue;
-
-            int delay = Visit.isValidSequenceFeasible(
-                    sequenceFromVehiclePositionToLastDelivery,
-                    vehicle.getDepartureCurrent(),
-                    vehicle.getCurrentLoad(),
-                    vehicle.getCapacity(),
-                    vehicle.getContractDeadline());
-
-//            Logging.logger.infof(
-//                    "delay = %4d - %s -> %s (network ids = %s)\n", delay,
-//                    sequencePickupsAndDeliveries,
+//
+//    /**
+//     * Find the best itinerary (over all possible PU/DO permutations) for a vehicle to service all requests.
+//     * TODO: If n. of requests > 4, many combinations are possible.
+//     *
+//     * @param vehicle Vehicle carrying out the visit
+//     * @param requests Candidate requests to build a visiting sequence
+//     * @return Best visiting sequence or null if visit does not exist
+//     */
+//    public static Visit getBestVisitFromPDPermutations(Vehicle vehicle, Set<User> requests) {
+//
+//        // A single request can be inserted in a vehicle in multiple ways. Only the best (i.e., the lowest delay)
+//        // visit is inserted in the RTV graph.
+//
+//        Visit visit = null;
+//        int lowestDelay = Integer.MAX_VALUE;
+//        LinkedList<Node> lowestDelaySequence = null;
+//
+//        // Create request set out of one request
+//        PDPermutations perms = new PDPermutations(requests, vehicle);
+//
+//        while (perms.hasNext()) {
+//
+//            List<Node> sequencePickupsAndDeliveries = List.of(perms.next());
+//
+//            LinkedList<Node> sequenceFromVehiclePositionToLastDelivery = Method.addLastVisitedAndMiddleNodesToStart(sequencePickupsAndDeliveries, vehicle);
+//
+//            if (sequenceFromVehiclePositionToLastDelivery == null)
+//                continue;
+//
+//            int delay = Visit.isValidSequenceFeasible(
 //                    sequenceFromVehiclePositionToLastDelivery,
-//                    getNetworkIdsFromNodeSequence(sequenceFromVehiclePositionToLastDelivery));
+//                    vehicle.getDepartureCurrent(),
+//                    vehicle.getCurrentLoad(),
+//                    vehicle.getCapacity(),
+//                    vehicle.getContractDeadline());
+//
+////            Logging.logger.infof(
+////                    "delay = %4d - %s -> %s (network ids = %s)\n", delay,
+////                    sequencePickupsAndDeliveries,
+////                    sequenceFromVehiclePositionToLastDelivery,
+////                    getNetworkIdsFromNodeSequence(sequenceFromVehiclePositionToLastDelivery));
+//
+//            // Update if delay is valid
+//            if (delay >= 0) {
+//                if (delay < lowestDelay || (delay == lowestDelay && sequenceFromVehiclePositionToLastDelivery.size() < lowestDelaySequence.size())) {
+//                    lowestDelay = delay;
+//                    lowestDelaySequence = sequenceFromVehiclePositionToLastDelivery;
+//                }
+//            }
+//        }
+//
+//        if (lowestDelaySequence != null) {
+//
+//            // Remove vehicle's last visited node (i.e., sequence's first node)
+//            lowestDelaySequence.poll();
+//
+//            // Setup new visit
+//            visit = new Visit(lowestDelaySequence, lowestDelay);
+//
+//            // Finish visit configuration
+//            visit.setVehicle(vehicle);
+//            visit.getRequests().addAll(requests);
+//
+//            // printMapOfNodesPerNetworkIdSortedByEarliestTime(vehicle, visit);
+//
+//            // All passengers in vehicle belong to visit (they need to be drop off)
+//            if (vehicle.isServicing()) {
+//                visit.setPassengers(new HashSet<>(vehicle.getVisit().getPassengers()));
+//            }
+//        }
+//
+//        return visit;
+//    }
+//
+//    public static Visit getBestVisitFromAllNodePermutations(Vehicle vehicle, Set<User> requests) {
+//
+//        Generator<Node> gen = getGeneratorOfNodeSequence(requests, vehicle);
+//        // Logging.logger.info("Setting up sequence " + vehicle.getVisit());
+//
+//        // A single request can be inserted in a vehicle in multiple ways. Only the best (i.e., the lowest delay)
+//        // visit is inserted in the RTV graph.
+//
+//        List<List<Node>> sequences = new LinkedList<>();
+//        //Map<String, Visit> bestVisitOfEachClass = new HashMap<>();
+//
+//        Visit visit = null;
+//        int lowestDelay = Integer.MAX_VALUE;
+//        LinkedList<Node> lowestDelaySequence = null;
+//        for (ICombinatoricsVector<Node> combination : gen) {
+//
+//            List<Node> sequence = combination.getVector();
+//
+//
+//            LinkedList<Node> sequenceFromVehiclePositionToLastDelivery = addLastVisitedAndMiddleNodesToStart(sequence, vehicle);
+//            sequences.add(sequenceFromVehiclePositionToLastDelivery);
+//
+//            // Logging.logger.info("Seq. from last: " + sequenceFromVehiclePositionToLastDelivery);
+//
+//            if (sequenceFromVehiclePositionToLastDelivery == null)
+//                continue;
+//
+//            int delay = Visit.isValidSequence(
+//                    sequenceFromVehiclePositionToLastDelivery,
+//                    vehicle.getDepartureCurrent(),
+//                    vehicle.getCurrentLoad(),
+//                    vehicle.getCapacity(),
+//                    vehicle.getContractDeadline()
+//            );
+//
+//            // Update if delay is valid
+//            if (delay >= 0) {
+//                if (delay < lowestDelay || (delay == lowestDelay && sequenceFromVehiclePositionToLastDelivery.size() < lowestDelaySequence.size())) {
+//                    lowestDelay = delay;
+//                    lowestDelaySequence = sequenceFromVehiclePositionToLastDelivery;
+//                }
+//            }
+//        }
+//
+//        if (lowestDelaySequence != null) {
+//
+//            // Remove vehicle's last visited node (i.e., sequence's first node)
+//            lowestDelaySequence.poll();
+//
+//            // Setup new visit
+//            visit = new Visit(lowestDelaySequence, lowestDelay);
+//
+//            // Finish visit configuration
+//            visit.setVehicle(vehicle);
+//            visit.getRequests().addAll(requests);
+//
+//            // All passengers in vehicle belong to visit (they need to be drop off)
+//            if (vehicle.isServicing()) {
+//                visit.setPassengers(new HashSet<>(vehicle.getVisit().getPassengers()));
+//            }
+//        }
+//
+//        return visit;
+//    }
 
-            // Update if delay is valid
-            if (delay >= 0) {
-                if (delay < lowestDelay || (delay == lowestDelay && sequenceFromVehiclePositionToLastDelivery.size() < lowestDelaySequence.size())) {
-                    lowestDelay = delay;
-                    lowestDelaySequence = sequenceFromVehiclePositionToLastDelivery;
-                }
-            }
-        }
-
-        if (lowestDelaySequence != null) {
-
-            // Remove vehicle's last visited node (i.e., sequence's first node)
-            lowestDelaySequence.poll();
-
-            // Setup new visit
-            visit = new Visit(lowestDelaySequence, lowestDelay);
-
-            // Finish visit configuration
-            visit.setVehicle(vehicle);
-            visit.getRequests().addAll(requests);
-
-            // printMapOfNodesPerNetworkIdSortedByEarliestTime(vehicle, visit);
-
-            // All passengers in vehicle belong to visit (they need to be drop off)
-            if (vehicle.isServicing()) {
-                visit.setPassengers(new HashSet<>(vehicle.getVisit().getPassengers()));
-            }
-        }
-
-        return visit;
-    }
-
-    public static Visit getBestVisitFromAllNodePermutations(Vehicle vehicle, Set<User> requests) {
-
-        Generator<Node> gen = getGeneratorOfNodeSequence(requests, vehicle);
-        // Logging.logger.info("Setting up sequence " + vehicle.getVisit());
-
-        // A single request can be inserted in a vehicle in multiple ways. Only the best (i.e., the lowest delay)
-        // visit is inserted in the RTV graph.
-
-        List<List<Node>> sequences = new LinkedList<>();
-        //Map<String, Visit> bestVisitOfEachClass = new HashMap<>();
-
-        Visit visit = null;
-        int lowestDelay = Integer.MAX_VALUE;
-        LinkedList<Node> lowestDelaySequence = null;
-        for (ICombinatoricsVector<Node> combination : gen) {
-
-            List<Node> sequence = combination.getVector();
-
-
-            LinkedList<Node> sequenceFromVehiclePositionToLastDelivery = addLastVisitedAndMiddleNodesToStart(sequence, vehicle);
-            sequences.add(sequenceFromVehiclePositionToLastDelivery);
-
-            // Logging.logger.info("Seq. from last: " + sequenceFromVehiclePositionToLastDelivery);
-
-            if (sequenceFromVehiclePositionToLastDelivery == null)
-                continue;
-
-            int delay = Visit.isValidSequence(
-                    sequenceFromVehiclePositionToLastDelivery,
-                    vehicle.getDepartureCurrent(),
-                    vehicle.getCurrentLoad(),
-                    vehicle.getCapacity(),
-                    vehicle.getContractDeadline()
-            );
-
-            // Update if delay is valid
-            if (delay >= 0) {
-                if (delay < lowestDelay || (delay == lowestDelay && sequenceFromVehiclePositionToLastDelivery.size() < lowestDelaySequence.size())) {
-                    lowestDelay = delay;
-                    lowestDelaySequence = sequenceFromVehiclePositionToLastDelivery;
-                }
-            }
-        }
-
-        if (lowestDelaySequence != null) {
-
-            // Remove vehicle's last visited node (i.e., sequence's first node)
-            lowestDelaySequence.poll();
-
-            // Setup new visit
-            visit = new Visit(lowestDelaySequence, lowestDelay);
-
-            // Finish visit configuration
-            visit.setVehicle(vehicle);
-            visit.getRequests().addAll(requests);
-
-            // All passengers in vehicle belong to visit (they need to be drop off)
-            if (vehicle.isServicing()) {
-                visit.setPassengers(new HashSet<>(vehicle.getVisit().getPassengers()));
-            }
-        }
-
-        return visit;
-    }
-
-    public static Visit getBestVisitFromPDPermutationsSummarized(Vehicle vehicle, Set<User> requests) {
-        // A single request can be inserted in a vehicle in multiple ways. Only the best (i.e., the lowest delay)
-        // visit is inserted in the RTV graph.
-
-        Visit visit = null;
-        Node[] lowestDelaySequence = null;
-        Leg bestDraftVisit = null;
-
-        // Create request set out of one request
-        PDPermutations perms = new PDPermutations(requests, vehicle);
-
-        while (perms.hasNext()) {
-
-            Node[] PDPermutation = perms.next();
-            // getMapNetworkIdNodes(sequencePickupsAndDeliveries);
-
-            Leg draftVisit = Visit.getDraftVisit(vehicle, PDPermutation);
-
-            // Update if delay is valid
-            if (draftVisit != null) {
-                if (draftVisit.compareTo(bestDraftVisit) < 0) {
-                    bestDraftVisit = draftVisit;
-                    lowestDelaySequence = PDPermutation;
-                }
-            }
-        }
-
-        if (lowestDelaySequence != null) {
-
-            // Setup new visit
-            visit = new Visit(lowestDelaySequence, bestDraftVisit.delay, bestDraftVisit.delayBonus, bestDraftVisit.idleness, vehicle, requests);
-
-        }
-
-        return visit;
-    }
-
-    public static VisitObj getBestVisitFromInsertion(Vehicle vehicle, User request) {
-        // A single request can be inserted in a vehicle in multiple ways. Only the best (i.e., the lowest delay)
-        // visit is inserted in the RTV graph.
-
-        //Logging.logger.info("{}", String.format("User %s, vehicle=%s, visit=%s\n", request, vehicle, vehicle.getVisit()));
-
-        // Do not try inserting request in the same vehicle again
-        if (vehicle.hasAlreadyBeenAssignedToUser(request)) {
-            //Logging.logger.info("{}", String.format("User %s already in %s. Visit=%s.\n", request, vehicle, vehicle.getVisit()));
-            return vehicle.getVisit();
-        }
-
-        Visit visit = null;
-        Node[] lowestDelaySequence = null;
-        Leg bestDraftVisit = null;
-
-        PDGeneratorSingleInsertion perms = new PDGeneratorSingleInsertion(request, vehicle);
-
-        while (perms.hasNext()) {
-
-            Node[] PDPermutation = perms.next();
-            //Logging.logger.info(Arrays.asList(PDPermutation));
-            //Logging.logger.info(vehicle.getVisit());
-            Leg draftVisit = Visit.getDraftVisit(vehicle, PDPermutation);
-
-            // Update if delay is valid
-            if (draftVisit != null) {
-                if (draftVisit.compareTo(bestDraftVisit) < 0) {
-                    bestDraftVisit = draftVisit;
-                    lowestDelaySequence = PDPermutation;
-                }
-            }
-        }
-
-        if (lowestDelaySequence != null) {
-
-            // Setup new visit
-            Set<User> requests = new HashSet<>();
-            requests.add(request);
-            if (vehicle.isServicing()) {
-                requests.addAll(vehicle.getVisit().getRequests());
-            }
-
-            visit = new Visit(lowestDelaySequence, bestDraftVisit.delay, bestDraftVisit.idleness, vehicle, requests);
-        }
-
-        return visit;
-    }
 
     public static void reset() {
         return;
     }
 
 
-    /**
-     * Get nodes associated to each network id.
-     * @param requests
-     * @return
-     */
-    private static Map<Integer, TreeSet<Node>> getMapNetworkIdUserNodes(Set<User> requests, Set<User> passengers) {
-        Map<Integer, TreeSet<Node>> networkIdNodes = new HashMap<>();
+//    /**
+//     * Get nodes associated to each network id.
+//     * @param requests
+//     * @return
+//     */
+//    private static Map<Integer, TreeSet<Node>> getMapNetworkIdUserNodes(Set<User> requests, Set<User> passengers) {
+//        Map<Integer, TreeSet<Node>> networkIdNodes = new HashMap<>();
+//
+//        for (User user : requests) {
+//            // Add pickup nodes
+//            networkIdNodes.putIfAbsent(user.getNodePk().getNetworkId(), new TreeSet<>(Comparator.comparingInt(Node::getEarliest)));
+//            networkIdNodes.get(user.getNodePk().getNetworkId()).add(user.getNodePk());
+//            networkIdNodes.putIfAbsent(user.getNodeDp().getNetworkId(), new TreeSet<>(Comparator.comparingInt(Node::getEarliest)));
+//            networkIdNodes.get(user.getNodeDp().getNetworkId()).add(user.getNodeDp());
+//        }
+//
+//        for (User user : passengers) {
+//            // Add pickup nodes
+//            networkIdNodes.putIfAbsent(user.getNodeDp().getNetworkId(), new TreeSet<>(Comparator.comparingInt(Node::getEarliest)));
+//            networkIdNodes.get(user.getNodeDp().getNetworkId()).add(user.getNodeDp());
+//        }
+//        return networkIdNodes;
+//    }
 
-        for (User user : requests) {
-            // Add pickup nodes
-            networkIdNodes.putIfAbsent(user.getNodePk().getNetworkId(), new TreeSet<>(Comparator.comparingInt(Node::getEarliest)));
-            networkIdNodes.get(user.getNodePk().getNetworkId()).add(user.getNodePk());
-            networkIdNodes.putIfAbsent(user.getNodeDp().getNetworkId(), new TreeSet<>(Comparator.comparingInt(Node::getEarliest)));
-            networkIdNodes.get(user.getNodeDp().getNetworkId()).add(user.getNodeDp());
-        }
-
-        for (User user : passengers) {
-            // Add pickup nodes
-            networkIdNodes.putIfAbsent(user.getNodeDp().getNetworkId(), new TreeSet<>(Comparator.comparingInt(Node::getEarliest)));
-            networkIdNodes.get(user.getNodeDp().getNetworkId()).add(user.getNodeDp());
-        }
-        return networkIdNodes;
-    }
-
-    private static void printMapOfNodesPerNetworkIdSortedByEarliestTime(Vehicle vehicle, Visit visit) {
-        Logging.logger.info("{}", String.format("BEST(%s):(%s)\n", vehicle, visit.getSequenceVisits()));
-        Logging.logger.info("{}", String.format("ARRIVALS: %s\n", Visit.getArrivalTimesFromVisit(vehicle, visit)));
-        //Map<Integer, TreeSet<Node>> networkIdNodes = getMapNetworkIdNodes(visit.getSequenceVisits());
-        //sortNodesPerNetworkIdsByEarliestArrivalTime(networkIdNodes);
-    }
+//    private static void printMapOfNodesPerNetworkIdSortedByEarliestTime(Vehicle vehicle, Visit visit) {
+//        Logging.logger.info("{}", String.format("BEST(%s):(%s)\n", vehicle, visit.getSequenceVisits()));
+//        Logging.logger.info("{}", String.format("ARRIVALS: %s\n", Environment.getArrivalTimesFromVisit(vehicle, visit)));
+//        //Map<Integer, TreeSet<Node>> networkIdNodes = getMapNetworkIdNodes(visit.getSequenceVisits());
+//        //sortNodesPerNetworkIdsByEarliestArrivalTime(networkIdNodes);
+//    }
 
     private static void sortNodesPerNetworkIdsByEarliestArrivalTime(Map<Integer, TreeSet<Node>> networkIdNodes) {
         for (Map.Entry<Integer, TreeSet<Node>> e : networkIdNodes.entrySet()) {

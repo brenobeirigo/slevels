@@ -1,7 +1,7 @@
 package simulation.matching;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.Iterables;
-import config.InstanceConfig;
 import dao.Dao;
 import dao.Logging;
 import gurobi.GRBEnv;
@@ -9,13 +9,19 @@ import gurobi.GRBLinExpr;
 import gurobi.GRBModel;
 import gurobi.GRBVar;
 import helper.HelperIO;
-import model.*;
+import model.AssignmentILP;
+import model.Vehicle;
+import model.demand.User;
 import model.graph.GraphRTV;
 import model.graph.ParallelGraphRTV;
 import model.learn.*;
 import model.node.NodeTargetRebalancing;
+import model.visit.VisitDisplaceAndStop;
+import model.visit.VisitObj;
+import model.visit.VisitRelocation;
+import model.visit.VisitStop;
 import org.apache.commons.collections4.queue.CircularFifoQueue;
-import simulation.Simulation;
+import simulation.Environment;
 
 import java.util.*;
 
@@ -58,9 +64,30 @@ public class MatchingSimple implements RideMatchingStrategy {
     public Map<User, Set<VisitObj>> userVisitsMap;
     public List<Experience> experiences;
     private CircularFifoQueue<FleetStateActionSpace> experienceReplayMemory;
-    public InstanceConfig.LearningConfig.LearningSettings learningSettings;
+    public LearningSettings learningSettings;
+    private Environment environment;
 
-    public MatchingSimple(int maxVehicleCapacityRTV, double mipTimeLimit, double timeoutVehicleRTV, double mipGap, int maxEdgesRV, int maxEdgesRR, int rejectionPenalty, String[] orderedListOfObjectiveLabels, String PDVisitGenerator) {
+    public MatchingSimple(
+            @JsonProperty("name")
+            String name,
+            @JsonProperty("rtv_max_vehicle_capacity")
+            int maxVehicleCapacityRTV,
+            @JsonProperty("mip_time_limit")
+            double mipTimeLimit,
+            @JsonProperty("rtv_vehicle_timeout")
+            double timeoutVehicleRTV,
+            @JsonProperty("mip_gap")
+            double mipGap,
+            @JsonProperty("max_edges_rv")
+            int maxEdgesRV,
+            @JsonProperty("max_edges_rr")
+            int maxEdgesRR,
+            @JsonProperty("rejection_penalty")
+            int rejectionPenalty,
+            @JsonProperty("objectives")
+            String[] orderedListOfObjectiveLabels,
+            @JsonProperty("pd_generation_strategy")
+                    Objective PDPStrategy) {
         this.maxVehicleCapacityRTV = maxVehicleCapacityRTV;
         this.mipTimeLimit = mipTimeLimit;
         this.timeoutVehicleRTV = timeoutVehicleRTV;
@@ -74,7 +101,11 @@ public class MatchingSimple implements RideMatchingStrategy {
         this.experiences = new ArrayList<>();
     }
 
-    public void configureLearning(InstanceConfig.LearningConfig.LearningSettings learningConfig) {
+    public void setEnvironment(Environment environment) {
+        this.environment = environment;
+    }
+
+    public void configureLearning(LearningSettings learningConfig) {
         this.learningSettings = learningConfig;
         if (learningConfig != null)
             this.experienceReplayMemory = new CircularFifoQueue(this.learningSettings.sizeExperienceReplayBuffer);
@@ -114,7 +145,7 @@ public class MatchingSimple implements RideMatchingStrategy {
         }
 
         // Go through nodes and update arrival so far
-        visit.updateArrivalSoFarAtVisitNodes();
+        environment.updateArrivalSoFarAtVisitNodes(visit);
 
         // Vehicle is not idle
         visit.getVehicle().setRoundsIdle(0);
@@ -124,7 +155,7 @@ public class MatchingSimple implements RideMatchingStrategy {
     protected void buildGraphRTV(Set<User> unassignedRequests, Set<Vehicle> listVehicles, int maxVehicleCapacity, double timeoutVehicle, int maxVehReqEdges, int maxReqReqEdges) {
 
         // BUILDING GRAPH STRUCTURE ////////////////////////////////////////////////////////////////////////////////////
-        this.graphRTV = new ParallelGraphRTV(unassignedRequests, listVehicles, maxVehicleCapacity, timeoutVehicle, maxVehReqEdges, maxReqReqEdges);
+        this.graphRTV = new ParallelGraphRTV(unassignedRequests, listVehicles, maxVehicleCapacity, timeoutVehicle, maxVehReqEdges, maxReqReqEdges, environment, currentTime);
     }
 
     public void experienceReplay() {
@@ -188,7 +219,7 @@ public class MatchingSimple implements RideMatchingStrategy {
     @Override
     public ResultAssignment match(int timeStep, Set<User> requests, Set<Vehicle> vehicles, Set<Vehicle> hired) {
         buildGraphRTV(requests, vehicles, this.maxVehicleCapacityRTV, timeoutVehicleRTV, maxEdgesRV, maxEdgesRR);
-
+        this.currentTime = timeStep;
         this.visits = new HashSet<>(this.graphRTV.getAllVisits());
         this.requests = new HashSet<>(requests);
         this.vehicles = new HashSet<>(vehicles);
@@ -215,7 +246,8 @@ public class MatchingSimple implements RideMatchingStrategy {
                     requests,
                     vehicleVisitsMap,
                     timeStep,
-                    Simulation.timeHorizon);
+                    this.environment.timeConfig.totalSimulationHorizonSec(),
+                    environment);
 
             Map<Vehicle, Set<StateAction>> vehiclePreDecisionsMap =
                     preDecisionFleetStateActionSpace.getVehicleStateActionMap();
@@ -223,7 +255,7 @@ public class MatchingSimple implements RideMatchingStrategy {
             FleetStateActionSpace postDecisionFleetStateActionSpace =
                     new PostDecisionFleetStateActionSpace(
                             preDecisionFleetStateActionSpace,
-                            Simulation.timeWindow);
+                            this.environment.timeConfig.timeWindowSec());
 
             FleetStateActionSpaceObject postDecisionStateSpaceObj =
                     postDecisionFleetStateActionSpace.getDecisionSpaceObject();
@@ -246,7 +278,7 @@ public class MatchingSimple implements RideMatchingStrategy {
             if (isLearning() && experienceReplayEnabled()) {
 
                 // Only take up experiences that occur before total time window:
-                //   Earliest       Requests stop        End of          Total time      Simulation ends
+                //   Earliest       Requests stop        End of          Total time      Environment ends
                 //     time           arriving          exp. sampling      window    (last request delivered)
                 //      * --------------- * -------------- * ---------------- * --------------- *
 
@@ -255,7 +287,7 @@ public class MatchingSimple implements RideMatchingStrategy {
 
                 experienceReplayMemory.add(preDecisionFleetStateActionSpace);
                 Logging.logger.info("t={} (time={})  - Replay memory(current_size={}, max={}, batch={}) - total_experiences={} - Training frequency={}\n",
-                        timeStep / Simulation.timeWindow,
+                        timeStep / this.environment.timeConfig.timeWindowSec(),
                         timeStep, experienceReplayMemory.size(),
                         experienceReplayMemory.maxSize(),
                         this.learningSettings.sizeExperienceReplayBatch,
@@ -300,13 +332,13 @@ public class MatchingSimple implements RideMatchingStrategy {
 //
 //        }
 //        AssignmentILP assignment = new AssignmentILP(
-//                Simulation.rightTW,
+//                Environment.rightTW,
 //                vehiclePreDecisionsObjMap,
 //                requests);
 //        assignment.run(new String[]{Objective.TOTAL_REJECTION, Objective.TOTAL_WAITING});
 //
 //        AssignmentILP assignment2 = new AssignmentILP(
-//                Simulation.rightTW,
+//                Environment.rightTW,
 //                vehiclePreDecisionsObjMap,
 //                requests);
 //
@@ -315,7 +347,7 @@ public class MatchingSimple implements RideMatchingStrategy {
 //        assignment2.getResult().printRoundResultSummary();
 //        assert assignment.getResult().equals(assignment2.getResult());
         AssignmentILP assignment3 = new AssignmentILP(
-                Simulation.rightTW,
+                currentTime,
                 vehiclePreDecisionsObjMap,
                 requests,
                 true);
@@ -348,23 +380,23 @@ public class MatchingSimple implements RideMatchingStrategy {
 //            String filepathStateSpace = String.format(
 //                    "%s/%04d_current.json",
 //                    expFolder,
-//                    Simulation.rightTW);
+//                    Environment.rightTW);
 //
 //            String filepathDecisionSpace = String.format(
 //                    "%s/%04d_decisions.json",
 //                    expFolder,
-//                    Simulation.rightTW);
+//                    Environment.rightTW);
 //
 //            String filepathRewards = String.format(
 //                    "%s/%04d_reward.json",
 //                    expFolder,
-//                    Simulation.rightTW);
+//                    Environment.rightTW);
 //
 //            String filepathPostDecisionSpace = String.format(
 //                    "%s/%04d_post_decisions_step=%04d.json",
 //                    expFolder,
-//                    Simulation.rightTW,
-//                    Simulation.timeWindow);
+//                    Environment.rightTW,
+//                    Environment.timeWindowSec);
 
 //            HelperIO.saveJSON(preDecisionSpaceObj, filepathDecisionSpace);
 //            HelperIO.saveJSON(current, filepathStateSpace);
@@ -373,13 +405,13 @@ public class MatchingSimple implements RideMatchingStrategy {
         //List<Double> predictions = ServerUtil.getPredictionsFromJsonFile(filepathPostDecisionSpace);
 
 
-//            int totalTimeHorizon = 1 * Simulation.timeWindow;
-//            int timeStep = Simulation.timeWindow;
+//            int totalTimeHorizon = 1 * Environment.timeWindowSec;
+//            int timeStep = Environment.timeWindowSec;
 //            genPostDecisionUntil(preDecisionStateSpace, expFolder, timeStep, totalTimeHorizon);
 //        }
         //assert vehiclesVisitsSameOrder(vehicleVisitsMap, preDecisionStateSpace.getVehicleDecisionsMap());
 
-//        int timestepSec = Simulation.timeWindow;
+//        int timestepSec = Environment.timeWindowSec;
 //        PostDecisionStateSpace postDecisionStateSpace = new PostDecisionStateSpace(preDecisionStateSpace, timestepSec);
 //        DecisionSpaceObject postDecisionSpaceObj = postDecisionStateSpace.getStateObject();
 
@@ -387,7 +419,7 @@ public class MatchingSimple implements RideMatchingStrategy {
 //        experiences.add(new Experience(timeStep, preDecisionStateSpace, assignment.getResult()));
 //        if (experiences.size() > 5) {
 //            Experience pastExp = experiences.get(0);
-//            Logging.logger.info("# ASSIGNMENT PAST{}", Simulation.rightTW);
+//            Logging.logger.info("# ASSIGNMENT PAST{}", Environment.rightTW);
 //            AssignmentILP assignmentPast = new AssignmentILP(getVisitObjMap(pastExp.decisions), requests);
 //            Experience e = new Experience(timeStep, pastExp.state, pastExp.decisions, assignmentPast.getResult());
 //            assert e.rewardRequest == pastExp.rewardRequest;
@@ -408,7 +440,7 @@ public class MatchingSimple implements RideMatchingStrategy {
                 List<Integer> closestZoneIds = Dao.getInstance().closestZones.get(vehicleNetworkId);
                 for (int zone_id : closestZoneIds) {
                     NodeTargetRebalancing targetNode = new NodeTargetRebalancing(zone_id);
-                    VisitRelocation visit = new VisitRelocation(targetNode, vehicle);
+                    VisitRelocation visit = new VisitRelocation(targetNode, vehicle, environment);
                     this.vehicleVisitsMap.get(vehicle).add(visit);
                     this.visits.add(visit);
                 }
@@ -423,16 +455,16 @@ public class MatchingSimple implements RideMatchingStrategy {
     }
 
     private boolean isNotTerminal(int currentTime) {
-        return currentTime < Simulation.timeHorizon;
+        return currentTime < this.environment.timeConfig.totalSimulationHorizonSec();
     }
 
     private boolean experienceReplayEnabled() {
         return experienceReplayMemory != null;
     }
 
-    private boolean currentTimeWithinSamplingWindow() {
-        return Simulation.rightTW < Simulation.timeHorizon;
-    }
+//    private boolean currentTimeWithinSamplingWindow() {
+//        return Environment.currentTime < Environment.timeHorizon;
+//    }
 
     private void genPostDecisionUntil(FleetStateActionSpace preDecisionFleetStateActionSpace, String expFolder, int step, int nTimeStepsForward) {
         for (int futureStep = step; futureStep <= nTimeStepsForward; futureStep += step) {

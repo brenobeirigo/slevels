@@ -1,10 +1,11 @@
 package helper;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
-import config.Config;
+import dao.DateUtil;
 import dao.Logging;
-import model.User;
+import model.demand.User;
 import model.Vehicle;
 import model.node.NodeOrigin;
 import model.node.NodeStop;
@@ -16,13 +17,14 @@ import java.io.*;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.time.LocalDateTime;
 import java.util.*;
 
 public class HelperIO {
 
     public static Map<String, FileOutputStream> logs = new HashMap<>();
 
-    public static String getHeaderTW(Date earliestDatetime,
+    public static String getHeaderTW(@JsonProperty("start_datetime") LocalDateTime earliestDatetime,
                                      int start_time,
                                      int duration,
                                      int left_tw,
@@ -34,7 +36,7 @@ public class HelperIO {
                                      int round,
                                      int totalRounds) {
         //String str = String.format("\n###### TW: [%s - %s] ###############################################", config.Config.sec2TStamp(left_tw), config.Config.sec2TStamp(right_tw));
-        String str = String.format("\n###### TW: [%s - %s] ###############################################", Config.sec2Datetime(earliestDatetime,left_tw), Config.sec2Datetime(earliestDatetime,right_tw));
+        String str = String.format("\n###### TW: [%s - %s] ###############################################", DateUtil.sec2Datetime(earliestDatetime,left_tw), DateUtil.sec2Datetime(earliestDatetime,right_tw));
         //str = str + String.format("\n// PK delay: %d  //////  Trip delay: %d",max_pk_time, max_trip_time);
         str = str + String.format("\n||    Start: %10s  ||    Duration: %4s s", String.valueOf(start_time), String.valueOf(duration));
         str = str + String.format("\n|| Vehicles: %10s  ||  T. Horizon: %4s s", String.valueOf(n_vehicles), String.valueOf(t_horizon));
@@ -221,14 +223,5 @@ public class HelperIO {
         } catch (IOException e) {
             e.printStackTrace();
         }
-    }
-
-    public static String printJourneys(Set<Vehicle> vd) {
-        String str = ("\n######### JOURNEYS #########################################");
-        for (Vehicle v : vd) {
-            str += v.getJourneyInfo();
-        }
-
-        return str;
     }
 }

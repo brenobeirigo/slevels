@@ -1,15 +1,20 @@
 package visualization;
 
-import config.Config;
+import com.fasterxml.jackson.annotation.JsonProperty;
+import config.InstanceConfig;
 import dao.Dao;
-import dao.ServerUtil;
-import model.User;
+import dao.DateUtil;
+import dao.FileUtil;
+import dao.Logging;
+import model.demand.User;
 import model.Vehicle;
+import model.network.TransportNetwork;
 import model.node.Node;
-import model.node.NodeDP;
-import model.node.NodePK;
+import model.node.NodeDropoff;
+import model.node.NodePickup;
 import model.node.NodeTargetRebalancing;
 import org.apache.commons.collections4.queue.CircularFifoQueue;
+import simulation.Environment;
 
 import java.awt.geom.Point2D;
 import java.io.BufferedWriter;
@@ -17,16 +22,21 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.time.LocalDateTime;
 import java.util.*;
 import java.util.stream.Collectors;
 
 public class GeoJsonUtil {
 
     public static final String OUTPUT_GEOJSON = "output_geojson";
+    private Environment environment;
 
-    public static String getGeoJson(Date earliestDatetime, Node n) {
+    public GeoJsonUtil(Environment environment){
+        this.environment = environment;
+    }
+    public String getGeoJson(@JsonProperty("start_datetime") LocalDateTime earliestDatetime, Node n) {
 
-        Point2D location = Dao.getInstance().getLocation(n.getNetworkId());
+        Point2D location = this.environment.getNetwork().getLocation(n.getNetworkId());
 
         /*
         Map<String, String> colors = new HashMap<>();
@@ -59,11 +69,11 @@ public class GeoJsonUtil {
                         "        \"network_id\": \"%s\",\n" +
                         "        \"id\": \"%s\"\n",
                 n.getType(),
-                Config.sec2Datetime(earliestDatetime,n.getArrival()),
-                n.getDeparture() == null ? null : String.format("\"%s\"" ,Config.sec2Datetime(earliestDatetime,n.getDeparture())),
+                DateUtil.sec2Datetime(earliestDatetime,n.getArrival()),
+                n.getDeparture() == null ? null : String.format("\"%s\"" , DateUtil.sec2Datetime(earliestDatetime,n.getDeparture())),
                 n.getDeparture() == null ? null : n.getDeparture() - n.getArrival(),
-                Config.sec2Datetime(earliestDatetime,n.getEarliest()),
-                Config.sec2Datetime(earliestDatetime,n.getLatest()),
+                DateUtil.sec2Datetime(earliestDatetime,n.getEarliest()),
+                DateUtil.sec2Datetime(earliestDatetime,n.getLatest()),
                 u != null ? u.toString().trim() : "-",
                 u != null ? u.getPerformanceClass() : "-",
                 Math.abs(n.getLoad()),
@@ -88,7 +98,7 @@ public class GeoJsonUtil {
         return s;
     }
 
-    public static String getJourneyInfo(Vehicle v, List<Node> journey, Date earliestDatetime) {
+    public String getJourneyInfo(Vehicle v, List<Node> journey, @JsonProperty("start_datetime") LocalDateTime earliestDatetime) {
         int load = 0;
         List<String> listFeatures = new ArrayList<>();
         List<String> listFeaturesLines = new ArrayList<>();
@@ -98,19 +108,19 @@ public class GeoJsonUtil {
             Node from = journey.get(i);
             Node to = journey.get(i + 1);
             load += from.getLoad();
-            listFeatures.add(GeoJsonUtil.getGeoJson(earliestDatetime,from));
-            String line = GeoJsonUtil.getGeoJson(earliestDatetime,from, to, v, load, 0);
+            listFeatures.add(getGeoJson(earliestDatetime,from));
+            String line = getGeoJson(earliestDatetime,from, to, v, load, 0);
             if (line != null)
                 //listFeatures.add(line);
                 listFeaturesLines.add(line);
         }
 
-        listFeatures.add(GeoJsonUtil.getGeoJson(earliestDatetime,journey.get(journey.size() - 1)));
+        listFeatures.add(getGeoJson(earliestDatetime,journey.get(journey.size() - 1)));
 
         return String.valueOf(listFeatures);
     }
 
-    public static String getJourneyComplete(Date earliestDatetime, Vehicle v) {
+    public String getJourneyComplete(@JsonProperty("start_datetime") LocalDateTime earliestDatetime, Vehicle v) {
 
         CircularFifoQueue<Node> journey = v.getJourney();
 
@@ -124,11 +134,11 @@ public class GeoJsonUtil {
             Node from = journey.get(i);
             Node to = journey.get(i + 1);
 
-            if (from instanceof NodePK) {
+            if (from instanceof NodePickup) {
                 singlePassengers.add(from.getTripId());
             }
 
-            if (from instanceof NodeDP) {
+            if (from instanceof NodeDropoff) {
                 singlePassengers.remove(from.getTripId());
             }
 
@@ -136,25 +146,25 @@ public class GeoJsonUtil {
             //When rebalancing, the actual path skips the rebalancing node
             if (from instanceof NodeTargetRebalancing) {
                 previousFrom = journey.get(i - 1);
-                listFeatures.add(GeoJsonUtil.getGeoJson(earliestDatetime,from));
-                String line = GeoJsonUtil.getGeoJson(earliestDatetime,previousFrom, to, v, load, 0);
+                listFeatures.add(getGeoJson(earliestDatetime,from));
+                String line = getGeoJson(earliestDatetime,previousFrom, to, v, load, 0);
                 if (line != null)
                     listFeatures.add(line);
             } else {
                 load += from.getLoad();
-                listFeatures.add(GeoJsonUtil.getGeoJson(earliestDatetime,from));
-                String line = GeoJsonUtil.getGeoJson(earliestDatetime,from, to, v, load, singlePassengers.size());
+                listFeatures.add(getGeoJson(earliestDatetime,from));
+                String line = getGeoJson(earliestDatetime,from, to, v, load, singlePassengers.size());
                 if (line != null)
                     listFeatures.add(line);
             }
         }
 
-        listFeatures.add(GeoJsonUtil.getGeoJson(earliestDatetime,journey.get(journey.size() - 1)));
+        listFeatures.add(getGeoJson(earliestDatetime,journey.get(journey.size() - 1)));
 
         return String.valueOf(listFeatures);
     }
 
-    public static String getJourneyInfoLines(Date earliestDatetime, Vehicle v, List<Node> journey) {
+    public String getJourneyInfoLines(@JsonProperty("start_datetime") LocalDateTime earliestDatetime, Vehicle v, List<Node> journey) {
 
         List<String> listFeaturesLines = new ArrayList<>();
         int load = 0;
@@ -168,7 +178,7 @@ public class GeoJsonUtil {
 
             load += from.getLoad();
 
-            String line = GeoJsonUtil.getGeoJson(earliestDatetime,from, to, v, load, 0);
+            String line = getGeoJson(earliestDatetime,from, to, v, load, 0);
             if (line != null)
                 //listFeatures.add(line);
                 listFeaturesLines.add(line);
@@ -178,14 +188,14 @@ public class GeoJsonUtil {
         return String.valueOf(listFeaturesLines);
     }
 
-    private static String getGeoJson(Date earliestDatetime, Node from, Node to, Vehicle v, int load, int numberOfSinglePassengers) {
+    private String getGeoJson(@JsonProperty("start_datetime") LocalDateTime earliestDatetime, Node from, Node to, Vehicle v, int load, int numberOfSinglePassengers) {
         int fromId = from.getNetworkId();
         int toId = to.getNetworkId();
 
-        int dist = Dao.getInstance().getDistSec(fromId, toId);
+        int dist = this.environment.getNetwork().getDistSec(fromId, toId);
         int waiting = to.getArrival() - dist - from.getDeparture();
 
-        List<String> listCoords = Dao.getInstance().getServer().getShortestPathCoordsBetween(fromId, toId);
+        List<String> listCoords = environment.getNetwork().getShortestPathLonLatBetween(fromId, toId);
         if (listCoords.size() == 1) {
             return null;
         }
@@ -207,8 +217,8 @@ public class GeoJsonUtil {
                 load,
                 numberOfSinglePassengers,
                 v.getCapacity(),
-                Config.sec2TStamp(earliestDatetime, dist),
-                Config.sec2TStamp(earliestDatetime, waiting),
+                DateUtil.sec2TStamp(earliestDatetime, dist),
+                DateUtil.sec2TStamp(earliestDatetime, waiting),
                 dist,
                 from.getType(),
                 to.getType());
@@ -252,16 +262,197 @@ public class GeoJsonUtil {
                 "  \"type\": \"LineString\",\n" +
                 "  \"coordinates\": [\n");
 
-        b.append(String.join(",", line.stream()
+        b.append(line.stream()
                 .map(p -> String.format("[%f,%f]",
-                        Dao.getInstance().getLocation(p.getNetworkId()).getX(),
-                        Dao.getInstance().getLocation(p.getNetworkId()).getY()))
-                .collect(Collectors.toList())));
+                        this.environment.getNetwork().getLocation(p.getNetworkId()).getX(),
+                        this.environment.getNetwork().getLocation(p.getNetworkId()).getY()))
+                .collect(Collectors.joining(",")));
 
         b.append("]}}");
 
         return b.toString();
     }
 
+    /**
+     * Get GeoJson of all points that compose a linestring (sequence of Point2D).
+     *
+     * @param linestring (list of points Point2D)
+     * @return A GeoJson object containing all points
+     */
+    public static String allPoints(List<Point2D> linestring) {
+        StringBuilder b = new StringBuilder();
+        b.append("{\n" +
+                "  \"type\": \"FeatureCollection\",\n" +
+                "  \"features\": [");
+        b.append(linestring.stream().map(Node::getGeoJson).collect(Collectors.joining(",")));
+        b.append("]}");
+        return b.toString();
+    }
+    
+
+    /**
+     * Get GeoJson linestring given list of coordinates.
+     *
+     * @param line List of Point2D coordinates
+     * @return GeoJson object
+     */
+    public static String getLinestring(List<Point2D> line) {
+
+        StringBuilder b = new StringBuilder();
+        b.append("{\n" +
+                "      \"type\": \"Feature\",\n" +
+                "      \"properties\": {},\n" +
+                "      \"geometry\":{\n" +
+                "  \"type\": \"LineString\",\n" +
+                "  \"coordinates\": [\n");
+
+        b.append(line.stream()
+                .map(p -> String.format("[%f,%f]",
+                        p.getX(),
+                        p.getY()))
+                .collect(Collectors.joining(",")));
+
+        b.append("]}}");
+
+        return b.toString();
+    }
+
+
+
+    public String getJourneyInfo(Vehicle vehicle) {
+
+        StringBuilder str = new StringBuilder();
+        StringBuilder strCoord = new StringBuilder();
+        str.append("\n########################################################################################");
+        str.append("\n" + environment.getStats(vehicle));
+        str.append("\n########################################################################################");
+
+
+        List<String> coordJourney = new ArrayList<>();
+
+        for (int i = 0; i < vehicle.getJourney().size() - 1; i++) {
+            int fromId = vehicle.getJourney().get(i).getNetworkId();
+            coordJourney.add(String.format("[%f, %f]", environment.getNetwork().getLon(vehicle.getJourney().get(i).getNetworkId()), environment.getNetwork().getLat(vehicle.getJourney().get(i).getNetworkId())));
+            int toId = vehicle.getJourney().get(i + 1).getNetworkId();
+            coordJourney.add(String.format("[%f, %f]", environment.getNetwork().getLon(vehicle.getJourney().get(i + 1).getNetworkId()), environment.getNetwork().getLat(vehicle.getJourney().get(i + 1).getNetworkId())));
+            int dist = environment.getNetwork().getDistSec(fromId, toId);
+            int waiting = vehicle.getJourney().get(i + 1).getArrival() - dist - vehicle.getJourney().get(i).getDeparture();
+            str.append("\n" + environment.getNetwork().getInfo(vehicle.getJourney().get(i)));
+            str.append(String.format("\nTravel time: %7s", dist));
+            str.append(String.format("\n    Waiting: %7s", waiting));
+
+        }
+
+        // Print last node
+        str.append("\n" + environment.getNetwork().getInfo(vehicle.getJourney().get(vehicle.getJourney().size() - 1)));
+        String journeyCoord = String.join(",", coordJourney);
+        str.append("\n Path: [" + journeyCoord + "]");
+        return str.toString();
+    }
+
+
+    public String printJourneys(Set<Vehicle> vd) {
+        String str = ("\n######### JOURNEYS #########################################");
+        for (Vehicle v : vd) {
+            str += getJourneyInfo(v);
+        }
+
+        return str;
+    }
+
+//    public void printAllJourneys() {
+//
+//        Logging.logger.info(printJourneys(environment.getListVehicles()));
+//        Logging.logger.info("GEOJSON DATA");
+//        // Dao dao = Dao.getInstance();
+//        for (Vehicle v : environment.getListVehicles()) {
+//            Logging.logger.info("{}->{}", v, v.getOrigin().getNetworkId());
+//            //Logging.logger.info(v.getInfo());
+//
+//            //Logging.logger.info(v.getJourneyInfo());
+//            //ServerUtil.printGeoJsonJourney(v, Environment.);
+//        }
+//    }
+
+    /**
+     * Save a geojson route for every vehicle in vehicle list
+     *
+     * @param vehicleList
+     */
+    public void saveGeoJsonPerVehicle(@JsonProperty("start_datetime") LocalDateTime earliestDatetime, Set<Vehicle> vehicleList, String testCaseName) {
+        Logging.logger.info("Saving geojson vehicle traces...");
+
+
+        // Create a folder for test case
+        String caseStudyPath = String.format("%s/%s",
+                InstanceConfig.getInstance().getGeojsonTrackFolder(),
+                testCaseName);
+        FileUtil.createDir(caseStudyPath);
+
+        Path outputGeoJsonFleet = Paths.get(
+                String.format("%s/fleetJourney.json",
+                        caseStudyPath
+                ));
+
+        List<String> geojsonList = new ArrayList();
+
+        for (Vehicle v : vehicleList) {
+
+            // Create vehicle geojson name
+            Path outputGeoJsonVehicle = Paths.get(
+                    String.format("%s/%s.geojson",
+                            caseStudyPath,
+                            v.toString().trim()
+                    ));
+            try {
+                BufferedWriter writer = Files.newBufferedWriter(outputGeoJsonVehicle);
+                String geojson = String.format("{\n" +
+                        "    \"type\": \"FeatureCollection\",\n" +
+                        "    \"features\": %s\n}", String.join(",\n", getJourneyComplete(earliestDatetime, v)));
+
+                String geojsonFleet = String.format(
+                        "    {\n" +
+                                "        \"id\": \"%s\"," +
+                                "        \"path\": %s\n    }", v, geojson);
+
+                geojsonList.add(geojsonFleet);
+
+                writer.write(geojson);
+                writer.close();
+
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
+
+
+        try {
+            BufferedWriter writer  = Files.newBufferedWriter(outputGeoJsonFleet);
+            String geoJsonFleet = String.format("{\n" +
+                    "    \"routes\": [%s]\n}", String.join(",\n", geojsonList));
+            writer.write(geoJsonFleet);
+            writer.close();
+
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+
+    }
+
+    public String allPoints(Collection<User> values) {
+        StringBuilder b = new StringBuilder();
+        b.append("{\n" +
+                "  \"type\": \"FeatureCollection\",\n" +
+                "  \"features\": [");
+        for (User u : values) {
+            b.append(u.getNodePk().toGeoJson(this.environment));
+            b.append(",");
+            b.append(u.getNodeDp().toGeoJson(this.environment));
+            b.append(",");
+
+        }
+        b.append("]}");
+        return b.toString();
+    }
 
 }

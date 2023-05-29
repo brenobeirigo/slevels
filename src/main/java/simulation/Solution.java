@@ -1,26 +1,22 @@
 package simulation;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import config.Config;
-import config.InstanceConfig;
 import config.Qos;
-import dao.Dao;
-import dao.FileUtil;
+import dao.DateUtil;
 import dao.Logging;
-import helper.HelperIO;
+import experiment.InstanceOld;
 import helper.Runtime;
-import model.User;
+import model.demand.User;
 import model.Vehicle;
 import org.apache.commons.csv.CSVFormat;
 import org.apache.commons.csv.CSVPrinter;
-import simulation.matching.RideMatchingStrategy;
-import simulation.rebalancing.RebalanceStrategy;
-import visualization.GeoJsonUtil;
 
 import java.io.BufferedWriter;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
+import java.time.LocalDateTime;
 import java.util.*;
 
 import static java.util.Comparator.comparingInt;
@@ -28,7 +24,7 @@ import static java.util.Comparator.comparingInt;
 public class Solution {
 
     private BufferedWriter writer;
-    /* Instance */
+    /* InstanceOld */
     private int nOfVehicles;
     private int maxNumberOfTrips;
     private int vehicleCapacity;
@@ -39,11 +35,12 @@ public class Solution {
     private String serviceRate;
     private String customerSegmentation;
     private String testCaseName;
-    private Date earliestDatetime;
+    private @JsonProperty("start_datetime") LocalDateTime earliestDatetime;
     private boolean allowVehicleCreation;
     private boolean allowDelayExtension;
     private Map<String, Map<String, Integer>> sLevelsClass;
     public Map<String, Integer> statusVehicles;
+    public InstanceOld instance;
     /* Rebalancing */
     private boolean allowRebalancing;
 
@@ -68,17 +65,7 @@ public class Solution {
     private Path outputFileUsers;
     private Path outputGeoJson;
 
-    public Solution(String methodName,
-                    int maxTimeToReachRegionCenter,
-                    int nOfVehicles,
-                    int maxNumberOfTrips,
-                    int vehicleCapacity,
-                    Date earliestDatetime,
-                    int timeHorizon,
-                    InstanceConfig.TimeConfig totalHorizon,
-                    int deactivationFactor,
-                    boolean allowVehicleCreation,
-                    boolean allowDelayExtension) {
+    public Solution(InstanceOld instance) {
 
         this.statusVehicles = new TreeMap<>();
         for (String vehicleState : Vehicle.STATES) {
@@ -91,18 +78,18 @@ public class Solution {
         this.maxNumberOfTrips = maxNumberOfTrips;
         this.vehicleCapacity = vehicleCapacity;
         this.timeHorizon = timeHorizon;
-        this.totalHorizon = totalHorizon.total_simulation_horizon;
+        this.totalHorizon = instance.timeConfig().totalSimulationHorizonSec();
         this.deactivationFactor = deactivationFactor;
         this.allowVehicleCreation = allowVehicleCreation;
         this.allowDelayExtension = allowDelayExtension;
+        this.earliestDatetime = earliestDatetime;
         this.listRoundEntries = new ArrayList<>();
         this.sLevelsClass = new HashMap<>();
-        this.earliestDatetime = earliestDatetime;
         createHeader();
     }
 
-    public static String getDigitsFromDate(Date date) {
-        String onlyDigits = Config.formatter_date_time.format(date).replace("-", "").replace(":", "");
+    public static String getDigitsFromDate(LocalDateTime date) {
+        String onlyDigits = DateUtil.formatter_local_date_time.format(date).replace("-", "").replace(":", "");
         return onlyDigits.replace(" ", "");
     }
 
@@ -110,124 +97,98 @@ public class Solution {
         return testCaseName;
     }
 
-    // Initialize solution
-    public Solution(
-            String methodName,
-            Date earliestTime,
-            int maxHiringDelaySeconds,
-            int initialFleetSize,
-            int maxNumberOfRequests,
-            double percentageRequests,
-            int maxVehicleCapacity,
-            int batchDurationSeconds,
-            InstanceConfig.TimeConfig simulationTimeSeconds,
-            int contractDuration,
-            boolean allowVehicleHiring,
-            boolean allowServiceDeterioration,
-            String serviceRate,
-            String customerSegmentation,
-            RebalanceStrategy rebalanceStrategy,
-            RideMatchingStrategy matchingStrategy) {
-
-        // Initialize solution
-        this(methodName,
-                maxHiringDelaySeconds,
-                initialFleetSize,
-                maxNumberOfRequests,
-                maxVehicleCapacity,
-                earliestTime,
-                batchDurationSeconds,
-                simulationTimeSeconds,
-                contractDuration,
-                allowVehicleHiring,
-                allowServiceDeterioration);
-
-        this.serviceRate = serviceRate;
-        this.customerSegmentation = customerSegmentation;
-
-
-        this.testCaseName = getTestCaseName(methodName, earliestTime, maxHiringDelaySeconds, initialFleetSize, maxNumberOfRequests, percentageRequests, maxVehicleCapacity, batchDurationSeconds, simulationTimeSeconds, contractDuration, allowVehicleHiring, allowServiceDeterioration, serviceRate, customerSegmentation, rebalanceStrategy, matchingStrategy);
-
-        // File path
-        this.outputFile = Paths.get(
-                String.format("%s/%s.csv", InstanceConfig.getInstance().getRoundTrackFolder(),
-                        testCaseName
-                ));
-
-        // File path
-        this.outputGeoJson = Paths.get(
-                String.format("%s/%s.geojson",
-                        InstanceConfig.getInstance().getGeojsonTrackFolder(),
-                        testCaseName
-                ));
-
-        // File path
-        this.outputFileUsers = Paths.get(
-                String.format("%s/%s.csv",
-                        InstanceConfig.getInstance().getRequestTrackFolder(),
-                        testCaseName
-                ));
-    }
-
-    public static String getTestCaseName(
-            String methodName,
-            Date earliestTime,
-            Integer maxHiringDelaySeconds,
-            Integer initialFleetSize,
-            Integer maxNumberOfRequests,
-            Double percentageRequests,
-            Integer maxVehicleCapacity,
-            Integer batchDurationSeconds,
-            InstanceConfig.TimeConfig simulationTimeSeconds,
-            Integer contractDuration,
-            Boolean allowVehicleHiring,
-            Boolean allowServiceDeterioration,
-            String serviceRate,
-            String customerSegmentation,
-            RebalanceStrategy rebalanceStrategy,
-            RideMatchingStrategy matchingStrategy) {
-        String testCaseName = String.format(
-                "%s%sST-%d_RH-%d_BA-%d_%s%sIF-%d_MC-%d_CS-%s_HC-%d",
-                methodName != null ? String.format("IN-%s_", methodName) : "",
-                earliestTime != null ? String.format("SD-%s_", getDigitsFromDate(earliestTime)) : "",
-                simulationTimeSeconds.total_simulation_horizon,
-                simulationTimeSeconds.request_sampling_horizon,
-                batchDurationSeconds,
-                maxNumberOfRequests != null ? String.format("MR-%d_", maxNumberOfRequests) : "",
-                percentageRequests != null ? String.format("PR-%4.3f_", percentageRequests) : "",
-                initialFleetSize,
-                maxVehicleCapacity,
-                customerSegmentation,
-                maxHiringDelaySeconds);
-        testCaseName += (allowVehicleHiring ? "_CD-" + (contractDuration == Config.DURATION_SINGLE_RIDE ? 0 : contractDuration) : "");
-        testCaseName += (allowServiceDeterioration ? "_SR-" + serviceRate : "");
-        testCaseName += (allowVehicleHiring ? "_VH" : "");
-        testCaseName += (allowServiceDeterioration ? "_SD" : "");
-        testCaseName += rebalanceStrategy != null ? rebalanceStrategy : "_RE-NO";
-        testCaseName += matchingStrategy != null ? matchingStrategy : "";
-        ;
-        return testCaseName;
-    }
+//    // Initialize solution
+//    public Solution(
+//            String methodName,
+//            Date earliestTime,
+//            int maxHiringDelaySeconds,
+//            int initialFleetSize,
+//            int maxNumberOfRequests,
+//            double percentageRequests,
+//            int maxVehicleCapacity,
+//            int batchDurationSeconds,
+//            InstanceConfig.TimeConfig simulationTimeSeconds,
+//            int contractDuration,
+//            boolean allowVehicleHiring,
+//            boolean allowServiceDeterioration,
+//            String serviceRate,
+//            String customerSegmentation,
+//            RebalanceStrategy rebalanceStrategy,
+//            RideMatchingStrategy matchingStrategy) {
+//
+//        // Initialize solution
+//        this();
+//
+//        this.serviceRate = serviceRate;
+//        this.customerSegmentation = customerSegmentation;
+//
+//
+//        this.testCaseName = this.instance.getLabel();
+//        // File path
+//        this.outputFile = Paths.get(
+//                String.format("%s/%s.csv", InstanceConfig.getInstance().getRoundTrackFolder(),
+//                        testCaseName
+//                ));
+//
+//        // File path
+//        this.outputGeoJson = Paths.get(
+//                String.format("%s/%s.geojson",
+//                        InstanceConfig.getInstance().getGeojsonTrackFolder(),
+//                        testCaseName
+//                ));
+//
+//        // File path
+//        this.outputFileUsers = Paths.get(
+//                String.format("%s/%s.csv",
+//                        InstanceConfig.getInstance().getRequestTrackFolder(),
+//                        testCaseName
+//                ));
+//    }
+//
+//    public static String getTestCaseName(
+//            String methodName,
+//            Date earliestTime,
+//            Integer maxHiringDelaySeconds,
+//            Integer initialFleetSize,
+//            Integer maxNumberOfRequests,
+//            Double percentageRequests,
+//            Integer maxVehicleCapacity,
+//            Integer batchDurationSeconds,
+//            InstanceConfig.TimeConfig simulationTimeSeconds,
+//            Integer contractDuration,
+//            Boolean allowVehicleHiring,
+//            Boolean allowServiceDeterioration,
+//            String serviceRate,
+//            String customerSegmentation,
+//            RebalanceStrategy rebalanceStrategy,
+//            RideMatchingStrategy matchingStrategy) {
+//        String testCaseName = String.format(
+//                "%s%sST-%d_RH-%d_BA-%d_%s%sIF-%d_MC-%d_CS-%s_HC-%d",
+//                methodName != null ? String.format("IN-%s_", methodName) : "",
+//                earliestTime != null ? String.format("SD-%s_", getDigitsFromDate(earliestTime)) : "",
+//                simulationTimeSeconds.totalSimulationHorizonSec,
+//                simulationTimeSeconds.request_sampling_horizon,
+//                batchDurationSeconds,
+//                maxNumberOfRequests != null ? String.format("MR-%d_", maxNumberOfRequests) : "",
+//                percentageRequests != null ? String.format("PR-%4.3f_", percentageRequests) : "",
+//                initialFleetSize,
+//                maxVehicleCapacity,
+//                customerSegmentation,
+//                maxHiringDelaySeconds);
+//        testCaseName += (allowVehicleHiring ? "_CD-" + (contractDuration == Config.DURATION_SINGLE_RIDE ? 0 : contractDuration) : "");
+//        testCaseName += (allowServiceDeterioration ? "_SR-" + serviceRate : "");
+//        testCaseName += (allowVehicleHiring ? "_VH" : "");
+//        testCaseName += (allowServiceDeterioration ? "_SD" : "");
+//        testCaseName += rebalanceStrategy != null ? rebalanceStrategy : "_RE-NO";
+//        testCaseName += matchingStrategy != null ? matchingStrategy : "";
+//        ;
+//        return testCaseName;
+//    }
 
     public static void reset() {
         return;
     }
 
-    public String allPoints() {
-        StringBuilder b = new StringBuilder();
-        b.append("{\n" +
-                "  \"type\": \"FeatureCollection\",\n" +
-                "  \"features\": [");
-        for (User u : User.mapOfUsers.values()) {
-            b.append(u.getNodePk().toGeoJson());
-            b.append(",");
-            b.append(u.getNodeDp().toGeoJson());
-            b.append(",");
-
-        }
-        b.append("]}");
-        return b.toString();
-    }
 
     public void createHeader() {
 
@@ -312,99 +273,34 @@ public class Solution {
         }
     }
 
-    /**
-     * Save a geojson route for every vehicle in vehicle list
-     *
-     * @param vehicleList
-     */
-    public void saveGeoJsonPerVehicle(Date earliestDatetime, Set<Vehicle> vehicleList) {
-        Logging.logger.info("Saving geojson vehicle traces...");
+    public static void saveUserInfo(Solution solution, Map<Integer, User> listOfServicedUsers, Environment env) {
 
-
-        // Create a folder for test case
-        String caseStudyPath = String.format("%s/%s",
-                InstanceConfig.getInstance().getGeojsonTrackFolder(),
-                this.testCaseName);
-        FileUtil.createDir(caseStudyPath);
-
-        Path outputGeoJsonFleet = Paths.get(
-                String.format("%s/fleetJourney.json",
-                        caseStudyPath
-                ));
-
-        List<String> geojsonList = new ArrayList();
-
-        for (Vehicle v : vehicleList) {
-
-            // Create vehicle geojson name
-            Path outputGeoJsonVehicle = Paths.get(
-                    String.format("%s/%s.geojson",
-                            caseStudyPath,
-                            v.toString().trim()
-                    ));
-            try {
-                writer = Files.newBufferedWriter(outputGeoJsonVehicle);
-                String geojson = String.format("{\n" +
-                        "    \"type\": \"FeatureCollection\",\n" +
-                        "    \"features\": %s\n}", String.join(",\n", GeoJsonUtil.getJourneyComplete(earliestDatetime, v)));
-
-                String geojsonFleet = String.format(
-                        "    {\n" +
-                                "        \"id\": \"%s\"," +
-                                "        \"path\": %s\n    }", v, geojson);
-
-                geojsonList.add(geojsonFleet);
-
-                writer.write(geojson);
-                writer.close();
-
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
-        }
-
-
-        try {
-            writer = Files.newBufferedWriter(outputGeoJsonFleet);
-            String geoJsonFleet = String.format("{\n" +
-                    "    \"routes\": [%s]\n}", String.join(",\n", geojsonList));
-            writer.write(geoJsonFleet);
-            writer.close();
-
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-
-    }
-
-    public void saveUserInfo(Map<Integer, User> listOfServicedUsers) {
-
-        Logging.logger.info(">>>>>>> User service log: " + this.outputFileUsers);
+        Logging.logger.info(">>>>>>> User service log: " + solution.outputFileUsers);
 
         List<User> sortedUsersPk = new ArrayList<>(listOfServicedUsers.values());
         sortedUsersPk.sort(comparingInt(o -> o.getNodePk().getEarliest()));
 
         try {
-            writer = Files.newBufferedWriter(outputFileUsers);
+            solution.writer = Files.newBufferedWriter(solution.outputFileUsers);
             String[] a = new String[]{"earliest", "walkaway", "id", "class", "delay_pk", "delay_in_vehicle", "delay_ride", "pk_time", "dp_time", "id_from", "id_to", "min_dist_sec", "service", "service_level"};
 
-            CSVPrinter csvPrinter = new CSVPrinter(writer, CSVFormat.DEFAULT.withHeader(a).withCommentMarker('#'));
+            CSVPrinter csvPrinter = new CSVPrinter(solution.writer, CSVFormat.DEFAULT.withHeader(a).withCommentMarker('#'));
 
             for (Map.Entry<String, Qos> e : Config.getInstance().qosDic.entrySet()) {
                 csvPrinter.printComment(e.getValue().toString());
             }
             for (User u : sortedUsersPk) {
-                int minDistSec = Dao.getInstance().getDistSec(u.getNodePk(), u.getNodeDp());
+                int minDistSec = env.getNetwork().getDistSec(u.getNodePk().getNetworkId(), u.getNodeDp().getNetworkId());
                 List<String> entry = new ArrayList<>();
-                entry.add(Config.sec2Datetime(earliestDatetime, u.getNodePk().getEarliest()));
-                entry.add(u.isRejected() ? Config.sec2Datetime(earliestDatetime, u.getDropoutTime()) : "na");
+                entry.add(DateUtil.sec2Datetime(solution.earliestDatetime, u.getNodePk().getEarliest()));
+                entry.add(u.isRejected() ? DateUtil.sec2Datetime(solution.earliestDatetime, u.getDropoutTime()) : "na");
                 entry.add(String.valueOf(u.getId()));
                 entry.add(String.valueOf(u.getPerformanceClass()));
                 entry.add(u.isRejected() ? "na" : String.valueOf(u.getNodePk().getDelay()));
                 entry.add(u.isRejected() ? "na" : String.valueOf(u.inVehicleDelay()));
                 entry.add(u.isRejected() ? "na" : String.valueOf(u.getNodeDp().getDelay()));
-                entry.add(u.isRejected() ? "na" : Config.sec2Datetime(earliestDatetime, u.getNodePk().getArrival()));
-                entry.add(u.isRejected() ? "na" : Config.sec2Datetime(earliestDatetime, u.getNodeDp().getArrival()));
+                entry.add(u.isRejected() ? "na" : DateUtil.sec2Datetime(solution.earliestDatetime, u.getNodePk().getArrival()));
+                entry.add(u.isRejected() ? "na" : DateUtil.sec2Datetime(solution.earliestDatetime, u.getNodeDp().getArrival()));
                 entry.add(String.valueOf(u.getNodePk().getNetworkId()));
                 entry.add(String.valueOf(u.getNodeDp().getNetworkId()));
                 entry.add(String.valueOf(minDistSec));
@@ -751,7 +647,7 @@ public class Solution {
                             Runtime runTimes) {
 
         List<String> roundEntry = new ArrayList<>();
-        roundEntry.add(Config.sec2Datetime(earliestDatetime,currentTime));
+        roundEntry.add(DateUtil.sec2Datetime(earliestDatetime,currentTime));
         roundEntry.add(String.valueOf(waitingRequests));
         roundEntry.add(String.valueOf(finishedRequests));
         roundEntry.add(String.valueOf(deniedRequests));
@@ -807,19 +703,5 @@ public class Solution {
         }
 
         this.listRoundEntries.add(roundEntry);
-    }
-
-    public void printAllJourneys(Set<Vehicle> listVehicles) {
-
-        Logging.logger.info(HelperIO.printJourneys(listVehicles));
-        Logging.logger.info("GEOJSON DATA");
-        // Dao dao = Dao.getInstance();
-        for (Vehicle v : listVehicles) {
-            Logging.logger.info("{}->{}", v, v.getOrigin().getNetworkId());
-            //Logging.logger.info(v.getInfo());
-
-            //Logging.logger.info(v.getJourneyInfo());
-            //ServerUtil.printGeoJsonJourney(v, Simulation.);
-        }
     }
 }

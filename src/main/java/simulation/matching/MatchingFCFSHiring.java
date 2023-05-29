@@ -2,12 +2,12 @@ package simulation.matching;
 
 import config.Config;
 import dao.Dao;
-import model.User;
+import model.demand.User;
 import model.Vehicle;
-import model.Visit;
-import model.VisitObj;
+import model.visit.Visit;
+import model.visit.VisitObj;
 import model.node.Node;
-import simulation.hiring.HiringFromCenters;
+//import simulation.hiring.HiringFromCenters;
 import simulation.rebalancing.Rebalance;
 
 import java.nio.file.Path;
@@ -83,31 +83,31 @@ public class MatchingFCFSHiring implements RideMatchingStrategy {
     }
 
 
-    private Visit getVisitHiredVehicleUser(User u, int currentTime, Matching configMatching) {
-
-        // The draw was successful, vehicle will be hired immediately
-        Vehicle v = null;
-
-        Visit candidateVisitHiredVehicle = null;
-
-        // Find freelance vehicle around user area
-        while (candidateVisitHiredVehicle == null) {
-
-            // For the sake of fairness, position is left to chance
-            v = HiringFromCenters.createVehicleAtClosestRegionalCenter(
-                    u,
-                    currentTime,
-                    configMatching.contractDuration); // List of vehicles
-
-
-            //##########################################################################################
-            // Try to get a valid visit by inserting user "u" in newly created vehicle "v"
-            candidateVisitHiredVehicle = v.getVisitWithInsertedUser(u, currentTime);
-            //##########################################################################################
-        }
-
-        return candidateVisitHiredVehicle;
-    }
+//    private Visit getVisitHiredVehicleUser(User u, int currentTime, Matching configMatching) {
+//
+//        // The draw was successful, vehicle will be hired immediately
+//        Vehicle v = null;
+//
+//        Visit candidateVisitHiredVehicle = null;
+//
+//        // Find freelance vehicle around user area
+//        while (candidateVisitHiredVehicle == null) {
+//
+//            // For the sake of fairness, position is left to chance
+//            v = HiringFromCenters.createVehicleAtClosestRegionalCenter(
+//                    u,
+//                    currentTime,
+//                    configMatching.contractDuration); // List of vehicles
+//
+//
+//            //##########################################################################################
+//            // Try to get a valid visit by inserting user "u" in newly created vehicle "v"
+//            candidateVisitHiredVehicle = v.getVisitWithInsertedUser(u, currentTime);
+//            //##########################################################################################
+//        }
+//
+//        return candidateVisitHiredVehicle;
+//    }
 
     /**
      * Try to insert a user in every vehicle, and return the set of users inserted.

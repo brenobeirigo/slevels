@@ -1,9 +1,9 @@
 package model.learn;
 
 import dao.Logging;
-import model.User;
+import model.demand.User;
 import model.Vehicle;
-import model.VisitObj;
+import model.visit.VisitObj;
 import simulation.matching.ResultAssignment;
 
 import java.util.ArrayList;

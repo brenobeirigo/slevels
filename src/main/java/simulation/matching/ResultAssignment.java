@@ -5,14 +5,19 @@ import config.Config;
 import config.Qos;
 import dao.Logging;
 import model.*;
+import model.demand.User;
 import model.node.Node;
+import model.visit.Visit;
+import model.visit.VisitDisplaceAndStop;
+import model.visit.VisitObj;
+import model.visit.VisitRelocation;
 
 import java.util.*;
 import java.util.stream.Collectors;
 
 public class ResultAssignment {
 
-    public Set<User> requestsServicedLevelAchieved;
+   public Set<User> requestsServicedLevelAchieved;
     public Map<Vehicle, VisitObj> vehicleBestVisitMap;
     public Map<Qos, Integer> unmetServiceLevelClass;
     public Map<Qos, Integer> nOfRequestsClass;
@@ -39,6 +44,9 @@ public class ResultAssignment {
     private int currentTime;
 
     protected double objValTotalRejected;
+    protected double objValTotalServiced;
+    protected double objValTotalWaiting;
+    protected double objValRequestsPlusVFs;
 
     public void setObjValTotalRejected(double objValTotalRejected) {
         this.objValTotalRejected = objValTotalRejected;
@@ -60,10 +68,6 @@ public class ResultAssignment {
         this.objValRequestsPlusVFs = objValRequestsPlusVFs;
     }
 
-
-    protected double objValTotalServiced;
-    protected double objValTotalWaiting;
-    protected double objValRequestsPlusVFs;
 
 
 
